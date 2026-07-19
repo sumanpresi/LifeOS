@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LifeOS</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="shell">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><div class="brand-mark">L</div><span class="brand-name">LifeOS</span></div>
+    <p class="nav-label">Account</p>
+    <button class="nav-item active" data-page="overview" onclick="go('overview')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/></svg>
+      Overview</button>
+    <button class="nav-item" data-page="dayof" onclick="go('dayof')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+      Day Of</button>
+    <p class="nav-label">Spaces</p>
+    <button class="nav-item" data-page="communication" onclick="go('communication')">
+      <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/></svg>
+      Communication</button>
+    <button class="nav-item" data-page="finance" onclick="go('finance')">
+      <svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
+      Finance</button>
+    <button class="nav-item" data-page="health" onclick="go('health')">
+      <svg viewBox="0 0 24 24"><path d="M12 21s-8-4.9-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 6.1-8 11-8 11z"/></svg>
+      Health</button>
+    <button class="nav-item" data-page="travel" onclick="go('travel')">
+      <svg viewBox="0 0 24 24"><path d="M2 16l20-7-9 11-2-6-6-2z"/></svg>
+      Travel Plan</button>
+    <button class="nav-item" data-page="reference" onclick="go('reference')">
+      <svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2zm0 0a2 2 0 0 1 2-2h13"/></svg>
+      Reference</button>
+    <button class="nav-item" data-page="work" onclick="go('work')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      Work · GSI</button>
+    <div class="sidebar-foot">
+      <button class="gh-chip" onclick="openGhModal()" id="ghChip">
+        <svg id="ghChipIcon" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.54-3.87-1.54-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.26.72-1.55-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12v3.14c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>
+        <span>
+          <span class="gh-name" id="ghName">Connect GitHub</span><br>
+          <span class="gh-sub" id="ghSub">Sync across devices</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+    <div class="top">
+      <div class="greet" style="display:flex;gap:12px;align-items:flex-start">
+        <button class="btn btn-ghost mob-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </button>
+        <div>
+          <h1 id="greeting">Hello</h1>
+          <div class="date" id="todayDate"></div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="pill" onclick="openSearch()" title="Search everything">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          Search <span class="kbd">Ctrl K</span>
+        </button>
+        <span class="pill dot" id="syncPill">Local only</span>
+        <button class="btn btn-ghost" onclick="syncNow()" id="syncBtn" title="Sync with GitHub">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6"/></svg>
+          Sync
+        </button>
+        <button class="btn btn-primary" onclick="ghButton()" id="ghBtn">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.54-3.87-1.54-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.26.72-1.55-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12v3.14c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>
+          <span id="ghBtnText">GitHub Login</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ======== PAGE: OVERVIEW ======== -->
+    <section class="page visible" id="page-overview">
+      <div class="cat-grid">
+        <div class="cat sand">
+          <h3>Top 5 Tasks</h3>
+          <div class="cat-sub" id="catTasksSub">—</div>
+          <button class="go" onclick="scrollToEl('tasksCard')" aria-label="Go to tasks"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></button>
+        </div>
+        <div class="cat sage">
+          <h3>Meditation</h3>
+          <div class="cat-sub" id="catMedSub">Breathe for a while.</div>
+          <button class="go" onclick="scrollToEl('medCard')" aria-label="Go to meditation"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></button>
+        </div>
+        <div class="cat sky">
+          <h3>News · RSS Feed</h3>
+          <div class="cat-sub">The Hindu · Indian Express · Anandabazar</div>
+          <button class="go" onclick="scrollToEl('newsCard')" aria-label="Go to news"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></button>
+        </div>
+        <div class="cat blush">
+          <h3>Motivational Quotes</h3>
+          <div class="cat-sub" id="catQuoteSub">A fresh one every day.</div>
+          <button class="go" onclick="scrollToEl('quoteCard')" aria-label="Go to quotes"><svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8"/></svg></button>
+        </div>
+      </div>
+
+      <div class="section-title">Progress on</div>
+      <div class="grid-2">
+        <div class="card"><div class="card-body" id="goalsList"></div>
+          <div class="card-body" style="padding-top:0">
+            <div class="add-inline">
+              <input type="text" id="newGoal" placeholder="Add a goal, e.g. Improve communication" onkeydown="if(event.key==='Enter')addGoal()">
+              <button class="btn btn-ghost" onclick="addGoal()">Add</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" id="tasksCard">
+          <div class="card-head"><h2>Top 5 Tasks</h2><span class="hint" id="taskCount"></span></div>
+          <div class="card-body" id="taskList"></div>
+          <div class="card-body" style="padding-top:0">
+            <div class="add-inline">
+              <input type="text" id="newTask" placeholder="Add a task" onkeydown="if(event.key==='Enter')addTask()">
+              <button class="btn btn-ghost" onclick="addTask()">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title">Habit tracking</div>
+      <div class="card">
+        <div class="card-head">
+          <h2 style="display:flex;align-items:center;gap:12px">Overview
+            <span class="week-nav">
+              <button onclick="shiftWeek(-1)" aria-label="Previous week"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+              <span class="week-label" id="weekLabel"></span>
+              <button onclick="shiftWeek(1)" aria-label="Next week"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+            </span>
+          </h2>
+          <div class="seg">
+            <button class="on" id="segWeek" onclick="setHabitView('week')">Week</button>
+            <button id="segMonth" onclick="setHabitView('month')">Weekly view</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="habitWeekWrap" style="overflow-x:auto"><table class="habit-table" id="habitTable"></table></div>
+          <div id="habitMonthWrap" style="display:none;overflow-x:auto"><table class="habit-table" id="habitMonthTable"></table></div>
+          <div class="add-inline">
+            <input type="text" id="newHabit" placeholder="Add a habit, e.g. 10 min speak in English" onkeydown="if(event.key==='Enter')addHabit()">
+            <button class="btn btn-ghost" onclick="addHabit()">Add</button>
+          </div>
+          <div style="margin-top:20px" class="donut-wrap">
+            <svg class="donut" viewBox="0 0 120 120" id="donutSvg">
+              <circle class="track" cx="60" cy="60" r="50" fill="none" stroke-width="12"/>
+              <circle class="val" cx="60" cy="60" r="50" fill="none" stroke-width="12" transform="rotate(-90 60 60)" id="donutVal"/>
+              <text x="60" y="68" text-anchor="middle" class="donut-center" id="donutPct">0%</text>
+            </svg>
+            <div class="legend" id="donutLegend"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title">Important links</div>
+      <div class="card"><div class="card-body">
+        <div class="link-grid" id="linksGrid"></div>
+        <div class="add-inline">
+          <input type="text" id="linkTitle" placeholder="Title">
+          <input type="text" id="linkUrl" placeholder="https://…">
+          <input type="text" id="linkDesc" placeholder="Description (optional)">
+          <button class="btn btn-ghost" onclick="addLink()">Add link</button>
+        </div>
+      </div></div>
+
+      <div class="grid-2" style="margin-top:16px">
+        <div class="card" id="newsCard">
+          <div class="card-head"><h2>News · RSS feed</h2></div>
+          <div class="card-body">
+            <div class="news-list" id="newsList"></div>
+            <div class="add-inline">
+              <input type="text" id="feedName" placeholder="Feed name">
+              <input type="text" id="feedUrl" placeholder="https://…">
+              <button class="btn btn-ghost" onclick="addFeed()">Add</button>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="card" id="quoteCard">
+            <div class="card-head"><h2>Quote of the day</h2>
+              <button class="btn btn-ghost" style="padding:6px 12px" onclick="nextQuote()">Next</button></div>
+            <div class="card-body"><div class="quote-box" id="quoteBox"></div></div>
+          </div>
+          <div class="card" id="medCard" style="margin-top:16px">
+            <div class="card-head"><h2>Meditation</h2><span class="hint" id="medTodayHint"></span></div>
+            <div class="card-body">
+              <div class="med-time" id="medClock">10:00</div>
+              <div class="med-controls">
+                <button class="btn btn-ghost" onclick="setMed(5)">5 min</button>
+                <button class="btn btn-ghost" onclick="setMed(10)">10 min</button>
+                <button class="btn btn-ghost" onclick="setMed(15)">15 min</button>
+                <button class="btn btn-primary" id="medStartBtn" onclick="toggleMed()">Start</button>
+              </div>
+              <div class="med-stat" id="medStat"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== PAGE: DAY OF ======== -->
+    <section class="page" id="page-dayof">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><h2>Today's focus</h2></div>
+          <div class="card-body" id="dayTasks"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Today's habits</h2></div>
+          <div class="card-body" id="dayHabits"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-head"><h2>Journal — <span id="dayJournalDate"></span></h2></div>
+        <div class="card-body">
+          <textarea class="notes-area" id="dayJournal" placeholder="How did today go?" oninput="saveJournal(this.value)"></textarea>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ======== PAGE: WORK / GSI ======== -->
+    <section class="page" id="page-work">
+      <h1 class="display" style="font-size:28px;margin-bottom:14px">GSI Workspace</h1>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><h2>NGDR tracker</h2><span class="hint" id="ngdrCount"></span></div>
+          <div class="card-body" id="ngdrList"></div>
+          <div class="card-body" style="padding-top:0">
+            <div class="add-inline">
+              <input type="text" id="newNgdr" placeholder="Add an item, e.g. UAT test plan for AI module" onkeydown="if(event.key==='Enter')addNgdr()">
+              <button class="btn btn-ghost" onclick="addNgdr()">Add</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Daily work log</h2></div>
+          <div class="card-body">
+            <div class="add-inline" style="margin-top:0">
+              <input type="text" id="newLog" placeholder="What did you work on today?" onkeydown="if(event.key==='Enter')addLog()">
+              <button class="btn btn-ghost" onclick="addLog()">Log</button>
+            </div>
+            <div id="logList" style="margin-top:8px"></div>
+          </div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:16px">
+        <div class="card">
+          <div class="card-head"><h2>Meeting notes</h2></div>
+          <div class="card-body">
+            <div class="add-inline" style="margin-top:0">
+              <input type="text" id="newMeeting" placeholder="Meeting title, e.g. BISAG-N weekly review" onkeydown="if(event.key==='Enter')addMeeting()">
+              <button class="btn btn-ghost" onclick="addMeeting()">Add</button>
+            </div>
+            <div id="meetingList" style="margin-top:12px"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>GSI links</h2></div>
+          <div class="card-body">
+            <div class="link-grid" id="gsiLinks" style="grid-template-columns:1fr"></div>
+            <div class="add-inline">
+              <input type="text" id="gsiLinkTitle" placeholder="Title">
+              <input type="text" id="gsiLinkUrl" placeholder="https://…">
+              <button class="btn btn-ghost" onclick="addGsiLink()">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-head"><h2>Notes</h2></div>
+        <div class="card-body">
+          <textarea class="notes-area" id="notes-work" placeholder="Reference notes, circular summaries, anything work…" oninput="saveSectionNotes('work',this.value)"></textarea>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== SECTION PAGES (generated) ======== -->
+    <div id="sectionPages"></div>
+  </main>
+</div>
+
+<!-- ============ ACCOUNT / SIGN-IN MODAL ============ -->
+<div class="modal-bg" id="ghModal">
+  <div class="modal">
+    <div id="ghModalSetup" style="display:none">
+      <h2 class="display">One-time setup</h2>
+      <p class="hint">This copy of LifeOS isn't linked to a Supabase project yet. It takes about ten minutes, once, and everything is free:</p>
+      <ol class="steps">
+        <li>Create a free project at <a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a>.</li>
+        <li>In the project's <b>SQL Editor</b>, run the contents of <code>supabase-setup.sql</code> (shipped alongside this file).</li>
+        <li>Create a GitHub OAuth app at <a href="https://github.com/settings/developers" target="_blank" rel="noopener">github.com/settings/developers</a>. Set the callback URL to <code>https://YOUR-PROJECT-REF.supabase.co/auth/v1/callback</code>.</li>
+        <li>In Supabase → <b>Authentication → Providers → GitHub</b>, paste the OAuth app's Client ID and Secret.</li>
+        <li>In Supabase → <b>Authentication → URL Configuration</b>, set your site's address (e.g. your GitHub Pages URL) as the Site URL.</li>
+        <li>Open <code>js/config.js</code> in a text editor and fill in <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code>.</li>
+      </ol>
+      <p class="hint"><b>Note:</b> GitHub sign-in only works from a hosted address (GitHub Pages, Vercel, or a local server) — not from a file opened directly off the disk. Until then, LifeOS keeps working in local-only mode.</p>
+    </div>
+    <div id="ghModalSignin" style="display:none">
+      <h2 class="display">Sign in</h2>
+      <p class="hint">Sign in with GitHub to sync LifeOS to your own private database and use it from any device — phone, tablet, office PC. Changes save automatically.</p>
+    </div>
+    <div id="ghModalAccount" style="display:none">
+      <h2 class="display">Account</h2>
+      <p class="hint" id="accountInfo"></p>
+      <p class="hint" style="margin-top:8px">Your data lives in your Supabase database and syncs live between devices.</p>
+    </div>
+    <div class="err" id="ghErr"></div>
+    <div class="row">
+      <button class="btn btn-ghost" id="signOutBtn" style="margin-right:auto;display:none" onclick="signOut()">Sign out</button>
+      <button class="btn btn-ghost" onclick="closeGhModal()">Close</button>
+      <button class="btn btn-primary" id="signInBtn" style="display:none" onclick="signIn()">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.54-3.87-1.54-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.26.72-1.55-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12v3.14c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>
+        Sign in with GitHub</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ UNIVERSAL SEARCH ============ -->
+<div class="search-bg" id="searchBg">
+  <div class="search-panel">
+    <div class="search-input-row">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input class="search-input" id="searchInput" placeholder="Search tasks, notes, journal, links…" autocomplete="off">
+      <span class="kbd">Esc</span>
+    </div>
+    <div class="search-results" id="searchResults"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
