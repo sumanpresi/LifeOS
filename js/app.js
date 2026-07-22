@@ -6,6 +6,7 @@ import * as goals from './goals.js';
 import * as habits from './habits.js';
 import * as widgets from './widgets.js';
 import * as sections from './sections.js';
+import * as comm from './communication.js';
 import * as gsi from './gsi.js';
 import * as search from './search.js';
 import * as cloud from './supabase.js';
@@ -23,6 +24,7 @@ function renderAll() {
   widgets.renderMedStat();
   widgets.renderDayOf();
   sections.renderSections();
+  comm.renderCommunication();
   gsi.renderGsi();
 }
 
@@ -38,6 +40,12 @@ Object.assign(window,
     saveJournal: widgets.saveJournal },
   { saveSectionNotes: sections.saveSectionNotes, addSectionLink: sections.addSectionLink,
     delSectionLink: sections.delSectionLink },
+  { addTemplate: comm.addTemplate, editTemplate: comm.editTemplate, editTemplateBody: comm.editTemplateBody,
+    delTemplate: comm.delTemplate, useTemplate: comm.useTemplate,
+    addDraft: comm.addDraft, editDraft: comm.editDraft, editDraftBody: comm.editDraftBody, delDraft: comm.delDraft,
+    addFollowUp: comm.addFollowUp, editFollowUp: comm.editFollowUp, setFollowUpStatus: comm.setFollowUpStatus,
+    editFollowUpNotes: comm.editFollowUpNotes, delFollowUp: comm.delFollowUp,
+    addCommLink: comm.addCommLink, delCommLink: comm.delCommLink },
   { addNgdr: gsi.addNgdr, editNgdr: gsi.editNgdr, setNgdrStatus: gsi.setNgdrStatus, delNgdr: gsi.delNgdr,
     addLog: gsi.addLog, delLog: gsi.delLog, addMeeting: gsi.addMeeting, editMeeting: gsi.editMeeting,
     editMeetingNotes: gsi.editMeetingNotes, delMeeting: gsi.delMeeting,
