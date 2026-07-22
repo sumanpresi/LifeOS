@@ -254,7 +254,10 @@
       <div class="card">
         <div class="flex-between">
           <div><h2>Today's Topic</h2><p class="cap" style="margin-bottom:0">Speak for 2–3 minutes</p></div>
-          <button class="fav" id="speakFav" title="Favourite">★</button>
+          <div class="row" style="gap:8px">
+            <button class="btn ghost small" id="speakShuffle" title="Get a different topic">🔀 Try another</button>
+            <button class="fav" id="speakFav" title="Favourite">★</button>
+          </div>
         </div>
         <p style="font-family:var(--serif);font-size:20px;font-weight:500;margin:14px 0 12px;line-height:1.35" id="speakTopic"></p>
         <div class="k" style="font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Target vocabulary</div>
@@ -306,7 +309,10 @@
       <div class="card">
         <div class="flex-between">
           <div><h2>Word of the Day</h2><p class="cap" style="margin-bottom:0">One word, learned well</p></div>
-          <button class="fav" id="wotdFav" title="Favourite">★</button>
+          <div class="row" style="gap:8px">
+            <button class="btn ghost small" id="wotdShuffle" title="Get a different word">🔀 Try another</button>
+            <button class="fav" id="wotdFav" title="Favourite">★</button>
+          </div>
         </div>
         <div class="wotd-word" id="wotdWord"></div>
         <div class="meta-line" id="wotdMeta"></div>
@@ -319,15 +325,19 @@
 
       <div class="grid" style="gap:18px;align-content:start">
         <div class="card">
-          <h2>Phrase of the Day</h2>
-          <p class="cap">Sound more natural &amp; professional</p>
+          <div class="flex-between">
+            <div><h2>Phrase of the Day</h2><p class="cap" style="margin-bottom:0">Sound more natural &amp; professional</p></div>
+            <button class="btn ghost small" id="phraseShuffle" title="Get a different phrase">🔀 Try another</button>
+          </div>
           <div class="kv"><div class="k">Instead of</div><div class="v" id="phraseWeak" style="color:var(--rose)"></div></div>
           <div class="kv"><div class="k">Say</div><div class="v good" id="phraseStrong" style="font-size:16px"></div></div>
           <div class="kv"><div class="k">Example</div><div class="v" id="phraseEx" style="font-style:italic"></div></div>
         </div>
         <div class="card">
-          <h2>Grammar Pattern</h2>
-          <p class="cap" id="grammarName"></p>
+          <div class="flex-between">
+            <div><h2>Grammar Pattern</h2><p class="cap" style="margin-bottom:0" id="grammarName"></p></div>
+            <button class="btn ghost small" id="grammarShuffle" title="Get a different pattern">🔀 Try another</button>
+          </div>
           <div class="kv"><div class="k">Pattern</div><div class="v" id="grammarPattern" style="font-weight:600"></div></div>
           <div class="kv"><div class="k">Examples</div><div class="v" id="grammarEx"></div></div>
           <button class="btn ghost small" id="grammarDone">Mark pattern learned</button>
@@ -660,6 +670,7 @@ function ensureToday(){
   const t=todayStr();
   if(S.mission.date!==t){
     S.mission={date:t,done:{speak:false,word:false,grammar:false,phrase:false,writing:false,review:false}};
+    speakIdx=null; wordIdx=null; phraseIdx=null; grammarIdx=null;
   }
 }
 function bumpStreak(){
@@ -680,6 +691,14 @@ function completeMission(id){
   bumpStreak();
   logActivity();
   save(); renderMission(); renderStreak(); renderAchievements(); renderReview();
+}
+function uncompleteMission(id){
+  if(!S.mission.done[id]) return;
+  S.mission.done[id]=false;
+  logActivity();
+  save(); renderMission(); renderReview();
+  // Note: today's streak, once earned, isn't clawed back for unchecking a
+  // single item — it only resets if a whole day passes with nothing done.
 }
 
 const MISSION_META=[
@@ -704,7 +723,17 @@ function renderMission(){
     const el=document.createElement("div");
     el.className="m-item"+(d?" done":"");
     el.innerHTML=`<div class="m-check">${d?"✓":""}</div><div><div class="m-txt">${m.label}</div><div class="m-sub">${m.sub}</div></div>`;
-    el.onclick=()=>{ if(!d){ completeMission(m.id); if(m.id==="review"){switchTab("review");} else if(m.id==="writing"){switchTab("practice");} else if(m.id==="grammar"||m.id==="phrase"||m.id==="word"){switchTab("learn");} } };
+    el.title = d ? "Tap to undo" : "Tap when done";
+    el.onclick=()=>{
+      if(!d){
+        completeMission(m.id);
+        if(m.id==="review"){switchTab("review");}
+        else if(m.id==="writing"){switchTab("practice");}
+        else if(m.id==="grammar"||m.id==="phrase"||m.id==="word"){switchTab("learn");}
+      } else {
+        uncompleteMission(m.id);
+      }
+    };
     box.appendChild(el);
   });
   renderContinue();
@@ -723,15 +752,22 @@ function renderStreak(){ $("#streakBadge").textContent="🔥 "+S.streak.count+"-
 
 /* ---------- SPEAK ---------- */
 let tSec=0,tRun=false,tInt=null;
+let speakIdx=null;   // null = today's automatic pick; a number = manual override
 function fmtTime(s){const m=Math.floor(s/60),ss=s%60;return String(m).padStart(2,"0")+":"+String(ss).padStart(2,"0");}
+function currentTopic(){ return speakIdx===null ? pick(TOPICS) : TOPICS[speakIdx]; }
 function renderSpeak(){
-  const top=pick(TOPICS);
+  const top=currentTopic();
   $("#speakTopic").textContent=top.t;
   $("#speakTargets").innerHTML=top.w.map(w=>`<span class="chip">${w}</span>`).join("");
   const fk="s"+dayNum();
   $("#speakFav").classList.toggle("on",!!S.favTopic[fk]);
   $("#speakFav").onclick=()=>{S.favTopic[fk]=!S.favTopic[fk];$("#speakFav").classList.toggle("on",S.favTopic[fk]);save();};
 }
+$("#speakShuffle").onclick=()=>{
+  const cur = speakIdx===null ? dayNum()%TOPICS.length : speakIdx;
+  let next; do{ next=Math.floor(Math.random()*TOPICS.length); }while(TOPICS.length>1 && next===cur);
+  speakIdx=next; renderSpeak();
+};
 function tickTimer(){ tSec++; $("#timer").textContent=fmtTime(tSec); }
 $("#timerBtn").onclick=function(){
   tRun=!tRun;
@@ -744,7 +780,7 @@ $("#confRow").addEventListener("click",e=>{const b=e.target.closest("button");if
 $("#speakDone").onclick=()=>{
   clearInterval(tInt);tRun=false;
   if(tSec>0){ S.stats.speakingSeconds+=tSec; }
-  S.continueYesterday={date:todayStr(),topic:pick(TOPICS).t,sec:tSec};
+  S.continueYesterday={date:todayStr(),topic:currentTopic().t,sec:tSec};
   completeMission("speak");
   toast(tSec>0?("Nice — "+fmtTime(tSec)+" of speaking logged"):"Speaking marked complete");
   tSec=0;$("#timer").textContent="00:00";$("#timerBtn").textContent="Start speaking";$("#timerBtn").classList.add("primary");$("#timerBtn").classList.remove("ghost");
@@ -752,8 +788,9 @@ $("#speakDone").onclick=()=>{
 };
 
 /* ---------- LEARN ---------- */
+let wordIdx=null, phraseIdx=null, grammarIdx=null;
 function renderLearn(){
-  const wd=pick(WORDS);
+  const wd = wordIdx===null ? pick(WORDS) : WORDS[wordIdx];
   $("#wotdWord").textContent=wd.w;
   $("#wotdMeta").innerHTML=`<span class="pill">${wd.p}</span><span class="pill lvl">CEFR ${wd.l}</span>`;
   $("#wotdMeaning").textContent=wd.m;
@@ -768,17 +805,32 @@ function renderLearn(){
     else{ addVocab({word:wd.w,meaning:wd.m,pos:wd.p,cefr:wd.l,syn:wd.s,coll:wd.c,example:wd.e,tags:["word of the day"]}); toast("Added “"+wd.w+"” to your vocabulary"); }
     completeMission("word");
   };
+  $("#wotdShuffle").onclick=()=>{
+    const cur = wordIdx===null ? dayNum()%WORDS.length : wordIdx;
+    let next; do{ next=Math.floor(Math.random()*WORDS.length); }while(WORDS.length>1 && next===cur);
+    wordIdx=next; renderLearn();
+  };
 
-  const ph=pick(PHRASES);
+  const ph = phraseIdx===null ? pick(PHRASES) : PHRASES[phraseIdx];
   $("#phraseWeak").textContent="“"+ph.weak+"”";
   $("#phraseStrong").textContent="“"+ph.strong+"”";
   $("#phraseEx").textContent="“"+ph.e+"”";
+  $("#phraseShuffle").onclick=()=>{
+    const cur = phraseIdx===null ? dayNum()%PHRASES.length : phraseIdx;
+    let next; do{ next=Math.floor(Math.random()*PHRASES.length); }while(PHRASES.length>1 && next===cur);
+    phraseIdx=next; renderLearn();
+  };
 
-  const gr=pick(GRAMMAR);
+  const gr = grammarIdx===null ? pick(GRAMMAR) : GRAMMAR[grammarIdx];
   $("#grammarName").textContent=gr.n;
   $("#grammarPattern").textContent=gr.p;
   $("#grammarEx").innerHTML=gr.ex.map(x=>"• "+esc(x)).join("<br>");
   $("#grammarDone").onclick=()=>{completeMission("grammar");toast("Grammar pattern marked learned");};
+  $("#grammarShuffle").onclick=()=>{
+    const cur = grammarIdx===null ? dayNum()%GRAMMAR.length : grammarIdx;
+    let next; do{ next=Math.floor(Math.random()*GRAMMAR.length); }while(GRAMMAR.length>1 && next===cur);
+    grammarIdx=next; renderLearn();
+  };
 }
 
 /* ---------- PRACTICE : vocab ---------- */
