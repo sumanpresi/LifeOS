@@ -1,0 +1,990 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Communication · LifeOS</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F5F4F1;
+    --card:#FFFFFF;
+    --ink:#1B1B1A;
+    --ink-soft:#4A4A46;
+    --muted:#8E8E88;
+    --line:#EAE8E2;
+    --line-strong:#DFDCD4;
+    --accent:#6366F1;
+    --accent-ink:#4338CA;
+    --accent-soft:#EEF0FF;
+    --accent-soft-line:#DFE2FF;
+    --amber:#E2941B;
+    --amber-soft:#FBF0DA;
+    --green:#2FA36B;
+    --green-soft:#E4F3EA;
+    --rose:#C4553C;
+    --radius:20px;
+    --serif:"Fraunces",Georgia,"Times New Roman",serif;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    --shadow:0 1px 2px rgba(23,23,20,.03), 0 10px 30px -22px rgba(23,23,20,.28);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:15px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+  .wrap{max-width:1120px;margin:0 auto;padding:34px 26px 90px}
+  @media(max-width:600px){ .wrap{padding:22px 16px 70px} }
+
+  .head{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;margin-bottom:26px}
+  h1.page{font-family:var(--serif);font-weight:600;font-size:40px;letter-spacing:-.01em;margin:0 0 6px;line-height:1.02}
+  @media(max-width:600px){ h1.page{font-size:31px} }
+  .sub{color:var(--muted);font-size:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .streak{display:inline-flex;align-items:center;gap:6px;background:var(--amber-soft);color:#96631A;
+    padding:4px 11px;border-radius:999px;font-weight:600;font-size:13px}
+  .quote{max-width:340px;text-align:right;color:var(--ink-soft);font-family:var(--serif);
+    font-style:italic;font-size:15px;line-height:1.45}
+  .quote small{display:block;font-family:var(--sans);font-style:normal;color:var(--muted);font-size:12px;margin-top:6px}
+  @media(max-width:720px){ .quote{text-align:left;max-width:none} }
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    box-shadow:var(--shadow);padding:24px}
+  .card h2{font-family:var(--serif);font-weight:600;font-size:21px;margin:0 0 3px;letter-spacing:-.01em}
+  .card .cap{color:var(--muted);font-size:13px;margin:0 0 16px}
+  .grid{display:grid;gap:18px}
+  .g2{grid-template-columns:1fr 1fr}
+  .g3{grid-template-columns:1fr 1fr 1fr}
+  @media(max-width:820px){ .g2,.g3{grid-template-columns:1fr} }
+
+  .mission{display:grid;grid-template-columns:auto 1fr;gap:30px;align-items:center}
+  @media(max-width:600px){ .mission{grid-template-columns:1fr;gap:20px} }
+  .ring-wrap{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .ring{position:relative;width:132px;height:132px}
+  .ring svg{transform:rotate(-90deg)}
+  .ring .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .ring .big{font-family:var(--serif);font-weight:600;font-size:30px;line-height:1}
+  .ring .lbl{font-size:11px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-top:3px}
+  .ring-note{font-size:12.5px;color:var(--muted)}
+  .missions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(max-width:520px){ .missions{grid-template-columns:1fr} }
+  .m-item{display:flex;align-items:center;gap:11px;padding:11px 13px;border:1px solid var(--line);
+    border-radius:13px;background:#FCFCFB;cursor:pointer;transition:.16s;user-select:none}
+  .m-item:hover{border-color:var(--line-strong);background:#fff}
+  .m-item.done{background:var(--green-soft);border-color:#CFE7D9}
+  .m-check{width:22px;height:22px;border-radius:7px;border:1.8px solid var(--line-strong);
+    flex:0 0 auto;display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;transition:.16s}
+  .m-item.done .m-check{background:var(--green);border-color:var(--green)}
+  .m-txt{font-weight:500;font-size:14px}
+  .m-item.done .m-txt{color:#256B47}
+  .m-sub{font-size:11.5px;color:var(--muted)}
+  .m-item.done .m-sub{color:#3E8460}
+
+  .cont{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;
+    background:var(--accent-soft);border:1px solid var(--accent-soft-line);border-radius:14px;padding:14px 18px;margin-top:18px}
+  .cont .t{font-size:13px;color:var(--accent-ink);font-weight:600}
+  .cont .d{font-size:13px;color:var(--ink-soft)}
+
+  .tabs{display:flex;gap:8px;margin:26px 0 20px;flex-wrap:wrap}
+  .tab{border:1px solid var(--line);background:#fff;color:var(--ink-soft);font-family:var(--sans);
+    font-weight:600;font-size:14px;padding:9px 16px;border-radius:11px;cursor:pointer;transition:.15s}
+  .tab:hover{border-color:var(--line-strong)}
+  .tab.active{background:var(--accent-soft);border-color:var(--accent-soft-line);color:var(--accent-ink)}
+
+  .view{display:none}
+  .view.active{display:block}
+
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin:2px 0}
+  .chip{background:var(--accent-soft);color:var(--accent-ink);border:1px solid var(--accent-soft-line);
+    border-radius:999px;padding:4px 11px;font-size:12.5px;font-weight:600}
+  .tag{background:#F1F0EC;color:var(--ink-soft);border:1px solid var(--line);border-radius:999px;
+    padding:3px 10px;font-size:12px;font-weight:500}
+
+  .btn{font-family:var(--sans);font-weight:600;font-size:14px;border-radius:10px;padding:9px 16px;
+    border:1px solid transparent;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:7px}
+  .btn.primary{background:var(--accent);color:#fff}
+  .btn.primary:hover{background:#4F4CD6}
+  .btn.ghost{background:#fff;border-color:var(--line-strong);color:var(--ink-soft)}
+  .btn.ghost:hover{background:#FAFAF8;border-color:var(--muted)}
+  .btn.small{padding:6px 12px;font-size:13px}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+
+  input[type=text],textarea,select{font-family:var(--sans);font-size:14px;color:var(--ink);
+    background:#FCFCFB;border:1px solid var(--line-strong);border-radius:10px;padding:10px 12px;width:100%;outline:none;transition:.15s}
+  input[type=text]:focus,textarea:focus,select:focus{border-color:var(--accent);background:#fff;box-shadow:0 0 0 3px var(--accent-soft)}
+  textarea{resize:vertical;min-height:110px;line-height:1.55}
+  label.fld{display:block;font-size:12px;color:var(--muted);font-weight:600;margin:0 0 5px;letter-spacing:.02em}
+  .field{margin-bottom:12px}
+
+  .wotd-word{font-family:var(--serif);font-size:34px;font-weight:600;letter-spacing:-.01em;line-height:1}
+  .meta-line{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:9px 0 14px;color:var(--muted);font-size:13px}
+  .pill{background:#F1F0EC;border:1px solid var(--line);border-radius:7px;padding:2px 8px;font-size:12px;font-weight:600;color:var(--ink-soft)}
+  .pill.lvl{background:var(--accent-soft);border-color:var(--accent-soft-line);color:var(--accent-ink)}
+  .kv{margin:10px 0}
+  .kv .k{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+  .kv .v{font-size:14.5px;color:var(--ink-soft);line-height:1.5}
+  .fav{background:none;border:none;cursor:pointer;font-size:20px;line-height:1;color:var(--line-strong);transition:.15s}
+  .fav.on{color:var(--amber)}
+  .fav:hover{transform:scale(1.12)}
+
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  @media(max-width:560px){ .stats{grid-template-columns:1fr 1fr} }
+  .stat{background:#FCFCFB;border:1px solid var(--line);border-radius:14px;padding:16px}
+  .stat .n{font-family:var(--serif);font-weight:600;font-size:27px;line-height:1}
+  .stat .l{font-size:12.5px;color:var(--muted);margin-top:5px}
+
+  .list{display:flex;flex-direction:column;gap:9px}
+  .rowitem{border:1px solid var(--line);border-radius:12px;padding:12px 14px;background:#FCFCFB}
+  .rowitem .top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .rowitem .w{font-weight:600;font-size:15px}
+  .rowitem .m{color:var(--ink-soft);font-size:13.5px;margin-top:2px}
+  .mistake .wrong{color:var(--rose);text-decoration:line-through;font-weight:500}
+  .mistake .right{color:var(--green);font-weight:600}
+  .del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;padding:2px 4px}
+  .del:hover{color:var(--rose)}
+
+  .ach-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+  @media(max-width:600px){ .ach-grid{grid-template-columns:1fr 1fr} }
+  .ach{border:1px solid var(--line);border-radius:14px;padding:15px;text-align:center;background:#FCFCFB;opacity:.55}
+  .ach.on{opacity:1;background:var(--amber-soft);border-color:#F0DCB4}
+  .ach .ic{font-size:24px}
+  .ach .t{font-weight:600;font-size:13px;margin-top:6px}
+  .ach .s{font-size:11.5px;color:var(--muted);margin-top:2px}
+
+  .week{display:flex;gap:8px;align-items:flex-end;height:96px;margin-top:6px}
+  .week .day{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end}
+  .week .bar{width:100%;max-width:34px;background:var(--accent-soft);border:1px solid var(--accent-soft-line);
+    border-radius:7px 7px 4px 4px;min-height:6px;transition:.3s}
+  .week .bar.hot{background:var(--accent)}
+  .week .dl{font-size:11px;color:var(--muted)}
+
+  .acc{border:1px solid var(--line);border-radius:13px;overflow:hidden;margin-bottom:10px;background:#fff}
+  .acc summary{list-style:none;cursor:pointer;padding:14px 16px;font-weight:600;font-size:14.5px;
+    display:flex;justify-content:space-between;align-items:center}
+  .acc summary::-webkit-details-marker{display:none}
+  .acc summary .arw{color:var(--muted);transition:.2s;font-size:12px}
+  .acc[open] summary .arw{transform:rotate(90deg)}
+  .acc .body{padding:0 16px 16px}
+  .ref-line{padding:7px 0;border-top:1px solid var(--line);color:var(--ink-soft);font-size:14px}
+  .ref-line:first-child{border-top:none}
+
+  .timer{font-family:var(--serif);font-weight:600;font-size:46px;letter-spacing:.01em;line-height:1}
+  .conf{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
+  .conf button{font-size:22px;background:#fff;border:1px solid var(--line);border-radius:11px;
+    width:46px;height:46px;cursor:pointer;transition:.15s}
+  .conf button:hover{border-color:var(--line-strong)}
+  .conf button.sel{background:var(--accent-soft);border-color:var(--accent);transform:scale(1.06)}
+
+  .tmpl{background:#FCFCFB;border:1px solid var(--line);border-radius:12px;padding:14px;font-size:13.5px;color:var(--ink-soft)}
+  .tmpl b{color:var(--ink)}
+  .hr{height:1px;background:var(--line);margin:18px 0;border:none}
+  .flex-between{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+  .muted{color:var(--muted)}
+  .good{color:var(--green);font-weight:600}
+  .empty{color:var(--muted);font-size:13.5px;padding:8px 0}
+  .wc{font-size:13px;color:var(--muted)}
+  .wc b{color:var(--accent-ink)}
+  .search{max-width:280px}
+  .quiz-q{font-size:17px;font-weight:600;margin:6px 0 14px;line-height:1.4}
+  .quiz-q .blank{color:var(--accent);border-bottom:2px solid var(--accent-soft-line);padding:0 22px}
+  .feedback{font-size:14px;font-weight:600;margin-top:12px}
+  .toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);opacity:0;
+    background:var(--ink);color:#fff;padding:11px 20px;border-radius:12px;font-size:14px;font-weight:500;
+    pointer-events:none;transition:.25s;z-index:50;box-shadow:0 12px 30px -12px rgba(0,0,0,.4)}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <div>
+      <h1 class="page">Communication</h1>
+      <div class="sub">
+        <span id="dateLine">Your daily English training</span>
+        <span class="streak" id="streakBadge">🔥 0-day streak</span>
+      </div>
+    </div>
+    <div class="quote" id="quoteBox"></div>
+  </div>
+
+  <div class="card">
+    <h2>Today's Mission</h2>
+    <p class="cap">What to practise today. Tap each one as you finish it.</p>
+    <div class="mission">
+      <div class="ring-wrap">
+        <div class="ring">
+          <svg width="132" height="132" viewBox="0 0 132 132">
+            <circle cx="66" cy="66" r="58" fill="none" stroke="#EEEDE8" stroke-width="12"/>
+            <circle id="ringFill" cx="66" cy="66" r="58" fill="none" stroke="#6366F1" stroke-width="12"
+              stroke-linecap="round" stroke-dasharray="364.4" stroke-dashoffset="364.4"/>
+          </svg>
+          <div class="center">
+            <div class="big" id="ringText">0/6</div>
+            <div class="lbl">Done</div>
+          </div>
+        </div>
+        <div class="ring-note" id="ringNote">Let's begin</div>
+      </div>
+      <div class="missions" id="missionList"></div>
+    </div>
+    <div id="continueBox"></div>
+  </div>
+
+  <div class="tabs" id="tabs">
+    <button class="tab active" data-view="speak">Speak</button>
+    <button class="tab" data-view="learn">Learn</button>
+    <button class="tab" data-view="practice">Practice</button>
+    <button class="tab" data-view="review">Review</button>
+    <button class="tab" data-view="reference">Reference</button>
+  </div>
+
+  <section class="view active" data-view="speak">
+    <div class="grid g2">
+      <div class="card">
+        <div class="flex-between">
+          <div><h2>Today's Topic</h2><p class="cap" style="margin-bottom:0">Speak for 2–3 minutes</p></div>
+          <button class="fav" id="speakFav" title="Favourite">★</button>
+        </div>
+        <p style="font-family:var(--serif);font-size:20px;font-weight:500;margin:14px 0 12px;line-height:1.35" id="speakTopic"></p>
+        <div class="k" style="font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Target vocabulary</div>
+        <div class="chips" id="speakTargets"></div>
+        <hr class="hr">
+        <div class="row" style="align-items:center;gap:18px">
+          <div class="timer" id="timer">00:00</div>
+          <div class="row">
+            <button class="btn primary" id="timerBtn">Start speaking</button>
+            <button class="btn ghost" id="timerReset">Reset</button>
+          </div>
+        </div>
+        <div class="kv" style="margin-top:16px">
+          <div class="k">How confident did you feel?</div>
+          <div class="conf" id="confRow">
+            <button data-c="1" title="Very nervous">😨</button>
+            <button data-c="2" title="Nervous">☹️</button>
+            <button data-c="3" title="Okay">😐</button>
+            <button data-c="4" title="Good">🙂</button>
+            <button data-c="5" title="Very confident">😀</button>
+          </div>
+        </div>
+        <button class="btn primary" id="speakDone" style="margin-top:16px">Mark speaking complete</button>
+      </div>
+
+      <div class="card">
+        <h2>Speaking Template</h2>
+        <p class="cap">A simple frame so you never freeze</p>
+        <div class="tmpl">
+          <p><b>Introduction</b><br>“Today I'd like to talk about … The reason I chose this is …”</p>
+          <p><b>Main points</b><br>“Firstly, … Secondly, … Another important point is …”</p>
+          <p><b>Example</b><br>“For example, in my work at GSI …”</p>
+          <p><b>Conclusion</b><br>“To sum up, … Thank you for listening.”</p>
+        </div>
+        <div class="kv" style="margin-top:14px">
+          <div class="k">Useful connectors</div>
+          <div class="chips">
+            <span class="tag">Firstly</span><span class="tag">In addition</span><span class="tag">However</span>
+            <span class="tag">As a result</span><span class="tag">For instance</span><span class="tag">To sum up</span>
+          </div>
+        </div>
+        <p class="muted" style="font-size:12.5px;margin-top:14px">🎙 Voice recording &amp; playback arrives in Milestone 3 (AI Coach).</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="view" data-view="learn">
+    <div class="grid g2">
+      <div class="card">
+        <div class="flex-between">
+          <div><h2>Word of the Day</h2><p class="cap" style="margin-bottom:0">One word, learned well</p></div>
+          <button class="fav" id="wotdFav" title="Favourite">★</button>
+        </div>
+        <div class="wotd-word" id="wotdWord"></div>
+        <div class="meta-line" id="wotdMeta"></div>
+        <div class="kv"><div class="k">Meaning</div><div class="v" id="wotdMeaning"></div></div>
+        <div class="kv"><div class="k">Synonyms</div><div class="chips" id="wotdSyn"></div></div>
+        <div class="kv"><div class="k">Collocations</div><div class="chips" id="wotdColl"></div></div>
+        <div class="kv"><div class="k">In a sentence</div><div class="v" id="wotdEx" style="font-style:italic"></div></div>
+        <button class="btn primary small" id="wotdAdd" style="margin-top:8px">＋ Add to my vocabulary</button>
+      </div>
+
+      <div class="grid" style="gap:18px;align-content:start">
+        <div class="card">
+          <h2>Phrase of the Day</h2>
+          <p class="cap">Sound more natural &amp; professional</p>
+          <div class="kv"><div class="k">Instead of</div><div class="v" id="phraseWeak" style="color:var(--rose)"></div></div>
+          <div class="kv"><div class="k">Say</div><div class="v good" id="phraseStrong" style="font-size:16px"></div></div>
+          <div class="kv"><div class="k">Example</div><div class="v" id="phraseEx" style="font-style:italic"></div></div>
+        </div>
+        <div class="card">
+          <h2>Grammar Pattern</h2>
+          <p class="cap" id="grammarName"></p>
+          <div class="kv"><div class="k">Pattern</div><div class="v" id="grammarPattern" style="font-weight:600"></div></div>
+          <div class="kv"><div class="k">Examples</div><div class="v" id="grammarEx"></div></div>
+          <button class="btn ghost small" id="grammarDone">Mark pattern learned</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="view" data-view="practice">
+    <div class="grid g2">
+      <div class="card">
+        <div class="flex-between">
+          <div><h2>Vocabulary Builder</h2><p class="cap" style="margin-bottom:0" id="vocabCount">0 words</p></div>
+          <input type="text" class="search" id="vocabSearch" placeholder="Search words, tags…" />
+        </div>
+        <div class="field" style="margin-top:14px">
+          <div class="row">
+            <input type="text" id="vWord" placeholder="Word" style="flex:1;min-width:120px" />
+            <input type="text" id="vMean" placeholder="Meaning" style="flex:2;min-width:150px" />
+          </div>
+          <div class="row" style="margin-top:8px">
+            <input type="text" id="vTags" placeholder="Tags: geology, meeting, travel…" style="flex:1" />
+            <button class="btn primary small" id="vAdd">Add</button>
+          </div>
+        </div>
+        <div class="list" id="vocabList"></div>
+      </div>
+
+      <div class="grid" style="gap:18px;align-content:start">
+        <div class="card">
+          <h2>Grammar Quiz</h2>
+          <p class="cap" id="quizScore">Fill in the blank</p>
+          <div class="quiz-q" id="quizQ"></div>
+          <div class="row">
+            <input type="text" id="quizInput" placeholder="Your answer" style="flex:1" />
+            <button class="btn primary small" id="quizCheck">Check</button>
+            <button class="btn ghost small" id="quizNext">Skip</button>
+          </div>
+          <div class="feedback" id="quizFb"></div>
+        </div>
+
+        <div class="card">
+          <h2>Daily Writing</h2>
+          <p class="cap" id="writeTopic"></p>
+          <textarea id="writeArea" placeholder="Write about 100 words…"></textarea>
+          <div class="flex-between" style="margin-top:10px">
+            <div class="wc"><b id="wcNum">0</b> / 100 words</div>
+            <button class="btn primary small" id="writeSave">Save entry</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <div class="flex-between">
+        <div><h2>Mistake Log</h2><p class="cap" style="margin-bottom:0" id="mistakeCount">0 logged</p></div>
+        <input type="text" class="search" id="mistakeSearch" placeholder="Search mistakes…" />
+      </div>
+      <div class="field" style="margin-top:14px">
+        <div class="row">
+          <input type="text" id="mWrong" placeholder="What you said (wrong)" style="flex:1;min-width:140px" />
+          <input type="text" id="mRight" placeholder="Correct version" style="flex:1;min-width:140px" />
+          <select id="mCat" style="width:auto;min-width:130px">
+            <option>Grammar</option><option>Tense</option><option>Preposition</option>
+            <option>Article</option><option>Vocabulary</option><option>Pronunciation</option>
+            <option>Subject–Verb</option><option>Sentence structure</option>
+          </select>
+          <button class="btn primary small" id="mAdd">Log</button>
+        </div>
+      </div>
+      <div class="list" id="mistakeList"></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="review">
+    <div class="card">
+      <h2>Your Statistics</h2>
+      <p class="cap">Everything you've built up so far</p>
+      <div class="stats" id="statGrid"></div>
+    </div>
+
+    <div class="grid g2" style="margin-top:18px">
+      <div class="card">
+        <h2>Spaced Repetition</h2>
+        <p class="cap" id="dueCap">Words due for review today</p>
+        <div id="reviewArea"></div>
+      </div>
+      <div class="card">
+        <h2>This Week</h2>
+        <p class="cap">Tasks completed each day</p>
+        <div class="week" id="weekBar"></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:18px">
+      <h2>Achievements</h2>
+      <p class="cap">Small rewards for showing up</p>
+      <div class="ach-grid" id="achGrid"></div>
+    </div>
+  </section>
+
+  <section class="view" data-view="reference">
+    <div class="card">
+      <h2>Reference Library</h2>
+      <p class="cap">Ready-made language for work. Tap a section to open it.</p>
+      <div id="refAcc"></div>
+    </div>
+  </section>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+/* ---------- content banks (GSI / geology flavoured) ---------- */
+const TOPICS = [
+  {t:"Explain NGDR to a college student in simple terms.", w:["repository","geospatial","metadata","stakeholder"]},
+  {t:"Describe a geological survey you took part in.", w:["fieldwork","outcrop","sample","traverse"]},
+  {t:"Why does geospatial data matter for mineral exploration?", w:["exploration","dataset","overlay","prospect"]},
+  {t:"Walk through your last DG-level presentation.", w:["overview","milestone","dashboard","summary"]},
+  {t:"Explain remote sensing to someone new to it.", w:["satellite","imagery","spectral","resolution"]},
+  {t:"Describe the PM GatiShakti initiative and your role in it.", w:["infrastructure","integration","portal","coordinate"]},
+  {t:"Talk about why you enjoy street photography.", w:["composition","candid","frame","moment"]},
+  {t:"Describe a challenge you solved at work this week.", w:["obstacle","approach","resolve","outcome"]},
+  {t:"Explain what a stratigraphic column shows.", w:["layer","sequence","deposition","formation"]},
+  {t:"How does Bhukosh help the public access geoscience data?", w:["access","query","download","layer"]},
+  {t:"Describe your ideal trip to Ladakh or Iceland.", w:["itinerary","landscape","altitude","glacier"]},
+  {t:"Explain the difference between legacy and recent report uploads.", w:["legacy","batch","validate","catalogue"]},
+  {t:"Describe how you organise your work using Obsidian.", w:["vault","note","link","structure"]},
+  {t:"Talk about a book that changed how you work.", w:["habit","insight","routine","apply"]},
+  {t:"Explain UAT testing to a non-technical colleague.", w:["staging","scenario","verify","feedback"]}
+];
+
+const WORDS = [
+  {w:"repository",p:"noun",l:"B2",m:"A central place where data or files are stored and managed.",s:["archive","store","database"],c:["central repository","data repository","upload to the repository"],e:"All exploration reports are uploaded to the NGDR repository."},
+  {w:"geospatial",p:"adjective",l:"C1",m:"Relating to data that is linked to a location on the Earth's surface.",s:["locational","spatial","mapped"],c:["geospatial data","geospatial layer","geospatial analysis"],e:"The portal combines several geospatial layers on one map."},
+  {w:"stakeholder",p:"noun",l:"B2",m:"A person or group with an interest in a project's outcome.",s:["party","participant","contributor"],c:["key stakeholder","stakeholder feedback","engage stakeholders"],e:"We shared the draft with every stakeholder before the review."},
+  {w:"mineralisation",p:"noun",l:"C1",m:"The process by which minerals form within rock.",s:["deposition","enrichment","formation"],c:["gold mineralisation","zone of mineralisation","mineralisation event"],e:"The report describes strong mineralisation along the fault."},
+  {w:"metadata",p:"noun",l:"B2",m:"Information that describes other data, such as its source or date.",s:["descriptor","tags","attributes"],c:["metadata standard","attach metadata","metadata field"],e:"Each file was tagged with complete metadata before upload."},
+  {w:"delineate",p:"verb",l:"C1",m:"To describe or mark the exact boundaries of something.",s:["outline","define","demarcate"],c:["delineate a boundary","delineate the zone","clearly delineate"],e:"The survey helped delineate the mineralised zone."},
+  {w:"calibrate",p:"verb",l:"C1",m:"To adjust an instrument or model so its readings are accurate.",s:["adjust","fine-tune","standardise"],c:["calibrate the instrument","calibrate a model","carefully calibrate"],e:"We calibrated the sensor before the field campaign."},
+  {w:"aggregate",p:"verb",l:"C1",m:"To collect separate items into a single total or group.",s:["combine","consolidate","gather"],c:["aggregate the data","aggregated results","aggregate across lots"],e:"The dashboard aggregates upload counts across all batches."},
+  {w:"reconcile",p:"verb",l:"C1",m:"To make two sets of records agree with each other.",s:["match","align","balance"],c:["reconcile records","reconcile the figures","reconcile differences"],e:"I reconciled the GSI and BISAG-N record counts."},
+  {w:"articulate",p:"verb",l:"C1",m:"To express an idea clearly and in a well-organised way.",s:["express","convey","phrase"],c:["articulate a point","clearly articulate","articulate the vision"],e:"She articulated the project goals in one slide."},
+  {w:"mitigate",p:"verb",l:"C1",m:"To make something bad less severe.",s:["reduce","lessen","ease"],c:["mitigate risk","mitigate the impact","help mitigate"],e:"A backup server mitigates the risk of data loss."},
+  {w:"streamline",p:"verb",l:"B2",m:"To make a process simpler and more efficient.",s:["simplify","optimise","refine"],c:["streamline the workflow","streamline a process","streamline reporting"],e:"The new template streamlined our monthly reporting."},
+  {w:"prioritise",p:"verb",l:"B2",m:"To decide which tasks are most important and do them first.",s:["rank","order","focus"],c:["prioritise tasks","prioritise the backlog","prioritise accordingly"],e:"We prioritised the legacy reports for this quarter."},
+  {w:"corroborate",p:"verb",l:"C1",m:"To support a statement with additional evidence.",s:["confirm","verify","back up"],c:["corroborate the findings","corroborate a claim","evidence corroborates"],e:"Field samples corroborated the satellite reading."},
+  {w:"provenance",p:"noun",l:"C1",m:"The origin or source of something, and its history.",s:["origin","source","lineage"],c:["data provenance","establish provenance","provenance of the sample"],e:"We recorded the provenance of every dataset."}
+];
+
+const PHRASES = [
+  {weak:"I think…",strong:"As far as I know…",e:"As far as I know, the portal update goes live on Friday."},
+  {weak:"Maybe…",strong:"It's possible that…",e:"It's possible that the delay was caused by the VPN."},
+  {weak:"Very good.",strong:"That's excellent — well done.",e:"That's excellent work on the dashboard, well done."},
+  {weak:"I don't know.",strong:"Let me look into it and get back to you.",e:"Let me look into it and get back to you by tomorrow."},
+  {weak:"Say again?",strong:"Could you clarify that point?",e:"Could you clarify that point about the metadata?"},
+  {weak:"Next slide.",strong:"That brings us to the next point.",e:"That brings us to the next point — the upload trend."},
+  {weak:"It's not my fault.",strong:"Let's focus on how we can resolve it.",e:"Let's focus on how we can resolve it quickly."},
+  {weak:"Ok ok.",strong:"Understood — I'll take care of it.",e:"Understood, I'll take care of it this afternoon."}
+];
+
+const GRAMMAR = [
+  {n:"Present Perfect",p:"have / has + past participle",ex:["I have completed the report.","She has sent the email.","We have uploaded all the lots."]},
+  {n:"Passive Voice",p:"be + past participle",ex:["The report has been approved.","The data were uploaded yesterday.","The site was surveyed last month."]},
+  {n:"Present Simple",p:"subject + base verb (+s)",ex:["I work at GSI.","The portal syncs every night.","She leads the mapping team."]},
+  {n:"First Conditional",p:"If + present, will + base verb",ex:["If the VPN works, I will upload the files.","If we finish early, we will start Milestone 4.","If it rains, the fieldwork will be postponed."]},
+  {n:"Reported Speech",p:"said (that) + shifted tense",ex:["He said the survey was complete.","She told me the data had been checked.","They said they would send it soon."]}
+];
+
+const QUIZ = [
+  {q:"I ___ the report already. (finish)",a:["have finished","finished"]},
+  {q:"The data ___ uploaded yesterday. (be)",a:["were","was"]},
+  {q:"She ___ at GSI since 2019. (work)",a:["has worked"]},
+  {q:"If the VPN ___, I will upload the files. (work)",a:["works"]},
+  {q:"The site ___ surveyed last month. (be — passive)",a:["was"]},
+  {q:"We ___ discussed the plan. (already)",a:["have already","already"]},
+  {q:"He said the survey ___ complete. (be — reported)",a:["was"]},
+  {q:"The reports ___ been catalogued. (have — passive)",a:["have"]},
+  {q:"I look forward ___ hearing from you. (preposition)",a:["to"]},
+  {q:"Please let me know if you ___ any questions. (have)",a:["have"]},
+  {q:"The issue ___ been resolved. (has/have)",a:["has"]},
+  {q:"They ___ to Ladakh next month. (go — future plan)",a:["are going","will go"]}
+];
+
+const WRITE_TOPICS = ["My work today","My favourite place","Why I enjoy geology","A skill I want to improve","My weekend plan","A challenge I faced","The last book I read","My biggest goal this year"];
+
+const QUOTES = [
+  {q:"If you can't explain it simply, you don't understand it well enough.",a:"Albert Einstein"},
+  {q:"The single biggest problem in communication is the illusion that it has taken place.",a:"G. B. Shaw"},
+  {q:"Speak clearly, if you speak at all; carve every word before you let it fall.",a:"O. W. Holmes"},
+  {q:"Words are, of course, the most powerful drug used by mankind.",a:"Rudyard Kipling"},
+  {q:"To be a good communicator, first be a good listener.",a:"—"},
+  {q:"Clarity is the counterbalance of profound thoughts.",a:"Vauvenargues"},
+  {q:"Practice is the hardest part of learning.",a:"—"}
+];
+
+const REFERENCE = [
+  {t:"Office English",lines:["Could you please explain?","I'll look into it.","Let me check and confirm.","I'll get back to you shortly.","Thank you for your patience."]},
+  {t:"Meeting Expressions",lines:["I agree with that.","I have a slightly different view.","Could you clarify that point?","Let's move to the next item.","Can we take that offline?"]},
+  {t:"Email Templates",lines:["Thank you for your prompt response.","Kindly verify and confirm.","Please keep us informed of any updates.","Could you please share an update?","The issue has been resolved."]},
+  {t:"Phone Conversations",lines:["May I speak to …, please?","Could you repeat that?","The connection isn't very clear.","I'll call you back in five minutes.","Thanks for calling — have a good day."]},
+  {t:"Presentation English",lines:["Good morning everyone, thank you for your time.","Today I'll walk you through …","Let's move to the next slide.","This brings us to …","Thank you for your attention — I'm happy to take questions."]},
+  {t:"GSI Vocabulary",lines:["mineral exploration","geological mapping","borehole data","field investigation","stratigraphic column","outcrop / traverse"]},
+  {t:"NGDR Vocabulary",lines:["repository / data repository","geospatial layer","metadata standard","stakeholder feedback","upload status / batch lot","legacy vs recent reports"]}
+];
+
+/* ---------- state + persistence ---------- */
+const KEY="lifeos_comm_v1";              // legacy local key, kept only for one-time migration
+const DAY=86400000;
+const EMBEDDED = window.parent !== window;  // true when running inside LifeOS's iframe
+
+const defaultState=()=>({
+  streak:{count:0,last:null},
+  mission:{date:null,done:{speak:false,word:false,grammar:false,phrase:false,writing:false,review:false}},
+  stats:{speakingSeconds:0,writingEntries:0,mistakesCorrected:0,presentations:0},
+  vocab:[],
+  mistakes:[
+    {id:1,wrong:"He don't know.",right:"He doesn't know.",cat:"Subject–Verb",fav:false},
+    {id:2,wrong:"I am agree.",right:"I agree.",cat:"Grammar",fav:false},
+    {id:3,wrong:"Discuss about the report.",right:"Discuss the report.",cat:"Preposition",fav:false}
+  ],
+  writing:[],
+  favWord:{}, favTopic:{},
+  activity:{}, // date -> tasks completed count
+  quizIndex:0, quizRight:0, quizSeen:0,
+  continueYesterday:null
+});
+let S=defaultState();
+
+/* Looks "never used" — safe to overwrite with any legacy local data found. */
+function isBlank(d){
+  return !d || ((d.vocab||[]).length===0 && (d.writing||[]).length===0 && (!d.streak || d.streak.count===0));
+}
+
+/* Ask the parent LifeOS window for the shared Communication data. Retries on
+   an interval in case the parent's script hasn't attached its listener yet
+   (the iframe can start loading before the parent's module script runs). */
+function requestFromParent(timeoutMs=4000){
+  return new Promise(resolve=>{
+    let done=false;
+    function onMsg(e){
+      if(e.source!==window.parent) return;
+      const m=e.data||{};
+      if(m.type==="lifeos:comm:init"){
+        done=true;
+        window.removeEventListener("message", onMsg);
+        clearInterval(iv);
+        resolve(m.data||null);
+      }
+    }
+    window.addEventListener("message", onMsg);
+    function ping(){ try{ window.parent.postMessage({type:"lifeos:comm:ready"}, "*"); }catch(e){} }
+    ping();
+    const iv=setInterval(()=>{ if(!done) ping(); }, 200);
+    setTimeout(()=>{
+      if(!done){ window.removeEventListener("message", onMsg); clearInterval(iv); resolve(null); }
+    }, timeoutMs);
+  });
+}
+
+/* Persistence: when embedded in LifeOS, data flows to the parent's shared
+   state (which itself saves to localStorage + Supabase, same as every other
+   module). When opened standalone (e.g. directly for testing), it falls back
+   to its own localStorage so the page still works on its own. */
+let bootLoaded=false;
+async function load(){
+  if(EMBEDDED){
+    const fromParent = await requestFromParent();
+    let legacy=null;
+    try{ const raw=localStorage.getItem(KEY); if(raw) legacy=JSON.parse(raw); }catch(e){}
+    if(legacy && isBlank(fromParent)){
+      // First run after the v0.4 migration: carry old local data up into the shared state.
+      S=Object.assign(defaultState(), legacy);
+      save();
+      try{ localStorage.removeItem(KEY); }catch(e){}
+    } else if(fromParent){
+      S=Object.assign(defaultState(), fromParent);
+    }
+  } else {
+    try{
+      const raw = localStorage.getItem(KEY);
+      if(raw) S=Object.assign(defaultState(),JSON.parse(raw));
+    }catch(e){ /* first run, or storage unavailable */ }
+  }
+  bootLoaded=true;
+}
+async function save(){
+  if(EMBEDDED){
+    try{ window.parent.postMessage({type:"lifeos:comm:save", data:S}, "*"); }catch(e){}
+  } else {
+    try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){}
+  }
+}
+
+function renderAll(){
+  renderHeader(); renderStreak(); renderMission(); renderSpeak(); renderLearn();
+  renderVocab(); renderQuiz(); renderWrite(); renderMistakes(); renderReview();
+}
+
+/* If the parent later receives fresher data (e.g. Supabase realtime picked up
+   an edit made on another device), it pushes it here; re-render live. Ignored
+   until the initial boot load has finished, so it never races the first
+   response (which load()/requestFromParent already handles). */
+if(EMBEDDED){
+  window.addEventListener("message", e=>{
+    if(!bootLoaded || e.source!==window.parent) return;
+    const m=e.data||{};
+    if(m.type==="lifeos:comm:init" && m.data){
+      S=Object.assign(defaultState(), m.data);
+      renderAll();
+    }
+  });
+}
+
+
+/* ---------- helpers ---------- */
+const $=s=>document.querySelector(s);
+const $$=s=>document.querySelectorAll(s);
+const todayStr=()=>new Date().toISOString().slice(0,10);
+const dayNum=()=>Math.floor(Date.now()/DAY);
+const pick=arr=>arr[dayNum()%arr.length];
+const norm=s=>s.trim().toLowerCase().replace(/\s+/g," ");
+function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._x);t._x=setTimeout(()=>t.classList.remove("show"),1900);}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+/* ---------- mission + streak ---------- */
+function ensureToday(){
+  const t=todayStr();
+  if(S.mission.date!==t){
+    S.mission={date:t,done:{speak:false,word:false,grammar:false,phrase:false,writing:false,review:false}};
+  }
+}
+function bumpStreak(){
+  const t=todayStr();
+  const y=new Date(Date.now()-DAY).toISOString().slice(0,10);
+  if(S.streak.last===t) return;
+  if(S.streak.last===y) S.streak.count+=1; else S.streak.count=1;
+  S.streak.last=t;
+}
+function logActivity(){
+  const t=todayStr();
+  const done=Object.values(S.mission.done).filter(Boolean).length;
+  S.activity[t]=done;
+}
+function completeMission(id){
+  if(S.mission.done[id]) return;
+  S.mission.done[id]=true;
+  bumpStreak();
+  logActivity();
+  save(); renderMission(); renderStreak(); renderAchievements(); renderReview();
+}
+
+const MISSION_META=[
+  {id:"speak",label:"Speaking Challenge",sub:"2–3 min on today's topic"},
+  {id:"word",label:"Word of the Day",sub:"learn & add one word"},
+  {id:"grammar",label:"Grammar Pattern",sub:"one pattern"},
+  {id:"phrase",label:"Phrase of the Day",sub:"a better way to say it"},
+  {id:"writing",label:"Daily Writing",sub:"~100 words"},
+  {id:"review",label:"Review Due",sub:"spaced repetition"}
+];
+
+function renderMission(){
+  const done=Object.values(S.mission.done).filter(Boolean).length;
+  const total=6;
+  $("#ringText").textContent=done+"/"+total;
+  const circ=2*Math.PI*58;
+  $("#ringFill").style.strokeDashoffset=circ*(1-done/total);
+  $("#ringNote").textContent = done===0?"Let's begin":done===total?"All done — great work! 🎉":(total-done)+" to go";
+  const box=$("#missionList"); box.innerHTML="";
+  MISSION_META.forEach(m=>{
+    const d=S.mission.done[m.id];
+    const el=document.createElement("div");
+    el.className="m-item"+(d?" done":"");
+    el.innerHTML=`<div class="m-check">${d?"✓":""}</div><div><div class="m-txt">${m.label}</div><div class="m-sub">${m.sub}</div></div>`;
+    el.onclick=()=>{ if(!d){ completeMission(m.id); if(m.id==="review"){switchTab("review");} else if(m.id==="writing"){switchTab("practice");} else if(m.id==="grammar"||m.id==="phrase"||m.id==="word"){switchTab("learn");} } };
+    box.appendChild(el);
+  });
+  renderContinue();
+}
+function renderContinue(){
+  const c=$("#continueBox");
+  if(S.continueYesterday && S.continueYesterday.date!==todayStr()){
+    const cy=S.continueYesterday;
+    c.innerHTML=`<div class="cont"><div><div class="t">Continue from last session</div>
+      <div class="d">${esc(cy.topic)} · you spoke ${fmtTime(cy.sec)}</div></div>
+      <button class="btn ghost small" id="contBtn">Pick up →</button></div>`;
+    $("#contBtn").onclick=()=>{ switchTab("speak"); };
+  } else c.innerHTML="";
+}
+function renderStreak(){ $("#streakBadge").textContent="🔥 "+S.streak.count+"-day streak"; }
+
+/* ---------- SPEAK ---------- */
+let tSec=0,tRun=false,tInt=null;
+function fmtTime(s){const m=Math.floor(s/60),ss=s%60;return String(m).padStart(2,"0")+":"+String(ss).padStart(2,"0");}
+function renderSpeak(){
+  const top=pick(TOPICS);
+  $("#speakTopic").textContent=top.t;
+  $("#speakTargets").innerHTML=top.w.map(w=>`<span class="chip">${w}</span>`).join("");
+  const fk="s"+dayNum();
+  $("#speakFav").classList.toggle("on",!!S.favTopic[fk]);
+  $("#speakFav").onclick=()=>{S.favTopic[fk]=!S.favTopic[fk];$("#speakFav").classList.toggle("on",S.favTopic[fk]);save();};
+}
+function tickTimer(){ tSec++; $("#timer").textContent=fmtTime(tSec); }
+$("#timerBtn").onclick=function(){
+  tRun=!tRun;
+  if(tRun){ tInt=setInterval(tickTimer,1000); this.textContent="Pause"; this.classList.remove("primary");this.classList.add("ghost"); }
+  else { clearInterval(tInt); this.textContent="Resume"; this.classList.add("primary");this.classList.remove("ghost"); }
+};
+$("#timerReset").onclick=()=>{clearInterval(tInt);tRun=false;tSec=0;$("#timer").textContent="00:00";$("#timerBtn").textContent="Start speaking";$("#timerBtn").classList.add("primary");$("#timerBtn").classList.remove("ghost");};
+let confVal=0;
+$("#confRow").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;confVal=+b.dataset.c;$$("#confRow button").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");});
+$("#speakDone").onclick=()=>{
+  clearInterval(tInt);tRun=false;
+  if(tSec>0){ S.stats.speakingSeconds+=tSec; }
+  S.continueYesterday={date:todayStr(),topic:pick(TOPICS).t,sec:tSec};
+  completeMission("speak");
+  toast(tSec>0?("Nice — "+fmtTime(tSec)+" of speaking logged"):"Speaking marked complete");
+  tSec=0;$("#timer").textContent="00:00";$("#timerBtn").textContent="Start speaking";$("#timerBtn").classList.add("primary");$("#timerBtn").classList.remove("ghost");
+  save();
+};
+
+/* ---------- LEARN ---------- */
+function renderLearn(){
+  const wd=pick(WORDS);
+  $("#wotdWord").textContent=wd.w;
+  $("#wotdMeta").innerHTML=`<span class="pill">${wd.p}</span><span class="pill lvl">CEFR ${wd.l}</span>`;
+  $("#wotdMeaning").textContent=wd.m;
+  $("#wotdSyn").innerHTML=wd.s.map(x=>`<span class="chip">${x}</span>`).join("");
+  $("#wotdColl").innerHTML=wd.c.map(x=>`<span class="tag">${x}</span>`).join("");
+  $("#wotdEx").textContent="“"+wd.e+"”";
+  const fk="w"+dayNum();
+  $("#wotdFav").classList.toggle("on",!!S.favWord[fk]);
+  $("#wotdFav").onclick=()=>{S.favWord[fk]=!S.favWord[fk];$("#wotdFav").classList.toggle("on",S.favWord[fk]);save();};
+  $("#wotdAdd").onclick=()=>{
+    if(S.vocab.some(v=>norm(v.word)===norm(wd.w))){toast(wd.w+" is already in your vocabulary");}
+    else{ addVocab({word:wd.w,meaning:wd.m,pos:wd.p,cefr:wd.l,syn:wd.s,coll:wd.c,example:wd.e,tags:["word of the day"]}); toast("Added “"+wd.w+"” to your vocabulary"); }
+    completeMission("word");
+  };
+
+  const ph=pick(PHRASES);
+  $("#phraseWeak").textContent="“"+ph.weak+"”";
+  $("#phraseStrong").textContent="“"+ph.strong+"”";
+  $("#phraseEx").textContent="“"+ph.e+"”";
+
+  const gr=pick(GRAMMAR);
+  $("#grammarName").textContent=gr.n;
+  $("#grammarPattern").textContent=gr.p;
+  $("#grammarEx").innerHTML=gr.ex.map(x=>"• "+esc(x)).join("<br>");
+  $("#grammarDone").onclick=()=>{completeMission("grammar");toast("Grammar pattern marked learned");};
+}
+
+/* ---------- PRACTICE : vocab ---------- */
+const INTERVALS=[1,3,7,30,90];
+function addVocab(o){
+  const id=Date.now()+Math.floor(Math.random()*1000);
+  S.vocab.unshift({id,word:o.word,meaning:o.meaning||"",pos:o.pos||"",cefr:o.cefr||"",
+    syn:o.syn||[],coll:o.coll||[],example:o.example||"",tags:o.tags||[],fav:false,learned:false,
+    box:0,due:todayStr(),added:todayStr()});
+  save(); renderVocab(); renderReview();
+}
+$("#vAdd").onclick=()=>{
+  const w=$("#vWord").value.trim(); if(!w){toast("Type a word first");return;}
+  const tags=$("#vTags").value.split(",").map(x=>x.trim()).filter(Boolean);
+  addVocab({word:w,meaning:$("#vMean").value.trim(),tags});
+  $("#vWord").value="";$("#vMean").value="";$("#vTags").value="";
+  toast("“"+w+"” added");
+};
+$("#vocabSearch").addEventListener("input",renderVocab);
+function renderVocab(){
+  const q=norm($("#vocabSearch").value||"");
+  $("#vocabCount").textContent=S.vocab.length+" word"+(S.vocab.length===1?"":"s");
+  const list=S.vocab.filter(v=> !q || norm(v.word).includes(q) || norm(v.meaning).includes(q) || v.tags.some(t=>norm(t).includes(q)));
+  const box=$("#vocabList");
+  if(!list.length){box.innerHTML=`<div class="empty">${S.vocab.length?"No matches.":"No words yet — add one, or grab the Word of the Day."}</div>`;return;}
+  box.innerHTML=list.slice(0,60).map(v=>`
+    <div class="rowitem">
+      <div class="top">
+        <div><span class="w">${esc(v.word)}</span> ${v.pos?`<span class="muted" style="font-size:12px">· ${esc(v.pos)}</span>`:""}
+          ${v.meaning?`<div class="m">${esc(v.meaning)}</div>`:""}
+          ${v.tags.length?`<div class="chips" style="margin-top:6px">${v.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join("")}</div>`:""}
+        </div>
+        <div style="display:flex;gap:6px;align-items:center">
+          <button class="fav ${v.fav?"on":""}" data-fav="${v.id}" title="Favourite">★</button>
+          <button class="del" data-del="${v.id}">remove</button>
+        </div>
+      </div>
+    </div>`).join("");
+  box.querySelectorAll("[data-fav]").forEach(b=>b.onclick=()=>{const it=S.vocab.find(x=>x.id==b.dataset.fav);it.fav=!it.fav;save();renderVocab();});
+  box.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{S.vocab=S.vocab.filter(x=>x.id!=b.dataset.del);save();renderVocab();renderReview();});
+}
+
+/* ---------- PRACTICE : quiz ---------- */
+function renderQuiz(){
+  const item=QUIZ[S.quizIndex%QUIZ.length];
+  $("#quizQ").innerHTML=esc(item.q).replace("___",'<span class="blank">&nbsp;</span>');
+  $("#quizInput").value="";$("#quizFb").textContent="";
+  $("#quizScore").textContent = S.quizSeen?("Score "+S.quizRight+"/"+S.quizSeen):"Fill in the blank";
+}
+function nextQuiz(){S.quizIndex=(S.quizIndex+1)%QUIZ.length;save();renderQuiz();}
+$("#quizNext").onclick=nextQuiz;
+$("#quizCheck").onclick=()=>{
+  const item=QUIZ[S.quizIndex%QUIZ.length];
+  const ans=norm($("#quizInput").value);
+  if(!ans){toast("Type your answer");return;}
+  S.quizSeen++;
+  const ok=item.a.some(a=>norm(a)===ans);
+  if(ok){S.quizRight++;$("#quizFb").innerHTML='<span class="good">✓ Correct!</span>';}
+  else{$("#quizFb").innerHTML='<span style="color:var(--rose)">✗ Answer: <b>'+esc(item.a[0])+'</b></span>';}
+  save();$("#quizScore").textContent="Score "+S.quizRight+"/"+S.quizSeen;
+  setTimeout(nextQuiz,1300);
+};
+$("#quizInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("#quizCheck").click();});
+
+/* ---------- PRACTICE : writing ---------- */
+function renderWrite(){ $("#writeTopic").textContent="Today's topic: "+pick(WRITE_TOPICS); }
+$("#writeArea").addEventListener("input",()=>{
+  const n=$("#writeArea").value.trim().split(/\s+/).filter(Boolean).length;
+  $("#wcNum").textContent=$("#writeArea").value.trim()?n:0;
+});
+$("#writeSave").onclick=()=>{
+  const txt=$("#writeArea").value.trim(); if(!txt){toast("Write something first");return;}
+  const words=txt.split(/\s+/).filter(Boolean).length;
+  S.writing.unshift({date:todayStr(),topic:pick(WRITE_TOPICS),words,text:txt});
+  S.stats.writingEntries++; completeMission("writing");
+  $("#writeArea").value="";$("#wcNum").textContent="0";
+  toast("Saved — "+words+" words"); save(); renderReview();
+};
+
+/* ---------- PRACTICE : mistakes ---------- */
+$("#mAdd").onclick=()=>{
+  const wrong=$("#mWrong").value.trim(),right=$("#mRight").value.trim();
+  if(!wrong||!right){toast("Fill in both versions");return;}
+  S.mistakes.unshift({id:Date.now(),wrong,right,cat:$("#mCat").value,fav:false});
+  S.stats.mistakesCorrected++;
+  $("#mWrong").value="";$("#mRight").value="";
+  save();renderMistakes();renderReview();toast("Logged — you'll remember it now");
+};
+$("#mistakeSearch").addEventListener("input",renderMistakes);
+function renderMistakes(){
+  const q=norm($("#mistakeSearch").value||"");
+  $("#mistakeCount").textContent=S.mistakes.length+" logged";
+  const list=S.mistakes.filter(m=> !q || norm(m.wrong).includes(q) || norm(m.right).includes(q) || norm(m.cat).includes(q));
+  const box=$("#mistakeList");
+  if(!list.length){box.innerHTML=`<div class="empty">${S.mistakes.length?"No matches.":"No mistakes logged yet."}</div>`;return;}
+  box.innerHTML=list.map(m=>`
+    <div class="rowitem mistake">
+      <div class="top">
+        <div><span class="wrong">${esc(m.wrong)}</span> &nbsp;→&nbsp; <span class="right">${esc(m.right)}</span>
+          <div style="margin-top:5px"><span class="tag">${esc(m.cat)}</span></div></div>
+        <button class="del" data-del="${m.id}">remove</button>
+      </div>
+    </div>`).join("");
+  box.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{S.mistakes=S.mistakes.filter(x=>x.id!=b.dataset.del);save();renderMistakes();});
+}
+
+/* ---------- REVIEW ---------- */
+function dueVocab(){const t=todayStr();return S.vocab.filter(v=>v.due<=t);}
+function renderReview(){
+  const spMin=Math.round(S.stats.speakingSeconds/60);
+  const stats=[
+    {n:spMin,l:"Speaking minutes"},
+    {n:S.vocab.length,l:"Vocabulary words"},
+    {n:S.stats.writingEntries,l:"Writing entries"},
+    {n:S.stats.mistakesCorrected,l:"Mistakes corrected"},
+    {n:S.streak.count,l:"Day streak"},
+    {n:S.vocab.filter(v=>v.fav).length,l:"Favourites"}
+  ];
+  $("#statGrid").innerHTML=stats.map(s=>`<div class="stat"><div class="n">${s.n}</div><div class="l">${s.l}</div></div>`).join("");
+
+  const due=dueVocab();
+  $("#dueCap").textContent=due.length?due.length+" word"+(due.length===1?"":"s")+" due today":"Nothing due — you're caught up";
+  const ra=$("#reviewArea");
+  if(!due.length){ ra.innerHTML=`<div class="empty">${S.vocab.length?"All reviewed. New words become due over the next days.":"Add words to start reviewing."}</div>`; }
+  else{
+    const v=due[0];
+    ra.innerHTML=`
+      <div class="rowitem" style="text-align:center;padding:22px">
+        <div style="font-family:var(--serif);font-size:26px;font-weight:600">${esc(v.word)}</div>
+        <details style="margin-top:8px"><summary class="muted" style="cursor:pointer;font-size:13px">show meaning</summary>
+          <div class="m" style="margin-top:8px">${esc(v.meaning||"—")}</div></details>
+      </div>
+      <div class="row" style="margin-top:12px;justify-content:center">
+        <button class="btn ghost small" id="rvAgain">Again</button>
+        <button class="btn primary small" id="rvGood">Good · +${INTERVALS[Math.min(v.box,INTERVALS.length-1)]}d</button>
+      </div>
+      <div class="muted" style="text-align:center;font-size:12.5px;margin-top:8px">${due.length-1} more after this</div>`;
+    $("#rvAgain").onclick=()=>grade(v,false);
+    $("#rvGood").onclick=()=>grade(v,true);
+  }
+
+  const wb=$("#weekBar");wb.innerHTML="";
+  const labels=["S","M","T","W","T","F","S"];
+  const days=[];
+  for(let i=6;i>=0;i--){const d=new Date(Date.now()-i*DAY);days.push(d);}
+  const max=Math.max(6,...days.map(d=>S.activity[d.toISOString().slice(0,10)]||0));
+  days.forEach(d=>{
+    const k=d.toISOString().slice(0,10);const val=S.activity[k]||0;
+    const h=Math.max(6,Math.round(val/max*90));
+    wb.innerHTML+=`<div class="day"><div class="bar ${val>=4?"hot":""}" style="height:${h}px" title="${val} tasks"></div><div class="dl">${labels[d.getDay()]}</div></div>`;
+  });
+
+  renderAchievements();
+}
+function grade(v,good){
+  const it=S.vocab.find(x=>x.id===v.id);
+  if(good){ it.box=Math.min(it.box+1,INTERVALS.length-1); if(it.box>=2)it.learned=true; const add=INTERVALS[it.box]; it.due=new Date(Date.now()+add*DAY).toISOString().slice(0,10); }
+  else { it.box=0; it.due=todayStr(); }
+  if(dueVocab().length===0) completeMission("review");
+  save(); renderReview();
+}
+function renderAchievements(){
+  const A=[
+    {ic:"🎤",t:"First Speech",on:S.stats.speakingSeconds>0,s:"Speak once"},
+    {ic:"📚",t:"25 Words",on:S.vocab.length>=25,s:S.vocab.length+"/25"},
+    {ic:"💯",t:"100 Words",on:S.vocab.length>=100,s:S.vocab.length+"/100"},
+    {ic:"🔥",t:"7-Day Streak",on:S.streak.count>=7,s:S.streak.count+"/7 days"},
+    {ic:"✍️",t:"10 Entries",on:S.writing.length>=10,s:S.writing.length+"/10"},
+    {ic:"🏆",t:"30-Day Streak",on:S.streak.count>=30,s:S.streak.count+"/30 days"}
+  ];
+  $("#achGrid").innerHTML=A.map(a=>`<div class="ach ${a.on?"on":""}"><div class="ic">${a.ic}</div><div class="t">${a.t}</div><div class="s">${a.on?"Unlocked":a.s}</div></div>`).join("");
+}
+
+/* ---------- REFERENCE ---------- */
+function renderReference(){
+  $("#refAcc").innerHTML=REFERENCE.map((r,i)=>`
+    <details class="acc" ${i===0?"open":""}>
+      <summary>${esc(r.t)} <span class="arw">▶</span></summary>
+      <div class="body">${r.lines.map(l=>`<div class="ref-line">${esc(l)}</div>`).join("")}</div>
+    </details>`).join("");
+}
+
+/* ---------- quote + header ---------- */
+function renderHeader(){
+  const q=pick(QUOTES);
+  $("#quoteBox").innerHTML=`“${esc(q.q)}”<small>${esc(q.a)}</small>`;
+  const d=new Date();
+  $("#dateLine").textContent=d.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"});
+}
+
+/* ---------- tabs ---------- */
+function switchTab(v){
+  $$(".tab").forEach(t=>t.classList.toggle("active",t.dataset.view===v));
+  $$(".view").forEach(s=>s.classList.toggle("active",s.dataset.view===v));
+}
+$("#tabs").addEventListener("click",e=>{const b=e.target.closest(".tab");if(b)switchTab(b.dataset.view);});
+
+/* ---------- boot ---------- */
+(async function(){
+  await load();
+  ensureToday();
+  logActivity();
+  renderAll();
+  renderReference();
+  save();
+})();
+</script>
+</body>
+</html>
