@@ -40,9 +40,26 @@ export const DEFAULT_STATE = {
   meditation: {},            // { "2026-07-19": minutes }
   journal: {},               // { "2026-07-19": "text" }
   sections: {
-    communication: { notes: "", links: [] }, finance: { notes: "", links: [] },
+    finance: { notes: "", links: [] },
     health: { notes: "", links: [] }, travel: { notes: "", links: [] },
     reference: { notes: "", links: [] }, work: { notes: "", links: [] }
+  },
+  /* Communication is now a dedicated workspace (like gsi), not a generic section. */
+  communication: {
+    templates: [
+      { id: "ct1", title: "Acknowledgement", category: "General",
+        body: "Dear Sir/Madam,\n\nThis is to acknowledge receipt of your communication dated ____ regarding ____. The matter is under examination and a response will follow.\n\nRegards,\nSuman Das", tags: ["ack"] },
+      { id: "ct2", title: "Reminder", category: "Follow-up",
+        body: "Dear ____,\n\nThis is a gentle reminder regarding ____ (ref: ____) sent on ____. I would be grateful for an update at your earliest convenience.\n\nRegards,\nSuman Das", tags: ["reminder"] },
+      { id: "ct3", title: "Meeting request", category: "Meeting",
+        body: "Dear ____,\n\nI would like to request a meeting to discuss ____. Kindly let me know a convenient date and time.\n\nRegards,\nSuman Das", tags: ["meeting"] }
+    ],
+    drafts: [],              // [{id, subject, to, body, updated}]
+    followUps: [],           // [{id, title, person, due, status, notes}]
+    links: [
+      { id: "cl1", title: "Gmail", url: "https://mail.google.com" },
+      { id: "cl2", title: "GSI portal", url: "https://www.gsi.gov.in" }
+    ]
   },
   gsi: {
     ngdr: [
@@ -59,9 +76,9 @@ export const DEFAULT_STATE = {
   updatedAt: 0
 };
 
-/* Section pages generated generically (Work has its own GSI page). */
+/* Section pages generated generically. Communication + Work have dedicated pages. */
 export const SECTION_META = {
-  communication: "Communication", finance: "Finance", health: "Health",
+  finance: "Finance", health: "Health",
   travel: "Travel Plan", reference: "Reference"
 };
 
@@ -84,6 +101,28 @@ function merge(saved) {
   /* deep-default the containers that older versions may lack */
   s.sections = Object.assign(structuredClone(DEFAULT_STATE.sections), saved.sections || {});
   s.gsi = Object.assign(structuredClone(DEFAULT_STATE.gsi), saved.gsi || {});
+  s.communication = Object.assign(structuredClone(DEFAULT_STATE.communication), saved.communication || {});
+
+  /* One-time migration: the old generic Communication page stored data at
+     sections.communication. Fold it into the new dedicated workspace, once.
+     NOTE: uid() isn't defined yet at load()-time (TDZ), so ids are inlined here. */
+  const oldComm = saved.sections && saved.sections.communication;
+  if (oldComm && (oldComm.notes || (oldComm.links && oldComm.links.length))) {
+    const mid = () => "mig" + Math.random().toString(36).slice(2, 8);
+    if (oldComm.notes && oldComm.notes.trim()) {
+      s.communication.drafts.unshift({
+        id: mid(), subject: "Imported from old Communication notes",
+        to: "", body: oldComm.notes, updated: Date.now()
+      });
+    }
+    if (oldComm.links && oldComm.links.length) {
+      const have = new Set(s.communication.links.map(l => l.url));
+      oldComm.links.forEach(l => {
+        if (!have.has(l.url)) s.communication.links.push({ id: mid(), title: l.title, url: l.url });
+      });
+    }
+    delete s.sections.communication;   /* clear source so it never re-migrates */
+  }
   return s;
 }
 
