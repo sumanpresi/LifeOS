@@ -15,10 +15,18 @@ js/goals.js         — goal progress
 js/habits.js        — habit tracker, streaks, weekly view, donut
 js/widgets.js       — links, news, quotes, meditation, Day Of + journal
 js/sections.js      — generic life spaces (Communication, Finance, …)
-js/gsi.js           — GSI workspace (NGDR tracker, work log, meetings)
-js/search.js        — universal search (Ctrl/Cmd + K)
-js/supabase.js      — GitHub auth, database sync, realtime
-js/app.js           — boot / wiring
+js/gsi.js                   — GSI workspace (NGDR tracker, work log, meetings)
+js/search.js                — universal search (Ctrl/Cmd + K)
+js/supabase.js               — GitHub auth, database sync, realtime
+js/communication-bridge.js  — postMessage bridge: routes Communication's data
+                               through shared state + Supabase while its UI
+                               stays isolated in its own iframe (see below)
+js/app.js                   — boot / wiring
+pages/communication.html    — Communication module: own CSS/JS/DOM (avoids
+                               id/class clashes with the rest of LifeOS), but
+                               its data flows through the bridge above, so it
+                               saves locally + syncs via Supabase like every
+                               other module, and shows up in universal search
 supabase-setup.sql  — run once in Supabase SQL Editor
 ```
 
