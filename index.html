@@ -229,6 +229,11 @@
     </section>
 
 
+    <!-- ======== PAGE: COMMUNICATION ======== -->
+    <section class="page" id="page-communication">
+      <iframe src="pages/communication.html" class="iframe-page" title="Communication — daily English training"></iframe>
+    </section>
+
     <!-- ======== PAGE: WORK / GSI ======== -->
     <section class="page" id="page-work">
       <h1 class="display" style="font-size:28px;margin-bottom:14px">GSI Workspace</h1>
@@ -281,58 +286,6 @@
         <div class="card-head"><h2>Notes</h2></div>
         <div class="card-body">
           <textarea class="notes-area" id="notes-work" placeholder="Reference notes, circular summaries, anything work…" oninput="saveSectionNotes('work',this.value)"></textarea>
-        </div>
-      </div>
-    </section>
-
-    <!-- ======== PAGE: COMMUNICATION ======== -->
-    <!-- Dedicated workspace (mirrors Work/GSI). Rendered by js/communication.js.
-         Must stay OUTSIDE #sectionPages and keep id="page-communication" so the
-         existing sidebar nav item (data-page="communication") drives it. -->
-    <section class="page" id="page-communication">
-      <h1 class="display" style="font-size:28px;margin-bottom:6px">Communication</h1>
-      <p class="hint" id="commStats" style="margin-bottom:16px"></p>
-
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-head"><h2>Email templates</h2></div>
-          <div class="card-body">
-            <div id="templateList"></div>
-            <div class="add-inline">
-              <input type="text" id="newTemplateTitle" placeholder="Template title" onkeydown="if(event.key==='Enter')addTemplate()">
-              <input type="text" id="newTemplateCat" placeholder="Category" style="max-width:140px">
-              <button class="btn btn-ghost" onclick="addTemplate()">Add</button>
-            </div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-head"><h2>Draft pad</h2>
-            <button class="btn btn-ghost" style="padding:6px 12px" onclick="addDraft()">New draft</button></div>
-          <div class="card-body" id="draftList"></div>
-        </div>
-      </div>
-
-      <div class="grid-2" style="margin-top:16px">
-        <div class="card">
-          <div class="card-head"><h2>Follow-ups</h2></div>
-          <div class="card-body">
-            <div id="followUpList"></div>
-            <div class="add-inline">
-              <input type="text" id="newFollowUp" placeholder="Who / what are you waiting on?" onkeydown="if(event.key==='Enter')addFollowUp()">
-              <button class="btn btn-ghost" onclick="addFollowUp()">Add</button>
-            </div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-head"><h2>Links</h2></div>
-          <div class="card-body">
-            <div class="link-grid" id="commLinks" style="grid-template-columns:1fr"></div>
-            <div class="add-inline">
-              <input type="text" id="commLinkTitle" placeholder="Title">
-              <input type="text" id="commLinkUrl" placeholder="https://…">
-              <button class="btn btn-ghost" onclick="addCommLink()">Add</button>
-            </div>
-          </div>
         </div>
       </div>
     </section>
