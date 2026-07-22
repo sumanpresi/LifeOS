@@ -202,6 +202,38 @@
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
   :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+  /* ---------- Grammar Book ---------- */
+  .gb-view{display:none}
+  .gb-view.active{display:block}
+  .gb-part-label{font-family:var(--serif);font-weight:600;font-size:16px;margin:18px 0 8px;color:var(--accent-ink)}
+  .gb-part-label:first-child{margin-top:0}
+  .gb-chapter{border:1px solid var(--line);border-radius:12px;margin-bottom:8px;overflow:hidden;background:#fff}
+  .gb-chapter summary{list-style:none;cursor:pointer;padding:11px 14px;font-weight:600;font-size:14px;
+    display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .gb-chapter summary::-webkit-details-marker{display:none}
+  .gb-chapter summary .gb-count{font-weight:500;color:var(--muted);font-size:12px;flex-shrink:0}
+  .gb-chapter .gb-arw{color:var(--muted);font-size:11px;transition:.2s;flex-shrink:0}
+  .gb-chapter[open] .gb-arw{transform:rotate(90deg)}
+  .gb-topic{padding:10px 14px 10px 22px;border-top:1px solid var(--line)}
+  .gb-topic-title{font-weight:600;font-size:13.5px;margin-bottom:5px;color:var(--ink-soft, var(--ink))}
+  .gb-block-p{font-size:13.5px;color:var(--ink-soft, #4A4660);line-height:1.55;margin:4px 0}
+  .gb-block-list{font-size:13.5px;color:var(--ink-soft, #4A4660);line-height:1.55;margin:4px 0;padding-left:18px}
+  .gb-block-table{width:100%;border-collapse:collapse;font-size:13px;margin:6px 0}
+  .gb-block-table td{border:1px solid var(--line);padding:4px 8px}
+  .gb-hidden{display:none !important}
+  .gb-empty{color:var(--muted);font-size:13.5px;padding:16px 4px}
+  .pv-group{border:1px solid var(--line);border-radius:12px;margin-bottom:8px;overflow:hidden;background:#fff}
+  .pv-group summary{list-style:none;cursor:pointer;padding:11px 14px;font-weight:700;font-size:14px;
+    text-transform:capitalize;display:flex;justify-content:space-between;align-items:center}
+  .pv-group summary::-webkit-details-marker{display:none}
+  .pv-item{padding:9px 14px;border-top:1px solid var(--line)}
+  .pv-phrase{font-weight:700;font-size:13.5px}
+  .pv-meaning{color:var(--accent-ink,#4338CA);font-size:13px;margin-top:2px}
+  .pv-example{font-style:italic;color:var(--muted);font-size:12.5px;margin-top:2px}
+  .sa-topic{border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px}
+  .sa-concept{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+  .sa-concept:first-child{margin-top:0;padding-top:0;border-top:none}
 </style>
 </head>
 <body>
@@ -247,6 +279,7 @@
     <button class="tab" data-view="practice">Practice</button>
     <button class="tab" data-view="review">Review</button>
     <button class="tab" data-view="reference">Reference</button>
+    <button class="tab" data-view="grammarbook">Grammar Book</button>
   </div>
 
   <section class="view active" data-view="speak">
@@ -447,596 +480,41 @@
     </div>
   </section>
 
+  <section class="view" data-view="grammarbook">
+    <div class="card">
+      <div class="flex-between">
+        <div><h2>Grammar Book</h2><p class="cap" style="margin-bottom:0">Wren &amp; Martin — the complete 43-chapter Book I, plus quick-reference chapters, phrasal verbs &amp; sentence analysis</p></div>
+      </div>
+      <input type="text" class="search" id="gbSearch" style="max-width:100%;margin-top:12px" placeholder="Search chapters, topics, phrasal verbs…" />
+    </div>
+
+    <div class="tabs" id="gbSubTabs" style="margin:16px 0">
+      <button class="tab active" data-gbview="chapters">Quick Chapters</button>
+      <button class="tab" data-gbview="book1">Book I — Complete Text</button>
+      <button class="tab" data-gbview="phrasal">Phrasal Verbs &amp; Idioms</button>
+      <button class="tab" data-gbview="sentence">Sentence Analysis</button>
+    </div>
+
+    <div class="gb-view active" data-gbview="chapters">
+      <div class="card"><div id="gbChapters"></div></div>
+    </div>
+    <div class="gb-view" data-gbview="book1">
+      <div class="card">
+        <p class="cap">The complete official text — all 43 chapters of Wren &amp; Martin Book I, straight from the book.</p>
+        <div id="gbBook1"></div>
+      </div>
+    </div>
+    <div class="gb-view" data-gbview="phrasal">
+      <div class="card">
+        <p class="cap">167 phrasal verbs grouped by base verb — tap a group to expand.</p>
+        <div id="gbPhrasal"></div>
+      </div>
+    </div>
+    <div class="gb-view" data-gbview="sentence">
+      <div class="card"><div id="gbSentence"></div></div>
+    </div>
+  </section>
+
 </div>
 <div class="toast" id="toast"></div>
-
-<script>
-"use strict";
-
-/* ---------- content banks (GSI / geology flavoured) ---------- */
-const TOPICS = [
-  {t:"Explain NGDR to a college student in simple terms.", w:["repository","geospatial","metadata","stakeholder"]},
-  {t:"Describe a geological survey you took part in.", w:["fieldwork","outcrop","sample","traverse"]},
-  {t:"Why does geospatial data matter for mineral exploration?", w:["exploration","dataset","overlay","prospect"]},
-  {t:"Walk through your last DG-level presentation.", w:["overview","milestone","dashboard","summary"]},
-  {t:"Explain remote sensing to someone new to it.", w:["satellite","imagery","spectral","resolution"]},
-  {t:"Describe the PM GatiShakti initiative and your role in it.", w:["infrastructure","integration","portal","coordinate"]},
-  {t:"Talk about why you enjoy street photography.", w:["composition","candid","frame","moment"]},
-  {t:"Describe a challenge you solved at work this week.", w:["obstacle","approach","resolve","outcome"]},
-  {t:"Explain what a stratigraphic column shows.", w:["layer","sequence","deposition","formation"]},
-  {t:"How does Bhukosh help the public access geoscience data?", w:["access","query","download","layer"]},
-  {t:"Describe your ideal trip to Ladakh or Iceland.", w:["itinerary","landscape","altitude","glacier"]},
-  {t:"Explain the difference between legacy and recent report uploads.", w:["legacy","batch","validate","catalogue"]},
-  {t:"Describe how you organise your work using Obsidian.", w:["vault","note","link","structure"]},
-  {t:"Talk about a book that changed how you work.", w:["habit","insight","routine","apply"]},
-  {t:"Explain UAT testing to a non-technical colleague.", w:["staging","scenario","verify","feedback"]}
-];
-
-const WORDS = [
-  {w:"repository",p:"noun",l:"B2",m:"A central place where data or files are stored and managed.",s:["archive","store","database"],c:["central repository","data repository","upload to the repository"],e:"All exploration reports are uploaded to the NGDR repository."},
-  {w:"geospatial",p:"adjective",l:"C1",m:"Relating to data that is linked to a location on the Earth's surface.",s:["locational","spatial","mapped"],c:["geospatial data","geospatial layer","geospatial analysis"],e:"The portal combines several geospatial layers on one map."},
-  {w:"stakeholder",p:"noun",l:"B2",m:"A person or group with an interest in a project's outcome.",s:["party","participant","contributor"],c:["key stakeholder","stakeholder feedback","engage stakeholders"],e:"We shared the draft with every stakeholder before the review."},
-  {w:"mineralisation",p:"noun",l:"C1",m:"The process by which minerals form within rock.",s:["deposition","enrichment","formation"],c:["gold mineralisation","zone of mineralisation","mineralisation event"],e:"The report describes strong mineralisation along the fault."},
-  {w:"metadata",p:"noun",l:"B2",m:"Information that describes other data, such as its source or date.",s:["descriptor","tags","attributes"],c:["metadata standard","attach metadata","metadata field"],e:"Each file was tagged with complete metadata before upload."},
-  {w:"delineate",p:"verb",l:"C1",m:"To describe or mark the exact boundaries of something.",s:["outline","define","demarcate"],c:["delineate a boundary","delineate the zone","clearly delineate"],e:"The survey helped delineate the mineralised zone."},
-  {w:"calibrate",p:"verb",l:"C1",m:"To adjust an instrument or model so its readings are accurate.",s:["adjust","fine-tune","standardise"],c:["calibrate the instrument","calibrate a model","carefully calibrate"],e:"We calibrated the sensor before the field campaign."},
-  {w:"aggregate",p:"verb",l:"C1",m:"To collect separate items into a single total or group.",s:["combine","consolidate","gather"],c:["aggregate the data","aggregated results","aggregate across lots"],e:"The dashboard aggregates upload counts across all batches."},
-  {w:"reconcile",p:"verb",l:"C1",m:"To make two sets of records agree with each other.",s:["match","align","balance"],c:["reconcile records","reconcile the figures","reconcile differences"],e:"I reconciled the GSI and BISAG-N record counts."},
-  {w:"articulate",p:"verb",l:"C1",m:"To express an idea clearly and in a well-organised way.",s:["express","convey","phrase"],c:["articulate a point","clearly articulate","articulate the vision"],e:"She articulated the project goals in one slide."},
-  {w:"mitigate",p:"verb",l:"C1",m:"To make something bad less severe.",s:["reduce","lessen","ease"],c:["mitigate risk","mitigate the impact","help mitigate"],e:"A backup server mitigates the risk of data loss."},
-  {w:"streamline",p:"verb",l:"B2",m:"To make a process simpler and more efficient.",s:["simplify","optimise","refine"],c:["streamline the workflow","streamline a process","streamline reporting"],e:"The new template streamlined our monthly reporting."},
-  {w:"prioritise",p:"verb",l:"B2",m:"To decide which tasks are most important and do them first.",s:["rank","order","focus"],c:["prioritise tasks","prioritise the backlog","prioritise accordingly"],e:"We prioritised the legacy reports for this quarter."},
-  {w:"corroborate",p:"verb",l:"C1",m:"To support a statement with additional evidence.",s:["confirm","verify","back up"],c:["corroborate the findings","corroborate a claim","evidence corroborates"],e:"Field samples corroborated the satellite reading."},
-  {w:"provenance",p:"noun",l:"C1",m:"The origin or source of something, and its history.",s:["origin","source","lineage"],c:["data provenance","establish provenance","provenance of the sample"],e:"We recorded the provenance of every dataset."}
-];
-
-const PHRASES = [
-  {weak:"I think…",strong:"As far as I know…",e:"As far as I know, the portal update goes live on Friday."},
-  {weak:"Maybe…",strong:"It's possible that…",e:"It's possible that the delay was caused by the VPN."},
-  {weak:"Very good.",strong:"That's excellent — well done.",e:"That's excellent work on the dashboard, well done."},
-  {weak:"I don't know.",strong:"Let me look into it and get back to you.",e:"Let me look into it and get back to you by tomorrow."},
-  {weak:"Say again?",strong:"Could you clarify that point?",e:"Could you clarify that point about the metadata?"},
-  {weak:"Next slide.",strong:"That brings us to the next point.",e:"That brings us to the next point — the upload trend."},
-  {weak:"It's not my fault.",strong:"Let's focus on how we can resolve it.",e:"Let's focus on how we can resolve it quickly."},
-  {weak:"Ok ok.",strong:"Understood — I'll take care of it.",e:"Understood, I'll take care of it this afternoon."}
-];
-
-const GRAMMAR = [
-  {n:"Present Perfect",p:"have / has + past participle",ex:["I have completed the report.","She has sent the email.","We have uploaded all the lots."]},
-  {n:"Passive Voice",p:"be + past participle",ex:["The report has been approved.","The data were uploaded yesterday.","The site was surveyed last month."]},
-  {n:"Present Simple",p:"subject + base verb (+s)",ex:["I work at GSI.","The portal syncs every night.","She leads the mapping team."]},
-  {n:"First Conditional",p:"If + present, will + base verb",ex:["If the VPN works, I will upload the files.","If we finish early, we will start Milestone 4.","If it rains, the fieldwork will be postponed."]},
-  {n:"Reported Speech",p:"said (that) + shifted tense",ex:["He said the survey was complete.","She told me the data had been checked.","They said they would send it soon."]}
-];
-
-const QUIZ = [
-  {q:"I ___ the report already. (finish)",a:["have finished","finished"]},
-  {q:"The data ___ uploaded yesterday. (be)",a:["were","was"]},
-  {q:"She ___ at GSI since 2019. (work)",a:["has worked"]},
-  {q:"If the VPN ___, I will upload the files. (work)",a:["works"]},
-  {q:"The site ___ surveyed last month. (be — passive)",a:["was"]},
-  {q:"We ___ discussed the plan. (already)",a:["have already","already"]},
-  {q:"He said the survey ___ complete. (be — reported)",a:["was"]},
-  {q:"The reports ___ been catalogued. (have — passive)",a:["have"]},
-  {q:"I look forward ___ hearing from you. (preposition)",a:["to"]},
-  {q:"Please let me know if you ___ any questions. (have)",a:["have"]},
-  {q:"The issue ___ been resolved. (has/have)",a:["has"]},
-  {q:"They ___ to Ladakh next month. (go — future plan)",a:["are going","will go"]}
-];
-
-const WRITE_TOPICS = ["My work today","My favourite place","Why I enjoy geology","A skill I want to improve","My weekend plan","A challenge I faced","The last book I read","My biggest goal this year"];
-
-const QUOTES = [
-  {q:"If you can't explain it simply, you don't understand it well enough.",a:"Albert Einstein"},
-  {q:"The single biggest problem in communication is the illusion that it has taken place.",a:"G. B. Shaw"},
-  {q:"Speak clearly, if you speak at all; carve every word before you let it fall.",a:"O. W. Holmes"},
-  {q:"Words are, of course, the most powerful drug used by mankind.",a:"Rudyard Kipling"},
-  {q:"To be a good communicator, first be a good listener.",a:"—"},
-  {q:"Clarity is the counterbalance of profound thoughts.",a:"Vauvenargues"},
-  {q:"Practice is the hardest part of learning.",a:"—"}
-];
-
-const REFERENCE = [
-  {t:"Office English",lines:["Could you please explain?","I'll look into it.","Let me check and confirm.","I'll get back to you shortly.","Thank you for your patience."]},
-  {t:"Meeting Expressions",lines:["I agree with that.","I have a slightly different view.","Could you clarify that point?","Let's move to the next item.","Can we take that offline?"]},
-  {t:"Email Templates",lines:["Thank you for your prompt response.","Kindly verify and confirm.","Please keep us informed of any updates.","Could you please share an update?","The issue has been resolved."]},
-  {t:"Phone Conversations",lines:["May I speak to …, please?","Could you repeat that?","The connection isn't very clear.","I'll call you back in five minutes.","Thanks for calling — have a good day."]},
-  {t:"Presentation English",lines:["Good morning everyone, thank you for your time.","Today I'll walk you through …","Let's move to the next slide.","This brings us to …","Thank you for your attention — I'm happy to take questions."]},
-  {t:"GSI Vocabulary",lines:["mineral exploration","geological mapping","borehole data","field investigation","stratigraphic column","outcrop / traverse"]},
-  {t:"NGDR Vocabulary",lines:["repository / data repository","geospatial layer","metadata standard","stakeholder feedback","upload status / batch lot","legacy vs recent reports"]}
-];
-
-/* ---------- state + persistence ---------- */
-const KEY="lifeos_comm_v1";              // legacy local key, kept only for one-time migration
-const DAY=86400000;
-const EMBEDDED = window.parent !== window;  // true when running inside LifeOS's iframe
-
-const defaultState=()=>({
-  streak:{count:0,last:null},
-  mission:{date:null,done:{speak:false,word:false,grammar:false,phrase:false,writing:false,review:false}},
-  stats:{speakingSeconds:0,writingEntries:0,mistakesCorrected:0,presentations:0},
-  vocab:[],
-  mistakes:[
-    {id:1,wrong:"He don't know.",right:"He doesn't know.",cat:"Subject–Verb",fav:false},
-    {id:2,wrong:"I am agree.",right:"I agree.",cat:"Grammar",fav:false},
-    {id:3,wrong:"Discuss about the report.",right:"Discuss the report.",cat:"Preposition",fav:false}
-  ],
-  writing:[],
-  favWord:{}, favTopic:{},
-  activity:{}, // date -> tasks completed count
-  quizIndex:0, quizRight:0, quizSeen:0,
-  continueYesterday:null
-});
-let S=defaultState();
-
-/* Looks "never used" — safe to overwrite with any legacy local data found. */
-function isBlank(d){
-  return !d || ((d.vocab||[]).length===0 && (d.writing||[]).length===0 && (!d.streak || d.streak.count===0));
-}
-
-/* Ask the parent LifeOS window for the shared Communication data. Retries on
-   an interval in case the parent's script hasn't attached its listener yet
-   (the iframe can start loading before the parent's module script runs). */
-function requestFromParent(timeoutMs=4000){
-  return new Promise(resolve=>{
-    let done=false;
-    function onMsg(e){
-      if(e.source!==window.parent) return;
-      const m=e.data||{};
-      if(m.type==="lifeos:comm:init"){
-        done=true;
-        window.removeEventListener("message", onMsg);
-        clearInterval(iv);
-        resolve(m.data||null);
-      }
-    }
-    window.addEventListener("message", onMsg);
-    function ping(){ try{ window.parent.postMessage({type:"lifeos:comm:ready"}, "*"); }catch(e){} }
-    ping();
-    const iv=setInterval(()=>{ if(!done) ping(); }, 200);
-    setTimeout(()=>{
-      if(!done){ window.removeEventListener("message", onMsg); clearInterval(iv); resolve(null); }
-    }, timeoutMs);
-  });
-}
-
-/* Persistence: when embedded in LifeOS, data flows to the parent's shared
-   state (which itself saves to localStorage + Supabase, same as every other
-   module). When opened standalone (e.g. directly for testing), it falls back
-   to its own localStorage so the page still works on its own. */
-let bootLoaded=false;
-async function load(){
-  if(EMBEDDED){
-    const fromParent = await requestFromParent();
-    let legacy=null;
-    try{ const raw=localStorage.getItem(KEY); if(raw) legacy=JSON.parse(raw); }catch(e){}
-    if(legacy && isBlank(fromParent)){
-      // First run after the v0.4 migration: carry old local data up into the shared state.
-      S=Object.assign(defaultState(), legacy);
-      save();
-      try{ localStorage.removeItem(KEY); }catch(e){}
-    } else if(fromParent){
-      S=Object.assign(defaultState(), fromParent);
-    }
-  } else {
-    try{
-      const raw = localStorage.getItem(KEY);
-      if(raw) S=Object.assign(defaultState(),JSON.parse(raw));
-    }catch(e){ /* first run, or storage unavailable */ }
-  }
-  bootLoaded=true;
-}
-async function save(){
-  if(EMBEDDED){
-    try{ window.parent.postMessage({type:"lifeos:comm:save", data:S}, "*"); }catch(e){}
-  } else {
-    try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){}
-  }
-}
-
-function renderAll(){
-  renderHeader(); renderStreak(); renderMission(); renderSpeak(); renderLearn();
-  renderVocab(); renderQuiz(); renderWrite(); renderMistakes(); renderReview();
-}
-
-/* If the parent later receives fresher data (e.g. Supabase realtime picked up
-   an edit made on another device), it pushes it here; re-render live. Ignored
-   until the initial boot load has finished, so it never races the first
-   response (which load()/requestFromParent already handles). */
-if(EMBEDDED){
-  window.addEventListener("message", e=>{
-    if(!bootLoaded || e.source!==window.parent) return;
-    const m=e.data||{};
-    if(m.type==="lifeos:comm:init" && m.data){
-      S=Object.assign(defaultState(), m.data);
-      renderAll();
-    }
-  });
-}
-
-
-/* ---------- helpers ---------- */
-const $=s=>document.querySelector(s);
-const $$=s=>document.querySelectorAll(s);
-const todayStr=()=>new Date().toISOString().slice(0,10);
-const dayNum=()=>Math.floor(Date.now()/DAY);
-const pick=arr=>arr[dayNum()%arr.length];
-const norm=s=>s.trim().toLowerCase().replace(/\s+/g," ");
-function toast(msg){const t=$("#toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._x);t._x=setTimeout(()=>t.classList.remove("show"),1900);}
-function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
-
-/* ---------- mission + streak ---------- */
-function ensureToday(){
-  const t=todayStr();
-  if(S.mission.date!==t){
-    S.mission={date:t,done:{speak:false,word:false,grammar:false,phrase:false,writing:false,review:false}};
-    speakIdx=null; wordIdx=null; phraseIdx=null; grammarIdx=null;
-  }
-}
-function bumpStreak(){
-  const t=todayStr();
-  const y=new Date(Date.now()-DAY).toISOString().slice(0,10);
-  if(S.streak.last===t) return;
-  if(S.streak.last===y) S.streak.count+=1; else S.streak.count=1;
-  S.streak.last=t;
-}
-function logActivity(){
-  const t=todayStr();
-  const done=Object.values(S.mission.done).filter(Boolean).length;
-  S.activity[t]=done;
-}
-function completeMission(id){
-  if(S.mission.done[id]) return;
-  S.mission.done[id]=true;
-  bumpStreak();
-  logActivity();
-  save(); renderMission(); renderStreak(); renderAchievements(); renderReview();
-}
-function uncompleteMission(id){
-  if(!S.mission.done[id]) return;
-  S.mission.done[id]=false;
-  logActivity();
-  save(); renderMission(); renderReview();
-  // Note: today's streak, once earned, isn't clawed back for unchecking a
-  // single item — it only resets if a whole day passes with nothing done.
-}
-
-const MISSION_META=[
-  {id:"speak",label:"Speaking Challenge",sub:"2–3 min on today's topic"},
-  {id:"word",label:"Word of the Day",sub:"learn & add one word"},
-  {id:"grammar",label:"Grammar Pattern",sub:"one pattern"},
-  {id:"phrase",label:"Phrase of the Day",sub:"a better way to say it"},
-  {id:"writing",label:"Daily Writing",sub:"~100 words"},
-  {id:"review",label:"Review Due",sub:"spaced repetition"}
-];
-
-function renderMission(){
-  const done=Object.values(S.mission.done).filter(Boolean).length;
-  const total=6;
-  $("#ringText").textContent=done+"/"+total;
-  const circ=2*Math.PI*58;
-  $("#ringFill").style.strokeDashoffset=circ*(1-done/total);
-  $("#ringNote").textContent = done===0?"Let's begin":done===total?"All done — great work! 🎉":(total-done)+" to go";
-  const box=$("#missionList"); box.innerHTML="";
-  MISSION_META.forEach(m=>{
-    const d=S.mission.done[m.id];
-    const el=document.createElement("div");
-    el.className="m-item"+(d?" done":"");
-    el.innerHTML=`<div class="m-check">${d?"✓":""}</div><div><div class="m-txt">${m.label}</div><div class="m-sub">${m.sub}</div></div>`;
-    el.title = d ? "Tap to undo" : "Tap when done";
-    el.onclick=()=>{
-      if(!d){
-        completeMission(m.id);
-        if(m.id==="review"){switchTab("review");}
-        else if(m.id==="writing"){switchTab("practice");}
-        else if(m.id==="grammar"||m.id==="phrase"||m.id==="word"){switchTab("learn");}
-      } else {
-        uncompleteMission(m.id);
-      }
-    };
-    box.appendChild(el);
-  });
-  renderContinue();
-}
-function renderContinue(){
-  const c=$("#continueBox");
-  if(S.continueYesterday && S.continueYesterday.date!==todayStr()){
-    const cy=S.continueYesterday;
-    c.innerHTML=`<div class="cont"><div><div class="t">Continue from last session</div>
-      <div class="d">${esc(cy.topic)} · you spoke ${fmtTime(cy.sec)}</div></div>
-      <button class="btn ghost small" id="contBtn">Pick up →</button></div>`;
-    $("#contBtn").onclick=()=>{ switchTab("speak"); };
-  } else c.innerHTML="";
-}
-function renderStreak(){ $("#streakBadge").textContent="🔥 "+S.streak.count+"-day streak"; }
-
-/* ---------- SPEAK ---------- */
-let tSec=0,tRun=false,tInt=null;
-let speakIdx=null;   // null = today's automatic pick; a number = manual override
-function fmtTime(s){const m=Math.floor(s/60),ss=s%60;return String(m).padStart(2,"0")+":"+String(ss).padStart(2,"0");}
-function currentTopic(){ return speakIdx===null ? pick(TOPICS) : TOPICS[speakIdx]; }
-function renderSpeak(){
-  const top=currentTopic();
-  $("#speakTopic").textContent=top.t;
-  $("#speakTargets").innerHTML=top.w.map(w=>`<span class="chip">${w}</span>`).join("");
-  const fk="s"+dayNum();
-  $("#speakFav").classList.toggle("on",!!S.favTopic[fk]);
-  $("#speakFav").onclick=()=>{S.favTopic[fk]=!S.favTopic[fk];$("#speakFav").classList.toggle("on",S.favTopic[fk]);save();};
-}
-$("#speakShuffle").onclick=()=>{
-  const cur = speakIdx===null ? dayNum()%TOPICS.length : speakIdx;
-  let next; do{ next=Math.floor(Math.random()*TOPICS.length); }while(TOPICS.length>1 && next===cur);
-  speakIdx=next; renderSpeak();
-};
-function tickTimer(){ tSec++; $("#timer").textContent=fmtTime(tSec); }
-$("#timerBtn").onclick=function(){
-  tRun=!tRun;
-  if(tRun){ tInt=setInterval(tickTimer,1000); this.textContent="Pause"; this.classList.remove("primary");this.classList.add("ghost"); }
-  else { clearInterval(tInt); this.textContent="Resume"; this.classList.add("primary");this.classList.remove("ghost"); }
-};
-$("#timerReset").onclick=()=>{clearInterval(tInt);tRun=false;tSec=0;$("#timer").textContent="00:00";$("#timerBtn").textContent="Start speaking";$("#timerBtn").classList.add("primary");$("#timerBtn").classList.remove("ghost");};
-let confVal=0;
-$("#confRow").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;confVal=+b.dataset.c;$$("#confRow button").forEach(x=>x.classList.remove("sel"));b.classList.add("sel");});
-$("#speakDone").onclick=()=>{
-  clearInterval(tInt);tRun=false;
-  if(tSec>0){ S.stats.speakingSeconds+=tSec; }
-  S.continueYesterday={date:todayStr(),topic:currentTopic().t,sec:tSec};
-  completeMission("speak");
-  toast(tSec>0?("Nice — "+fmtTime(tSec)+" of speaking logged"):"Speaking marked complete");
-  tSec=0;$("#timer").textContent="00:00";$("#timerBtn").textContent="Start speaking";$("#timerBtn").classList.add("primary");$("#timerBtn").classList.remove("ghost");
-  save();
-};
-
-/* ---------- LEARN ---------- */
-let wordIdx=null, phraseIdx=null, grammarIdx=null;
-function renderLearn(){
-  const wd = wordIdx===null ? pick(WORDS) : WORDS[wordIdx];
-  $("#wotdWord").textContent=wd.w;
-  $("#wotdMeta").innerHTML=`<span class="pill">${wd.p}</span><span class="pill lvl">CEFR ${wd.l}</span>`;
-  $("#wotdMeaning").textContent=wd.m;
-  $("#wotdSyn").innerHTML=wd.s.map(x=>`<span class="chip">${x}</span>`).join("");
-  $("#wotdColl").innerHTML=wd.c.map(x=>`<span class="tag">${x}</span>`).join("");
-  $("#wotdEx").textContent="“"+wd.e+"”";
-  const fk="w"+dayNum();
-  $("#wotdFav").classList.toggle("on",!!S.favWord[fk]);
-  $("#wotdFav").onclick=()=>{S.favWord[fk]=!S.favWord[fk];$("#wotdFav").classList.toggle("on",S.favWord[fk]);save();};
-  $("#wotdAdd").onclick=()=>{
-    if(S.vocab.some(v=>norm(v.word)===norm(wd.w))){toast(wd.w+" is already in your vocabulary");}
-    else{ addVocab({word:wd.w,meaning:wd.m,pos:wd.p,cefr:wd.l,syn:wd.s,coll:wd.c,example:wd.e,tags:["word of the day"]}); toast("Added “"+wd.w+"” to your vocabulary"); }
-    completeMission("word");
-  };
-  $("#wotdShuffle").onclick=()=>{
-    const cur = wordIdx===null ? dayNum()%WORDS.length : wordIdx;
-    let next; do{ next=Math.floor(Math.random()*WORDS.length); }while(WORDS.length>1 && next===cur);
-    wordIdx=next; renderLearn();
-  };
-
-  const ph = phraseIdx===null ? pick(PHRASES) : PHRASES[phraseIdx];
-  $("#phraseWeak").textContent="“"+ph.weak+"”";
-  $("#phraseStrong").textContent="“"+ph.strong+"”";
-  $("#phraseEx").textContent="“"+ph.e+"”";
-  $("#phraseShuffle").onclick=()=>{
-    const cur = phraseIdx===null ? dayNum()%PHRASES.length : phraseIdx;
-    let next; do{ next=Math.floor(Math.random()*PHRASES.length); }while(PHRASES.length>1 && next===cur);
-    phraseIdx=next; renderLearn();
-  };
-
-  const gr = grammarIdx===null ? pick(GRAMMAR) : GRAMMAR[grammarIdx];
-  $("#grammarName").textContent=gr.n;
-  $("#grammarPattern").textContent=gr.p;
-  $("#grammarEx").innerHTML=gr.ex.map(x=>"• "+esc(x)).join("<br>");
-  $("#grammarDone").onclick=()=>{completeMission("grammar");toast("Grammar pattern marked learned");};
-  $("#grammarShuffle").onclick=()=>{
-    const cur = grammarIdx===null ? dayNum()%GRAMMAR.length : grammarIdx;
-    let next; do{ next=Math.floor(Math.random()*GRAMMAR.length); }while(GRAMMAR.length>1 && next===cur);
-    grammarIdx=next; renderLearn();
-  };
-}
-
-/* ---------- PRACTICE : vocab ---------- */
-const INTERVALS=[1,3,7,30,90];
-function addVocab(o){
-  const id=Date.now()+Math.floor(Math.random()*1000);
-  S.vocab.unshift({id,word:o.word,meaning:o.meaning||"",pos:o.pos||"",cefr:o.cefr||"",
-    syn:o.syn||[],coll:o.coll||[],example:o.example||"",tags:o.tags||[],fav:false,learned:false,
-    box:0,due:todayStr(),added:todayStr()});
-  save(); renderVocab(); renderReview();
-}
-$("#vAdd").onclick=()=>{
-  const w=$("#vWord").value.trim(); if(!w){toast("Type a word first");return;}
-  const tags=$("#vTags").value.split(",").map(x=>x.trim()).filter(Boolean);
-  addVocab({word:w,meaning:$("#vMean").value.trim(),tags});
-  $("#vWord").value="";$("#vMean").value="";$("#vTags").value="";
-  toast("“"+w+"” added");
-};
-$("#vocabSearch").addEventListener("input",renderVocab);
-function renderVocab(){
-  const q=norm($("#vocabSearch").value||"");
-  $("#vocabCount").textContent=S.vocab.length+" word"+(S.vocab.length===1?"":"s");
-  const list=S.vocab.filter(v=> !q || norm(v.word).includes(q) || norm(v.meaning).includes(q) || v.tags.some(t=>norm(t).includes(q)));
-  const box=$("#vocabList");
-  if(!list.length){box.innerHTML=`<div class="empty">${S.vocab.length?"No matches.":"No words yet — add one, or grab the Word of the Day."}</div>`;return;}
-  box.innerHTML=list.slice(0,60).map(v=>`
-    <div class="rowitem">
-      <div class="top">
-        <div><span class="w">${esc(v.word)}</span> ${v.pos?`<span class="muted" style="font-size:12px">· ${esc(v.pos)}</span>`:""}
-          ${v.meaning?`<div class="m">${esc(v.meaning)}</div>`:""}
-          ${v.tags.length?`<div class="chips" style="margin-top:6px">${v.tags.map(t=>`<span class="tag">${esc(t)}</span>`).join("")}</div>`:""}
-        </div>
-        <div style="display:flex;gap:6px;align-items:center">
-          <button class="fav ${v.fav?"on":""}" data-fav="${v.id}" title="Favourite">★</button>
-          <button class="del" data-del="${v.id}">remove</button>
-        </div>
-      </div>
-    </div>`).join("");
-  box.querySelectorAll("[data-fav]").forEach(b=>b.onclick=()=>{const it=S.vocab.find(x=>x.id==b.dataset.fav);it.fav=!it.fav;save();renderVocab();});
-  box.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{S.vocab=S.vocab.filter(x=>x.id!=b.dataset.del);save();renderVocab();renderReview();});
-}
-
-/* ---------- PRACTICE : quiz ---------- */
-function renderQuiz(){
-  const item=QUIZ[S.quizIndex%QUIZ.length];
-  $("#quizQ").innerHTML=esc(item.q).replace("___",'<span class="blank">&nbsp;</span>');
-  $("#quizInput").value="";$("#quizFb").textContent="";
-  $("#quizScore").textContent = S.quizSeen?("Score "+S.quizRight+"/"+S.quizSeen):"Fill in the blank";
-}
-function nextQuiz(){S.quizIndex=(S.quizIndex+1)%QUIZ.length;save();renderQuiz();}
-$("#quizNext").onclick=nextQuiz;
-$("#quizCheck").onclick=()=>{
-  const item=QUIZ[S.quizIndex%QUIZ.length];
-  const ans=norm($("#quizInput").value);
-  if(!ans){toast("Type your answer");return;}
-  S.quizSeen++;
-  const ok=item.a.some(a=>norm(a)===ans);
-  if(ok){S.quizRight++;$("#quizFb").innerHTML='<span class="good">✓ Correct!</span>';}
-  else{$("#quizFb").innerHTML='<span style="color:var(--rose)">✗ Answer: <b>'+esc(item.a[0])+'</b></span>';}
-  save();$("#quizScore").textContent="Score "+S.quizRight+"/"+S.quizSeen;
-  setTimeout(nextQuiz,1300);
-};
-$("#quizInput").addEventListener("keydown",e=>{if(e.key==="Enter")$("#quizCheck").click();});
-
-/* ---------- PRACTICE : writing ---------- */
-function renderWrite(){ $("#writeTopic").textContent="Today's topic: "+pick(WRITE_TOPICS); }
-$("#writeArea").addEventListener("input",()=>{
-  const n=$("#writeArea").value.trim().split(/\s+/).filter(Boolean).length;
-  $("#wcNum").textContent=$("#writeArea").value.trim()?n:0;
-});
-$("#writeSave").onclick=()=>{
-  const txt=$("#writeArea").value.trim(); if(!txt){toast("Write something first");return;}
-  const words=txt.split(/\s+/).filter(Boolean).length;
-  S.writing.unshift({date:todayStr(),topic:pick(WRITE_TOPICS),words,text:txt});
-  S.stats.writingEntries++; completeMission("writing");
-  $("#writeArea").value="";$("#wcNum").textContent="0";
-  toast("Saved — "+words+" words"); save(); renderReview();
-};
-
-/* ---------- PRACTICE : mistakes ---------- */
-$("#mAdd").onclick=()=>{
-  const wrong=$("#mWrong").value.trim(),right=$("#mRight").value.trim();
-  if(!wrong||!right){toast("Fill in both versions");return;}
-  S.mistakes.unshift({id:Date.now(),wrong,right,cat:$("#mCat").value,fav:false});
-  S.stats.mistakesCorrected++;
-  $("#mWrong").value="";$("#mRight").value="";
-  save();renderMistakes();renderReview();toast("Logged — you'll remember it now");
-};
-$("#mistakeSearch").addEventListener("input",renderMistakes);
-function renderMistakes(){
-  const q=norm($("#mistakeSearch").value||"");
-  $("#mistakeCount").textContent=S.mistakes.length+" logged";
-  const list=S.mistakes.filter(m=> !q || norm(m.wrong).includes(q) || norm(m.right).includes(q) || norm(m.cat).includes(q));
-  const box=$("#mistakeList");
-  if(!list.length){box.innerHTML=`<div class="empty">${S.mistakes.length?"No matches.":"No mistakes logged yet."}</div>`;return;}
-  box.innerHTML=list.map(m=>`
-    <div class="rowitem mistake">
-      <div class="top">
-        <div><span class="wrong">${esc(m.wrong)}</span> &nbsp;→&nbsp; <span class="right">${esc(m.right)}</span>
-          <div style="margin-top:5px"><span class="tag">${esc(m.cat)}</span></div></div>
-        <button class="del" data-del="${m.id}">remove</button>
-      </div>
-    </div>`).join("");
-  box.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{S.mistakes=S.mistakes.filter(x=>x.id!=b.dataset.del);save();renderMistakes();});
-}
-
-/* ---------- REVIEW ---------- */
-function dueVocab(){const t=todayStr();return S.vocab.filter(v=>v.due<=t);}
-function renderReview(){
-  const spMin=Math.round(S.stats.speakingSeconds/60);
-  const stats=[
-    {n:spMin,l:"Speaking minutes"},
-    {n:S.vocab.length,l:"Vocabulary words"},
-    {n:S.stats.writingEntries,l:"Writing entries"},
-    {n:S.stats.mistakesCorrected,l:"Mistakes corrected"},
-    {n:S.streak.count,l:"Day streak"},
-    {n:S.vocab.filter(v=>v.fav).length,l:"Favourites"}
-  ];
-  $("#statGrid").innerHTML=stats.map(s=>`<div class="stat"><div class="n">${s.n}</div><div class="l">${s.l}</div></div>`).join("");
-
-  const due=dueVocab();
-  $("#dueCap").textContent=due.length?due.length+" word"+(due.length===1?"":"s")+" due today":"Nothing due — you're caught up";
-  const ra=$("#reviewArea");
-  if(!due.length){ ra.innerHTML=`<div class="empty">${S.vocab.length?"All reviewed. New words become due over the next days.":"Add words to start reviewing."}</div>`; }
-  else{
-    const v=due[0];
-    ra.innerHTML=`
-      <div class="rowitem" style="text-align:center;padding:22px">
-        <div style="font-family:var(--serif);font-size:26px;font-weight:600">${esc(v.word)}</div>
-        <details style="margin-top:8px"><summary class="muted" style="cursor:pointer;font-size:13px">show meaning</summary>
-          <div class="m" style="margin-top:8px">${esc(v.meaning||"—")}</div></details>
-      </div>
-      <div class="row" style="margin-top:12px;justify-content:center">
-        <button class="btn ghost small" id="rvAgain">Again</button>
-        <button class="btn primary small" id="rvGood">Good · +${INTERVALS[Math.min(v.box,INTERVALS.length-1)]}d</button>
-      </div>
-      <div class="muted" style="text-align:center;font-size:12.5px;margin-top:8px">${due.length-1} more after this</div>`;
-    $("#rvAgain").onclick=()=>grade(v,false);
-    $("#rvGood").onclick=()=>grade(v,true);
-  }
-
-  const wb=$("#weekBar");wb.innerHTML="";
-  const labels=["S","M","T","W","T","F","S"];
-  const days=[];
-  for(let i=6;i>=0;i--){const d=new Date(Date.now()-i*DAY);days.push(d);}
-  const max=Math.max(6,...days.map(d=>S.activity[d.toISOString().slice(0,10)]||0));
-  days.forEach(d=>{
-    const k=d.toISOString().slice(0,10);const val=S.activity[k]||0;
-    const h=Math.max(6,Math.round(val/max*90));
-    wb.innerHTML+=`<div class="day"><div class="bar ${val>=4?"hot":""}" style="height:${h}px" title="${val} tasks"></div><div class="dl">${labels[d.getDay()]}</div></div>`;
-  });
-
-  renderAchievements();
-}
-function grade(v,good){
-  const it=S.vocab.find(x=>x.id===v.id);
-  if(good){ it.box=Math.min(it.box+1,INTERVALS.length-1); if(it.box>=2)it.learned=true; const add=INTERVALS[it.box]; it.due=new Date(Date.now()+add*DAY).toISOString().slice(0,10); }
-  else { it.box=0; it.due=todayStr(); }
-  if(dueVocab().length===0) completeMission("review");
-  save(); renderReview();
-}
-function renderAchievements(){
-  const A=[
-    {ic:"🎤",t:"First Speech",on:S.stats.speakingSeconds>0,s:"Speak once"},
-    {ic:"📚",t:"25 Words",on:S.vocab.length>=25,s:S.vocab.length+"/25"},
-    {ic:"💯",t:"100 Words",on:S.vocab.length>=100,s:S.vocab.length+"/100"},
-    {ic:"🔥",t:"7-Day Streak",on:S.streak.count>=7,s:S.streak.count+"/7 days"},
-    {ic:"✍️",t:"10 Entries",on:S.writing.length>=10,s:S.writing.length+"/10"},
-    {ic:"🏆",t:"30-Day Streak",on:S.streak.count>=30,s:S.streak.count+"/30 days"}
-  ];
-  $("#achGrid").innerHTML=A.map(a=>`<div class="ach ${a.on?"on":""}"><div class="ic">${a.ic}</div><div class="t">${a.t}</div><div class="s">${a.on?"Unlocked":a.s}</div></div>`).join("");
-}
-
-/* ---------- REFERENCE ---------- */
-function renderReference(){
-  $("#refAcc").innerHTML=REFERENCE.map((r,i)=>`
-    <details class="acc" ${i===0?"open":""}>
-      <summary>${esc(r.t)} <span class="arw">▶</span></summary>
-      <div class="body">${r.lines.map(l=>`<div class="ref-line">${esc(l)}</div>`).join("")}</div>
-    </details>`).join("");
-}
-
-/* ---------- quote + header ---------- */
-function renderHeader(){
-  const q=pick(QUOTES);
-  $("#quoteBox").innerHTML=`“${esc(q.q)}”<small>${esc(q.a)}</small>`;
-  const d=new Date();
-  $("#dateLine").textContent=d.toLocaleDateString("en-GB",{weekday:"long",day:"numeric",month:"long"});
-}
-
-/* ---------- tabs ---------- */
-function switchTab(v){
-  $$(".tab").forEach(t=>t.classList.toggle("active",t.dataset.view===v));
-  $$(".view").forEach(s=>s.classList.toggle("active",s.dataset.view===v));
-}
-$("#tabs").addEventListener("click",e=>{const b=e.target.closest(".tab");if(b)switchTab(b.dataset.view);});
-
-/* ---------- boot ---------- */
-(async function(){
-  await load();
-  ensureToday();
-  logActivity();
-  renderAll();
-  renderReference();
-  save();
-})();
-</script>
-</body>
-</html>
+<script id="gbData" type="application/json">{"sections":[{"label":"Part 1 · pages 10–30","chapters":[{"title":"Chapter 1: The Sentence","topics":[{"title":"Chapter 1: The Sentence","blocks":[{"kind":"p","val":"What is a Sentence? ▼"},{"kind":"p","val":"When we speak or write, we use words. We generally use these words in groups."},{"kind":"p","val":"Example: Little Jack Horner sat in a corner. A group of words like this, which makes complete sense, is called a sentence ."},{"kind":"p","val":"Four Kinds of Sentences ▼"}]},{"title":"1. Declarative/Assertive Sentence","blocks":[{"kind":"p","val":"Makes statements or assertions"},{"kind":"p","val":"Example: Humpty Dumpty sat on a wall."}]},{"title":"2. Interrogative Sentence","blocks":[{"kind":"p","val":"Asks questions"},{"kind":"p","val":"Example: Where do you live?"}]},{"title":"3. Imperative Sentence","blocks":[{"kind":"p","val":"Expresses commands, requests, or entreaties"},{"kind":"p","val":"Examples: • Be quiet. • Have mercy upon us."}]},{"title":"4. Exclamatory Sentence","blocks":[{"kind":"p","val":"Expresses strong feelings"},{"kind":"p","val":"Examples: • How cold the night is! • What a shame!"}]}]},{"title":"Chapter 2: Subject and Predicate","topics":[{"title":"Chapter 2: Subject and Predicate","blocks":[{"kind":"p","val":"Understanding Subject and Predicate ▼"},{"kind":"p","val":"When we make a sentence:"},{"kind":"list","val":["We name some person or thing","Say something about that person or thing"]},{"kind":"list","val":["Subject: The part which names the person or thing we are speaking about","Predicate: The part which tells something about the subject"]},{"kind":"p","val":"Examples: • Humpty Dumpty | sat on a wall. • The birds | are singing. (Subject | Predicate)"},{"kind":"p","val":"Special Cases ▼"}]},{"title":"Inverted Order","blocks":[{"kind":"p","val":"Sometimes the subject comes after the predicate:"},{"kind":"p","val":"• Here comes the bus . • Sweet are the uses of adversity ."}]},{"title":"Imperative Sentences","blocks":[{"kind":"p","val":"The subject is often left out but understood:"},{"kind":"p","val":"• Sit down. [ You is understood] • Thank him. [ You is understood]"},{"kind":"p","val":"📋 Exercise 1 ▼"},{"kind":"list","val":["The cackling of geese saved Rome.","The boy stood on the burning deck.","Stone walls do not make a prison.","The singing of the birds delights us.","Edison invented the phonograph.","Nature is the best physician.","All roads lead to Rome.","The dewdrops glitter in the sunshine."]}]}]},{"title":"Chapter 3: The Phrase and the Clause","topics":[{"title":"Chapter 3: The Phrase and the Clause","blocks":[{"kind":"p","val":"What is a Phrase? ▼"},{"kind":"p","val":"Definition: A phrase is a group of words which makes sense, but not complete sense."},{"kind":"p","val":"Examples of Phrases: • The sun rises in the east . • Humpty Dumpty sat on a wall . • There came a giant to my door . • It was a sunset of great beauty . • The tops of the mountains were covered with snow. • Show me how to do it ."},{"kind":"p","val":"What is a Clause? ▼"},{"kind":"p","val":"Definition: A clause is a group of words which forms part of a sentence, and contains a subject and a predicate."}]},{"title":"Compare:","blocks":[{"kind":"p","val":"Phrase: He has a chain of gold ."},{"kind":"p","val":"Clause: He has a chain which is made of gold . (Subject: which, Predicate: is made of gold)"},{"kind":"p","val":"More Examples of Clauses: • People who pay their debts are trusted. • We cannot start while it is raining . • I think that you have made a mistake ."}]}]},{"title":"Chapter 4: Parts of Speech","topics":[{"title":"Chapter 4: Parts of Speech","blocks":[{"kind":"p","val":"The Eight Parts of Speech ▼"},{"kind":"p","val":"Words are divided into eight classes according to their use in sentences:"},{"kind":"table","val":[["Part of Speech","Definition","Example"],["1. Noun","Name of a person, place, or thing","Akbar, Kolkata, rose, courage"],["2. Adjective","Adds something to the meaning of a noun","brave boy, twenty boys"],["3. Pronoun","Used instead of a noun","he, she, it, they, them"],["4. Verb","Expresses action, event, or state","wrote, is, are, shines"],["5. Adverb","Modifies a verb, adjective, or another adverb","quickly, very, quite"],["6. Preposition","Shows relationship between noun/pronoun and other words","in, on, under, of"],["7. Conjunction","Joins words or sentences","and, but, or, because"],["8. Interjection","Expresses sudden feeling","Hurrah! Alas! Oh!"]]},{"kind":"p","val":"Detailed Examples ▼"},{"kind":"p","val":"Noun Examples: • Akbar was a great king. • Kolkata is on the banks of the river Hooghly. • The rose smells sweet. • His courage won him honour."},{"kind":"p","val":"Adjective Examples: • He is a brave boy. • There are twenty boys in this class."},{"kind":"p","val":"Pronoun Examples: • John is absent, because he is ill. • The books are where you left them ."},{"kind":"p","val":"Verb Examples: • The girl wrote a letter to her cousin. • Kolkata is a big city. • Iron and copper are useful metals."},{"kind":"p","val":"📋 Exercise 2 ▼"},{"kind":"list","val":["Still waters run deep.","He still lives in that house.","After the storm comes the calm.","The after effects of the drug are bad.","The up train is late.","Muslims fast in the month of Ramzan.","He kept the fast for a week."]}]}]},{"title":"Chapter 5: The Noun - Kinds of Nouns","topics":[{"title":"Chapter 5: The Noun - Kinds of Nouns","blocks":[{"kind":"p","val":"Common vs Proper Nouns ▼"},{"kind":"p","val":"Common Noun: A name given in common to every person or thing of the same class or kind."},{"kind":"p","val":"Examples: • boy, girl, city, country • king, school, book, tree"},{"kind":"p","val":"Proper Noun: The name of some particular person or place."},{"kind":"p","val":"Examples: • Asoka, Sita, Hari • Kolkata, India, Monday"},{"kind":"p","val":"Comparison: • Asoka (Proper) was a wise king (Common). • Sita (Proper) is a girl (Common). • Kolkata (Proper) is a city (Common)."},{"kind":"p","val":"Collective Nouns ▼"},{"kind":"p","val":"Collective Noun: The name of a number (or collection) of persons or things taken together and spoken of as one whole."},{"kind":"p","val":"Examples: • crowd , mob , team , flock , herd • army , fleet , jury , family , nation • parliament , committee"},{"kind":"p","val":"In Sentences: • The police dispersed the crowd . • The French army was defeated at Waterloo. • The jury found the prisoner guilty. • A herd of cattle is passing."},{"kind":"p","val":"Abstract Nouns ▼"},{"kind":"p","val":"Abstract Noun: Usually the name of a quality, action, or state considered apart from the object to which it belongs."}]},{"title":"Qualities:","blocks":[{"kind":"p","val":"goodness, kindness, whiteness, darkness, hardness, brightness, honesty, wisdom, bravery"}]},{"title":"Actions:","blocks":[{"kind":"p","val":"laughter, theft, movement, judgement, hatred"}]},{"title":"States:","blocks":[{"kind":"p","val":"childhood, boyhood, youth, slavery, sleep, sickness, death, poverty"}]},{"title":"Arts & Sciences:","blocks":[{"kind":"p","val":"grammar, music, chemistry, mathematics, physics"},{"kind":"p","val":"Formation of Abstract Nouns ▼"},{"kind":"table","val":[["From Adjectives","From Verbs","From Common Nouns"],["kind → kindness honest → honesty","obey → obedience grow → growth","child → childhood slave → slavery"]]},{"kind":"p","val":"Countable vs Uncountable Nouns ▼"},{"kind":"p","val":"Countable Nouns: Names of objects, people, etc. that we can count."},{"kind":"p","val":"book, pen, apple, boy, sister, doctor, horse Have plural forms: books, pens, apples"},{"kind":"p","val":"Uncountable Nouns: Names of things that we cannot count."},{"kind":"p","val":"milk, oil, sugar, gold, honesty No plural forms: cannot say \"milks\""},{"kind":"p","val":"📋 Exercise 3 & 4 ▼"},{"kind":"list","val":["The crowd was very big.","Always speak the truth.","We all love honesty.","Solomon was famous for his wisdom.","The elephant has great strength.","A committee of five was appointed."]},{"kind":"list","val":["cattle: herd","soldiers: army","sailors: crew"]},{"kind":"list","val":["lazy: laziness","cruel: cruelty","brave: bravery","foolish: foolishness"]}]}]},{"title":"Chapter 6: The Noun - Gender","topics":[{"title":"Chapter 6: The Noun - Gender","blocks":[{"kind":"p","val":"Four Types of Gender ▼"},{"kind":"table","val":[["Gender Type","Definition","Examples"],["Masculine","Denotes a male animal","boy, lion, hero, cock-sparrow"],["Feminine","Denotes a female animal","girl, lioness, heroine, hen-sparrow"],["Common","Denotes either male or female","parent, child, friend, pupil, servant"],["Neuter","Denotes things without life","book, pen, room, tree"]]},{"kind":"p","val":"Personification ▼"},{"kind":"p","val":"Objects without life are often personified (spoken of as if they were living beings):"}]},{"title":"Masculine Gender Applied To:","blocks":[{"kind":"p","val":"Objects remarkable for strength and violence : • The Sun, Summer, Winter, Time, Death \"The sun sheds his beams on rich and poor alike.\""}]},{"title":"Feminine Gender Applied To:","blocks":[{"kind":"p","val":"Objects remarkable for beauty, gentleness, and gracefulness : • The Moon, the Earth, Spring, Autumn, Nature, Liberty, Justice, Mercy, Peace, Hope, Charity \"The moon has hidden her face behind a cloud.\""},{"kind":"p","val":"Ways of Forming Feminine ▼"}]},{"title":"1. By using entirely different words:","blocks":[{"kind":"table","val":[["Masculine","Feminine","Masculine","Feminine"],["boy","girl","king","queen"],["brother","sister","man","woman"],["father","mother","husband","wife"]]}]},{"title":"2. By adding syllables (-ess, -ine, -trix, -a):","blocks":[{"kind":"table","val":[["Masculine","Feminine","Masculine","Feminine"],["author","authoress","lion","lioness"],["actor","actress","prince","princess"],["hero","heroine","sultan","sultana"]]}]},{"title":"3. By placing a word before or after:","blocks":[{"kind":"table","val":[["Masculine","Feminine"],["grandfather","grandmother"],["manservant","maidservant"],["peacock","peahen"]]}]}]},{"title":"Chapter 7: The Noun - Number","topics":[{"title":"Chapter 7: The Noun - Number","blocks":[{"kind":"p","val":"Singular vs Plural ▼"},{"kind":"p","val":"Singular Number: Denotes one person or thing Plural Number: Denotes more than one person or thing"},{"kind":"p","val":"Examples: tree → trees, box → boxes, ox → oxen, man → men"},{"kind":"p","val":"Rules for Forming Plurals ▼"},{"kind":"table","val":[["Rule","Examples"],["1. Generally add -s","boy → boys, girl → girls, book → books"],["2. Words ending in -s, -sh, -ch, -x: add -es","class → classes, dish → dishes, box → boxes"],["3. Most words ending in -o: add -es","potato → potatoes, hero → heroes"],["4. Some words ending in -o: add -s only","piano → pianos, photo → photos"],["5. Words ending in -y after consonant: change -y to -ies","baby → babies, city → cities"],["6. Words ending in -f or -fe: change to -ves","thief → thieves, wife → wives, leaf → leaves"]]},{"kind":"p","val":"Irregular Plurals ▼"}]},{"title":"Change of vowel:","blocks":[{"kind":"p","val":"man → men, woman → women, foot → feet, tooth → teeth, goose → geese, mouse → mice"}]},{"title":"Add -en:","blocks":[{"kind":"p","val":"ox → oxen, child → children"}]},{"title":"Same form for both:","blocks":[{"kind":"p","val":"sheep, deer, fish, aircraft, series, species"}]},{"title":"Foreign plurals:","blocks":[{"kind":"p","val":"Latin: formula → formulae, radius → radii Greek: crisis → crises, phenomenon → phenomena"}]},{"title":"Used only in plural:","blocks":[{"kind":"p","val":"Instruments: scissors, spectacles, bellows Clothing: trousers, jeans, shorts Others: thanks, assets, annals"}]},{"title":"Look plural but are singular:","blocks":[{"kind":"p","val":"Subjects: mathematics, physics, electronics News: news Diseases: measles, mumps Games: billiards, draughts"}]},{"title":"Collective nouns used as plurals:","blocks":[{"kind":"p","val":"poultry, cattle, vermin, people, gentry \"These poultry are mine.\""}]}]},{"title":"Chapter 8: The Noun - Case","topics":[{"title":"Chapter 8: The Noun - Case","blocks":[{"kind":"p","val":"Understanding Cases ▼"},{"kind":"p","val":"Examine these sentences: 1. John threw a stone. 2. The horse kicked the boy ."},{"kind":"p","val":"Nominative Case: When a noun is used as the subject of a verb Accusative Case: When a noun is used as the object of a verb or after a preposition"},{"kind":"p","val":"To find cases: • Nominative: Put \"Who?\" or \"What?\" before the verb • Accusative: Put \"Whom?\" or \"What?\" before the verb and its subject"},{"kind":"p","val":"Direct and Indirect Objects ▼"},{"kind":"p","val":"Compare: 1. Rama gave a ball. 2. Rama gave Hari a ball."},{"kind":"p","val":"Indirect Object: The person to whom something is given Direct Object: The thing that is given Position: Indirect Object comes immediately after the verb, before the Direct Object"},{"kind":"p","val":"Transformations: • Rama gave Hari a ball. = Rama gave a ball to Hari. • I bought Rama a ball. = I bought a ball for Rama. • Will you do me a favour? = Will you do a favour to me?"},{"kind":"p","val":"Possessive Case ▼"},{"kind":"p","val":"Possessive Case: Shows ownership or possession Question it answers: \"Whose?\""},{"kind":"p","val":"This is Rama's umbrella. Whose umbrella? — Rama's."}]},{"title":"Formation Rules:","blocks":[{"kind":"table","val":[["Type","Rule","Examples"],["Singular noun","Add 's","boy's book, king's crown"],["Plural ending in s","Add ' only","boys' school, girls' school"],["Plural not ending in s","Add 's","men's club, children's books"]]}]},{"title":"Uses beyond possession:","blocks":[{"kind":"p","val":"Authorship: Shakespeare's plays Origin: A mother's love Time/Space: A week's holiday, a stone's throw Place: At the baker's (= baker's shop)"},{"kind":"p","val":"Nouns in Apposition ▼"},{"kind":"p","val":"Apposition: When one noun follows another to describe it The noun in apposition is in the same case as the noun it explains"},{"kind":"p","val":"Examples: 1. Rama, our captain, made fifty runs. (Nominative) 2. Yesterday I met your uncle, the doctor. (Accusative) 3. Have you seen Ganguli, the artist's drawings? (Genitive)"}]}]},{"title":"Chapter 9: The Adjective","topics":[{"title":"Chapter 9: The Adjective","blocks":[{"kind":"p","val":"What is an Adjective? ▼"},{"kind":"p","val":"Adjective: A word used with a noun to describe or point out the person, animal, place or thing which the noun names, or to tell the number or quantity."},{"kind":"p","val":"Examples: 1. Sita is a clever girl. (What kind?) 2. I don't like that boy. (Which boy?) 3. He gave me five mangoes. (How many?) 4. There is little time for preparation. (How much?)"},{"kind":"p","val":"Attributive vs Predicative Use ▼"}]},{"title":"Attributive Use:","blocks":[{"kind":"p","val":"The lazy boy was punished. (Adjective used with the noun as an epithet)"}]},{"title":"Predicative Use:","blocks":[{"kind":"p","val":"The boy is lazy . (Adjective used with a verb, forms part of predicate)"},{"kind":"p","val":"Types of Adjectives ▼"},{"kind":"table","val":[["Type","Purpose","Question","Examples"],["Quality","Show kind or quality","Of what kind?","large city, honest man, foolish crow"],["Quantity","Show how much","How much?","some rice, much patience, little intelligence"],["Number","Show how many or order","How many?","five fingers, first day, many things"],["Demonstrative","Point out which one","Which?","this boy, those rascals, such things"],["Interrogative","Ask questions","-","what manner, which way, whose book"]]},{"kind":"p","val":"Numeral Adjectives ▼"}]},{"title":"Three kinds of Numeral Adjectives:","blocks":[{"kind":"p","val":"1. Definite Numeral: Denote exact number • Cardinals: one, two, three (how many) • Ordinals: first, second, third (order in series)"},{"kind":"p","val":"2. Indefinite Numeral: Do not denote exact number • all, no, many, few, some, any, certain, several, sundry"},{"kind":"p","val":"3. Distributive Numeral: Refer to each one of a number • each, every, either, neither"},{"kind":"p","val":"Examples: • Each boy must take his turn. • India expects every man to do his duty. • Either pen will do. • Neither accusation is true."},{"kind":"p","val":"Formation of Adjectives ▼"}]},{"title":"From Nouns:","blocks":[{"kind":"table","val":[["Noun","Adjective","Noun","Adjective"],["boy","boyish","care","careful"],["gold","golden","storm","stormy"],["courage","courageous","glory","glorious"]]}]},{"title":"From Verbs:","blocks":[{"kind":"p","val":"tire → tireless, talk → talkative, move → moveable"}]},{"title":"From other Adjectives:","blocks":[{"kind":"p","val":"tragic → tragical, black → blackish, sick → sickly"},{"kind":"p","val":"📋 Exercise 6 & 7 ▼"},{"kind":"list","val":["The ship sustained heavy damage.","I have called several times.","Every dog has his day.","A live ass is better than a dead lion.","What time is it?","Which pen do you prefer?","There should not be much talk and little work.","Good wine needs no bush."]},{"kind":"list","val":["The town stood a _____ siege. (long)","The _____ prize was won by a Hindu. (first)","This is a very _____ matter. (serious)","The battle ended in a _____ victory. (decisive)","India expects _____ man to do his duty. (every)","The _____ bird catches the worm. (early)"]},{"kind":"p","val":"Special Adjectives ▼"}]},{"title":"Emphasizing Adjectives:","blocks":[{"kind":"p","val":"• I saw it with my own eyes. • That is the very thing we want."}]},{"title":"Exclamatory Adjectives:","blocks":[{"kind":"p","val":"• What genius! • What folly! • What a blessing!"}]},{"title":"Note on \"This\" and \"That\":","blocks":[{"kind":"p","val":"These are the only adjectives that change form to show number: • this (singular) → these (plural) • that (singular) → those (plural)"}]}]}]},{"label":"Part 1 · pages 26–42","chapters":[{"title":"The Noun: Case","topics":[{"title":"Basic Rule","blocks":[{"kind":"p","val":"The possessive case shows ownership or relationship between nouns."},{"kind":"p","val":"Formation: Add 's to most nouns"}]},{"title":"Examples","blocks":[{"kind":"list","val":["The boy's book - one boy owns the book","The boys' books - multiple boys own books","Children's toys - toys belonging to children","James's car or James' car - both acceptable"]}]},{"title":"Special Cases","blocks":[{"kind":"table","val":[["Situation","Rule","Example"],["Singular noun","Add 's","cat's tail"],["Plural ending in 's'","Add '","cats' tails"],["Irregular plural","Add 's","men's clothes"],["Personified objects","Use possessive","India's heroes, Nature's laws"],["Time/Space/Weight","Use possessive","a day's march, a stone's throw"]]}]},{"title":"Definition","blocks":[{"kind":"p","val":"When one noun follows another to describe it, the second noun is in apposition to the first."},{"kind":"p","val":"Key Point: A noun in apposition is in the same case as the noun it explains."}]},{"title":"Examples","blocks":[{"kind":"p","val":"Rama, our captain, made fifty runs."},{"kind":"p","val":"📝 \"Captain\" is in apposition to \"Rama\" (both nominative case)"},{"kind":"p","val":"Yesterday I met your uncle, the doctor."},{"kind":"p","val":"📝 \"Doctor\" is in apposition to \"uncle\" (both accusative case)"},{"kind":"p","val":"Have you seen Ganguli, the artist's drawings?"},{"kind":"p","val":"📝 \"Artist\" is in apposition to \"Ganguli\" (both genitive case)"}]},{"title":"Practice Exercise","blocks":[{"kind":"p","val":"Identify the possessive forms and explain their usage:"},{"kind":"list","val":["The ship sustained heavy damage.","I have called several times.","Every dog has his day.","Yesterday I met your uncle, the doctor.","Have you seen Ganguli, the artist's drawings?"]},{"kind":"p","val":"1. No possessive form"},{"kind":"p","val":"2. No possessive form"},{"kind":"p","val":"3. \"dog\" is possessive (every dog has his own day)"},{"kind":"p","val":"4. \"doctor\" is in apposition to \"uncle\""},{"kind":"p","val":"5. \"artist's\" is possessive genitive, \"drawings\" belongs to the artist"}]}]},{"title":"The Adjective","topics":[{"title":"What is an Adjective?","blocks":[{"kind":"p","val":"A word used with a noun to describe or point out the person, animal, place, or thing which the noun names, or to tell the number or quantity ."}]},{"title":"Basic Examples","blocks":[{"kind":"list","val":["Sita is a clever girl. (What kind of girl?)","I don't like that boy. (Which boy?)","He gave me five mangoes. (How many mangoes?)","There is little time. (How much time?)"]}]},{"title":"Attributive vs Predicative Use","blocks":[{"kind":"table","val":[["Type","Position","Example"],["Attributive","Before the noun","The lazy boy was punished."],["Predicative","After linking verb","The boy is lazy ."]]}]},{"title":"1. Adjectives of Quality (Descriptive)","blocks":[{"kind":"p","val":"Show the kind or quality of a person or thing"},{"kind":"p","val":"Question answered: Of what kind?"},{"kind":"p","val":"Kolkata is a large city."},{"kind":"p","val":"He is an honest man."},{"kind":"p","val":"This is a Grammar of the English language."}]},{"title":"2. Adjectives of Quantity","blocks":[{"kind":"p","val":"Show how much of a thing is meant"},{"kind":"p","val":"Question answered: How much?"},{"kind":"p","val":"I ate some rice."},{"kind":"p","val":"He showed much patience."},{"kind":"p","val":"We have had enough exercise."}]},{"title":"3. Adjectives of Number (Numeral)","blocks":[{"kind":"p","val":"Show how many persons or things, or in what order"},{"kind":"p","val":"Question answered: How many?"},{"kind":"table","val":[["Type","Description","Examples"],["Definite","Exact number","one, two, three (Cardinals) first, second, third (Ordinals)"],["Indefinite","No exact number","all, no, many, few, some, any, several"],["Distributive","Each one of a number","each, every, either, neither"]]}]},{"title":"4. Demonstrative Adjectives","blocks":[{"kind":"p","val":"Point out which person or thing is meant"},{"kind":"p","val":"Question answered: Which?"},{"kind":"p","val":"This boy is stronger than Hari."},{"kind":"p","val":"Those rascals must be punished."},{"kind":"p","val":"Don't be in such a hurry."}]},{"title":"5. Interrogative Adjectives","blocks":[{"kind":"p","val":"Used with nouns to ask questions"},{"kind":"p","val":"What manner of man is he?"},{"kind":"p","val":"Which way shall we go?"},{"kind":"p","val":"Whose book is this?"}]},{"title":"Classification Exercise","blocks":[{"kind":"p","val":"Identify the adjectives and their types:"},{"kind":"list","val":["The ship sustained heavy damage.","I have called several times.","Every dog has his day.","What time is it?","Which pen do you prefer?"]},{"kind":"p","val":"1. \"heavy\" - Adjective of Quality"},{"kind":"p","val":"2. \"several\" - Indefinite Numeral Adjective"},{"kind":"p","val":"3. \"Every\" - Distributive Numeral Adjective"},{"kind":"p","val":"4. \"What\" - Interrogative Adjective"},{"kind":"p","val":"5. \"Which\" - Interrogative Adjective"}]}]},{"title":"Comparison of Adjectives","topics":[{"title":"Positive","blocks":[{"kind":"p","val":"No comparison"}]},{"title":"Comparative","blocks":[{"kind":"p","val":"Higher degree"},{"kind":"p","val":"Compares two things"}]},{"title":"Superlative","blocks":[{"kind":"p","val":"Highest degree"},{"kind":"p","val":"Compares three or more"}]},{"title":"Example Progression","blocks":[{"kind":"p","val":"1. Rama's mango is sweet. (Positive - simple quality)"},{"kind":"p","val":"2. Hari's mango is sweeter than Rama's. (Comparative - two mangoes)"},{"kind":"p","val":"3. Govind's mango is the sweetest of all. (Superlative - all mangoes)"}]},{"title":"One Syllable Adjectives","blocks":[{"kind":"p","val":"Add -er for comparative and -est for superlative"},{"kind":"table","val":[["Positive","Comparative","Superlative","Special Rule"],["sweet","sweeter","sweetest","Regular"],["brave","braver","bravest","Ends in 'e' - add r, st"],["happy","happier","happiest","Y → I before -er, -est"],["big","bigger","biggest","Double final consonant"]]}]},{"title":"Multi-syllable Adjectives","blocks":[{"kind":"p","val":"Use more for comparative and most for superlative"},{"kind":"table","val":[["Positive","Comparative","Superlative"],["beautiful","more beautiful","most beautiful"],["difficult","more difficult","most difficult"],["industrious","more industrious","most industrious"]]}]},{"title":"Irregular Comparisons","blocks":[{"kind":"table","val":[["Positive","Comparative","Superlative"],["good, well","better","best"],["bad, evil, ill","worse","worst"],["little","less, lesser","least"],["much, many","more","most"],["old","older, elder","oldest, eldest"],["far","farther, further","farthest, furthest"]]}]},{"title":"Elder/Older - Eldest/Oldest","blocks":[{"kind":"list","val":["Elder/Eldest: Used only for people in the same family","Older/Oldest: Used for people, animals, and things"]},{"kind":"p","val":"✅ John is my elder brother."},{"kind":"p","val":"✅ He is older than his sister."},{"kind":"p","val":"✅ This is the oldest temple in Kolkata."}]},{"title":"Farther/Further","blocks":[{"kind":"list","val":["Farther: Physical distance","Further: Additional, abstract distance"]},{"kind":"p","val":"✅ Kolkata is farther from the equator than Colombo."},{"kind":"p","val":"✅ I must have a reply without further delay."}]},{"title":"Comparison Practice","blocks":[{"kind":"p","val":"Fill in the correct form:"},{"kind":"p","val":"1. Iron is _______ than any other metal. (useful)"},{"kind":"list","val":["more useful","more useful","most useful"]},{"kind":"p","val":"2. She is the _______ of the two sisters. (old)"},{"kind":"list","val":["elder","eldest","older"]}]}]},{"title":"Position of Adjectives","topics":[{"title":"Standard Position","blocks":[{"kind":"p","val":"A single adjective used attributively is generally placed immediately before the noun."},{"kind":"p","val":"King Francis was a hearty king."},{"kind":"p","val":"Where are you going, my pretty maid?"}]},{"title":"Meaning Changes with Position","blocks":[{"kind":"p","val":"a great nobleman's son (a son of an important nobleman)"},{"kind":"p","val":"a nobleman's great son (an important son of a nobleman)"}]},{"title":"Adjective After Noun","blocks":[{"kind":"p","val":"1. In poetry:"},{"kind":"p","val":"Children dear , was it yesterday?"},{"kind":"p","val":"O man with sisters dear !"},{"kind":"p","val":"2. When several adjectives modify one noun:"},{"kind":"p","val":"There dwelt a miller hale and bold ."},{"kind":"p","val":"The King, fearless and resolute , advanced."},{"kind":"p","val":"3. When adjective has additional explanation:"},{"kind":"p","val":"He was a man fertile in resource ."},{"kind":"p","val":"A Sikh, taller than any of his comrades , rushed forward."}]},{"title":"Fixed Phrases","blocks":[{"kind":"p","val":"Some phrases always have the adjective after the noun:"},{"kind":"list","val":["heir apparent","time immemorial","lord paramount","letters patent","God Almighty"]}]}]},{"title":"Correct Use of Some Adjectives","topics":[{"title":"Basic Rule","blocks":[{"kind":"list","val":["Some: Affirmative sentences, offers, requests","Any: Negative and interrogative sentences"]},{"kind":"table","val":[["Type","Use","Example"],["Affirmative","some","I will buy some mangoes."],["Negative","any","I will not buy any mangoes."],["Interrogative","any","Have you bought any mangoes?"],["Offer","some","Will you have some ice-cream?"],["Request","some","Could you lend me some money?"]]}]},{"title":"Key Differences","blocks":[{"kind":"table","val":[["Aspect","Each","Every"],["Minimum number","Two or more","More than two"],["Focus","Individuals","Total group"],["Number in group","Limited, definite","Indefinite"],["Strength","Weaker","Stronger (no exceptions)"]]},{"kind":"p","val":"✅ Each boy must take his turn. (focus on individuals)"},{"kind":"p","val":"✅ Every seat was taken. (all seats, no exceptions)"},{"kind":"p","val":"✅ I was away ten days and it rained each day. (definite period)"},{"kind":"p","val":"✅ It rained every day during my holidays. (indefinite period)"}]},{"title":"Meanings","blocks":[{"kind":"table","val":[["Form","Meaning","Tone","Example"],["little","not much, hardly any","Negative","There is little hope of recovery."],["a little","some, though not much","Positive","There is a little hope of recovery."],["the little","not much, but all there is","Specific","The little knowledge he had was useful."]]}]},{"title":"Meanings","blocks":[{"kind":"table","val":[["Form","Meaning","Tone","Example"],["few","not many, hardly any","Negative","Few people can keep a secret."],["a few","some","Positive","A few words will convince him."],["the few","not many, but all there are","Specific","The few friends he has are poor."]]}]},{"title":"Usage Practice","blocks":[{"kind":"p","val":"Choose the correct option:"},{"kind":"p","val":"1. Will you have _____ tea? (offer)"},{"kind":"list","val":["some","any"]},{"kind":"p","val":"2. _____ seat was taken. (no exceptions)"},{"kind":"list","val":["Each","Every"]},{"kind":"p","val":"3. There is _____ hope. (some optimism)"},{"kind":"list","val":["little","a little"]}]}]}]},{"label":"Part 1 · pages 48–71","chapters":[{"title":"Articles (A, An, The)","topics":[{"title":"Articles (A, An, The)","blocks":[{"kind":"p","val":"Basic Rules ▼"},{"kind":"p","val":"Articles: A, An, The are words placed before nouns to specify whether the noun is definite or indefinite."},{"kind":"p","val":"Examples: • A dog (any dog) • An elephant (any elephant) • The dog (specific dog)"},{"kind":"p","val":"Repetition of Articles ▼"},{"kind":"p","val":"When two or more adjectives qualify the same noun, the article is used before the first adjective only. When they qualify different nouns, the article is used before each adjective."},{"kind":"p","val":"Same noun: I have a black and white dog. (one dog, both colors) Different nouns: I have a black and a white dog. (two dogs)"},{"kind":"p","val":"Practice Exercise ▼"},{"kind":"p","val":"Exercise: Insert Articles Where Necessary"},{"kind":"list","val":["While there is life there is hope.","Her knowledge of medicine had been acquired under aged Jewess.","Sun rises in east.","The brave soldier lost arm in battle.","The doctor says it is hopeless case.","Get pound of sugar from nearest grocer."]}]}]},{"title":"Personal Pronouns","topics":[{"title":"Personal Pronouns","blocks":[{"kind":"p","val":"Definition & Forms ▼"},{"kind":"p","val":"Personal Pronouns: Words used instead of nouns to represent the three persons - the person speaking (1st), the person spoken to (2nd), and the person spoken of (3rd)."},{"kind":"table","val":[["Person","Nominative","Possessive","Accusative"],["1st (Singular)","I","my, mine","me"],["1st (Plural)","we","our, ours","us"],["2nd","you","your, yours","you"],["3rd (Masc.)","he","his","him"],["3rd (Fem.)","she","her, hers","her"],["3rd (Neuter)","it","its","it"],["3rd (Plural)","they","their, theirs","them"]]},{"kind":"p","val":"Uses of \"It\" ▼"},{"kind":"p","val":"The pronoun \"it\" is used for: 1. Things without life: Here is your book; take it away. 2. Animals: He loves his dog and cannot do without it. 3. Young children: When I saw the child it was crying. 4. Weather/Time: It is raining. It is ten o'clock. 5. Emphasis: It was you who began the quarrel."},{"kind":"p","val":"Exercise: Choose the Correct Pronoun"},{"kind":"list","val":["We scored as many goals as _____. (they, them)","Rama and _____ were present. (I, me)","Can you sing as well as _____? (they, them)","Between you and _____, I do not believe him. (I, me)","Nobody but _____ was present. (he, him)"]}]}]},{"title":"Reflexive & Emphatic Pronouns","topics":[{"title":"Reflexive & Emphatic Pronouns","blocks":[{"kind":"p","val":"Reflexive Pronouns ▼"},{"kind":"p","val":"Reflexive Pronouns: Formed by adding -self (singular) or -selves (plural) to personal pronouns. Used when the action turns back upon the subject."},{"kind":"p","val":"Forms: myself, yourself, himself, herself, itself, ourselves, yourselves, themselves Examples: • I hurt myself . • You will hurt yourself . • He hurt himself . • They hurt themselves ."},{"kind":"p","val":"Emphatic Pronouns ▼"},{"kind":"p","val":"Emphatic Pronouns: Same forms as reflexive pronouns but used for emphasis."},{"kind":"p","val":"Examples: • I will do it myself . • I myself saw him do it. • The town itself is not very large. • We saw the Prime Minister himself ."},{"kind":"p","val":"Exercise: Identify Reflexive vs Emphatic"},{"kind":"list","val":["I will go myself. (Emphatic/Reflexive)","Rama has hurt himself. (Emphatic/Reflexive)","We often deceive ourselves. (Emphatic/Reflexive)","I myself heard the remark. (Emphatic/Reflexive)","The prisoner hanged himself. (Emphatic/Reflexive)"]}]}]},{"title":"Demonstrative, Indefinite & Distributive Pronouns","topics":[{"title":"Demonstrative, Indefinite & Distributive Pronouns","blocks":[{"kind":"p","val":"Demonstrative Pronouns ▼"},{"kind":"p","val":"Demonstrative Pronouns: Used to point out objects to which they refer."},{"kind":"p","val":"Forms: this, that, these, those, such Examples: • This is a present from my uncle. • These are merely excuses. • That is the Red Fort. • Mumbai mangoes are better than those of Bengaluru."},{"kind":"p","val":"Note: \"This\" refers to what is close at hand; \"that\" refers to what is farther away."},{"kind":"p","val":"Indefinite Pronouns ▼"},{"kind":"p","val":"Indefinite Pronouns: Refer to persons or things in a general way, not to any particular person or thing."},{"kind":"p","val":"Forms: one, some, any, all, none, somebody, anybody, nobody, everyone, anyone Examples: • One hardly knows what to do. • Some are born great. • Nobody was there to rescue the child. • Everyone should do their best."},{"kind":"p","val":"Distributive Pronouns ▼"},{"kind":"p","val":"Distributive Pronouns: Refer to persons or things one at a time. Always singular."},{"kind":"p","val":"Forms: each, either, neither Examples: • Each of the boys gets a prize. • Either of these roads leads to the station. • Neither of the accusations is true."},{"kind":"p","val":"Note: Either and neither should only be used when speaking of two persons or things."}]}]},{"title":"Relative Pronouns","topics":[{"title":"Relative Pronouns","blocks":[{"kind":"p","val":"Definition & Function ▼"},{"kind":"p","val":"Relative Pronouns: Do double work - the work of a pronoun and a conjunction. They relate to an antecedent and join clauses."},{"kind":"p","val":"Example: • I met Hari. + Hari had just returned. • Combined: I met Hari who had just returned. Here \"who\" refers back to \"Hari\" (antecedent) and joins the two sentences."},{"kind":"p","val":"Forms of Relative Pronouns ▼"},{"kind":"table","val":[["Case","Who","Which","That"],["Nominative","who","which","that"],["Possessive","whose","whose","-"],["Accusative","whom/who","which","that"]]},{"kind":"p","val":"Usage Rules ▼"},{"kind":"p","val":"Who: Used for persons only • The man who is honest is trusted. Which: Used for things and animals • The book which you gave me is good. That: Used for persons and things (defining clauses only) • The boy that I told you of is here. What: Used without antecedent (= that which) • What cannot be cured must be endured."},{"kind":"p","val":"Exercise: Fill in Relative Pronouns"},{"kind":"list","val":["We always like boys _____ speak the truth.","I know _____ you mean.","He _____ does his best shall be praised.","Here is the pen _____ you lost.","The letter _____ you wrote never arrived."]}]}]},{"title":"Interrogative Pronouns","topics":[{"title":"Interrogative Pronouns","blocks":[{"kind":"p","val":"Interrogative Pronouns: Used for asking questions."},{"kind":"p","val":"Forms: • Who - Nominative (persons) • Whose - Possessive (persons) • Whom/Who - Accusative (persons) • What - All cases (things) • Which - All cases (selection from limited number)"},{"kind":"p","val":"Who: Used for persons only • Who is there? • Who goes there? Which: Implies selection (persons and things) • Which is your friend? • Which of these books is yours? What: Used for things only • What have you found? • What do you want? Special use: \"What are you?\" = \"What is your profession?\""},{"kind":"p","val":"Exercise: Choose the Correct Interrogative Pronoun"},{"kind":"list","val":["_____ wishes to see you? (Who/What/Which)","_____ do you wish to see? (Who/Whom/Which)","_____ of the girls can sew the best? (Who/What/Which)","_____ are you seeking? (Who/What/Which)","_____ is better, honour or riches? (Who/What/Which)"]}]}]},{"title":"Transitive & Intransitive Verbs","topics":[{"title":"Transitive & Intransitive Verbs","blocks":[{"kind":"p","val":"Definition ▼"},{"kind":"p","val":"Verb: A word that tells or asserts something about a person or thing."},{"kind":"p","val":"A verb may tell us: 1. What a person or thing does: Hari laughs. 2. What is done to a person or thing: Hari is scolded. 3. What a person or thing is: The cat is dead."},{"kind":"p","val":"Transitive vs Intransitive ▼"},{"kind":"p","val":"Transitive Verb: Action passes over from the doer to an object. Intransitive Verb: Action does not pass over to an object."},{"kind":"p","val":"Transitive: • The boy kicks the football. (action passes to football) • She wrote a letter. (action passes to letter) Intransitive: • The boy laughs loudly. (action stops with the boy) • The baby sleeps . (action stops with the baby)"},{"kind":"p","val":"Direct & Indirect Objects ▼"},{"kind":"p","val":"Some transitive verbs take two objects: an indirect object (person) and a direct object (thing)."},{"kind":"p","val":"Examples: • His father gave him (indirect) a watch (direct). • He told me (indirect) a secret (direct). • She offered us (indirect) tea (direct)."},{"kind":"p","val":"Cognate Objects ▼"},{"kind":"p","val":"Cognate Object: An object similar in meaning to the intransitive verb."},{"kind":"p","val":"Examples: • I have fought a good fight . • He laughed a hearty laugh . • She sang a sweet song . • He ran a race ."},{"kind":"p","val":"Exercise: Identify Transitive/Intransitive & Objects"},{"kind":"list","val":["The sun shines brightly.","The boy cut his hand with a knife.","The clock stopped this morning.","The policeman blew his whistle.","The cat sleeps on the rug.","Time changes all things.","Tell the truth.","Birds fly in the air."]}]}]},{"title":"Verbs of Incomplete Predication","topics":[{"title":"Verbs of Incomplete Predication","blocks":[{"kind":"p","val":"Verbs of Incomplete Predication: Intransitive verbs that require a word (complement) to make complete sense."},{"kind":"p","val":"Complete sense: The baby sleeps. ✓ Incomplete sense: The baby seems... ✗ Complete with complement: The baby seems happy . ✓"},{"kind":"p","val":"Types of Complements ▼"},{"kind":"p","val":"Subjective Complement: Describes the subject Objective Complement: Describes the object"},{"kind":"p","val":"Subjective Complements: • Tabby is a cat . (predicative noun) • The earth is round . (predicative adjective) • John became a soldier . • You look happy . Objective Complements: • The boys made Rama captain . • His parents named him Hari . • The jury found him guilty . • We thought him a rascal ."},{"kind":"p","val":"Common Linking Verbs ▼"},{"kind":"p","val":"Verbs that usually take complements: • Be verbs: am, is, are, was, were, being, been • Become: become, became • Seem/Appear: seem, appear, look • Sensory verbs: taste, smell, sound, feel • Others: grow, turn, remain, stay"},{"kind":"p","val":"Exercise: Identify Verbs and Complements"},{"kind":"list","val":["The hungry lion roars.","The report proved false.","The child had fallen sick.","The wind is cold.","The results are out.","We see with our eyes.","The child fell asleep."]}]}]}]},{"label":"Part 1 · pages 77–87","chapters":[{"title":"Verb Moods","topics":[{"title":"1. Indicative Mood","blocks":[{"kind":"p","val":"Used to make statements of fact, ask questions, or express suppositions assumed as fact."}]},{"title":"Uses:","blocks":[{"kind":"p","val":"Statements: He writes legibly. • Napoleon died at St. Helena. • The child is alive."},{"kind":"p","val":"Questions: Have you found your book? • Are you well?"},{"kind":"p","val":"Suppositions: If I am to be a beggar, it shall never make me a rascal. • If it rains, I shall stay at home."}]},{"title":"2. Imperative Mood","blocks":[{"kind":"p","val":"Used to express commands, exhortations, entreaties, or prayers."}]},{"title":"Uses:","blocks":[{"kind":"p","val":"Commands: Wait there. • Come here. • Open your book at page 7."},{"kind":"p","val":"Exhortations: Be steady. • Take care of your health. • Try to do better."},{"kind":"p","val":"Entreaties/Prayers: Have mercy upon us. • Give us this day our daily bread."},{"kind":"list","val":["Strictly used only in Second Person (person spoken to)","For First and Third Persons, use auxiliary verb \"let\": Let me go, Let us go, Let him go","Subject \"you\" is usually omitted in imperative mood"]}]},{"title":"3. Subjunctive Mood","blocks":[{"kind":"p","val":"Scarcely exists in present-day English, but appears in specific contexts."},{"kind":"table","val":[["Person","Present Subjunctive (be)","Present Subjunctive (other verbs)","Past Subjunctive (be)","Past Subjunctive (other verbs)"],["I","I be","I speak","I were","I spoke"],["We","We be","We speak","We were","We spoke"],["You","You be","You speak","You were","You spoke"],["He/She","He be","He speak","He were","He spoke"],["They","They be","They speak","They were","They spoke"]]}]},{"title":"Present Subjunctive Uses:","blocks":[{"kind":"p","val":"Traditional phrases: God bless you! • God save the King! • Heaven help us!"},{"kind":"p","val":"Formal English: I move that Mr Gupta be appointed Chairman. • It is suggested that a ring road be built."}]},{"title":"Past Subjunctive Uses:","blocks":[{"kind":"p","val":"After \"wish\": I wish I knew his name. • I wish I were a millionaire."},{"kind":"p","val":"After \"if\" (improbability): If I were you I should not do that."},{"kind":"p","val":"After \"as if/as though\": He orders me about as if I were his wife."},{"kind":"p","val":"After \"it is time\": It is time we started."},{"kind":"p","val":"After \"would rather\": I would rather you went by air."}]}]},{"title":"⏰ Tenses Introduction","topics":[{"title":"What is Tense?","blocks":[{"kind":"p","val":"Tense shows the time and the state of an action or event."},{"kind":"p","val":"Examples: • I write this letter to please you. (Present time) • I wrote the letter in his very presence. (Past time) • I shall write another letter tomorrow. (Future time)"}]},{"title":"Present Tense","blocks":[{"kind":"p","val":"Simple Present: I love"},{"kind":"p","val":"Present Continuous: I am loving"},{"kind":"p","val":"Present Perfect: I have loved"},{"kind":"p","val":"Present Perfect Continuous: I have been loving"}]},{"title":"Past Tense","blocks":[{"kind":"p","val":"Simple Past: I loved"},{"kind":"p","val":"Past Continuous: I was loving"},{"kind":"p","val":"Past Perfect: I had loved"},{"kind":"p","val":"Past Perfect Continuous: I had been loving"}]},{"title":"Future Tense","blocks":[{"kind":"p","val":"Simple Future: I shall/will love"},{"kind":"p","val":"Future Continuous: I shall/will be loving"},{"kind":"p","val":"Future Perfect: I shall/will have loved"},{"kind":"p","val":"Future Perfect Continuous: I shall have been loving"}]},{"title":"Complete Conjugation Table - Verb \"to love\"","blocks":[{"kind":"table","val":[["Tense","1st Person Singular","2nd Person Singular","3rd Person Singular","1st Person Plural","2nd Person Plural","3rd Person Plural"],["Present","I love","You love","He loves","We love","You love","They love"],["Past","I loved","You loved","He loved","We loved","You loved","They loved"],["Future","I shall/will love","You will love","He will love","We shall/will love","You will love","They will love"]]}]}]},{"title":"Present & Past Tenses","topics":[{"title":"Uses:","blocks":[{"kind":"p","val":"1. Habitual actions: He drinks tea every morning. • I get up everyday at five o'clock."},{"kind":"p","val":"2. General truths: The sun rises in the east. • Honey is sweet. • Fortune favours the brave."},{"kind":"p","val":"3. Exclamatory sentences (here/there): Here comes the bus! • There she goes!"},{"kind":"p","val":"4. Vivid narrative (substitute for Simple Past): Sohrab now rushes forward and deals a heavy blow to Rustam."},{"kind":"p","val":"5. Fixed timetables/programmes: The next flight is at 7.00 tomorrow morning. • The match starts at 9 o'clock."},{"kind":"p","val":"6. Introducing quotations: Keats says, 'A thing of beauty is a joy for ever'."},{"kind":"p","val":"7. In time and condition clauses: I shall wait till you finish your lunch. • If it rains we shall get wet."}]},{"title":"Uses:","blocks":[{"kind":"p","val":"1. Action going on now: She is singing (now). • The boys are playing hockey."},{"kind":"p","val":"2. Temporary action: I am reading 'David Copperfield' (but not reading at this moment)."},{"kind":"p","val":"3. Arranged future action: I am going to the cinema tonight. • My uncle is arriving tomorrow."},{"kind":"p","val":"4. Persistent habits (with always, continually): My dog is always running out into the road."}]},{"title":"Verbs NOT normally used in continuous form:","blocks":[{"kind":"list","val":["Perception: see, hear, smell, notice, recognize","Appearing: appear, look, seem","Emotion: want, wish, desire, feel, like, love, hate, hope, refuse, prefer","Thinking: think, suppose, believe, agree, consider, trust, remember, forget, know, understand","Possession: have (=possess), own, possess, belong to, contain, consist of, be"]},{"kind":"p","val":"Wrong: These grapes are tasting sour. • I am thinking you are wrong. Right: These grapes taste sour. • I think you are wrong."}]},{"title":"Uses:","blocks":[{"kind":"p","val":"1. Completed activities in immediate past (with 'just'): He has just gone out. • It has just struck ten."},{"kind":"p","val":"2. Past actions (time not given/definite): Have you read 'Gulliver's Travels'? • I have never known him to be angry."},{"kind":"p","val":"3. Past events affecting present: Gopi has eaten all the biscuits (none left). • I have cut my finger (bleeding now)."},{"kind":"p","val":"4. Actions continuing to present (with since/for): I have known him for a long time. • He has been ill since last week."}]},{"title":"Adverbs used with Present Perfect:","blocks":[{"kind":"p","val":"never, ever (questions only), so far, till now, yet (negatives/questions), already, today, this week, this month"},{"kind":"p","val":"⚠️ Never use with past time adverbs: ❌ He has gone to Kolkata yesterday. ✅ He went to Kolkata yesterday."}]},{"title":"Uses:","blocks":[{"kind":"p","val":"1. Action began in past, still continuing: He has been sleeping for five hours (still sleeping). • They have been building the bridge for several months."},{"kind":"p","val":"2. Recently finished action (emphasizing continuity): 'Why are your clothes so wet?' — 'I have been watering the garden'."}]},{"title":"Uses:","blocks":[{"kind":"p","val":"1. Completed past action (with time adverbs): The steamer sailed yesterday. • I received his letter a week ago. • She left school last year."},{"kind":"p","val":"2. Past action (time implied): I learnt Hindi in Nagpur. • I didn't sleep well (last night). • Babar defeated Rana Sanga at Kanwaha."},{"kind":"p","val":"3. Past habits: He studied many hours everyday. • She always carried an umbrella."}]},{"title":"Uses:","blocks":[{"kind":"p","val":"1. Action going on in past: We were listening to the radio all evening. • It was getting darker."},{"kind":"p","val":"2. Background action for new action: The light went out while I was reading. • When I saw him, he was playing chess."},{"kind":"p","val":"3. Persistent past habits (with always, continually): He was always grumbling."}]},{"title":"Uses:","blocks":[{"kind":"p","val":"1. Action completed before past moment: I met him in New Delhi in 1996. I had seen him last five years before."},{"kind":"p","val":"2. Earlier of two past actions: When I reached the station the train had started. • I had done my exercise when Hari came to see me."}]},{"title":"Uses:","blocks":[{"kind":"p","val":"Action began before past point, continued to that time: At that time he had been writing a novel for two months. • When Mr Mukerji came to the school in 1995, Mr Anand had already been teaching there for five years."}]}]},{"title":"Future Tenses","topics":[{"title":"Uses:","blocks":[{"kind":"p","val":"1. Uncontrollable future events (future as fact): I shall be twenty next Saturday. • It will be Diwali in a week. • We will know our exam results in May."},{"kind":"p","val":"2. Future predictions/beliefs: I think Pakistan will win the match. • I'm sure Helen will get a first class."},{"kind":"p","val":"3. Instant decisions: It is raining. I will take an umbrella. • \"Mr Sinha is very busy.\" – \"All right. I'll wait.\""}]},{"title":"Uses:","blocks":[{"kind":"p","val":"1. Pre-decided actions: \"Have you decided what to do?\" – \"Yes. I am going to resign the job.\" • \"Why sell your motorbike?\" – \"I'm going to buy a car.\""},{"kind":"p","val":"2. Future based on present evidence: It is going to rain; look at those clouds. • The boat is full of water. It is going to sink. • She is going to have a baby."},{"kind":"p","val":"3. Action about to happen: Let's get into the train. It's going to leave. • Look! The cracker is going to explode."}]},{"title":"Uses:","blocks":[{"kind":"p","val":"Immediate future: Let's get into the train. It's about to leave. • Don't go out now. We are about to have lunch."}]},{"title":"Uses:","blocks":[{"kind":"p","val":"1. Official programmes/timetables: The college opens on 23rd June. • The film starts at 6.30 and finishes at 9.00. • When does the next train leave for Chennai?"},{"kind":"p","val":"2. In time/condition clauses: I won't go out if it rains. • Can I have some milk before I go to bed? • Let's wait till he finishes his work. • Please ring me up as soon as he comes."}]},{"title":"Uses:","blocks":[{"kind":"p","val":"Personal arrangements/plans: I am going to Shimla tomorrow. • We are eating out tonight. • Mr Abdul Rehman is arriving this evening."}]},{"title":"Uses:","blocks":[{"kind":"p","val":"1. Actions in progress at future time: I suppose it will be raining when we start. • This time tomorrow I will be sitting on the beach in Singapore. • \"Can I see you at 5 o'clock?\" – \"Please don't come then. I will be watching the tennis match on TV.\""},{"kind":"p","val":"2. Future actions already planned/expected: I will be staying here till Sunday. • He will be meeting us next week. • The postman will be coming soon."}]},{"title":"Uses:","blocks":[{"kind":"p","val":"Official plans/arrangements (formal style): The Prime Minister is to visit America next month. • The conference is to discuss \"Nuclear Tests.\""}]},{"title":"Uses:","blocks":[{"kind":"p","val":"Actions completed by future time: I shall have written my exercise by then. • He will have left before you go to see him. • By the end of this month I will have worked here for five years."}]},{"title":"Uses:","blocks":[{"kind":"p","val":"Actions in progress over period ending in future: By next March we shall have been living here for four years. • I'll have been teaching for twenty years next July."}]}]},{"title":"Verb: Person and Number","topics":[{"title":"Fundamental Rule","blocks":[{"kind":"p","val":"The Verb must agree with its Subject in Number and Person"},{"kind":"p","val":"Examples: • I am here. (1st person singular) • You are there. (2nd person singular/plural) • He is playing. (3rd person singular) • They are singing. (3rd person plural)"}]},{"title":"Person in Verbs","blocks":[{"kind":"p","val":"First Person: I speak (subject doing the speaking) Second Person: You speak (subject being spoken to) Third Person: He speaks (subject being spoken about)"}]},{"title":"Number in Verbs","blocks":[{"kind":"p","val":"Singular: He speaks (one person) Plural: They speak (more than one person)"},{"kind":"table","val":[["Tense","Person","Singular","Plural"],["Simple Present","1st","I speak","We speak"],["2nd","You speak","You speak"],["3rd","He speaks","They speak"],["Present Continuous","1st","I am speaking","We are speaking"],["2nd","You are speaking","You are speaking"],["3rd","He is speaking","They are speaking"],["Present Perfect","1st","I have spoken","We have spoken"],["2nd","You have spoken","You have spoken"],["3rd","He has spoken","They have spoken"]]}]}]},{"title":"Interactive Exercises","topics":[{"title":"Interactive Exercises","blocks":[{"kind":"p","val":"Exercise 1: Identify Verb Moods and Tenses"},{"kind":"p","val":"1. \"The river flows under the bridge.\" - Identify the mood and tense:"},{"kind":"p","val":"Indicative Mood, Simple Present Imperative Mood, Simple Present Subjunctive Mood, Simple Present"},{"kind":"p","val":"2. \"Be good, sweet maid.\" - Identify the mood:"},{"kind":"p","val":"Indicative Mood Imperative Mood Subjunctive Mood"},{"kind":"p","val":"3. \"I wish my brother were here.\" - Identify the mood:"},{"kind":"p","val":"Exercise 2: Choose the Correct Verb Form"},{"kind":"p","val":"4. The earth _____ round the sun."},{"kind":"p","val":"move moves moved"},{"kind":"p","val":"5. My friends _____ the Prime Minister yesterday."},{"kind":"p","val":"see have seen saw"},{"kind":"p","val":"6. I _____ him only one letter up to now."},{"kind":"p","val":"sent have sent send"},{"kind":"p","val":"7. It started to rain while we _____ tennis."},{"kind":"p","val":"are playing were playing had played"},{"kind":"p","val":"8. He _____ here for the last five years."},{"kind":"p","val":"worked is working has been working"},{"kind":"p","val":"Exercise 3: Future Tenses"},{"kind":"p","val":"9. The plane _____ at 3.30. (timetable)"},{"kind":"p","val":"arrives will arrive is arriving"},{"kind":"p","val":"10. Look at those black clouds. It _____."},{"kind":"p","val":"will rain is going to rain rains"},{"kind":"p","val":"11. I _____ the Joshis this evening. (arrangement)"},{"kind":"p","val":"visit am visiting will visit"},{"kind":"p","val":"12. By 2020, robots _____ many of the jobs that people do today."},{"kind":"p","val":"will be taking over will have taken over are taking over"}]}]}]},{"label":"Part 2 · pages 1–22","chapters":[{"title":"English Grammar Interactive Dashboard","topics":[{"title":"English Grammar Interactive Dashboard","blocks":[{"kind":"p","val":"Analysis, Transformation and Synthesis - High School English Grammar & Composition"},{"kind":"p","val":"Main Chapters"},{"kind":"p","val":"Sentence Types"},{"kind":"p","val":"📊 Simple Sentence Analysis 🔤 Phrases 📝 Clauses 🔗 Sentence Types"}]}]},{"title":"Analysis of Simple Sentences","topics":[{"title":"Definition","blocks":[{"kind":"p","val":"A Sentence is a set or group of words which makes complete sense. The first stage in analysis is to divide it into two main parts—the Subject and the Predicate ."}]},{"title":"Subject and Predicate","blocks":[{"kind":"p","val":"Subject: The person or thing about which something is said."},{"kind":"p","val":"Predicate: What is said about the person or thing denoted by the Subject."}]},{"title":"Interactive Examples","blocks":[{"kind":"p","val":"The sun gives light ."},{"kind":"p","val":"My father gave me a watch ."},{"kind":"p","val":"The hour to prepare lessons has arrived ."},{"kind":"table","val":[["No.","Subject","Predicate"],["1","Dogs","bark"],["2","The sun","gives light"],["3","The child","is dead"],["4","The boys","made Rama captain"],["5","My father","gave me a watch"],["6","The flames","spread everywhere"],["7","The flames","spread in every direction"],["8","The hour to prepare lessons","has arrived"]]},{"kind":"p","val":"📝 Exercise 1: Separate Subject and Predicate ▼"},{"kind":"p","val":"Instructions: In the following sentences separate the Subject and the Predicate."},{"kind":"p","val":"1. The cackling of geese saved Rome."},{"kind":"p","val":"2. Stone walls do not make a prison."},{"kind":"p","val":"3. All matter is indestructible."},{"kind":"p","val":"4. No man can serve two masters."},{"kind":"p","val":"5. A sick room should be well aired."},{"kind":"p","val":"6. I shot an arrow in the air."},{"kind":"p","val":"7. The shepherd hears barking sound."},{"kind":"p","val":"8. Up went the balloon."},{"kind":"p","val":"9. The naked everyday he clad."},{"kind":"p","val":"10. Into the street the piper stepped."},{"kind":"p","val":"11. Sweet are the uses of adversity."},{"kind":"p","val":"12. Dear, gentle, patient, noble Nell was dead."}]},{"title":"Subject-word and Simple Subject","blocks":[{"kind":"p","val":"When the Subject consists of several words, there is always one word which is more important than the others. This chief word is called the Subject-word or Simple Subject ."}]},{"title":"Key Point","blocks":[{"kind":"p","val":"The Subject-word is always a Noun, or a word or group of words that does the work of a Noun."}]},{"title":"Examples of Subject-words","blocks":[{"kind":"p","val":"The little child , tired of play, is sleeping."},{"kind":"p","val":"Here, \"child\" is the Subject-word."}]},{"title":"Enlargement or Attribute","blocks":[{"kind":"p","val":"In the complete Subject, the Subject-word is qualified by an Adjective or Adjective-equivalent called its Enlargement or Attribute ."},{"kind":"table","val":[["No.","Subject-word","Attribute","Predicate"],["1","brooms","New","sweep clean"],["2","dogs","Barking","seldom bite"],["3","father","Hari's","is an engineer"],["4","views","My","are quite different"],["5","Firdousi","the poet","wrote the Shah Namah"],["6","desire","(1) A (2) to excel","is commendable"],["7","stitch","(1) A (2) in time","saves nine"]]},{"kind":"p","val":"📝 Exercise 2: Subject-word and Attributes ▼"},{"kind":"p","val":"Instructions: Pick out the complete Subject; then separate Subject-word from its Attributes."},{"kind":"p","val":"1. The boy, anxious to learn, worked hard."},{"kind":"p","val":"2. A burnt child dreads the fire."},{"kind":"p","val":"3. Birds of a feather flock together."},{"kind":"p","val":"4. The attempt to scale the fort was an utter failure."},{"kind":"p","val":"5. The days of our youth are the days of our glory."},{"kind":"p","val":"6. Ill habits gather by unseen degrees."},{"kind":"p","val":"7. The dog, seizing the man by the collar, dragged him out."},{"kind":"p","val":"8. The streets of some of our cities are noted for their crookedness."},{"kind":"p","val":"9. A house divided against itself cannot stand."},{"kind":"p","val":"10. Deceived by his friends, he lost all hope."},{"kind":"p","val":"11. The man carrying a hoe is a gardener."},{"kind":"p","val":"12. One man's meat is another man's poison."},{"kind":"p","val":"13. My days among the Dead are past."},{"kind":"p","val":"14. With his white hair unbonneted, the stout old sheriff comes."}]},{"title":"Extension or Adverbial Qualification","blocks":[{"kind":"p","val":"Just as the Subject-word may be qualified by an Adjective, the Verb in the Predicate may be qualified by an Adverb or Adverb-equivalent, called its Extension or Adverbial Qualification ."}]},{"title":"Types of Adverbial Qualification","blocks":[{"kind":"list","val":["Adverb: The flames spread everywhere","Adverbial Accusative: He went home","Gerundial Infinitive: He rose to go","Group of words doing work of an Adverb: The flames spread in every direction","Absolute Phrase: Spring advancing , the swallows appear"]},{"kind":"p","val":"📝 Exercise 3: Adverbial Qualification ▼"},{"kind":"p","val":"Instructions: Point out the Adverbial Qualification and identify its type."},{"kind":"p","val":"1. She spoke distinctly."},{"kind":"p","val":"2. He spoke in a distinct voice."},{"kind":"p","val":"3. The boy ran a mile."},{"kind":"p","val":"4. The postman called again."},{"kind":"p","val":"5. He has come to stay."},{"kind":"p","val":"6. Wait a minute."},{"kind":"p","val":"7. The book is printed in clear type."},{"kind":"p","val":"8. I recognized your voice at once."},{"kind":"p","val":"9. Help a lame dog over a stile."},{"kind":"p","val":"10. The tide having turned, the ship set sail."},{"kind":"p","val":"11. He sold his horse below its value."},{"kind":"p","val":"12. He leaves two children behind him."},{"kind":"p","val":"13. He gets his living by trade."},{"kind":"p","val":"14. He made his money by trade."},{"kind":"p","val":"15. The enemy disputed the ground inch by inch."},{"kind":"p","val":"16. He saw a new world spread about him."},{"kind":"p","val":"17. The village life suited him in all respects."},{"kind":"p","val":"18. Him will I follow to the ends of the earth."}]},{"title":"Intransitive Verbs and Complements","blocks":[{"kind":"p","val":"Sometimes the Verb is an Intransitive Verb of Incomplete Predication, requiring a Complement to make the Predicate complete."}]},{"title":"Subjective Complement","blocks":[{"kind":"p","val":"The Complement of an Intransitive Verb serves to describe the Subject, and is therefore called a Subjective Complement ."}]},{"title":"Examples of Complements","blocks":[{"kind":"p","val":"The sky grew dark . (Adjective)"},{"kind":"p","val":"Venus is a planet . (Noun)"},{"kind":"p","val":"It is me . (Pronoun)"},{"kind":"p","val":"The man seems worried . (Participle)"},{"kind":"p","val":"📝 Exercise 4: Complements ▼"},{"kind":"p","val":"Instructions: Pick out the Complement and identify its type."},{"kind":"p","val":"1. John became a soldier."},{"kind":"p","val":"2. Roses smell sweet."},{"kind":"p","val":"3. The child appears pleased."},{"kind":"p","val":"4. The workman seems tired."},{"kind":"p","val":"5. The earth is round."},{"kind":"p","val":"6. He looks happy."},{"kind":"p","val":"7. Sugar tastes sweet."},{"kind":"p","val":"8. The old woman is dead."},{"kind":"p","val":"9. The weather was cold."},{"kind":"p","val":"10. He became unconscious."},{"kind":"p","val":"11. The old gentleman is of a gentle disposition."},{"kind":"p","val":"12. The child is there."},{"kind":"p","val":"13. The children look healthy."},{"kind":"p","val":"14. Today she seems sad."},{"kind":"p","val":"15. The cup is full to the brim."}]},{"title":"Transitive Verbs and Objects","blocks":[{"kind":"p","val":"Sometimes the Verb is a Transitive Verb, requiring an Object to complete its sense."}]},{"title":"Types of Objects","blocks":[{"kind":"p","val":"Birds build nests . (Noun)"},{"kind":"p","val":"I know him . (Pronoun)"},{"kind":"p","val":"All good children pity the poor . (Adjective used as Noun)"},{"kind":"p","val":"The Gurkhas love fighting . (Gerund)"}]},{"title":"Direct and Indirect Objects","blocks":[{"kind":"p","val":"Some Transitive Verbs take two Objects—a Direct Object and an Indirect Object."},{"kind":"table","val":[["Subject","Verb","Indirect Object","Direct Object"],["I","promised","him","a present"],["He","teaches","us","Geometry"],["Father","bought","Mini","a doll"]]}]},{"title":"Objective Complement","blocks":[{"kind":"p","val":"Some Transitive Verbs require a Complement in addition to the Object. The Complement refers to the Object and is called an Objective Complement ."}]},{"title":"Examples of Objective Complements","blocks":[{"kind":"p","val":"The boys made Rama captain ."},{"kind":"p","val":"The jury found him guilty ."},{"kind":"p","val":"His parents named him Hari ."},{"kind":"p","val":"📝 Exercises 5-7: Objects and Analysis ▼"}]},{"title":"Exercise 5: Point out Objects and Attributes","blocks":[{"kind":"p","val":"1. The world knows nothing of its greatest men."},{"kind":"p","val":"2. We should learn to govern ourselves."},{"kind":"p","val":"3. Her arms across her breast she laid."},{"kind":"p","val":"4. The architect drew a plan for the house."},{"kind":"p","val":"5. Serpents cast their skin once a year."}]},{"title":"Exercise 6: Objective Complements","blocks":[{"kind":"p","val":"1. Abdul called his cousin a fool."},{"kind":"p","val":"2. Exercise has made his muscles strong."},{"kind":"p","val":"3. This will make you happy."},{"kind":"p","val":"4. The Nawab appointed his own brother Vizier."},{"kind":"p","val":"5. The Court appointed him guardian of the orphan child."}]},{"title":"Exercise 7: Complete Analysis","blocks":[{"kind":"p","val":"1. A nod from a lord is breakfast for a fool."},{"kind":"p","val":"2. A good paymaster never wants workmen."},{"kind":"p","val":"3. Home they brought her warrior dead."},{"kind":"p","val":"4. Sickness made the child irritable."},{"kind":"p","val":"5. Gentle Evangeline was the pride of the village."},{"kind":"list","val":["Intransitive Verb alone","Intransitive Verb + Complement","Transitive Verb + Object","Transitive Verb + Indirect Object + Direct Object","Transitive Verb + Object + Complement"]}]}]},{"title":"Phrases","topics":[{"title":"What is a Phrase?","blocks":[{"kind":"p","val":"A Phrase is a group of words that does the work of a single part of speech. There are three main types: Adjective Phrases, Adverb Phrases, and Noun Phrases."}]},{"title":"I. Adjective Phrases","blocks":[{"kind":"p","val":"An Adjective Phrase is a group of words that does the work of an Adjective."}]},{"title":"Single Adjective","blocks":[{"kind":"p","val":"The vizier was a wealthy man."},{"kind":"p","val":"The magistrate was a kind man."},{"kind":"p","val":"The chief lived in a stone house."}]},{"title":"Adjective Phrase","blocks":[{"kind":"p","val":"The vizier was a man of great wealth ."},{"kind":"p","val":"The magistrate was a man with a kindly nature ."},{"kind":"p","val":"The chief lived in a house built of stone ."}]},{"title":"Adjectives vs Adjective Phrases","blocks":[{"kind":"table","val":[["Adjectives","Adjective Phrases"],["A golden crown","A crown made of gold"],["A purple cloak","A cloak of purple colour"],["A white elephant","An elephant with a white skin"],["A jungle track","A track through the jungle"],["A blue-eyed boy","A boy with blue eyes"],["A deserted village","A village without any inhabitants"],["The Spanish flag","The flag of Spain"],["A heavy load","A load of great weight"]]},{"kind":"p","val":"📝 Exercise 8: Pick out Adjective Phrases ▼"},{"kind":"p","val":"1. A man in great difficulties came to me for help."},{"kind":"p","val":"2. He is a person of very considerable renown."},{"kind":"p","val":"3. Wild beasts in small cages are a sorry sight."},{"kind":"p","val":"4. A man without an enemy is a man with few friends."},{"kind":"p","val":"5. He tells a tale with the ring of truth in it."},{"kind":"p","val":"6. A friend in need is a friend indeed."},{"kind":"p","val":"7. A stitch in time saves nine."},{"kind":"p","val":"8. A bird in the hand is worth two in the bush."},{"kind":"p","val":"9. Gardens with cool shady trees surround the village."},{"kind":"p","val":"10. Only a man with plenty of money buys a car of such beauty and power."},{"kind":"p","val":"11. In a low voice he told the tale of his cruel wrongs."},{"kind":"p","val":"12. Do you know the story of the noble Padmini?"},{"kind":"p","val":"13. He was a lad of great promise."},{"kind":"p","val":"14. He bore a banner with a strange device."},{"kind":"p","val":"15. The police arrested a man of one of the criminal tribes."},{"kind":"p","val":"📝 Exercises 9-11: Transform Adjectives and Phrases ▼"}]},{"title":"Exercise 9: Replace Adjectives with Adjective Phrases","blocks":[{"kind":"p","val":"1. A grey cloud spread over the sky."},{"kind":"p","val":"2. He dwelt in a wooden hut."},{"kind":"p","val":"3. He had a bald head."},{"kind":"p","val":"4. She wore a diamond necklace."},{"kind":"p","val":"5. It was a horrible night."}]},{"title":"Exercise 10: Replace Adjective Phrases with Adjectives","blocks":[{"kind":"p","val":"1. He wore a turban made of silk ."},{"kind":"p","val":"2. He has done a deed of shame ."},{"kind":"p","val":"3. He led a life devoid of blame ."},{"kind":"p","val":"4. He is a man without a friend ."},{"kind":"p","val":"5. They came to a path covered with mud ."}]},{"title":"Exercise 11: Fill in the blanks with Adjective Phrases","blocks":[{"kind":"p","val":"1. An elephant ____ is considered sacred by some people."},{"kind":"p","val":"2. Birds ____ flock together."},{"kind":"p","val":"3. He leads a life ____."},{"kind":"p","val":"4. Children like books ____."},{"kind":"p","val":"5. He lost a diamond ____."}]},{"title":"II. Adverb Phrases","blocks":[{"kind":"p","val":"An Adverb Phrase is a group of words that does the work of an Adverb."}]},{"title":"Single Adverb","blocks":[{"kind":"p","val":"Rama ran quickly . (How?)"},{"kind":"p","val":"He answered rudely . (How?)"},{"kind":"p","val":"He is coming now . (When?)"},{"kind":"p","val":"The arrow fell here . (Where?)"}]},{"title":"Adverb Phrase","blocks":[{"kind":"p","val":"Rama ran with great speed . (How?)"},{"kind":"p","val":"He answered in a very rude manner . (How?)"},{"kind":"p","val":"He is coming at this very moment . (When?)"},{"kind":"p","val":"The arrow fell on this spot . (Where?)"}]},{"title":"Adverbs vs Adverb Phrases","blocks":[{"kind":"table","val":[["Adverbs","Adverb Phrases"],["Bravely","In a brave manner, or with bravery"],["Unwisely","In an unwise manner, or without wisdom"],["Swiftly","In a swift manner, or with swiftness"],["Beautifully","In a beautiful style"],["Formerly","In former times, or once upon a time"],["Recently","Just now, or at a recent date"],["Soon","Before very long, or at an early date"],["There","At that place"],["Away","To another place"],["Abroad","To (in) a foreign country"]]},{"kind":"p","val":"📝 Exercise 13: Pick out Adverb Phrases ▼"},{"kind":"p","val":"1. She lived in the middle of a great wood."},{"kind":"p","val":"2. Nothing can live on the moon."},{"kind":"p","val":"3. Come into the garden, Maud."},{"kind":"p","val":"4. Three fishers went sailing over the sea."},{"kind":"p","val":"5. O'er her hangs the great dark bell."},{"kind":"p","val":"6. Down in a green and shady bed, a modest violet grew."},{"kind":"p","val":"7. On your conscience this will lie."},{"kind":"p","val":"8. They sat for a while on the bank."},{"kind":"p","val":"9. Honesty is written on his face."},{"kind":"p","val":"10. The gun went off with a loud report."},{"kind":"p","val":"11. There dwelt a miller hale and bold, beside the river Dee."},{"kind":"p","val":"12. I stood on the bridge at midnight."},{"kind":"p","val":"13. To the northward stretched the desert."},{"kind":"p","val":"14. Beside a green meadow a stream used to flow."},{"kind":"p","val":"15. I have read Bacon to my great profit."},{"kind":"p","val":"16. In her ear he whispers gaily."},{"kind":"p","val":"17. Beside the ungathered rice he lay."},{"kind":"p","val":"18. They fought to the last man."},{"kind":"p","val":"19. He persevered in the face of all obstacles."},{"kind":"p","val":"20. The shoe is pressing on my toe."},{"kind":"p","val":"📝 Exercises 14-16: Transform Adverbs and Phrases ▼"}]},{"title":"Exercise 14: Replace Adverbs with Adverb Phrases","blocks":[{"kind":"p","val":"1. The pigeon flies swiftly ."},{"kind":"p","val":"2. Did Rama behave well ?"},{"kind":"p","val":"3. Go away ."},{"kind":"p","val":"4. The dying man replied feebly ."},{"kind":"p","val":"5. Gently fell the rain."}]},{"title":"Exercise 15: Replace Adverb Phrases with Adverbs","blocks":[{"kind":"p","val":"1. The bodies were mangled in a terrible manner ."},{"kind":"p","val":"2. Let us cease work from this very moment ."},{"kind":"p","val":"3. It was just on this spot that he died."},{"kind":"p","val":"4. The child replied with perfect truthfulness ."},{"kind":"p","val":"5. He arrived at that moment ."}]},{"title":"Exercise 16: Fill in the blanks with Adverb Phrases","blocks":[{"kind":"p","val":"1. The knight fought ____."},{"kind":"p","val":"2. The Rajah treated his vizier ____."},{"kind":"p","val":"3. The woodman struck the wolf ____."},{"kind":"p","val":"4. Do not answer ____."},{"kind":"p","val":"5. I agree ____."},{"kind":"p","val":"📌 Important Note: The same phrase may be an Adjective Phrase in one sentence and an Adverb Phrase in another, depending on what it modifies. Example: • \"The crowd in the bazaar was very noisy.\" (Adjective Phrase - describes crowd) • \"The crowd halted in the bazaar .\" (Adverb Phrase - tells where they halted)"}]},{"title":"III. Noun Phrases","blocks":[{"kind":"p","val":"A Noun Phrase is a group of words that does the work of a Noun."}]},{"title":"Single Noun","blocks":[{"kind":"p","val":"The boy wants something ."}]},{"title":"Noun Phrase","blocks":[{"kind":"p","val":"The boy wants t
