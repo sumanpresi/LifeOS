@@ -243,3 +243,17 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .meeting-top input[type=text]{flex:1;border:none;background:transparent;font-weight:700;outline:none;font-size:15px}
 .meeting textarea{width:100%;border:none;background:var(--paper);border-radius:8px;padding:9px 11px;margin-top:8px;
   outline:none;resize:vertical;min-height:64px;line-height:1.5}
+
+/* ---------- v0.3: embedded Communication page ---------- */
+.iframe-page{
+  width:100%;
+  height:calc(100vh - 150px);
+  min-height:720px;
+  border:1px solid var(--line);
+  border-radius:var(--r);
+  background:#fff;
+  box-shadow:var(--shadow);
+}
+@media(max-width:760px){
+  .iframe-page{height:calc(100vh - 120px);min-height:600px;border-radius:12px}
+}
