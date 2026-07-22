@@ -27,6 +27,15 @@ function buildIndex() {
     (sec.links || []).forEach(l => push("Link", l.title, label, () => window.open(l.url, "_blank")));
   });
 
+  /* Communication workspace */
+  const c = state.communication;
+  if (c) {
+    c.templates.forEach(t => push("Template", t.title, t.category || "", () => go("communication")));
+    c.drafts.forEach(d => push("Draft", d.subject || (d.body || "").slice(0, 60), "draft", () => go("communication")));
+    c.followUps.forEach(f => push("Follow-up", f.title, f.person || f.status, () => go("communication")));
+    c.links.forEach(l => push("Link", l.title, "Communication", () => window.open(l.url, "_blank")));
+  }
+
   state.gsi.ngdr.forEach(i => push("NGDR", i.text, i.status, () => go("work")));
   state.gsi.log.forEach(e => push("Work log", e.text.slice(0, 120), e.date, () => go("work")));
   state.gsi.meetings.forEach(m => {
