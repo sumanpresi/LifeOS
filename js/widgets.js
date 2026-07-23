@@ -90,10 +90,11 @@ export function renderMedStat() {
 }
 
 /* ---------- Day Of page ---------- */
+let currentJournalDate = null; // null = today (re-evaluated each render so it stays "today" across midnight)
+
 export function renderDayOf() {
   const k = todayKey();
-  document.getElementById("dayJournalDate").textContent =
-    new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long" });
+  const viewDate = currentJournalDate || k;
   document.getElementById("dayTasks").innerHTML = state.tasks.map((t, i) => `
     <div class="task-row ${t.done ? "done" : ""}">
       <button class="chk ${t.done ? "on" : ""}" onclick="toggleTask('${t.id}')"><svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
@@ -106,12 +107,43 @@ export function renderDayOf() {
       <span style="font-weight:600;flex:1">${esc(h.name)}</span>
       <span class="streak">${streak(h.id)}🔥</span>
     </div>`).join("");
-  const j = document.getElementById("dayJournal");
-  if (document.activeElement !== j) j.value = state.journal[k] || "";
+  renderJournalEditor(viewDate);
+  renderJournalList(viewDate);
 }
+
+function fmtJournalDate(k) {
+  const [y, m, d] = k.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+}
+function renderJournalEditor(viewDate) {
+  const isToday = viewDate === todayKey();
+  document.getElementById("journalEditingLabel").textContent = isToday ? "Today — " + fmtJournalDate(viewDate) : fmtJournalDate(viewDate);
+  document.getElementById("journalDatePicker").value = viewDate;
+  document.getElementById("journalTodayBtn").style.display = isToday ? "none" : "";
+  const j = document.getElementById("dayJournal");
+  if (document.activeElement !== j) j.value = state.journal[viewDate] || "";
+}
+function renderJournalList(viewDate) {
+  const box = document.getElementById("journalList");
+  if (!box) return;
+  const dates = Object.keys(state.journal).filter(d => (state.journal[d] || "").trim()).sort().reverse();
+  box.innerHTML = dates.map(d => `
+    <button class="journal-list-item ${d === viewDate ? "active" : ""}" onclick="selectJournalDate('${d}')">
+      <span class="jd-date">${fmtJournalDate(d)}</span>
+      <span class="jd-snip">${esc((state.journal[d] || "").slice(0, 60))}</span>
+    </button>`).join("") || `<p class="hint">Past entries will appear here.</p>`;
+}
+export function selectJournalDate(d) {
+  currentJournalDate = d;
+  renderJournalEditor(d);
+  renderJournalList(d);
+}
+export function journalGoToday() { selectJournalDate(todayKey()); }
+
 let journalTimer = null;
 export function saveJournal(v) {
-  state.journal[todayKey()] = v;
+  const d = currentJournalDate || todayKey();
+  state.journal[d] = v;
   clearTimeout(journalTimer);
-  journalTimer = setTimeout(() => persist(), 800);
+  journalTimer = setTimeout(() => { persist(); renderJournalList(d); }, 800);
 }

@@ -74,6 +74,14 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6"/></svg>
           Sync
         </button>
+        <button class="btn btn-ghost" onclick="exportBackup()" id="backupBtn" title="Download a full backup of all your LifeOS data">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"/></svg>
+          Backup
+        </button>
+        <button class="btn btn-ghost" onclick="document.getElementById('backupFile').click()" title="Restore from a backup file">
+          Restore
+        </button>
+        <input type="file" id="backupFile" accept="application/json" style="display:none" onchange="importBackup(event)">
         <button class="btn btn-primary" onclick="ghButton()" id="ghBtn">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.54-3.87-1.54-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.26.72-1.55-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12v3.14c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>
           <span id="ghBtnText">GitHub Login</span>
@@ -119,6 +127,13 @@
 
         <div class="card" id="tasksCard">
           <div class="card-head"><h2>Top 5 Tasks</h2><span class="hint" id="taskCount"></span></div>
+          <div class="card-body" style="padding-bottom:0">
+            <div class="seg" id="taskFilterBar">
+              <button data-filter="all" class="on" onclick="setTaskFilter('all')">All</button>
+              <button data-filter="work" onclick="setTaskFilter('work')">Work</button>
+              <button data-filter="personal" onclick="setTaskFilter('personal')">Personal</button>
+            </div>
+          </div>
           <div class="card-body" id="taskList"></div>
           <div class="card-body" style="padding-top:0">
             <div class="add-inline">
@@ -220,10 +235,22 @@
           <div class="card-body" id="dayHabits"></div>
         </div>
       </div>
-      <div class="card" style="margin-top:16px">
-        <div class="card-head"><h2>Journal — <span id="dayJournalDate"></span></h2></div>
-        <div class="card-body">
-          <textarea class="notes-area" id="dayJournal" placeholder="How did today go?" oninput="saveJournal(this.value)"></textarea>
+      <div class="grid-2" style="margin-top:16px;align-items:start">
+        <div class="card">
+          <div class="card-head">
+            <h2>Journal — <span id="journalEditingLabel"></span></h2>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="date" id="journalDatePicker" onchange="selectJournalDate(this.value)" title="Jump to a date">
+              <button class="btn btn-ghost" id="journalTodayBtn" onclick="journalGoToday()" style="display:none">Today</button>
+            </div>
+          </div>
+          <div class="card-body">
+            <textarea class="notes-area" id="dayJournal" placeholder="How did that day go?" oninput="saveJournal(this.value)" style="min-height:280px"></textarea>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Past entries</h2><span class="hint">Most recent first</span></div>
+          <div class="card-body" id="journalList" style="max-height:340px;overflow-y:auto"></div>
         </div>
       </div>
     </section>
@@ -282,10 +309,183 @@
           </div>
         </div>
       </div>
+      <div class="grid-2" style="margin-top:16px">
+        <div class="card">
+          <div class="card-head"><h2>Personal documents</h2></div>
+          <div class="card-body">
+            <div class="link-grid" id="personalDocs" style="grid-template-columns:1fr"></div>
+            <div class="add-inline">
+              <input type="text" id="personalDocName" placeholder="Document name">
+              <input type="text" id="personalDocUrl" placeholder="https://…">
+              <button class="btn btn-ghost" onclick="addPersonalDoc()">➕ Add</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Work documents</h2></div>
+          <div class="card-body">
+            <div class="link-grid" id="workDocs" style="grid-template-columns:1fr"></div>
+            <div class="add-inline">
+              <input type="text" id="workDocName" placeholder="Document name">
+              <input type="text" id="workDocUrl" placeholder="https://…">
+              <button class="btn btn-ghost" onclick="addWorkDoc()">➕ Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="card" style="margin-top:16px">
         <div class="card-head"><h2>Notes</h2></div>
         <div class="card-body">
           <textarea class="notes-area" id="notes-work" placeholder="Reference notes, circular summaries, anything work…" oninput="saveSectionNotes('work',this.value)"></textarea>
+        </div>
+      </div>
+      <div class="card-head" style="margin-top:16px"><h2>NGDR Upload Tracker</h2><span class="hint">Daily upload counts, trend chart, core log</span></div>
+      <iframe src="pages/ngdr-tracker.html" class="iframe-page ngdr-tracker-frame" title="NGDR Upload Tracker" style="margin-top:10px"></iframe>
+    </section>
+
+    <!-- ======== PAGE: FINANCE ======== -->
+    <section class="page" id="page-finance">
+      <h1 class="display" style="font-size:28px;margin-bottom:14px">Finance</h1>
+      <div class="grid-2">
+        <div class="card"><div class="card-head"><h2>Notes</h2></div>
+          <div class="card-body">
+            <textarea class="notes-area" id="notes-finance" placeholder="Everything about finance lives here…" oninput="saveFinanceNotes(this.value)"></textarea>
+          </div>
+        </div>
+        <div class="card"><div class="card-head"><h2>Links</h2></div>
+          <div class="card-body">
+            <div class="link-grid" id="secLinks-finance" style="grid-template-columns:1fr"></div>
+            <div class="add-inline">
+              <input type="text" id="finLinkTitle" placeholder="Title">
+              <input type="text" id="finLinkUrl" placeholder="https://…">
+              <button class="btn btn-ghost" onclick="addFinanceLink()">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="grid-3" style="margin-top:16px">
+        <div class="card">
+          <div class="card-head"><h2>Grocery list</h2></div>
+          <div class="card-body">
+            <div id="fin-grocery-list"></div>
+            <div class="fin-add">
+              <input type="text" id="fin-grocery-name" placeholder="Item">
+              <input type="date" id="fin-grocery-date">
+              <input type="text" id="fin-grocery-link" placeholder="Link (optional)">
+              <button class="btn btn-ghost" onclick="addFinanceItem('grocery')">Add</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Shopping list</h2></div>
+          <div class="card-body">
+            <div id="fin-shopping-list"></div>
+            <div class="fin-add">
+              <input type="text" id="fin-shopping-name" placeholder="Item">
+              <input type="date" id="fin-shopping-date">
+              <input type="text" id="fin-shopping-link" placeholder="Link (optional)">
+              <button class="btn btn-ghost" onclick="addFinanceItem('shopping')">Add</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Wish list</h2></div>
+          <div class="card-body">
+            <div id="fin-wishlist-list"></div>
+            <div class="fin-add">
+              <input type="text" id="fin-wishlist-name" placeholder="Item">
+              <input type="date" id="fin-wishlist-date">
+              <input type="text" id="fin-wishlist-link" placeholder="Link (optional)">
+              <button class="btn btn-ghost" onclick="addFinanceItem('wishlist')">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== PAGE: HEALTH ======== -->
+    <section class="page" id="page-health">
+      <h1 class="display" style="font-size:28px;margin-bottom:14px">Health</h1>
+      <div class="grid-2">
+        <div class="card"><div class="card-head"><h2>Notes</h2></div>
+          <div class="card-body">
+            <textarea class="notes-area" id="notes-health" placeholder="Everything about health lives here…" oninput="saveHealthNotes(this.value)"></textarea>
+          </div>
+        </div>
+        <div class="card"><div class="card-head"><h2>Links</h2></div>
+          <div class="card-body">
+            <div class="link-grid" id="secLinks-health" style="grid-template-columns:1fr"></div>
+            <div class="add-inline">
+              <input type="text" id="healthLinkTitle" placeholder="Title">
+              <input type="text" id="healthLinkUrl" placeholder="https://…">
+              <button class="btn btn-ghost" onclick="addHealthLink()">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title">Medicine tracker</div>
+      <div class="card">
+        <div class="card-head">
+          <h2 style="display:flex;align-items:center;gap:12px">Week
+            <span class="week-nav">
+              <button onclick="shiftMedWeek(-1)" aria-label="Previous week"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+              <span class="week-label" id="medWeekLabel"></span>
+              <button onclick="shiftMedWeek(1)" aria-label="Next week"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+            </span>
+          </h2>
+          <span class="hint">M / A / N = Morning · Afternoon · Night</span>
+        </div>
+        <div class="card-body">
+          <div style="overflow-x:auto"><table class="habit-table" id="medWeekTable"></table></div>
+          <div class="add-inline">
+            <input type="text" id="newMedicine" placeholder="Add a medicine, e.g. Vitamin D" onkeydown="if(event.key==='Enter')addMedicine()">
+            <button class="btn btn-ghost" onclick="addMedicine()">Add</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-top:16px">
+        <div class="card">
+          <div class="card-head"><h2>Dose log</h2>
+            <select id="medLogFilter" onchange="setMedLogFilter(this.value)" class="status-sel" style="flex-shrink:0"></select>
+          </div>
+          <div class="card-body" id="medLogList" style="max-height:320px;overflow-y:auto"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Prescriptions</h2></div>
+          <div class="card-body">
+            <div id="prescriptionList"></div>
+            <div class="fin-add">
+              <input type="text" id="presName" placeholder="Prescribed for / doctor">
+              <input type="date" id="presDate" title="Date of visit">
+              <input type="text" id="presUrl" placeholder="Link (optional)">
+              <button class="btn btn-ghost" onclick="addPrescription()">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== PAGE: TRAVEL PLAN ======== -->
+    <section class="page" id="page-travel">
+      <h1 class="display" style="font-size:28px;margin-bottom:14px">Travel Plan</h1>
+      <div class="tabs" id="travelPlanTabs"></div>
+      <div class="card">
+        <div class="card-head">
+          <input type="text" id="travelPlanName" onchange="renameTravelPlan(this.value)"
+            style="border:none;background:transparent;font-family:'Fraunces',serif;font-size:19px;font-weight:600;flex:1;padding:0">
+          <button class="icon-btn" id="travelPlanDelBtn" onclick="delTravelPlan()" title="Delete this plan" style="display:none">Delete plan</button>
+        </div>
+        <div class="card-body">
+          <div id="travelStops"></div>
+          <button class="btn btn-ghost" style="margin-top:10px" onclick="addStop()">➕ Add a stop</button>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-head"><h2>Packing list</h2><span class="hint">One item per line</span></div>
+        <div class="card-body">
+          <textarea class="notes-area" id="travelPacking" placeholder="Passport, chargers, warm jacket…" oninput="saveTravelPacking(this.value)"></textarea>
         </div>
       </div>
     </section>

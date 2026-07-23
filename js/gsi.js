@@ -34,7 +34,7 @@ export function renderGsi() {
       <div class="log-text">${esc(e.text)}</div>
     </div>`).join("") || `<p class="hint">Log one line per day — future-you will thank you at appraisal time.</p>`;
 
-  /* Meetings (newest first) */
+  /* Meetings (newest first) — now with an optional link (recording, agenda doc, etc.) */
   const meets = [...g.meetings].sort((a, b) => b.date.localeCompare(a.date));
   document.getElementById("meetingList").innerHTML = meets.map(m => `
     <div class="meeting">
@@ -45,6 +45,11 @@ export function renderGsi() {
       </div>
       <textarea placeholder="Decisions, action points, who said what…"
         oninput="editMeetingNotes('${m.id}',this.value)">${esc(m.notes)}</textarea>
+      <div class="meeting-link-row">
+        <input type="text" placeholder="Link (agenda, recording, doc…)" value="${esc(m.link||"")}"
+          onchange="editMeeting('${m.id}','link',this.value)">
+        ${m.link ? `<a href="${esc(m.link.startsWith("http")?m.link:"https://"+m.link)}" target="_blank" rel="noopener" title="Open link">🔗</a>` : ""}
+      </div>
     </div>`).join("") || `<p class="hint">Add a meeting to capture decisions and action points.</p>`;
 
   /* GSI links */
@@ -53,6 +58,17 @@ export function renderGsi() {
       <a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.title)}</a>
       <button class="del" onclick="delGsiLink('${l.id}')">✕</button>
     </div>`).join("") || `<p class="hint">No links yet.</p>`;
+
+  /* Personal & Work documents */
+  const docList = (arr, delFn) => arr.map(d => `
+    <div class="link-card">
+      <a href="${esc(d.url.startsWith("http")?d.url:"https://"+d.url)}" target="_blank" rel="noopener">${esc(d.name)}</a>
+      <button class="del" onclick="${delFn}('${d.id}')">✕</button>
+    </div>`).join("") || `<p class="hint">No documents yet.</p>`;
+  const pd = document.getElementById("personalDocs");
+  if (pd) pd.innerHTML = docList(g.personalDocs || [], "delPersonalDoc");
+  const wd = document.getElementById("workDocs");
+  if (wd) wd.innerHTML = docList(g.workDocs || [], "delWorkDoc");
 }
 
 /* ---- NGDR ---- */
@@ -79,7 +95,7 @@ export function delLog(id) { state.gsi.log = state.gsi.log.filter(x => x.id !== 
 /* ---- meetings ---- */
 export function addMeeting() {
   const el = document.getElementById("newMeeting"); const v = el.value.trim(); if (!v) return;
-  state.gsi.meetings.push({ id: uid(), date: todayKey(), title: v, notes: "" }); el.value = "";
+  state.gsi.meetings.push({ id: uid(), date: todayKey(), title: v, notes: "", link: "" }); el.value = "";
   persist(); rerender();
 }
 export function editMeeting(id, field, v) {
@@ -109,3 +125,29 @@ export function addGsiLink() {
   persist(); rerender();
 }
 export function delGsiLink(id) { state.gsi.links = state.gsi.links.filter(x => x.id !== id); persist(); rerender(); }
+
+/* ---- personal & work documents ---- */
+export function addPersonalDoc() {
+  const n = document.getElementById("personalDocName"), u = document.getElementById("personalDocUrl");
+  if (!n.value.trim() || !u.value.trim()) return toast("Name and link are required");
+  state.gsi.personalDocs = state.gsi.personalDocs || [];
+  state.gsi.personalDocs.push({ id: uid(), name: n.value.trim(), url: u.value.trim() });
+  n.value = u.value = "";
+  persist(); rerender();
+}
+export function delPersonalDoc(id) {
+  state.gsi.personalDocs = (state.gsi.personalDocs || []).filter(x => x.id !== id);
+  persist(); rerender();
+}
+export function addWorkDoc() {
+  const n = document.getElementById("workDocName"), u = document.getElementById("workDocUrl");
+  if (!n.value.trim() || !u.value.trim()) return toast("Name and link are required");
+  state.gsi.workDocs = state.gsi.workDocs || [];
+  state.gsi.workDocs.push({ id: uid(), name: n.value.trim(), url: u.value.trim() });
+  n.value = u.value = "";
+  persist(); rerender();
+}
+export function delWorkDoc(id) {
+  state.gsi.workDocs = (state.gsi.workDocs || []).filter(x => x.id !== id);
+  persist(); rerender();
+}

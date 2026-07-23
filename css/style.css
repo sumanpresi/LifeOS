@@ -257,3 +257,66 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 @media(max-width:760px){
   .iframe-page{height:calc(100vh - 120px);min-height:600px;border-radius:12px}
 }
+
+/* ---------- NGDR Upload Tracker iframe (sits below other Work·GSI cards) ---------- */
+.ngdr-tracker-frame{
+  height:1500px;
+  min-height:1200px;
+}
+@media(max-width:760px){
+  .ngdr-tracker-frame{height:1900px}
+}
+
+/* ---------- Task extras: flag, due date, link, category (Overview) ---------- */
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:900px){.grid-3{grid-template-columns:1fr}}
+.task-row{position:relative}
+.flag-btn{background:none;border:none;font-size:14px;opacity:.3;cursor:pointer;flex-shrink:0;filter:grayscale(1)}
+.flag-btn:hover{opacity:.7}
+.flag-btn.on{opacity:1;filter:none}
+.task-meta-row{display:flex;align-items:center;gap:6px;padding:0 0 9px 60px;flex-wrap:wrap;border-bottom:1px dashed var(--line)}
+.task-row.done + .task-meta-row{opacity:.5}
+.task-meta-row:last-child{border-bottom:none}
+.task-cat-sel{border:1px solid var(--line);border-radius:7px;padding:3px 6px;font-size:11.5px;font-weight:700;background:var(--paper);color:var(--muted)}
+.task-due-input{border:1px solid var(--line);border-radius:7px;padding:3px 6px;font-size:11.5px;background:var(--paper);width:118px}
+.due-pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--lilac);color:var(--accent-ink)}
+.due-pill.duetoday{background:#FBF0DA;color:#96631A}
+.due-pill.overdue{background:#F8ECE6;color:var(--warn)}
+.task-link-input{border:1px solid var(--line);border-radius:7px;padding:3px 6px;font-size:11.5px;background:var(--paper);flex:1;min-width:70px}
+.task-link-go{font-size:13px;flex-shrink:0}
+
+/* ---------- Meeting link row (Work·GSI) ---------- */
+.meeting-link-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+.meeting-link-row input{flex:1;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--paper);font-size:12.5px}
+
+/* ---------- Finance / Health list items ---------- */
+.fin-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+.fin-item:last-child{border-bottom:none}
+.fin-item-name{font-weight:600;flex:1}
+.fin-item-date{color:var(--muted);font-size:12px;flex-shrink:0}
+.fin-add{display:grid;grid-template-columns:1.3fr 1fr 1fr auto;gap:8px;margin-top:12px}
+@media(max-width:600px){.fin-add{grid-template-columns:1fr 1fr}}
+.fin-add input{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--paper);font-size:13px}
+
+/* ---------- Health: medicine week tracker ---------- */
+.dose-cell{display:flex;gap:3px;justify-content:center}
+.dose-btn{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--line);background:#fff;font-size:10px;font-weight:800;
+  color:var(--muted);cursor:pointer;transition:.12s}
+.dose-btn:hover{border-color:var(--accent)}
+.dose-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.dose-btn:disabled{opacity:.35;cursor:default}
+
+/* ---------- Travel Plan ---------- */
+.tab-add{font-weight:800;padding:9px 14px}
+.travel-stop{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;background:var(--card)}
+.travel-stop-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.travel-stop-row input{flex:1;min-width:120px;border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:var(--paper);font-size:13px}
+.travel-map{width:100%;height:280px;border:1px solid var(--line);border-radius:10px;margin-top:10px}
+
+/* ---------- Day Of: journal history list ---------- */
+.journal-list-item{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;padding:10px 12px;
+  border-radius:10px;border:1px solid transparent;cursor:pointer}
+.journal-list-item:hover{background:var(--paper)}
+.journal-list-item.active{background:var(--lilac);border-color:var(--lilac-deep)}
+.jd-date{font-weight:700;font-size:12.5px}
+.jd-snip{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

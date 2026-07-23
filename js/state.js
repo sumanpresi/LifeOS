@@ -4,8 +4,8 @@ export const DEFAULT_STATE = {
   v: 2,
   name: "Suman",
   tasks: [
-    { id: "t1", text: "Review NGDR upload tracker", done: false },
-    { id: "t2", text: "Plan UAT test cases", done: false }
+    { id: "t1", text: "Review NGDR upload tracker", done: false, category: "work", flag: false, link: "", dueDate: "" },
+    { id: "t2", text: "Plan UAT test cases", done: false, category: "work", flag: false, link: "", dueDate: "" }
   ],
   goals: [
     { id: "g1", name: "Improve communication", pct: 20 },
@@ -40,8 +40,7 @@ export const DEFAULT_STATE = {
   meditation: {},            // { "2026-07-19": minutes }
   journal: {},               // { "2026-07-19": "text" }
   sections: {
-    communication: { notes: "", links: [] }, finance: { notes: "", links: [] },
-    health: { notes: "", links: [] }, travel: { notes: "", links: [] },
+    communication: { notes: "", links: [] },
     reference: { notes: "", links: [] }, work: { notes: "", links: [] }
   },
   gsi: {
@@ -50,11 +49,13 @@ export const DEFAULT_STATE = {
       { id: "n2", text: "Report upload tracker — monthly refresh", status: "todo" }
     ],
     log: [],                 // [{id, date:"2026-07-19", text}]
-    meetings: [],            // [{id, date, title, notes}]
+    meetings: [],            // [{id, date, title, notes, link}]
     links: [
       { id: "gl1", title: "GSI portal", url: "https://www.gsi.gov.in" },
       { id: "gl2", title: "Bhukosh", url: "https://bhukosh.gsi.gov.in" }
-    ]
+    ],
+    personalDocs: [],        // [{id, name, url}]
+    workDocs: []              // [{id, name, url}]
   },
   /* Data for the Communication module (pages/communication.html). The module
      itself renders in an isolated iframe (separate CSS/JS, no id/class clashes
@@ -77,13 +78,36 @@ export const DEFAULT_STATE = {
     quizIndex: 0, quizRight: 0, quizSeen: 0,
     continueYesterday: null
   },
+  /* Data for the NGDR Upload Tracker module (pages/ngdr-tracker.html), same
+     isolated-iframe-plus-bridge pattern as Communication. An array of daily
+     upload records: [{date, gsiLegacy, gsiRecent, otherLegacy, otherRecent, total}] */
+  ngdrTracker: [],
+  finance: {
+    notes: "", links: [],
+    grocery: [],   // [{id, name, date, link}]
+    shopping: [],  // [{id, name, date, link}]
+    wishlist: []   // [{id, name, date, link}]
+  },
+  health: {
+    notes: "", links: [],
+    medicines: [],      // [{id, name}]
+    medicineLog: {},    // { "2026-07-19": { medId: {morning:bool, afternoon:bool, night:bool} } }
+    prescriptions: []   // [{id, name, url, date}]
+  },
+  travel: {
+    plans: [
+      { id: "tp1", name: "General", notes: "", packing: "",
+        stops: [] }   // [{id, place, duration, hotel, bookedHotel}]
+    ],
+    activePlan: "tp1"
+  },
   updatedAt: 0
 };
 
-/* Section pages generated generically (Work has its own GSI page). */
+/* Section pages generated generically (Finance/Health/Travel/Work/Communication
+   now have dedicated pages; Reference is the only one left on this template). */
 export const SECTION_META = {
-  finance: "Finance", health: "Health",
-  travel: "Travel Plan", reference: "Reference"
+  reference: "Reference"
 };
 /* Note: "Communication" now has its own dedicated page (pages/communication.html,
    loaded via iframe) instead of the generic notes+links template above. */
@@ -108,6 +132,27 @@ function merge(saved) {
   s.sections = Object.assign(structuredClone(DEFAULT_STATE.sections), saved.sections || {});
   s.gsi = Object.assign(structuredClone(DEFAULT_STATE.gsi), saved.gsi || {});
   s.communication = Object.assign(structuredClone(DEFAULT_STATE.communication), saved.communication || {});
+  s.ngdrTracker = Array.isArray(saved.ngdrTracker) ? saved.ngdrTracker : structuredClone(DEFAULT_STATE.ngdrTracker);
+  s.finance = Object.assign(structuredClone(DEFAULT_STATE.finance), saved.finance || {});
+  s.health = Object.assign(structuredClone(DEFAULT_STATE.health), saved.health || {});
+  s.travel = Object.assign(structuredClone(DEFAULT_STATE.travel), saved.travel || {});
+  /* One-time migration: earlier versions stored Finance/Health/Travel notes
+     and links under the generic sections.* template. Carry them forward so
+     nothing already saved gets lost when those pages became dedicated. */
+  const oldSections = saved.sections || {};
+  if (oldSections.finance && !saved.finance) {
+    s.finance.notes = oldSections.finance.notes || "";
+    s.finance.links = oldSections.finance.links || [];
+  }
+  if (oldSections.health && !saved.health) {
+    s.health.notes = oldSections.health.notes || "";
+    s.health.links = oldSections.health.links || [];
+  }
+  if (oldSections.travel && !saved.travel) {
+    const p = s.travel.plans[0];
+    p.notes = oldSections.travel.notes || "";
+    s.travel.planLinks = oldSections.travel.links || []; // kept, not shown by default UI
+  }
   return s;
 }
 

@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NGDR Upload Tracker · GSI</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy-950:#0A1F33;
+    --navy-800:#12345C;
+    --navy-600:#1D4E89;
+    --gold:#B8892B;
+    --gold-light:#D9A441;
+    --teal:#2C6E64;
+    --teal-light:#5FA79A;
+    --bg:#F1F4F7;
+    --card:#FFFFFF;
+    --ink:#16212C;
+    --muted:#66707C;
+    --border:#E1E6EB;
+    --good:#2E7D46;
+    --bad:#B3372C;
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    font-family:'Inter',sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 22px 60px}
+
+  header{
+    background:linear-gradient(135deg,var(--navy-950),var(--navy-800) 65%);
+    border-radius:var(--radius);
+    padding:26px 30px;
+    color:#fff;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:20px;
+    box-shadow:0 8px 24px rgba(10,31,51,.18);
+    position:relative;
+    overflow:hidden;
+  }
+  header::after{
+    content:"";
+    position:absolute;
+    right:-40px;top:-60px;
+    width:220px;height:220px;
+    background:radial-gradient(circle,rgba(184,137,43,.25),transparent 70%);
+  }
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--gold-light);
+    margin:0 0 6px;
+  }
+  h1{
+    font-family:'Playfair Display',serif;
+    font-weight:700;
+    font-size:28px;
+    margin:0;
+    letter-spacing:.2px;
+  }
+  header p{margin:6px 0 0;color:#C7D3E0;font-size:13.5px}
+  .updated-tag{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    background:rgba(255,255,255,.09);
+    border:1px solid rgba(255,255,255,.18);
+    padding:8px 14px;
+    border-radius:999px;
+    white-space:nowrap;
+  }
+
+  .kpis{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:16px;
+    margin-top:20px;
+  }
+  .kpi{
+    background:var(--card);
+    border-radius:var(--radius);
+    padding:18px 20px;
+    border:1px solid var(--border);
+  }
+  .kpi .label{font-size:11.5px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:600}
+  .kpi .value{
+    font-family:'JetBrains Mono',monospace;
+    font-size:26px;
+    font-weight:600;
+    margin-top:6px;
+    color:var(--navy-950);
+  }
+  .kpi .delta{font-size:12.5px;margin-top:4px;font-weight:600}
+  .delta.up{color:var(--good)}
+  .delta.down{color:var(--bad)}
+  .delta.flat{color:var(--muted)}
+
+  .grid{
+    display:grid;
+    grid-template-columns:340px 1fr;
+    gap:18px;
+    margin-top:18px;
+    align-items:stretch;
+  }
+  .card{
+    background:var(--card);
+    border-radius:var(--radius);
+    border:1px solid var(--border);
+    padding:22px 24px;
+  }
+  .card h2{
+    font-family:'Playfair Display',serif;
+    font-size:18px;
+    margin:0 0 4px;
+    color:var(--navy-950);
+  }
+  .card .sub{font-size:12.5px;color:var(--muted);margin:0 0 18px}
+
+  .core-shell{display:flex;gap:14px;align-items:flex-start}
+  .core-log{
+    width:120px;
+    height:340px;
+    border-radius:8px;
+    overflow:hidden;
+    border:2px solid var(--navy-950);
+    display:flex;
+    flex-direction:column;
+    box-shadow:inset 0 0 0 4px rgba(255,255,255,.6);
+  }
+  .stratum{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:#fff;
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    font-weight:600;
+    position:relative;
+    min-height:6px;
+    transition:flex-basis .5s ease;
+  }
+  .stratum.legacy-gsi{background:var(--gold); background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.16) 0 6px,transparent 6px 12px)}
+  .stratum.recent-gsi{background:var(--gold-light)}
+  .stratum.legacy-other{background:var(--teal); background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.16) 0 6px,transparent 6px 12px)}
+  .stratum.recent-other{background:var(--teal-light)}
+  .core-legend{display:flex;flex-direction:column;gap:10px;padding-top:4px;flex:1}
+  .legend-row{display:flex;align-items:center;gap:9px;font-size:12.5px}
+  .swatch{width:12px;height:12px;border-radius:3px;flex:none}
+  .legend-row .amt{margin-left:auto;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--navy-950)}
+  .legend-divider{border-top:1px dashed var(--border);margin:2px 0}
+  .legend-row.total{font-weight:700}
+
+  form{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px}
+  form .full{grid-column:1/-1}
+  label{
+    display:block;
+    font-size:11.5px;
+    font-weight:600;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--muted);
+    margin-bottom:5px;
+  }
+  input{
+    width:100%;
+    padding:10px 11px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:14px;
+    color:var(--ink);
+    background:#FAFBFC;
+  }
+  input:focus{outline:2px solid var(--navy-600);outline-offset:1px;background:#fff}
+  .form-total{
+    grid-column:1/-1;
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    background:var(--bg);
+    border-radius:8px;
+    padding:10px 14px;
+    font-size:13px;
+    color:var(--muted);
+    font-weight:600;
+  }
+  .form-total span:last-child{font-family:'JetBrains Mono',monospace;font-size:16px;color:var(--navy-950)}
+  .btn-row{grid-column:1/-1;display:flex;gap:10px}
+  button{
+    flex:1;
+    padding:12px;
+    border:none;
+    border-radius:8px;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    font-family:'Inter',sans-serif;
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  button:active{transform:translateY(1px)}
+  .btn-primary{background:var(--navy-950);color:#fff}
+  .btn-primary:hover{box-shadow:0 4px 12px rgba(10,31,51,.28)}
+  .btn-ghost{background:#fff;color:var(--navy-950);border:1px solid var(--border)}
+  .btn-ghost:hover{border-color:var(--navy-600)}
+
+  .full-card{margin-top:18px}
+  .table-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+  .table-head .actions{display:flex;gap:8px}
+  .table-head button{flex:none;padding:8px 14px;font-size:12.5px}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  thead th{
+    text-align:right;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--muted);
+    padding:8px 10px;
+    border-bottom:2px solid var(--navy-950);
+  }
+  thead th:first-child, tbody td:first-child{text-align:left}
+  tbody td{
+    padding:10px;
+    border-bottom:1px solid var(--border);
+    text-align:right;
+    font-family:'JetBrains Mono',monospace;
+  }
+  tbody tr:hover{background:#F7F9FB}
+  tbody td.date-cell{font-family:'Inter',sans-serif;font-weight:600;color:var(--navy-950)}
+  tbody td.total-cell{font-weight:700;color:var(--navy-950)}
+  .row-actions{display:flex;gap:6px;justify-content:flex-end}
+  .icon-btn{
+    border:1px solid var(--border);
+    background:#fff;
+    border-radius:6px;
+    padding:5px 9px;
+    font-size:11.5px;
+    cursor:pointer;
+    color:var(--navy-800);
+    font-family:'Inter',sans-serif;
+  }
+  .icon-btn:hover{border-color:var(--navy-600)}
+  .icon-btn.danger{color:var(--bad)}
+  .icon-btn.danger:hover{border-color:var(--bad)}
+  .empty-state{
+    text-align:center;
+    padding:36px 10px;
+    color:var(--muted);
+    font-size:13.5px;
+  }
+
+  .status-pill{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    padding:3px 9px;
+    border-radius:999px;
+    background:#EFF3F7;
+    color:var(--navy-800);
+    display:inline-block;
+    margin-left:8px;
+  }
+
+  @media (max-width:860px){
+    .kpis{grid-template-columns:repeat(2,1fr)}
+    .grid{grid-template-columns:1fr}
+    .core-shell{justify-content:center}
+    header{flex-direction:column;align-items:flex-start}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div>
+      <p class="eyebrow">Geological Survey of India · NGDR ⇄ BISAG-N</p>
+      <h1>NGDR Upload Tracker</h1>
+      <p>Exploration report lots exchanged between GSI stakeholders and BISAG-N</p>
+    </div>
+    <div class="updated-tag" id="updatedTag">No records yet</div>
+  </header>
+
+  <div class="kpis">
+    <div class="kpi">
+      <div class="label">Total Uploaded</div>
+      <div class="value" id="kpiTotal">0</div>
+      <div class="delta flat" id="kpiTotalDelta">—</div>
+    </div>
+    <div class="kpi">
+      <div class="label">GSI Total</div>
+      <div class="value" id="kpiGsi">0</div>
+      <div class="delta flat" id="kpiGsiShare">—</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Other Stakeholders</div>
+      <div class="value" id="kpiOther">0</div>
+      <div class="delta flat" id="kpiOtherShare">—</div>
+    </div>
+    <div class="kpi">
+      <div class="label">Records Logged</div>
+      <div class="value" id="kpiCount">0</div>
+      <div class="delta flat" id="kpiRange">—</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Composition</h2>
+      <p class="sub">Core log of latest entry</p>
+      <div class="core-shell">
+        <div class="core-log" id="coreLog"></div>
+        <div class="core-legend">
+          <div class="legend-row"><span class="swatch" style="background:var(--gold)"></span>GSI Legacy<span class="amt" id="legLegacyGsi">0</span></div>
+          <div class="legend-row"><span class="swatch" style="background:var(--gold-light)"></span>GSI Recent<span class="amt" id="legRecentGsi">0</span></div>
+          <div class="legend-divider"></div>
+          <div class="legend-row"><span class="swatch" style="background:var(--teal)"></span>Other Legacy<span class="amt" id="legLegacyOther">0</span></div>
+          <div class="legend-row"><span class="swatch" style="background:var(--teal-light)"></span>Other Recent<span class="amt" id="legRecentOther">0</span></div>
+          <div class="legend-divider"></div>
+          <div class="legend-row total"><span class="swatch" style="background:var(--navy-950)"></span>Total<span class="amt" id="legTotal">0</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 id="formTitle">Log Daily Upload</h2>
+      <p class="sub" id="formSub">Enter counts for a date — save to update the trend and core log</p>
+      <form id="entryForm" onsubmit="return false;">
+        <div class="full">
+          <label>Date</label>
+          <input type="date" id="date">
+        </div>
+        <div>
+          <label>GSI Legacy</label>
+          <input type="number" id="gsiLegacy" value="0" min="0">
+        </div>
+        <div>
+          <label>GSI Recent</label>
+          <input type="number" id="gsiRecent" value="0" min="0">
+        </div>
+        <div>
+          <label>Other Legacy</label>
+          <input type="number" id="otherLegacy" value="0" min="0">
+        </div>
+        <div>
+          <label>Other Recent</label>
+          <input type="number" id="otherRecent" value="0" min="0">
+        </div>
+        <div class="form-total">
+          <span>Record total</span>
+          <span id="formTotal">0</span>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn-primary" id="saveBtn" onclick="saveData()">Save Record</button>
+          <button type="button" class="btn-ghost" id="cancelBtn" onclick="resetForm()" style="display:none">Cancel Edit</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card full-card">
+    <h2>Upload Trend</h2>
+    <p class="sub">Stacked composition, last 6 logged dates</p>
+    <canvas id="chart" height="90"></canvas>
+  </div>
+
+  <div class="card full-card">
+    <div class="table-head">
+      <div>
+        <h2 style="margin-bottom:2px">Saved Records</h2>
+        <p class="sub" style="margin:0">All logged dates, most recent first</p>
+      </div>
+      <div class="actions">
+        <button class="icon-btn" onclick="exportJSON()">Export JSON</button>
+        <button class="icon-btn" onclick="document.getElementById('importFile').click()">Import JSON</button>
+        <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importJSON(event)">
+      </div>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>GSI Legacy</th>
+          <th>GSI Recent</th>
+          <th>Other Legacy</th>
+          <th>Other Recent</th>
+          <th>Total</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="records"></tbody>
+    </table>
+    <div class="empty-state" id="emptyState" style="display:none">No records yet — log your first upload count above.</div>
+  </div>
+
+</div>
+
+<script>
+let history = [];
+let editingDate = null;
+const STORAGE_KEY = "ngdr-upload-history";
+
+/* ---------- persistence: bridge to parent LifeOS window ----------
+   Same pattern as pages/communication.html: data round-trips through
+   the parent's shared state (-> localStorage + Supabase), so records
+   sync across devices. Falls back to this tab's memory only if opened
+   standalone (no parent LifeOS shell present). */
+const EMBEDDED = window.parent !== window;
+let bootLoaded = false;
+
+function requestFromParent(timeoutMs = 4000){
+  return new Promise(resolve=>{
+    let done = false;
+    function onMsg(e){
+      if(e.source !== window.parent) return;
+      const m = e.data || {};
+      if(m.type === "lifeos:ngdr:init"){
+        done = true;
+        window.removeEventListener("message", onMsg);
+        clearInterval(iv);
+        resolve(m.data || null);
+      }
+    }
+    window.addEventListener("message", onMsg);
+    function ping(){ try{ window.parent.postMessage({type:"lifeos:ngdr:ready"}, "*"); }catch(e){} }
+    ping();
+    const iv = setInterval(()=>{ if(!done) ping(); }, 200);
+    setTimeout(()=>{
+      if(!done){ window.removeEventListener("message", onMsg); clearInterval(iv); resolve(null); }
+    }, timeoutMs);
+  });
+}
+
+async function loadHistory(){
+  if(EMBEDDED){
+    const fromParent = await requestFromParent();
+    history = Array.isArray(fromParent) ? fromParent : [];
+  } else {
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      history = raw ? JSON.parse(raw) : [];
+    }catch(e){ history = []; }
+  }
+  bootLoaded = true;
+  refresh();
+}
+
+async function persist(){
+  if(EMBEDDED){
+    try{ window.parent.postMessage({type:"lifeos:ngdr:save", data:history}, "*"); }catch(e){}
+  } else {
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(history)); }catch(e){}
+  }
+}
+
+/* Live update if the parent receives fresher data from another device
+   (Supabase realtime) while this tab is open. */
+if(EMBEDDED){
+  window.addEventListener("message", e=>{
+    if(!bootLoaded || e.source !== window.parent) return;
+    const m = e.data || {};
+    if(m.type === "lifeos:ngdr:init" && Array.isArray(m.data)){
+      history = m.data;
+      refresh();
+    }
+  });
+}
+
+let chart = null;
+if (typeof Chart !== "undefined") {
+  try {
+    chart = new Chart(document.getElementById("chart"), {
+      type: "bar",
+      data: {
+        labels: [],
+        datasets: [
+          { label: "GSI Legacy", data: [], backgroundColor: "#B8892B", stack: "s" },
+          { label: "GSI Recent", data: [], backgroundColor: "#D9A441", stack: "s" },
+          { label: "Other Legacy", data: [], backgroundColor: "#2C6E64", stack: "s" },
+          { label: "Other Recent", data: [], backgroundColor: "#5FA79A", stack: "s" }
+        ]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { position: "bottom", labels: { boxWidth: 12, font: { family: "Inter", size: 12 } } },
+          tooltip: { mode: "index", intersect: false }
+        },
+        scales: {
+          y: { stacked: true, beginAtZero: true, title: { display: true, text: "Reports Uploaded" } },
+          x: { stacked: true }
+        }
+      }
+    });
+  } catch (e) { chart = null; }
+}
+
+function fmt(n){ return n.toLocaleString("en-IN"); }
+
+function updateFormTotal(){
+  const gl = +document.getElementById("gsiLegacy").value || 0;
+  const gr = +document.getElementById("gsiRecent").value || 0;
+  const ol = +document.getElementById("otherLegacy").value || 0;
+  const orr = +document.getElementById("otherRecent").value || 0;
+  document.getElementById("formTotal").textContent = fmt(gl+gr+ol+orr);
+}
+["gsiLegacy","gsiRecent","otherLegacy","otherRecent"].forEach(id=>{
+  document.getElementById(id).addEventListener("input", updateFormTotal);
+});
+
+function buildCoreLog(r){
+  const core = document.getElementById("coreLog");
+  core.innerHTML = "";
+  const parts = [
+    {cls:"legacy-gsi", val:r?r.gsiLegacy:0},
+    {cls:"recent-gsi", val:r?r.gsiRecent:0},
+    {cls:"legacy-other", val:r?r.otherLegacy:0},
+    {cls:"recent-other", val:r?r.otherRecent:0}
+  ];
+  const total = parts.reduce((s,p)=>s+p.val,0) || 1;
+  parts.forEach(p=>{
+    const div = document.createElement("div");
+    div.className = "stratum " + p.cls;
+    div.style.flexBasis = Math.max((p.val/total)*100, p.val>0?4:0) + "%";
+    div.textContent = p.val>0 ? fmt(p.val) : "";
+    core.appendChild(div);
+  });
+}
+
+function refresh(){
+  history.sort((a,b)=> new Date(a.date) - new Date(b.date));
+
+  if (chart) {
+    try {
+      const last = history.slice(-6);
+      chart.data.labels = last.map(r=>r.date);
+      chart.data.datasets[0].data = last.map(r=>r.gsiLegacy);
+      chart.data.datasets[1].data = last.map(r=>r.gsiRecent);
+      chart.data.datasets[2].data = last.map(r=>r.otherLegacy);
+      chart.data.datasets[3].data = last.map(r=>r.otherRecent);
+      chart.update();
+    } catch (e) { /* chart unavailable — rest of the dashboard still works */ }
+  }
+
+  const tbody = document.getElementById("records");
+  const emptyState = document.getElementById("emptyState");
+  tbody.innerHTML = "";
+  if(history.length === 0){
+    emptyState.style.display = "block";
+  }else{
+    emptyState.style.display = "none";
+    history.slice().reverse().forEach(r=>{
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td class="date-cell">${r.date}</td>
+        <td>${fmt(r.gsiLegacy)}</td>
+        <td>${fmt(r.gsiRecent)}</td>
+        <td>${fmt(r.otherLegacy)}</td>
+        <td>${fmt(r.otherRecent)}</td>
+        <td class="total-cell">${fmt(r.total)}</td>
+        <td>
+          <div class="row-actions">
+            <button class="icon-btn" onclick="editRecord('${r.date}')">Edit</button>
+            <button class="icon-btn danger" onclick="deleteRecord('${r.date}')">Delete</button>
+          </div>
+        </td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  const latest = history[history.length-1];
+  const prev = history[history.length-2];
+  if(latest){
+    const gsiTotal = latest.gsiLegacy + latest.gsiRecent;
+    const otherTotal = latest.otherLegacy + latest.otherRecent;
+    document.getElementById("kpiTotal").textContent = fmt(latest.total);
+    document.getElementById("kpiGsi").textContent = fmt(gsiTotal);
+    document.getElementById("kpiOther").textContent = fmt(otherTotal);
+    document.getElementById("kpiCount").textContent = fmt(history.length);
+    document.getElementById("kpiGsiShare").textContent = latest.total ? Math.round(gsiTotal/latest.total*100)+"% of total" : "—";
+    document.getElementById("kpiOtherShare").textContent = latest.total ? Math.round(otherTotal/latest.total*100)+"% of total" : "—";
+    document.getElementById("kpiRange").textContent = history.length>1 ? (history[0].date+" → "+latest.date) : latest.date;
+    document.getElementById("updatedTag").textContent = "Last updated " + latest.date;
+
+    const deltaEl = document.getElementById("kpiTotalDelta");
+    if(prev){
+      const diff = latest.total - prev.total;
+      deltaEl.textContent = (diff>=0?"+":"") + fmt(diff) + " vs previous entry";
+      deltaEl.className = "delta " + (diff>0?"up":diff<0?"down":"flat");
+    }else{
+      deltaEl.textContent = "First record logged";
+      deltaEl.className = "delta flat";
+    }
+
+    document.getElementById("legLegacyGsi").textContent = fmt(latest.gsiLegacy);
+    document.getElementById("legRecentGsi").textContent = fmt(latest.gsiRecent);
+    document.getElementById("legLegacyOther").textContent = fmt(latest.otherLegacy);
+    document.getElementById("legRecentOther").textContent = fmt(latest.otherRecent);
+    document.getElementById("legTotal").textContent = fmt(latest.total);
+    buildCoreLog(latest);
+  }else{
+    ["kpiTotal","kpiGsi","kpiOther","kpiCount"].forEach(id=>document.getElementById(id).textContent="0");
+    ["legLegacyGsi","legRecentGsi","legLegacyOther","legRecentOther","legTotal"].forEach(id=>document.getElementById(id).textContent="0");
+    buildCoreLog(null);
+  }
+}
+
+function saveData(){
+  const date = document.getElementById("date").value;
+  if(!date){ alert("Select a date"); return; }
+  const gl = +document.getElementById("gsiLegacy").value || 0;
+  const gr = +document.getElementById("gsiRecent").value || 0;
+  const ol = +document.getElementById("otherLegacy").value || 0;
+  const orr = +document.getElementById("otherRecent").value || 0;
+  const total = gl+gr+ol+orr;
+
+  const rec = {date, gsiLegacy:gl, gsiRecent:gr, otherLegacy:ol, otherRecent:orr, total};
+
+  if(editingDate && editingDate !== date){
+    history = history.filter(x=>x.date !== editingDate);
+  }
+  const idx = history.findIndex(x=>x.date===date);
+  if(idx>=0) history[idx] = rec; else history.push(rec);
+
+  persist();
+  resetForm();
+  refresh();
+}
+
+function editRecord(date){
+  const r = history.find(x=>x.date===date);
+  if(!r) return;
+  editingDate = date;
+  document.getElementById("date").value = r.date;
+  document.getElementById("gsiLegacy").value = r.gsiLegacy;
+  document.getElementById("gsiRecent").value = r.gsiRecent;
+  document.getElementById("otherLegacy").value = r.otherLegacy;
+  document.getElementById("otherRecent").value = r.otherRecent;
+  updateFormTotal();
+  document.getElementById("formTitle").textContent = "Edit Record — " + date;
+  document.getElementById("formSub").textContent = "Update the counts and save, or cancel to discard";
+  document.getElementById("saveBtn").textContent = "Update Record";
+  document.getElementById("cancelBtn").style.display = "block";
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+function deleteRecord(date){
+  if(!confirm("Delete the record for "+date+"? This cannot be undone.")) return;
+  history = history.filter(x=>x.date!==date);
+  persist();
+  if(editingDate===date) resetForm();
+  refresh();
+}
+
+function resetForm(){
+  editingDate = null;
+  document.getElementById("date").value = "";
+  ["gsiLegacy","gsiRecent","otherLegacy","otherRecent"].forEach(id=>document.getElementById(id).value=0);
+  updateFormTotal();
+  document.getElementById("formTitle").textContent = "Log Daily Upload";
+  document.getElementById("formSub").textContent = "Enter counts for a date — save to update the trend and core log";
+  document.getElementById("saveBtn").textContent = "Save Record";
+  document.getElementById("cancelBtn").style.display = "none";
+}
+
+function exportJSON(){
+  const blob = new Blob([JSON.stringify(history, null, 2)], {type:"application/json"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "ngdr-upload-history.json";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importJSON(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const data = JSON.parse(e.target.result);
+      if(!Array.isArray(data)) throw new Error("Invalid file");
+      history = data;
+      persist();
+      refresh();
+    }catch(err){
+      alert("Could not read that file — expected a JSON export from this tracker.");
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = "";
+}
+
+if (!chart) {
+  const canvasEl = document.getElementById("chart");
+  if (canvasEl) canvasEl.outerHTML = '<p class="sub" style="margin:0">Chart library didn\'t load (offline, or blocked by network) — your data is still saved and shown in the table below.</p>';
+}
+
+updateFormTotal();
+loadHistory();
+</script>
+</body>
+</html>

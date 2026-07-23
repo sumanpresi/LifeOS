@@ -1,5 +1,5 @@
 /* Navigation, toasts, header, sync pill. */
-import { state } from './state.js';
+import { state, replaceState, persist, rerender } from './state.js';
 
 export function toast(msg) {
   const t = document.getElementById("toast");
@@ -35,4 +35,43 @@ export function renderHeader() {
   document.getElementById("greeting").textContent = `${part}, ${state.name}`;
   document.getElementById("todayDate").textContent =
     new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+}
+
+/* ---------- full-data backup / restore ---------- */
+export function exportBackup() {
+  const blob = new Blob([JSON.stringify(state, null, 1)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.href = url; a.download = `lifeos-backup-${stamp}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast("Backup downloaded");
+}
+
+export function importBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  if (!confirm("Restoring a backup replaces ALL current LifeOS data on this device (and will overwrite your cloud data once synced). Continue?")) {
+    event.target.value = ""; return;
+  }
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (typeof data !== "object" || data === null) throw new Error("Invalid file");
+      replaceState(data);
+      persist();
+      rerender();
+      const { pushCommunicationUpdate } = await import("./communication-bridge.js");
+      const { pushNgdrTrackerUpdate } = await import("./ngdr-tracker-bridge.js");
+      pushCommunicationUpdate();
+      pushNgdrTrackerUpdate();
+      toast("Backup restored");
+    } catch (err) {
+      alert("Could not read that file — expected a LifeOS backup JSON export.");
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = "";
 }
