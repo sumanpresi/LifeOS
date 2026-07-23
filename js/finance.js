@@ -11,8 +11,9 @@ function renderList(key) {
   const items = state.finance[key] || [];
   box.innerHTML = items.map(it => `
     <div class="fin-item">
-      <span class="fin-item-name">${esc(it.name)}</span>
-      <span class="fin-item-date">${it.date ? esc(it.date) : ""}</span>
+      <input type="text" class="fin-item-name-edit" value="${esc(it.name)}" onchange="editFinanceItem('${key}','${it.id}','name',this.value)">
+      <input type="date" class="fin-item-date-edit" value="${esc(it.date||"")}" onchange="editFinanceItem('${key}','${it.id}','date',this.value)">
+      <input type="text" class="fin-item-link-edit" placeholder="link" value="${esc(it.link||"")}" onchange="editFinanceItem('${key}','${it.id}','link',this.value)">
       ${it.link ? `<a href="${esc(it.link.startsWith("http")?it.link:"https://"+it.link)}" target="_blank" rel="noopener" title="Open link">🔗</a>` : ""}
       <button class="del" onclick="delFinanceItem('${key}','${it.id}')">✕</button>
     </div>`).join("") || `<p class="hint">No items yet.</p>`;
@@ -57,6 +58,12 @@ export function addFinanceItem(key) {
   state.finance[key].push({ id: uid(), name: n.value.trim(), date: d.value || "", link: l.value.trim() });
   n.value = ""; d.value = ""; l.value = "";
   persist(); renderList(key);
+}
+export function editFinanceItem(key, id, field, v) {
+  const it = state.finance[key].find(x => x.id === id);
+  if (!it) return;
+  it[field] = v;
+  persist();
 }
 export function delFinanceItem(key, id) {
   state.finance[key] = state.finance[key].filter(x => x.id !== id);

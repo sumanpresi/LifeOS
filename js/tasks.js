@@ -3,6 +3,7 @@ import { state, uid, esc, persist, rerender } from './state.js';
 import { toast } from './ui.js';
 
 let taskFilter = "all"; // "all" | "work" | "personal"
+let sortByDate = false;
 
 function fmtDue(d) {
   if (!d) return "";
@@ -17,9 +18,34 @@ function fmtDue(d) {
   return { text: label, cls: "" };
 }
 
+export function toggleSortByDate() {
+  sortByDate = !sortByDate;
+  renderTasks();
+}
+
 export function renderTasks() {
   const list = document.getElementById("taskList");
-  const visible = state.tasks.filter(t => taskFilter === "all" || (t.category || "work") === taskFilter);
+  let visible = state.tasks.filter(t => taskFilter === "all" || (t.category || "work") === taskFilter);
+
+  /* Completed tasks always sink to the bottom, regardless of sort mode.
+     Within each group (open / done), sort by due date if that's on —
+     tasks with no due date fall after ones that have a date. */
+  const open = visible.filter(t => !t.done);
+  const done = visible.filter(t => t.done);
+  if (sortByDate) {
+    const byDate = (a, b) => {
+      if (!a.dueDate && !b.dueDate) return 0;
+      if (!a.dueDate) return 1;
+      if (!b.dueDate) return -1;
+      return a.dueDate.localeCompare(b.dueDate);
+    };
+    open.sort(byDate);
+    done.sort(byDate);
+  }
+  visible = [...open, ...done];
+
+  const sortBtn = document.getElementById("taskSortBtn");
+  if (sortBtn) sortBtn.classList.toggle("on", sortByDate);
 
   list.innerHTML = visible.map((t) => {
     const i = state.tasks.indexOf(t);
@@ -45,10 +71,10 @@ export function renderTasks() {
     </div>`;
   }).join("") || `<p class="hint">${state.tasks.length ? "No tasks match this filter." : "No tasks yet — add your top priorities for today."}</p>`;
 
-  const open = state.tasks.filter(t => !t.done).length;
-  document.getElementById("taskCount").textContent = state.tasks.length ? `${open} open` : "";
+  const openCount = state.tasks.filter(t => !t.done).length;
+  document.getElementById("taskCount").textContent = state.tasks.length ? `${openCount} open` : "";
   document.getElementById("catTasksSub").textContent =
-    state.tasks.length ? `${open} of ${state.tasks.length} still open` : "Plan your day.";
+    state.tasks.length ? `${openCount} of ${state.tasks.length} still open` : "Plan your day.";
 
   const filterBox = document.getElementById("taskFilterBar");
   if (filterBox) {

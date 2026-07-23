@@ -44,12 +44,19 @@ export const DEFAULT_STATE = {
     reference: { notes: "", links: [] }, work: { notes: "", links: [] }
   },
   gsi: {
-    ngdr: [
-      { id: "n1", text: "UAT — NGDR 2.0 AI module (staging)", status: "progress" },
-      { id: "n2", text: "Report upload tracker — monthly refresh", status: "todo" }
+    /* Multiple named projects, each with its own task list (with dates).
+       Replaces the old single flat "ngdr" list — see merge() for the
+       one-time migration of any existing ngdr items into a default project. */
+    projects: [
+      { id: "p1", name: "NGDR", tasks: [
+        { id: "n1", text: "UAT — NGDR 2.0 AI module (staging)", status: "progress", date: "" },
+        { id: "n2", text: "Report upload tracker — monthly refresh", status: "todo", date: "" }
+      ] }
     ],
+    activeProject: "p1",
     log: [],                 // [{id, date:"2026-07-19", text}]
-    meetings: [],            // [{id, date, title, notes, link}]
+    /* Meeting minutes: structured fields matching a standard minutes template. */
+    meetings: [],            // [{id, date, time, title, duration, agenda, updates, actionItems, link, open}]
     links: [
       { id: "gl1", title: "GSI portal", url: "https://www.gsi.gov.in" },
       { id: "gl2", title: "Bhukosh", url: "https://bhukosh.gsi.gov.in" }
@@ -97,7 +104,7 @@ export const DEFAULT_STATE = {
   travel: {
     plans: [
       { id: "tp1", name: "General", notes: "", packing: "",
-        stops: [] }   // [{id, place, duration, hotel, bookedHotel}]
+        stops: [] }   // [{id, place, duration, hotel, bookedHotel, mapDrawing}] — mapDrawing is a saved GeoJSON FeatureCollection or null
     ],
     activePlan: "tp1"
   },
@@ -153,6 +160,16 @@ function merge(saved) {
     p.notes = oldSections.travel.notes || "";
     s.travel.planLinks = oldSections.travel.links || []; // kept, not shown by default UI
   }
+  /* One-time migration: the old flat gsi.ngdr list becomes the default
+     project's task list (tasks gain a blank "date" field). */
+  if (saved.gsi && Array.isArray(saved.gsi.ngdr) && !Array.isArray(saved.gsi.projects)) {
+    s.gsi.projects = [{
+      id: "p1", name: "NGDR",
+      tasks: saved.gsi.ngdr.map(t => ({ id: t.id, text: t.text, status: t.status, date: t.date || "" }))
+    }];
+    s.gsi.activeProject = "p1";
+  }
+  delete s.gsi.ngdr;
   return s;
 }
 

@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>LifeOS</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Karla:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
@@ -128,10 +132,13 @@
         <div class="card" id="tasksCard">
           <div class="card-head"><h2>Top 5 Tasks</h2><span class="hint" id="taskCount"></span></div>
           <div class="card-body" style="padding-bottom:0">
-            <div class="seg" id="taskFilterBar">
-              <button data-filter="all" class="on" onclick="setTaskFilter('all')">All</button>
-              <button data-filter="work" onclick="setTaskFilter('work')">Work</button>
-              <button data-filter="personal" onclick="setTaskFilter('personal')">Personal</button>
+            <div class="row" style="justify-content:space-between">
+              <div class="seg" id="taskFilterBar">
+                <button data-filter="all" class="on" onclick="setTaskFilter('all')">All</button>
+                <button data-filter="work" onclick="setTaskFilter('work')">Work</button>
+                <button data-filter="personal" onclick="setTaskFilter('personal')">Personal</button>
+              </div>
+              <button class="btn btn-ghost" id="taskSortBtn" onclick="toggleSortByDate()" style="padding:6px 12px;font-size:12.5px">📅 Sort by date</button>
             </div>
           </div>
           <div class="card-body" id="taskList"></div>
@@ -264,13 +271,19 @@
     <!-- ======== PAGE: WORK / GSI ======== -->
     <section class="page" id="page-work">
       <h1 class="display" style="font-size:28px;margin-bottom:14px">GSI Workspace</h1>
+      <div class="tabs" id="projectTabs" style="margin-bottom:0"></div>
       <div class="grid-2">
         <div class="card">
-          <div class="card-head"><h2>NGDR tracker</h2><span class="hint" id="ngdrCount"></span></div>
+          <div class="card-head">
+            <input type="text" id="projectName" onchange="renameProject(this.value)"
+              style="border:none;background:transparent;font-family:'Fraunces',serif;font-size:19px;font-weight:600;flex:1;padding:0">
+            <span class="hint" id="ngdrCount"></span>
+            <button class="icon-btn" id="projectDelBtn" onclick="delProject()" title="Delete this project" style="display:none;margin-left:8px">Delete</button>
+          </div>
           <div class="card-body" id="ngdrList"></div>
           <div class="card-body" style="padding-top:0">
             <div class="add-inline">
-              <input type="text" id="newNgdr" placeholder="Add an item, e.g. UAT test plan for AI module" onkeydown="if(event.key==='Enter')addNgdr()">
+              <input type="text" id="newNgdr" placeholder="Add a task, e.g. UAT test plan for AI module" onkeydown="if(event.key==='Enter')addNgdr()">
               <button class="btn btn-ghost" onclick="addNgdr()">Add</button>
             </div>
           </div>
@@ -477,9 +490,18 @@
             style="border:none;background:transparent;font-family:'Fraunces',serif;font-size:19px;font-weight:600;flex:1;padding:0">
           <button class="icon-btn" id="travelPlanDelBtn" onclick="delTravelPlan()" title="Delete this plan" style="display:none">Delete plan</button>
         </div>
-        <div class="card-body">
+        <div class="card-body" style="padding-top:0">
+          <div class="seg" id="travelViewTabs">
+            <button class="on" data-tview="itinerary" onclick="switchTravelView('itinerary')">Itinerary</button>
+            <button data-tview="route" onclick="switchTravelView('route')">🗺️ Route map</button>
+          </div>
+        </div>
+        <div class="card-body travel-view active" data-tview="itinerary">
           <div id="travelStops"></div>
           <button class="btn btn-ghost" style="margin-top:10px" onclick="addStop()">➕ Add a stop</button>
+        </div>
+        <div class="card-body travel-view" data-tview="route">
+          <div id="travelRouteMap"></div>
         </div>
       </div>
       <div class="card" style="margin-top:16px">
