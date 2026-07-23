@@ -364,3 +364,10 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 /* Leaflet's own toolbar icons render fine with defaults; just keep our
    rounded-corner language consistent on the outer container. */
 .leaflet-map-container .leaflet-container{border-radius:10px;font-family:inherit}
+
+/* ---------- Travel stop: locate button ---------- */
+.tsf-wrap{display:flex;align-items:center;gap:4px;flex:1;min-width:120px}
+.tsf-wrap input{flex:1;min-width:0}
+.locate-btn{flex-shrink:0;background:var(--paper);border:1px solid var(--line);border-radius:8px;
+  width:30px;height:30px;font-size:13px;cursor:pointer}
+.locate-btn:hover{border-color:var(--accent);background:var(--lilac)}

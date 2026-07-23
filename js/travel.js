@@ -56,10 +56,12 @@ export function renderTravel() {
     stopsBox.innerHTML = (active.stops || []).map(s => `
       <div class="travel-stop">
         <div class="travel-stop-row">
-          <input type="text" placeholder="Place name" value="${esc(s.place)}" onchange="editStop('${s.id}','place',this.value)">
+          <span class="tsf-wrap"><input type="text" placeholder="Place name" value="${esc(s.place)}" onchange="editStop('${s.id}','place',this.value)">
+            <button class="locate-btn" onclick="locateStop('${s.id}','place')" title="Zoom the map to this place">🎯</button></span>
           <input type="text" placeholder="Duration, e.g. 3 nights" value="${esc(s.duration)}" onchange="editStop('${s.id}','duration',this.value)">
           <input type="text" placeholder="Hotel (searching)" value="${esc(s.hotel)}" onchange="editStop('${s.id}','hotel',this.value)">
-          <input type="text" placeholder="Booked hotel" value="${esc(s.bookedHotel)}" onchange="editStop('${s.id}','bookedHotel',this.value)">
+          <span class="tsf-wrap"><input type="text" placeholder="Booked hotel" value="${esc(s.bookedHotel)}" onchange="editStop('${s.id}','bookedHotel',this.value)">
+            <button class="locate-btn" onclick="locateStop('${s.id}','bookedHotel')" title="Zoom the map to this hotel">🎯</button></span>
           <button class="btn btn-ghost" style="padding:6px 10px;font-size:12.5px" onclick="toggleStopMap('${s.id}')" id="mapToggleBtn-${s.id}">${s.mapOpen ? "Hide map" : "🗺️ Map"}</button>
           <button class="del" onclick="delStop('${s.id}')">✕</button>
         </div>
@@ -170,13 +172,36 @@ export function toggleStopMap(id) {
   else destroyStopMap(id);
 }
 
-async function geocode(query) {
+async function geocodeOne(query) {
   if (!query || !query.trim()) return null;
   try {
-    const res = await fetch("https://nominatim.openstreetmap.org/search?format=json&limit=1&q=" + encodeURIComponent(query));
+    const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&email=lifeos.app%40example.com&q=" + encodeURIComponent(query);
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 6000);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(t);
+    if (!res.ok) return null;
     const data = await res.json();
     if (data && data[0]) return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-  } catch (e) { /* offline or blocked — fall back to default view */ }
+  } catch (e) { /* network error, timeout, or the free geocoder is temporarily unavailable */ }
+  return null;
+}
+
+/* Tries the most specific query first, then falls back to simpler ones —
+   a specific hotel name often isn't in OpenStreetMap's free geocoder, but
+   the place/town name almost always is. */
+async function geocodeWithFallback(hotelName, placeName, alreadyTried) {
+  const tried = alreadyTried || new Set();
+  const attempts = [];
+  if (hotelName && placeName) attempts.push(hotelName + ", " + placeName);
+  if (hotelName) attempts.push(hotelName);
+  if (placeName) attempts.push(placeName);
+  for (const q of attempts) {
+    if (tried.has(q)) continue;
+    tried.add(q);
+    const coords = await geocodeOne(q);
+    if (coords) return { coords, matchedQuery: q };
+  }
   return null;
 }
 
@@ -209,29 +234,53 @@ function initStopMap(plan, s) {
   map.on(L.Draw.Event.EDITED, save);
   map.on(L.Draw.Event.DELETED, save);
 
-  mapInstances[s.id] = { map, drawnItems };
-
-  const query = (s.bookedHotel || "").trim() || (s.place || "").trim();
-  if (query) {
-    geocode((s.bookedHotel ? s.bookedHotel + ", " : "") + s.place).then(coords => {
-      if (coords && mapInstances[s.id]) {
-        map.setView(coords, 13);
-        if (s.bookedHotel) L.marker(coords).addTo(map).bindPopup("📍 " + esc(s.bookedHotel));
-      }
-      map.invalidateSize();
-    });
-  }
+  mapInstances[s.id] = { map, drawnItems, bookedMarker: null };
   setTimeout(() => map.invalidateSize(), 100); // container just became visible
+
+  if ((s.place || "").trim() || (s.bookedHotel || "").trim()) {
+    zoomStopToLocation(s, /*silent=*/true);
+  }
+}
+
+/* Explicit "🎯 locate" button handler — geocodes just the one field the
+   button sits next to, opening the map first if it isn't already open. */
+export function locateStop(id, field) {
+  const p = activePlan();
+  const s = p.stops.find(x => x.id === id); if (!s) return;
+  if (!s.mapOpen) { toggleStopMap(id); return; } // opening already triggers a zoom attempt
+  zoomStopToLocation(s, /*silent=*/false, field);
+}
+
+async function zoomStopToLocation(s, silent, focusField) {
+  const inst = mapInstances[s.id];
+  if (!inst) return;
+  const hotelName = (s.bookedHotel || "").trim();
+  const placeName = (s.place || "").trim();
+
+  let result = null;
+  const tried = new Set();
+  // When a specific field's locate button was clicked, try that field alone first
+  // (fastest path to what the person actually asked to zoom to).
+  if (focusField === "place" && placeName) result = await geocodeWithFallback("", placeName, tried);
+  else if (focusField === "bookedHotel" && hotelName) result = await geocodeWithFallback(hotelName, "", tried);
+  if (!result) result = await geocodeWithFallback(hotelName, placeName, tried);
+
+  if (!mapInstances[s.id]) return; // map was closed while we were waiting on the network
+  if (result) {
+    inst.map.setView(result.coords, 14);
+    if (inst.bookedMarker) { inst.map.removeLayer(inst.bookedMarker); inst.bookedMarker = null; }
+    if (hotelName && result.matchedQuery.includes(hotelName)) {
+      inst.bookedMarker = L.marker(result.coords).addTo(inst.map).bindPopup("📍 " + esc(hotelName)).openPopup();
+    }
+    if (!silent) toast("Map zoomed to " + result.matchedQuery);
+  } else if (!silent) {
+    toast("Couldn't find that location — try a simpler name (just the town/city often works better than a full hotel name)");
+  }
 }
 
 function recenterStopMap(plan, s) {
-  const inst = mapInstances[s.id];
-  if (!inst) return;
-  const query = (s.bookedHotel || "").trim() || (s.place || "").trim();
-  if (!query) return;
-  geocode((s.bookedHotel ? s.bookedHotel + ", " : "") + s.place).then(coords => {
-    if (coords && mapInstances[s.id]) inst.map.setView(coords, 13);
-  });
+  if (!mapInstances[s.id]) return;
+  zoomStopToLocation(s, /*silent=*/true);
 }
 
 function destroyStopMap(id) {
