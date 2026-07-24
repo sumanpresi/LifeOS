@@ -424,3 +424,17 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .coord-popup button{flex-shrink:0;border:1px solid var(--line);border-radius:6px;padding:3px 9px;
   background:var(--paper);font-size:11.5px;font-weight:700;cursor:pointer;color:var(--accent-ink)}
 .coord-popup button:hover{border-color:var(--accent)}
+
+/* ---------- Meeting minutes: formatting toolbar + grammar check ---------- */
+.mm-toolbar{display:flex;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap}
+.mm-toolbar button{border:1px solid var(--line);border-radius:7px;padding:4px 9px;background:var(--paper);
+  font-size:12px;font-weight:700;color:var(--navy-800,var(--ink));cursor:pointer}
+.mm-toolbar button:hover{border-color:var(--accent);background:#fff}
+.mm-grammar-btn{margin-left:auto}
+.grammar-results{margin-top:8px}
+.grammar-list{display:flex;flex-direction:column;gap:8px}
+.grammar-item{border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#fff;font-size:12.5px}
+.grammar-msg{display:block;margin-bottom:6px;color:var(--ink)}
+.grammar-fix-btn{border:1px solid var(--accent);border-radius:6px;padding:3px 9px;margin:0 6px 0 0;
+  background:var(--lilac);color:var(--accent-ink);font-size:12px;font-weight:700;cursor:pointer}
+.grammar-fix-btn:hover{background:var(--accent);color:#fff}

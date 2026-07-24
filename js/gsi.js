@@ -3,6 +3,19 @@
 import { state, uid, esc, persist, rerender, todayKey } from './state.js';
 import { toast, autoGrow } from './ui.js';
 import { moveToTrash } from './trash.js';
+import { wrapSelection, prefixLines, checkGrammar } from './text-tools.js';
+
+function mmToolbarHtml(taId) {
+  return `
+    <div class="mm-toolbar">
+      <button onclick="formatMeetingText('${taId}','bold')" title="Bold"><b>B</b></button>
+      <button onclick="formatMeetingText('${taId}','italic')" title="Italic"><i>I</i></button>
+      <button onclick="formatMeetingText('${taId}','bullet')" title="Bullet list">• List</button>
+      <button onclick="formatMeetingText('${taId}','numbered')" title="Numbered list">1. List</button>
+      <button onclick="runGrammarCheck('${taId}')" title="Check grammar and spelling" class="mm-grammar-btn" id="gbtn-${taId}">✓ Grammar check</button>
+    </div>
+    <div class="grammar-results" id="grammar-${taId}"></div>`;
+}
 
 const STATUSES = [
   ["todo", "To do"], ["progress", "In progress"], ["done", "Done"], ["blocked", "Blocked"]
@@ -141,15 +154,18 @@ function renderMeetings() {
         </table>
         <div class="mm-section">
           <label>Agenda</label>
-          <textarea placeholder="What this meeting covers…" oninput="editMeetingText('${m.id}','agenda',this.value);autoGrow(this)">${esc(m.agenda||"")}</textarea>
+          <textarea id="mm-agenda-${m.id}" placeholder="What this meeting covers…" oninput="editMeetingText('${m.id}','agenda',this.value);autoGrow(this)">${esc(m.agenda||"")}</textarea>
+          ${mmToolbarHtml("mm-agenda-" + m.id)}
         </div>
         <div class="mm-section">
           <label>General &amp; roundtable updates</label>
-          <textarea placeholder="Updates from each participant…" oninput="editMeetingText('${m.id}','updates',this.value);autoGrow(this)">${esc(m.updates||"")}</textarea>
+          <textarea id="mm-updates-${m.id}" placeholder="Updates from each participant…" oninput="editMeetingText('${m.id}','updates',this.value);autoGrow(this)">${esc(m.updates||"")}</textarea>
+          ${mmToolbarHtml("mm-updates-" + m.id)}
         </div>
         <div class="mm-section">
           <label>Action items</label>
-          <textarea placeholder="Who does what, by when…" oninput="editMeetingText('${m.id}','actionItems',this.value);autoGrow(this)">${esc(m.actionItems||"")}</textarea>
+          <textarea id="mm-actionItems-${m.id}" placeholder="Who does what, by when…" oninput="editMeetingText('${m.id}','actionItems',this.value);autoGrow(this)">${esc(m.actionItems||"")}</textarea>
+          ${mmToolbarHtml("mm-actionItems-" + m.id)}
         </div>
         <div class="meeting-link-row">
           <input type="text" placeholder="Link (agenda doc, recording…)" value="${esc(m.link||"")}" onchange="editMeeting('${m.id}','link',this.value)">
@@ -159,6 +175,54 @@ function renderMeetings() {
       </div>` : ""}
     </div>`).join("") || `<p class="hint">Add a meeting to capture decisions and action points.</p>`;
   document.querySelectorAll("#meetingList .mm-section textarea").forEach(autoGrow);
+}
+
+/* ---- Formatting toolbar + free grammar check (LanguageTool, no key) ---- */
+export function formatMeetingText(taId, kind) {
+  const ta = document.getElementById(taId);
+  if (!ta) return;
+  if (kind === "bold") wrapSelection(ta, "**", "**");
+  else if (kind === "italic") wrapSelection(ta, "_", "_");
+  else if (kind === "bullet") prefixLines(ta, () => "- ");
+  else if (kind === "numbered") prefixLines(ta, i => (i + 1) + ". ");
+}
+
+let grammarCache = {}; // taId -> last-checked text, so Apply buttons use fresh offsets
+export async function runGrammarCheck(taId) {
+  const ta = document.getElementById(taId);
+  const resultsEl = document.getElementById("grammar-" + taId);
+  const btn = document.getElementById("gbtn-" + taId);
+  if (!ta || !resultsEl) return;
+  if (!ta.value.trim()) { toast("Nothing to check yet"); return; }
+  if (btn) { btn.disabled = true; btn.textContent = "Checking…"; }
+  const matches = await checkGrammar(ta.value);
+  if (btn) { btn.disabled = false; btn.textContent = "✓ Grammar check"; }
+  if (matches === null) { toast("Grammar check is temporarily unavailable — try again shortly"); return; }
+  grammarCache[taId] = ta.value;
+  if (matches.length === 0) {
+    resultsEl.innerHTML = `<p class="hint" style="margin:6px 0 0">No issues found. <a href="https://languagetool.org" target="_blank" rel="noopener">LanguageTool</a></p>`;
+    return;
+  }
+  resultsEl.innerHTML = `<div class="grammar-list">` +
+    matches.map((m, i) => `
+      <div class="grammar-item">
+        <span class="grammar-msg">${esc(m.message)}${m.original ? ` — "<b>${esc(m.original)}</b>"` : ""}</span>
+        ${m.replacements.length ? m.replacements.map(r =>
+          `<button class="grammar-fix-btn" onclick="applyGrammarFix('${taId}',${i},'${esc(r).replace(/'/g, "\\'")}')">→ ${esc(r)}</button>`).join("") : ""}
+      </div>`).join("") +
+    `</div><p class="hint" style="margin:8px 0 0">${matches.length} issue${matches.length===1?"":"s"} found — <a href="https://languagetool.org" target="_blank" rel="noopener">LanguageTool</a></p>`;
+  resultsEl.dataset.matches = JSON.stringify(matches);
+}
+export function applyGrammarFix(taId, matchIndex, replacement) {
+  const ta = document.getElementById(taId);
+  const resultsEl = document.getElementById("grammar-" + taId);
+  if (!ta || !resultsEl || !resultsEl.dataset.matches) return;
+  if (ta.value !== grammarCache[taId]) { toast("Text changed since the last check — checking again"); runGrammarCheck(taId); return; }
+  const matches = JSON.parse(resultsEl.dataset.matches);
+  const m = matches[matchIndex]; if (!m) return;
+  ta.value = ta.value.slice(0, m.offset) + replacement + ta.value.slice(m.offset + m.length);
+  ta.dispatchEvent(new Event("input", { bubbles: true }));
+  runGrammarCheck(taId); // fresh offsets for any remaining issues
 }
 export function addMeeting() {
   const el = document.getElementById("newMeeting"); const v = el.value.trim(); if (!v) return;

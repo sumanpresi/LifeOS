@@ -134,6 +134,7 @@ export async function locateMeOnWorldMap() {
 
 /* ---- Distance & route (two place names, or "my location" as the start) ---- */
 let routeLayer = null;
+let routeStartMarker = null, routeEndMarker = null;
 export async function useMyLocationForRouteFrom() {
   const input = document.getElementById("routeFrom");
   const btn = document.getElementById("routeFromLocateBtn");
@@ -181,12 +182,31 @@ export async function calculateWorldMapRoute() {
     resultEl.innerHTML = `<b>${route.distanceKm.toFixed(1)} km</b> by road · about ${formatDuration(route.durationMin)} driving`;
 
     if (routeLayer) worldMapInstance.map.removeLayer(routeLayer);
+    if (routeStartMarker) worldMapInstance.map.removeLayer(routeStartMarker);
+    if (routeEndMarker) worldMapInstance.map.removeLayer(routeEndMarker);
     const latlngs = route.geometry.coordinates.map(c => [c[1], c[0]]);
     routeLayer = L.polyline(latlngs, { color: "#1D4E89", weight: 4, opacity: 0.85 }).addTo(worldMapInstance.map);
+    routeStartMarker = L.marker(fromCoords).addTo(worldMapInstance.map).bindPopup("Start: " + esc(fromText));
+    routeEndMarker = L.marker(toCoords).addTo(worldMapInstance.map).bindPopup("Destination: " + esc(toText));
     worldMapInstance.map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+    document.getElementById("routeResetBtn").style.display = "";
   } finally {
     if (btn) { btn.disabled = false; btn.textContent = "Get route"; }
   }
+}
+
+export function resetWorldMapRoute() {
+  const fromInput = document.getElementById("routeFrom"), toInput = document.getElementById("routeTo");
+  const resultEl = document.getElementById("routeResult");
+  fromInput.value = ""; toInput.value = "";
+  if (fromInput.dataset.coords) delete fromInput.dataset.coords;
+  resultEl.textContent = "";
+  if (worldMapInstance) {
+    if (routeLayer) { worldMapInstance.map.removeLayer(routeLayer); routeLayer = null; }
+    if (routeStartMarker) { worldMapInstance.map.removeLayer(routeStartMarker); routeStartMarker = null; }
+    if (routeEndMarker) { worldMapInstance.map.removeLayer(routeEndMarker); routeEndMarker = null; }
+  }
+  document.getElementById("routeResetBtn").style.display = "none";
 }
 
 function initWorldMap() {
