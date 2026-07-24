@@ -49,7 +49,7 @@ export function renderTravel() {
   }
 
   const viewTabs = document.getElementById("travelViewTabs");
-  if (viewTabs) viewTabs.querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.tview === travelView));
+  if (viewTabs) viewTabs.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.tview === travelView));
   document.querySelectorAll(".travel-view").forEach(el => el.classList.toggle("active", el.dataset.tview === travelView));
 
   const nameEl = document.getElementById("travelPlanName");

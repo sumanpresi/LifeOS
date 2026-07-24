@@ -56,7 +56,7 @@ h1,h2,.display{font-family:'Fraunces',serif}
 .btn svg{width:16px;height:16px}
 
 /* ---------- cards ---------- */
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);container-type:inline-size}
 .card-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 0}
 .card-head h2{font-size:19px;font-weight:600}
 .card-body{padding:14px 18px 18px}
@@ -298,9 +298,9 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .fin-item-date-edit:hover,.fin-item-date-edit:focus{border-color:var(--line);background:var(--paper)}
 .fin-item-link-edit{flex:1;min-width:0;border:1px solid transparent;border-radius:7px;padding:5px 7px;background:transparent;font-size:12px}
 .fin-item-link-edit:hover,.fin-item-link-edit:focus{border-color:var(--line);background:var(--paper)}
-.fin-add{display:grid;grid-template-columns:1.3fr 1fr 1fr auto;gap:8px;margin-top:12px}
-@media(max-width:600px){.fin-add{grid-template-columns:1fr 1fr}}
-.fin-add input{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--paper);font-size:13px}
+.fin-add{display:grid;grid-template-columns:1.3fr 1fr 1fr auto;gap:8px;margin-top:12px;min-width:0}
+.fin-add input{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--paper);font-size:13px;min-width:0}
+@container (max-width:340px){.fin-add{grid-template-columns:1fr 1fr}}
 
 /* ---------- Health: medicine week tracker ---------- */
 .dose-cell{display:flex;gap:3px;justify-content:center}
@@ -461,3 +461,31 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .ql-picker.ql-font .ql-picker-label[data-value="comic-sans-ms"]::before,.ql-picker.ql-font .ql-picker-item[data-value="comic-sans-ms"]::before{content:"Comic Sans MS";font-family:"Comic Sans MS",cursive}
 .ql-picker.ql-font .ql-picker-label[data-value="impact"]::before,.ql-picker.ql-font .ql-picker-item[data-value="impact"]::before{content:"Impact";font-family:Impact,sans-serif}
 .ql-lineheight-select{border:1px solid #ccc;border-radius:3px;background:#fff;font-size:12px;padding:2px 4px;height:24px;cursor:pointer}
+
+/* ---------- Tabs (Travel Plan / Reference / Work·GSI project switchers) ---------- */
+/* These had no dedicated styling at all before — rendering as unstyled
+   buttons made it genuinely hard to tell which one was selected. */
+.tabs{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:14px;
+  padding-bottom:8px;border-bottom:1.5px solid var(--line)}
+.tab{border:none;background:transparent;padding:7px 14px;border-radius:999px;
+  font-size:13.5px;font-weight:700;color:var(--muted);cursor:pointer;transition:.12s}
+.tab:hover{background:var(--paper);color:var(--ink)}
+.tab.active{background:var(--accent);color:#fff}
+.tab-add{color:var(--accent-ink);background:var(--lilac)}
+.tab-add:hover{background:var(--accent);color:#fff}
+
+/* ---------- "View large" expand modal ---------- */
+.expand-modal-bg{display:none;position:fixed;inset:0;background:rgba(20,18,35,.45);z-index:200;
+  align-items:flex-start;justify-content:center;padding:4vh 20px;overflow-y:auto}
+.expand-modal-bg.open{display:flex}
+.expand-modal{background:var(--card);border-radius:18px;width:100%;max-width:920px;
+  box-shadow:0 30px 70px -20px rgba(0,0,0,.45);display:flex;flex-direction:column;max-height:92vh}
+.expand-modal-head{display:flex;align-items:center;justify-content:space-between;
+  padding:18px 22px;border-bottom:1px solid var(--line);flex-shrink:0}
+.expand-modal-head h2{font-size:18px;margin:0}
+.expand-modal-body{padding:20px 22px;overflow-y:auto}
+.expand-btn{border:1px solid var(--line);border-radius:8px;width:28px;height:28px;
+  display:inline-flex;align-items:center;justify-content:center;background:var(--paper);
+  color:var(--muted);cursor:pointer;flex-shrink:0}
+.expand-btn:hover{border-color:var(--accent);color:var(--accent-ink);background:#fff}
+.expand-btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2}

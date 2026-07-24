@@ -12,6 +12,7 @@ import * as health from './health.js';
 import * as travel from './travel.js';
 import * as reference from './reference.js';
 import * as trash from './trash.js';
+import * as expandView from './expand-view.js';
 import * as mapCoords from './map-click-coords.js';
 import * as search from './search.js';
 import * as cloud from './supabase.js';
@@ -80,6 +81,7 @@ Object.assign(window,
     clearRouteFromLocation: reference.clearRouteFromLocation, calculateWorldMapRoute: reference.calculateWorldMapRoute,
     resetWorldMapRoute: reference.resetWorldMapRoute },
   { restoreFromTrash: trash.restoreFromTrash, permanentlyDeleteFromTrash: trash.permanentlyDeleteFromTrash },
+  { expandView: expandView.expandView, closeExpandView: expandView.closeExpandView },
   { copyCoordsToClipboard: mapCoords.copyCoordsToClipboard },
   { openSearch: search.openSearch, closeSearch: search.closeSearch,
     searchHover: search.searchHover, searchPick: search.searchPick },

@@ -4,6 +4,11 @@ import { go, scrollToEl } from './ui.js';
 
 let items = [], results = [], sel = 0;
 
+function stripHtml(html) {
+  if (!html) return "";
+  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
 function buildIndex() {
   const ix = [];
   const push = (type, text, sub, action) => text && ix.push({ type, text, sub, action });
@@ -27,14 +32,54 @@ function buildIndex() {
     (sec.links || []).forEach(l => push("Link", l.title, label, () => window.open(l.url, "_blank")));
   });
 
-  state.gsi.ngdr.forEach(i => push("NGDR", i.text, i.status, () => go("work")));
+  // Work · GSI — multi-project tasks, work log, meetings, links, documents
+  (state.gsi.projects || []).forEach(p => {
+    (p.tasks || []).forEach(t => push("GSI task", t.text, p.name + " · " + t.status, () => go("work")));
+  });
   state.gsi.log.forEach(e => push("Work log", e.text.slice(0, 120), e.date, () => go("work")));
   state.gsi.meetings.forEach(m => {
-    push("Meeting", m.title, m.date, () => go("work"));
-    (m.notes || "").split("\n").forEach(line =>
-      line.trim() && push("Meeting", line.trim().slice(0, 120), m.title, () => go("work")));
+    push("Meeting", m.title || "Untitled meeting", fmtSearchDate(m.date), () => go("work"));
+    [["Agenda", m.agenda], ["Updates", m.updates], ["Action items", m.actionItems]].forEach(([label, html]) => {
+      const text = stripHtml(html);
+      text && push("Meeting", text.slice(0, 120), (m.title || "Meeting") + " · " + label, () => go("work"));
+    });
   });
   state.gsi.links.forEach(l => push("Link", l.title, "GSI", () => window.open(l.url, "_blank")));
+  (state.gsi.personalDocs || []).forEach(d => push("Document", d.name, "Personal", () => window.open(d.url, "_blank")));
+  (state.gsi.workDocs || []).forEach(d => push("Document", d.name, "Work", () => window.open(d.url, "_blank")));
+
+  // Finance
+  (state.finance.notes || "").split("\n").forEach(line =>
+    line.trim() && push("Notes", line.trim().slice(0, 120), "Finance", () => go("finance")));
+  (state.finance.links || []).forEach(l => push("Link", l.title, "Finance", () => window.open(l.url, "_blank")));
+  ["grocery", "shopping", "wishlist"].forEach(key => {
+    (state.finance[key] || []).forEach(i => push("Finance", i.name, key[0].toUpperCase() + key.slice(1), () => go("finance")));
+  });
+
+  // Health
+  (state.health.notes || "").split("\n").forEach(line =>
+    line.trim() && push("Notes", line.trim().slice(0, 120), "Health", () => go("health")));
+  (state.health.links || []).forEach(l => push("Link", l.title, "Health", () => window.open(l.url, "_blank")));
+  (state.health.medicines || []).forEach(m => push("Medicine", m.name, "", () => go("health")));
+  (state.health.prescriptions || []).forEach(p => push("Prescription", p.name, "", () => go("health")));
+
+  // Travel Plan — every plan's notes, packing list, and stops
+  (state.travel.plans || []).forEach(p => {
+    push("Travel plan", p.name, "", () => go("travel"));
+    (p.notes || "").split("\n").forEach(line =>
+      line.trim() && push("Notes", line.trim().slice(0, 120), "Travel · " + p.name, () => go("travel")));
+    (p.packing || "").split("\n").forEach(line =>
+      line.trim() && push("Packing", line.trim(), p.name, () => go("travel")));
+    (p.stops || []).forEach(s => s.place && push("Stop", s.place, p.name, () => go("travel")));
+  });
+
+  // Reference — every page's notes, links, plus the world map is not text-searchable
+  (state.reference.pages || []).forEach(p => {
+    push("Reference page", p.name, "", () => go("reference"));
+    (p.notes || "").split("\n").forEach(line =>
+      line.trim() && push("Notes", line.trim().slice(0, 120), "Reference · " + p.name, () => go("reference")));
+    (p.links || []).forEach(l => push("Link", l.title, "Reference · " + p.name, () => window.open(l.url, "_blank")));
+  });
 
   const c = state.communication;
   if (c) {
@@ -43,6 +88,11 @@ function buildIndex() {
     (c.writing || []).forEach(w => push("Writing", (w.text || "").slice(0, 120), w.date || "", () => go("communication")));
   }
   return ix;
+}
+function fmtSearchDate(d) {
+  if (!d) return "";
+  try { return new Date(d + "T00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" }); }
+  catch (e) { return d; }
 }
 
 export function openSearch() {

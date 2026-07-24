@@ -138,7 +138,12 @@
         </div>
 
         <div class="card" id="tasksCard">
-          <div class="card-head"><h2>Top 5 Tasks</h2><span class="hint" id="taskCount"></span></div>
+          <div class="card-head"><h2>Top 5 Tasks</h2><span class="hint" id="taskCount"></span>
+            <button class="expand-btn" onclick="expandView('tasksCardContent','Top 5 Tasks')" title="View large">
+              <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            </button>
+          </div>
+          <div id="tasksCardContent">
           <div class="card-body" style="padding-bottom:0">
             <div class="row" style="justify-content:space-between">
               <div class="seg" id="taskFilterBar">
@@ -155,6 +160,7 @@
               <input type="text" id="newTask" placeholder="Add a task" onkeydown="if(event.key==='Enter')addTask()">
               <button class="btn btn-ghost" onclick="addTask()">Add</button>
             </div>
+          </div>
           </div>
         </div>
       </div>
@@ -255,8 +261,12 @@
     <section class="page" id="page-dayof">
       <div class="grid-2">
         <div class="card">
-          <div class="card-head"><h2>Today's focus</h2></div>
-          <div class="card-body" id="dayTasks"></div>
+          <div class="card-head"><h2>Today's focus</h2>
+            <button class="expand-btn" onclick="expandView('dayTasksContent','Today\'s focus')" title="View large">
+              <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            </button>
+          </div>
+          <div id="dayTasksContent"><div class="card-body" id="dayTasks"></div></div>
         </div>
         <div class="card">
           <div class="card-head"><h2>Today's habits</h2></div>
@@ -270,11 +280,14 @@
             <div style="display:flex;gap:8px;align-items:center">
               <input type="date" id="journalDatePicker" onchange="selectJournalDate(this.value)" title="Jump to a date">
               <button class="btn btn-ghost" id="journalTodayBtn" onclick="journalGoToday()" style="display:none">Today</button>
+              <button class="expand-btn" onclick="expandView('journalEditorContent','Journal')" title="View large">
+                <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+              </button>
             </div>
           </div>
-          <div class="card-body">
+          <div id="journalEditorContent"><div class="card-body">
             <textarea class="notes-area" id="dayJournal" placeholder="How did that day go?" oninput="saveJournal(this.value)" style="min-height:280px"></textarea>
-          </div>
+          </div></div>
         </div>
         <div class="card">
           <div class="card-head"><h2>Past entries</h2><span class="hint">Most recent first</span></div>
@@ -300,13 +313,18 @@
               style="border:none;background:transparent;font-family:'Fraunces',serif;font-size:19px;font-weight:600;flex:1;padding:0">
             <span class="hint" id="ngdrCount"></span>
             <button class="icon-btn" id="projectDelBtn" onclick="delProject()" title="Delete this project" style="display:none;margin-left:8px">Delete</button>
+            <button class="expand-btn" onclick="expandView('ngdrCardContent',document.getElementById('projectName').value || 'Project tasks')" title="View large">
+              <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            </button>
           </div>
+          <div id="ngdrCardContent">
           <div class="card-body" id="ngdrList"></div>
           <div class="card-body" style="padding-top:0">
             <div class="add-inline">
               <input type="text" id="newNgdr" placeholder="Add a task, e.g. UAT test plan for AI module" onkeydown="if(event.key==='Enter')addNgdr()">
               <button class="btn btn-ghost" onclick="addNgdr()">Add</button>
             </div>
+          </div>
           </div>
         </div>
         <div class="card">
@@ -647,6 +665,16 @@
       <span class="kbd">Esc</span>
     </div>
     <div class="search-results" id="searchResults"></div>
+  </div>
+</div>
+
+<div class="expand-modal-bg" id="expandModalBg">
+  <div class="expand-modal">
+    <div class="expand-modal-head">
+      <h2 id="expandModalTitle"></h2>
+      <button class="btn btn-ghost" onclick="closeExpandView()">✕ Close</button>
+    </div>
+    <div class="expand-modal-body" id="expandModalContent"></div>
   </div>
 </div>
 
