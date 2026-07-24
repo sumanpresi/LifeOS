@@ -35,7 +35,7 @@ h1,h2,.display{font-family:'Fraunces',serif}
 .gh-chip .gh-name{font-weight:700;font-size:13px}
 .gh-chip .gh-sub{font-size:11.5px;color:var(--muted)}
 
-.main{flex:1;min-width:0;padding:26px 30px 60px;max-width:1120px}
+.main{flex:1;min-width:0;padding:26px 34px 60px;max-width:1440px}
 
 /* ---------- header ---------- */
 .top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
@@ -345,7 +345,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .mm-section{margin-bottom:12px}
 .mm-section label{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
 .mm-section textarea{width:100%;min-height:70px;border:1px solid var(--line);border-radius:10px;padding:9px 11px;
-  background:var(--paper);font-family:inherit;font-size:13px;resize:vertical}
+  background:var(--paper);font-family:inherit;font-size:13px;resize:vertical;overflow-y:hidden}
 .mm-section textarea:focus{border-color:var(--accent);background:#fff;outline:none}
 
 /* ---------- Small icon/text buttons (project & plan delete, etc.) ---------- */
@@ -371,3 +371,27 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .locate-btn{flex-shrink:0;background:var(--paper);border:1px solid var(--line);border-radius:8px;
   width:30px;height:30px;font-size:13px;cursor:pointer}
 .locate-btn:hover{border-color:var(--accent);background:var(--lilac)}
+
+/* ---------- Habit tracking: calendar month view ---------- */
+.cal-toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+.cal-toolbar select{border:1px solid var(--line);border-radius:9px;padding:7px 10px;background:var(--paper);font-weight:600;font-size:13px}
+.cal-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px}
+.cal-dow div{text-align:center;font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.05em}
+.cal-days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cal-cell{aspect-ratio:1;border:1.5px solid var(--line);border-radius:9px;background:#fff;font-weight:700;font-size:13px;
+  color:var(--ink-soft,var(--ink));cursor:pointer;transition:.12s}
+.cal-cell:hover{border-color:var(--accent)}
+.cal-cell.done{background:var(--accent);border-color:var(--accent);color:#fff}
+.cal-cell.today{box-shadow:0 0 0 2px var(--lilac-deep)}
+.cal-cell.empty{border:none;background:transparent;cursor:default}
+.cal-cell:disabled{opacity:.35;cursor:default}
+
+/* ---------- Freehand sketch tool (maps) ---------- */
+.freehand-toolbar{background:#fff}
+.freehand-btn{display:flex;align-items:center;justify-content:center;width:26px;height:26px;
+  font-size:15px;text-decoration:none;cursor:pointer}
+.freehand-btn.on{background:var(--accent)}
+.leaflet-container.freehand-active{cursor:crosshair}
+/* Disable the browser's native touch gestures (scroll/pinch) on the map
+   while sketching, so a finger or stylus stroke draws instead of panning. */
+.leaflet-container.freehand-active{touch-action:none}

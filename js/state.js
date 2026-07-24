@@ -41,7 +41,7 @@ export const DEFAULT_STATE = {
   journal: {},               // { "2026-07-19": "text" }
   sections: {
     communication: { notes: "", links: [] },
-    reference: { notes: "", links: [] }, work: { notes: "", links: [] }
+    work: { notes: "", links: [] }
   },
   gsi: {
     /* Multiple named projects, each with its own task list (with dates).
@@ -108,14 +108,21 @@ export const DEFAULT_STATE = {
     ],
     activePlan: "tp1"
   },
+  reference: {
+    pages: [
+      { id: "r1", name: "General", notes: "", links: [] }
+    ],
+    activePage: "r1",
+    worldMapDrawing: null   // one shared world map's saved GeoJSON FeatureCollection
+  },
   updatedAt: 0
 };
 
-/* Section pages generated generically (Finance/Health/Travel/Work/Communication
-   now have dedicated pages; Reference is the only one left on this template). */
-export const SECTION_META = {
-  reference: "Reference"
-};
+/* Section pages generated generically. Nothing uses this template anymore —
+   Communication, Finance, Health, Travel, Reference and Work all have
+   dedicated pages — but the mechanism is kept in case a future space wants
+   the plain notes+links layout without custom building. */
+export const SECTION_META = {};
 /* Note: "Communication" now has its own dedicated page (pages/communication.html,
    loaded via iframe) instead of the generic notes+links template above. */
 
@@ -143,6 +150,7 @@ function merge(saved) {
   s.finance = Object.assign(structuredClone(DEFAULT_STATE.finance), saved.finance || {});
   s.health = Object.assign(structuredClone(DEFAULT_STATE.health), saved.health || {});
   s.travel = Object.assign(structuredClone(DEFAULT_STATE.travel), saved.travel || {});
+  s.reference = Object.assign(structuredClone(DEFAULT_STATE.reference), saved.reference || {});
   /* One-time migration: earlier versions stored Finance/Health/Travel notes
      and links under the generic sections.* template. Carry them forward so
      nothing already saved gets lost when those pages became dedicated. */
@@ -159,6 +167,11 @@ function merge(saved) {
     const p = s.travel.plans[0];
     p.notes = oldSections.travel.notes || "";
     s.travel.planLinks = oldSections.travel.links || []; // kept, not shown by default UI
+  }
+  if (oldSections.reference && !saved.reference) {
+    const p = s.reference.pages[0];
+    p.notes = oldSections.reference.notes || "";
+    p.links = oldSections.reference.links || [];
   }
   /* One-time migration: the old flat gsi.ngdr list becomes the default
      project's task list (tasks gain a blank "date" field). */

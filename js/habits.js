@@ -1,7 +1,9 @@
-/* Habit tracking: week grid, weekly view, streaks, donut. */
+/* Habit tracking: week grid, calendar month view, 6-week trend, streaks, donut. */
 import { state, uid, esc, persist, rerender, todayKey } from './state.js';
 
 let weekOffset = 0;
+let monthCursor = new Date(); // which month the calendar view is showing
+let calendarHabitId = null;   // which habit the calendar view focuses on
 
 export function weekDates(offset) {
   const now = new Date(); const day = (now.getDay() + 6) % 7; // Monday start
@@ -43,11 +45,11 @@ export function renderHabits() {
   document.getElementById("habitTable").innerHTML = html;
   const fmt = d => d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
   document.getElementById("weekLabel").textContent = `${fmt(days[0])} – ${fmt(days[6])}`;
-  renderMonthView(); renderDonut();
+  renderTrendView(); renderCalendarView(); renderDonut();
 }
 
-function renderMonthView() {
-  /* "Weekly view": the last 6 weeks, % completion per habit */
+function renderTrendView() {
+  /* Last 6 weeks, % completion per habit — a quick trend, not a calendar. */
   let rows = `<tr><th>Habit</th>${[...Array(6)].map((_, i) => {
     const w = weekDates(-(5 - i)); return `<th>${w[0].getDate()}/${w[0].getMonth() + 1}</th>`; }).join("")}</tr>`;
   rows += state.habits.map(h => {
@@ -61,6 +63,57 @@ function renderMonthView() {
     return `<tr><td>${esc(h.name)}</td>${cells}</tr>`;
   }).join("");
   document.getElementById("habitMonthTable").innerHTML = rows;
+}
+
+/* ---------- true calendar month view (one habit at a time) ---------- */
+function renderCalendarView() {
+  const sel = document.getElementById("calHabitSelect");
+  if (!sel) return;
+  if (!calendarHabitId || !state.habits.some(h => h.id === calendarHabitId)) {
+    calendarHabitId = state.habits[0] ? state.habits[0].id : null;
+  }
+  sel.innerHTML = state.habits.map(h =>
+    `<option value="${h.id}" ${h.id === calendarHabitId ? "selected" : ""}>${esc(h.name)}</option>`).join("")
+    || `<option value="">Add a habit first</option>`;
+
+  const label = document.getElementById("calMonthLabel");
+  const grid = document.getElementById("calGrid");
+  if (!grid) return;
+  if (label) label.textContent = monthCursor.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+  if (!calendarHabitId) { grid.innerHTML = `<p class="hint">Add a habit to see its calendar.</p>`; return; }
+
+  const year = monthCursor.getFullYear(), month = monthCursor.getMonth();
+  const firstOfMonth = new Date(year, month, 1);
+  const startOffset = (firstOfMonth.getDay() + 6) % 7; // Monday-start grid
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const tKey = todayKey();
+
+  const dayNames = ["M", "T", "W", "T", "F", "S", "S"];
+  let html = `<div class="cal-dow">${dayNames.map(d => `<div>${d}</div>`).join("")}</div><div class="cal-days">`;
+  for (let i = 0; i < startOffset; i++) html += `<div class="cal-cell empty"></div>`;
+  for (let day = 1; day <= daysInMonth; day++) {
+    const d = new Date(year, month, day);
+    const k = todayKey(d);
+    const future = k > tKey;
+    const done = isLogged(k, calendarHabitId);
+    html += `<button class="cal-cell ${done ? "done" : ""} ${k === tKey ? "today" : ""}" ${future ? "disabled" : ""}
+      onclick="toggleHabit('${k}','${calendarHabitId}')">${day}</button>`;
+  }
+  html += `</div>`;
+  grid.innerHTML = html;
+
+  let doneCount = 0, eligCount = 0;
+  for (let day = 1; day <= daysInMonth; day++) {
+    const k = todayKey(new Date(year, month, day));
+    if (k <= tKey) { eligCount++; if (isLogged(k, calendarHabitId)) doneCount++; }
+  }
+  const summary = document.getElementById("calSummary");
+  if (summary) summary.textContent = eligCount ? `${doneCount} of ${eligCount} days this month` : "";
+}
+export function setCalendarHabit(id) { calendarHabitId = id; renderCalendarView(); }
+export function shiftCalendarMonth(n) {
+  monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + n, 1);
+  renderCalendarView();
 }
 
 function renderDonut() {
@@ -79,9 +132,11 @@ function renderDonut() {
 
 export function setHabitView(v) {
   document.getElementById("segWeek").classList.toggle("on", v === "week");
-  document.getElementById("segMonth").classList.toggle("on", v === "month");
+  document.getElementById("segCalendar").classList.toggle("on", v === "calendar");
+  document.getElementById("segTrend").classList.toggle("on", v === "trend");
   document.getElementById("habitWeekWrap").style.display = v === "week" ? "" : "none";
-  document.getElementById("habitMonthWrap").style.display = v === "month" ? "" : "none";
+  document.getElementById("habitCalendarWrap").style.display = v === "calendar" ? "" : "none";
+  document.getElementById("habitMonthWrap").style.display = v === "trend" ? "" : "none";
 }
 export function shiftWeek(n) {
   weekOffset += n; if (weekOffset > 0) weekOffset = 0;

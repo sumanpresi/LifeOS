@@ -5,6 +5,7 @@
    The Route Map tab still uses Google's no-key directions embed. */
 import { state, uid, esc, persist, rerender } from './state.js';
 import { toast } from './ui.js';
+import { attachFreehandTool } from './leaflet-freehand.js';
 
 let travelView = "itinerary"; // "itinerary" | "route"
 
@@ -233,8 +234,9 @@ function initStopMap(plan, s) {
   map.on(L.Draw.Event.CREATED, e => { drawnItems.addLayer(e.layer); save(); });
   map.on(L.Draw.Event.EDITED, save);
   map.on(L.Draw.Event.DELETED, save);
+  const freehand = attachFreehandTool(map, drawnItems, save);
 
-  mapInstances[s.id] = { map, drawnItems, bookedMarker: null };
+  mapInstances[s.id] = { map, drawnItems, bookedMarker: null, freehand };
   setTimeout(() => map.invalidateSize(), 100); // container just became visible
 
   if ((s.place || "").trim() || (s.bookedHotel || "").trim()) {
@@ -285,7 +287,7 @@ function recenterStopMap(plan, s) {
 
 function destroyStopMap(id) {
   const inst = mapInstances[id];
-  if (inst) { inst.map.remove(); delete mapInstances[id]; }
+  if (inst) { if (inst.freehand) inst.freehand.destroy(); inst.map.remove(); delete mapInstances[id]; }
 }
 function destroyAllStopMaps() {
   Object.keys(mapInstances).forEach(destroyStopMap);

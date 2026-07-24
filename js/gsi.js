@@ -1,7 +1,7 @@
 /* GSI Workspace: multi-project task tracker, daily work log, structured
    meeting minutes, GSI links, personal & work documents. */
 import { state, uid, esc, persist, rerender, todayKey } from './state.js';
-import { toast } from './ui.js';
+import { toast, autoGrow } from './ui.js';
 
 const STATUSES = [
   ["todo", "To do"], ["progress", "In progress"], ["done", "Done"], ["blocked", "Blocked"]
@@ -133,15 +133,15 @@ function renderMeetings() {
         </table>
         <div class="mm-section">
           <label>Agenda</label>
-          <textarea placeholder="What this meeting covers…" oninput="editMeetingText('${m.id}','agenda',this.value)">${esc(m.agenda||"")}</textarea>
+          <textarea placeholder="What this meeting covers…" oninput="editMeetingText('${m.id}','agenda',this.value);autoGrow(this)">${esc(m.agenda||"")}</textarea>
         </div>
         <div class="mm-section">
           <label>General &amp; roundtable updates</label>
-          <textarea placeholder="Updates from each participant…" oninput="editMeetingText('${m.id}','updates',this.value)">${esc(m.updates||"")}</textarea>
+          <textarea placeholder="Updates from each participant…" oninput="editMeetingText('${m.id}','updates',this.value);autoGrow(this)">${esc(m.updates||"")}</textarea>
         </div>
         <div class="mm-section">
           <label>Action items</label>
-          <textarea placeholder="Who does what, by when…" oninput="editMeetingText('${m.id}','actionItems',this.value)">${esc(m.actionItems||"")}</textarea>
+          <textarea placeholder="Who does what, by when…" oninput="editMeetingText('${m.id}','actionItems',this.value);autoGrow(this)">${esc(m.actionItems||"")}</textarea>
         </div>
         <div class="meeting-link-row">
           <input type="text" placeholder="Link (agenda doc, recording…)" value="${esc(m.link||"")}" onchange="editMeeting('${m.id}','link',this.value)">
@@ -150,6 +150,7 @@ function renderMeetings() {
         <button class="del" style="margin-top:8px" onclick="delMeeting('${m.id}')">Delete meeting</button>
       </div>` : ""}
     </div>`).join("") || `<p class="hint">Add a meeting to capture decisions and action points.</p>`;
+  document.querySelectorAll("#meetingList .mm-section textarea").forEach(autoGrow);
 }
 export function addMeeting() {
   const el = document.getElementById("newMeeting"); const v = el.value.trim(); if (!v) return;

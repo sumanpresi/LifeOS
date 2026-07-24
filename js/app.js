@@ -10,6 +10,7 @@ import * as gsi from './gsi.js';
 import * as finance from './finance.js';
 import * as health from './health.js';
 import * as travel from './travel.js';
+import * as reference from './reference.js';
 import * as search from './search.js';
 import * as cloud from './supabase.js';
 import { initCommunicationBridge } from './communication-bridge.js';
@@ -32,6 +33,7 @@ function renderAll() {
   finance.renderFinance();
   health.renderHealth();
   travel.renderTravel();
+  reference.renderReference();
 }
 
 /* The markup uses plain onclick="…" handlers; expose them globally. */
@@ -42,7 +44,8 @@ Object.assign(window,
     toggleSortByDate: tasks.toggleSortByDate },
   { addGoal: goals.addGoal, editGoal: goals.editGoal, delGoal: goals.delGoal },
   { toggleHabit: habits.toggleHabit, addHabit: habits.addHabit, delHabit: habits.delHabit,
-    setHabitView: habits.setHabitView, shiftWeek: habits.shiftWeek },
+    setHabitView: habits.setHabitView, shiftWeek: habits.shiftWeek,
+    setCalendarHabit: habits.setCalendarHabit, shiftCalendarMonth: habits.shiftCalendarMonth },
   { addLink: widgets.addLink, delLink: widgets.delLink, addFeed: widgets.addFeed, delFeed: widgets.delFeed,
     nextQuote: widgets.nextQuote, setMed: widgets.setMed, toggleMed: widgets.toggleMed,
     saveJournal: widgets.saveJournal, selectJournalDate: widgets.selectJournalDate, journalGoToday: widgets.journalGoToday },
@@ -66,11 +69,14 @@ Object.assign(window,
     addStop: travel.addStop, editStop: travel.editStop, toggleStopMap: travel.toggleStopMap, delStop: travel.delStop,
     locateStop: travel.locateStop,
     saveTravelPacking: travel.saveTravelPacking, switchTravelView: travel.switchTravelView },
+  { addRefPage: reference.addRefPage, switchRefPage: reference.switchRefPage, renameRefPage: reference.renameRefPage,
+    delRefPage: reference.delRefPage, saveReferenceNotes: reference.saveReferenceNotes,
+    addRefLink: reference.addRefLink, delRefLink: reference.delRefLink },
   { openSearch: search.openSearch, closeSearch: search.closeSearch,
     searchHover: search.searchHover, searchPick: search.searchPick },
   { openGhModal: cloud.openGhModal, closeGhModal: cloud.closeGhModal, ghButton: cloud.ghButton,
     signIn: cloud.signIn, signOut: cloud.signOut, syncNow: cloud.syncNow },
-  { exportBackup: ui.exportBackup, importBackup: ui.importBackup });
+  { exportBackup: ui.exportBackup, importBackup: ui.importBackup, autoGrow: ui.autoGrow });
 
 /* ---- boot ---- */
 setRenderer(renderAll);

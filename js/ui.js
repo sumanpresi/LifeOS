@@ -7,11 +7,26 @@ export function toast(msg) {
   setTimeout(() => t.classList.remove("show"), 2200);
 }
 
+/* Makes a textarea grow to fit its content instead of clipping/scrolling —
+   used anywhere a box should always show everything typed into it. */
+export function autoGrow(el) {
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = el.scrollHeight + "px";
+}
+
 export function go(page) {
   document.querySelectorAll(".page").forEach(p => p.classList.remove("visible"));
   document.querySelectorAll(".nav-item").forEach(n => n.classList.toggle("active", n.dataset.page === page));
   const el = document.getElementById("page-" + page);
-  if (el) el.classList.add("visible");
+  if (el) {
+    el.classList.add("visible");
+    // Textareas/maps rendered while their page was hidden can't be measured
+    // correctly (hidden elements report scrollHeight/size 0) — fix them up
+    // now that the page is actually visible and layout can be computed.
+    el.querySelectorAll(".mm-section textarea").forEach(autoGrow);
+    if (page === "reference") import("./reference.js").then(m => m.showWorldMap());
+  }
   document.getElementById("sidebar").classList.remove("open");
   window.scrollTo({ top: 0 });
 }

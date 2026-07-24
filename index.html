@@ -163,11 +163,24 @@
           </h2>
           <div class="seg">
             <button class="on" id="segWeek" onclick="setHabitView('week')">Week</button>
-            <button id="segMonth" onclick="setHabitView('month')">Weekly view</button>
+            <button id="segCalendar" onclick="setHabitView('calendar')">📅 Month</button>
+            <button id="segTrend" onclick="setHabitView('trend')">6-Week Trend</button>
           </div>
         </div>
         <div class="card-body">
           <div id="habitWeekWrap" style="overflow-x:auto"><table class="habit-table" id="habitTable"></table></div>
+          <div id="habitCalendarWrap" style="display:none">
+            <div class="cal-toolbar">
+              <select id="calHabitSelect" onchange="setCalendarHabit(this.value)"></select>
+              <span class="week-nav">
+                <button onclick="shiftCalendarMonth(-1)" aria-label="Previous month"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+                <span class="week-label" id="calMonthLabel"></span>
+                <button onclick="shiftCalendarMonth(1)" aria-label="Next month"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+              </span>
+              <span class="hint" id="calSummary"></span>
+            </div>
+            <div id="calGrid"></div>
+          </div>
           <div id="habitMonthWrap" style="display:none;overflow-x:auto"><table class="habit-table" id="habitMonthTable"></table></div>
           <div class="add-inline">
             <input type="text" id="newHabit" placeholder="Add a habit, e.g. 10 min speak in English" onkeydown="if(event.key==='Enter')addHabit()">
@@ -512,7 +525,39 @@
       </div>
     </section>
 
-    <!-- ======== SECTION PAGES (generated) ======== -->
+    <!-- ======== PAGE: REFERENCE ======== -->
+    <section class="page" id="page-reference">
+      <h1 class="display" style="font-size:28px;margin-bottom:14px">Reference</h1>
+      <div class="tabs" id="refPageTabs"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head">
+            <input type="text" id="refPageName" onchange="renameRefPage(this.value)"
+              style="border:none;background:transparent;font-family:'Fraunces',serif;font-size:19px;font-weight:600;flex:1;padding:0">
+            <button class="icon-btn" id="refPageDelBtn" onclick="delRefPage()" title="Delete this page" style="display:none">Delete</button>
+          </div>
+          <div class="card-body">
+            <textarea class="notes-area" id="notes-reference" placeholder="Everything about this reference page lives here…" oninput="saveReferenceNotes(this.value)"></textarea>
+          </div>
+        </div>
+        <div class="card"><div class="card-head"><h2>Links</h2></div>
+          <div class="card-body">
+            <div class="link-grid" id="secLinks-reference" style="grid-template-columns:1fr"></div>
+            <div class="add-inline">
+              <input type="text" id="refLinkTitle" placeholder="Title">
+              <input type="text" id="refLinkUrl" placeholder="https://…">
+              <button class="btn btn-ghost" onclick="addRefLink()">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-head"><h2>World map</h2><span class="hint">Mark places, sketch or write with a finger, mouse, or stylus — Apple Pencil, S Pen</span></div>
+        <div class="card-body">
+          <div class="leaflet-map-container" id="worldMap" style="height:480px"></div>
+        </div>
+      </div>
+    </section>
     <div id="sectionPages"></div>
   </main>
 </div>
