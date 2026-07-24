@@ -128,6 +128,17 @@ export async function saveRemote() {
   } catch (e) { setSyncPill("err", "Save failed — tap Sync"); }
 }
 export async function syncNow() {
+  if (!user) {
+    /* The local `user` variable is only populated once onAuthStateChange
+       has fired, which can take a moment after page load. Don't assume
+       "signed out" from that alone — check Supabase's own session
+       directly, since wrongly triggering a fresh sign-in here means a
+       real browser redirect to GitHub and back, which resets the page. */
+    try {
+      const { data } = await sb.auth.getSession();
+      if (data && data.session) { user = data.session.user; renderIdentity(); }
+    } catch (e) { /* fall through */ }
+  }
   if (!user) { ghButton(); return; }
   await saveRemote(); await loadRemote();
   toast("Synced");

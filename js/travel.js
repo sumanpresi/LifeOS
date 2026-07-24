@@ -10,6 +10,7 @@ import { geocodeOne } from './geocode.js';
 import { addBaseLayer } from './map-basemap.js';
 import { moveToTrash } from './trash.js';
 import { getCurrentLocation } from './geolocation.js';
+import { attachClickCoordinates } from './map-click-coords.js';
 
 let travelView = "itinerary"; // "itinerary" | "route"
 
@@ -229,6 +230,7 @@ function initStopMap(plan, s) {
   map.on(L.Draw.Event.EDITED, save);
   map.on(L.Draw.Event.DELETED, save);
   const freehand = attachFreehandTool(map, drawnItems, save);
+  attachClickCoordinates(map);
 
   mapInstances[s.id] = { map, drawnItems, bookedMarker: null, myLocationMarker: null, freehand };
   setTimeout(() => map.invalidateSize(), 100); // container just became visible

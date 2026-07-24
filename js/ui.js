@@ -21,6 +21,7 @@ export function go(page) {
   const el = document.getElementById("page-" + page);
   if (el) {
     el.classList.add("visible");
+    try { localStorage.setItem("lifeos-last-page", page); } catch (e) { /* private browsing etc. — non-critical */ }
     // Textareas/maps rendered while their page was hidden can't be measured
     // correctly (hidden elements report scrollHeight/size 0) — fix them up
     // now that the page is actually visible and layout can be computed.

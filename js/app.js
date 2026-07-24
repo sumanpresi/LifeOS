@@ -12,6 +12,7 @@ import * as health from './health.js';
 import * as travel from './travel.js';
 import * as reference from './reference.js';
 import * as trash from './trash.js';
+import * as mapCoords from './map-click-coords.js';
 import * as search from './search.js';
 import * as cloud from './supabase.js';
 import { initCommunicationBridge } from './communication-bridge.js';
@@ -77,6 +78,7 @@ Object.assign(window,
     locateMeOnWorldMap: reference.locateMeOnWorldMap, useMyLocationForRouteFrom: reference.useMyLocationForRouteFrom,
     clearRouteFromLocation: reference.clearRouteFromLocation, calculateWorldMapRoute: reference.calculateWorldMapRoute },
   { restoreFromTrash: trash.restoreFromTrash, permanentlyDeleteFromTrash: trash.permanentlyDeleteFromTrash },
+  { copyCoordsToClipboard: mapCoords.copyCoordsToClipboard },
   { openSearch: search.openSearch, closeSearch: search.closeSearch,
     searchHover: search.searchHover, searchPick: search.searchPick },
   { openGhModal: cloud.openGhModal, closeGhModal: cloud.closeGhModal, ghButton: cloud.ghButton,
@@ -88,6 +90,10 @@ setRenderer(renderAll);
 sections.buildSectionPages();
 trash.purgeOldTrash();
 renderAll();
+try {
+  const lastPage = localStorage.getItem("lifeos-last-page");
+  if (lastPage && document.getElementById("page-" + lastPage)) ui.go(lastPage);
+} catch (e) { /* private browsing etc. — just stays on the default page */ }
 ui.setSyncPill("", "Local only");
 search.initSearch();
 initCommunicationBridge();

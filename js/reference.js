@@ -10,6 +10,7 @@ import { geocodeOne } from './geocode.js';
 import { addBaseLayer } from './map-basemap.js';
 import { getCurrentLocation } from './geolocation.js';
 import { getRoute, formatDuration } from './routing.js';
+import { attachClickCoordinates } from './map-click-coords.js';
 import { moveToTrash } from './trash.js';
 
 function activeRefPage() {
@@ -212,6 +213,7 @@ function initWorldMap() {
   map.on(L.Draw.Event.EDITED, save);
   map.on(L.Draw.Event.DELETED, save);
   const freehand = attachFreehandTool(map, drawnItems, save);
+  attachClickCoordinates(map);
 
   worldMapInstance = { map, drawnItems, freehand };
   setTimeout(() => map.invalidateSize(), 100);
