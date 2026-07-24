@@ -554,6 +554,10 @@
       <div class="card" style="margin-top:16px">
         <div class="card-head"><h2>World map</h2><span class="hint">Mark places, sketch or write with a finger, mouse, or stylus — Apple Pencil, S Pen</span></div>
         <div class="card-body">
+          <div class="add-inline" style="margin-bottom:10px">
+            <input type="text" id="worldMapSearch" placeholder="Search for a place, e.g. Kyoto, Japan" onkeydown="if(event.key==='Enter')searchWorldMap()">
+            <button class="btn btn-ghost" onclick="searchWorldMap()">🔍 Go</button>
+          </div>
           <div class="leaflet-map-container" id="worldMap" style="height:480px"></div>
         </div>
       </div>

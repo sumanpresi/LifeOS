@@ -6,6 +6,7 @@
 import { state, uid, esc, persist, rerender } from './state.js';
 import { toast } from './ui.js';
 import { attachFreehandTool } from './leaflet-freehand.js';
+import { geocodeOne } from './geocode.js';
 
 function activeRefPage() {
   return state.reference.pages.find(p => p.id === state.reference.activePage) || state.reference.pages[0];
@@ -87,6 +88,23 @@ export function delRefLink(id) {
 
 /* ---------------- World Map: one shared map, mark places, sketch/write notes ---------------- */
 let worldMapInstance = null;
+let worldSearchMarker = null;
+
+export async function searchWorldMap() {
+  const input = document.getElementById("worldMapSearch");
+  const q = input.value.trim();
+  if (!q) return;
+  if (!worldMapInstance) return; // map isn't visible yet — shouldn't normally happen
+  const btn = document.querySelector('button[onclick="searchWorldMap()"]');
+  if (btn) { btn.disabled = true; btn.textContent = "Searching…"; }
+  const result = await geocodeOne(q);
+  if (btn) { btn.disabled = false; btn.textContent = "🔍 Go"; }
+  if (!result) { toast("Couldn't find \"" + q + "\" — try a simpler or more specific name"); return; }
+  worldMapInstance.map.setView(result.coords, 6);
+  if (worldSearchMarker) worldMapInstance.map.removeLayer(worldSearchMarker);
+  worldSearchMarker = L.marker(result.coords).addTo(worldMapInstance.map).bindPopup(esc(q)).openPopup();
+  toast("Zoomed to " + q);
+}
 
 function initWorldMap() {
   const container = document.getElementById("worldMap");

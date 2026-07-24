@@ -80,7 +80,7 @@ export function attachFreehandTool(map, drawnItems, onStrokeSaved) {
   }
 
   const FreehandControl = L.Control.extend({
-    options: { position: "topleft" },
+    options: { position: "topright" },
     onAdd: function () {
       const bar = L.DomUtil.create("div", "leaflet-bar leaflet-control freehand-toolbar");
       const btn = L.DomUtil.create("a", "freehand-btn", bar);

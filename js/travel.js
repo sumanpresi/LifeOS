@@ -6,6 +6,7 @@
 import { state, uid, esc, persist, rerender } from './state.js';
 import { toast } from './ui.js';
 import { attachFreehandTool } from './leaflet-freehand.js';
+import { geocodeOne } from './geocode.js';
 
 let travelView = "itinerary"; // "itinerary" | "route"
 
@@ -173,21 +174,6 @@ export function toggleStopMap(id) {
   else destroyStopMap(id);
 }
 
-async function geocodeOne(query) {
-  if (!query || !query.trim()) return null;
-  try {
-    const url = "https://nominatim.openstreetmap.org/search?format=json&limit=1&email=lifeos.app%40example.com&q=" + encodeURIComponent(query);
-    const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 6000);
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(t);
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (data && data[0]) return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
-  } catch (e) { /* network error, timeout, or the free geocoder is temporarily unavailable */ }
-  return null;
-}
-
 /* Tries the most specific query first, then falls back to simpler ones —
    a specific hotel name often isn't in OpenStreetMap's free geocoder, but
    the place/town name almost always is. */
@@ -200,8 +186,8 @@ async function geocodeWithFallback(hotelName, placeName, alreadyTried) {
   for (const q of attempts) {
     if (tried.has(q)) continue;
     tried.add(q);
-    const coords = await geocodeOne(q);
-    if (coords) return { coords, matchedQuery: q };
+    const result = await geocodeOne(q);
+    if (result) return { coords: result.coords, matchedQuery: q };
   }
   return null;
 }
