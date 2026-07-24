@@ -271,9 +271,9 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
 @media(max-width:900px){.grid-3{grid-template-columns:1fr}}
 .task-row{position:relative}
-.flag-btn{background:none;border:none;font-size:14px;opacity:.3;cursor:pointer;flex-shrink:0;filter:grayscale(1)}
-.flag-btn:hover{opacity:.7}
-.flag-btn.on{opacity:1;filter:none}
+.flag-btn{background:none;border:none;font-size:16px;opacity:.55;cursor:pointer;flex-shrink:0;filter:grayscale(.6)}
+.flag-btn:hover{opacity:.9;filter:grayscale(0)}
+.flag-btn.on{opacity:1;filter:none;transform:scale(1.08)}
 .task-meta-row{display:flex;align-items:center;gap:6px;padding:0 0 9px 60px;flex-wrap:wrap;border-bottom:1px dashed var(--line)}
 .task-row.done + .task-meta-row{opacity:.5}
 .task-meta-row:last-child{border-bottom:none}
@@ -284,6 +284,9 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .due-pill.overdue{background:#F8ECE6;color:var(--warn)}
 .task-link-input{border:1px solid var(--line);border-radius:7px;padding:3px 6px;font-size:11.5px;background:var(--paper);flex:1;min-width:70px}
 .task-link-go{font-size:13px;flex-shrink:0}
+.task-row input[type=text].task-text-linked{color:var(--accent-ink);text-decoration:underline;text-decoration-color:var(--lilac-deep)}
+.task-link-go-inline{font-size:13px;flex-shrink:0;text-decoration:none;padding:2px 4px;border-radius:6px}
+.task-link-go-inline:hover{background:var(--lilac)}
 
 /* ---------- Meeting link row (Work·GSI) ---------- */
 .meeting-link-row{display:flex;align-items:center;gap:8px;margin-top:8px}

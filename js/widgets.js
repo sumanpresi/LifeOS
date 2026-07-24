@@ -105,23 +105,27 @@ export function renderDayOf() {
   const k = todayKey();
   const viewDate = currentJournalDate || k;
 
-  // "Today's focus" should reflect what's actually relevant to *today* —
-  // due today, overdue (still needs attention), or finished today (so the
-  // day's progress is visible) — not just the whole task list regardless
-  // of date.
+  // "Today's focus" mixes urgency and importance: due today, overdue
+  // (still needs attention), finished today (so the day's progress is
+  // visible) — and now also anything flagged as important, regardless of
+  // its date, since a flagged task is one you've deliberately said matters
+  // right now even if it isn't formally due.
   const dayTaskList = state.tasks.filter(t => {
     if (t.done) return t.completedAt && todayKey(new Date(t.completedAt)) === k;
+    if (t.flag) return true;
     return t.dueDate && t.dueDate <= k;
   }).sort((a, b) => {
     if (a.done !== b.done) return a.done ? 1 : -1; // completed sinks to the bottom
-    return (a.dueDate || "").localeCompare(b.dueDate || ""); // overdue (earlier date) first
+    if (!!a.flag !== !!b.flag) return a.flag ? -1 : 1; // flagged/important first
+    return (a.dueDate || "").localeCompare(b.dueDate || ""); // then overdue (earlier date) first
   });
 
   document.getElementById("dayTasks").innerHTML = dayTaskList.map((t, i) => `
     <div class="task-row ${t.done ? "done" : ""}">
       <button class="chk ${t.done ? "on" : ""}" onclick="toggleTask('${t.id}')"><svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
       <span class="task-num">${i + 1}</span>
-      <input type="text" value="${esc(t.text)}" onchange="editTask('${t.id}',this.value)">
+      <input type="text" class="${t.link ? "task-text-linked" : ""}" value="${esc(t.text)}" onchange="editTask('${t.id}',this.value)">
+      ${t.link ? `<a href="${esc(t.link.startsWith("http")?t.link:"https://"+t.link)}" target="_blank" rel="noopener" class="task-link-go-inline" title="Open link">🔗</a>` : ""}
       ${!t.done && t.dueDate && t.dueDate < k ? `<span class="due-pill overdue">Overdue</span>` : ""}
     </div>`).join("") || `<p class="hint">Nothing due today — give a task a due date on Overview to see it here.</p>`;
   document.getElementById("dayHabits").innerHTML = state.habits.map(h => `

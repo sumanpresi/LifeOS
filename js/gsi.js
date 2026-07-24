@@ -50,7 +50,8 @@ function renderProjects() {
       <select class="status-sel s-${item.status}" onchange="setTaskStatus('${item.id}',this.value)">
         ${STATUSES.map(([v, l]) => `<option value="${v}" ${item.status === v ? "selected" : ""}>${l}</option>`).join("")}
       </select>
-      <input type="text" value="${esc(item.text)}" onchange="editProjectTask('${item.id}','text',this.value)">
+      <input type="text" class="${item.link ? "task-text-linked" : ""}" value="${esc(item.text)}" onchange="editProjectTask('${item.id}','text',this.value)">
+      ${item.link ? `<a href="${esc(item.link.startsWith("http")?item.link:"https://"+item.link)}" target="_blank" rel="noopener" class="task-link-go-inline" title="Open link">🔗</a>` : ""}
       <input type="date" class="task-due-input" value="${esc(item.date||"")}" onchange="editProjectTask('${item.id}','date',this.value)" title="Date">
       <button class="del" onclick="delProjectTask('${item.id}')">✕</button>
     </div>
