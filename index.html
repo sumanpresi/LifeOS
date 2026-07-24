@@ -291,6 +291,14 @@
         </div>
         <div class="card">
           <div class="card-head"><h2>Past entries</h2><span class="hint">Most recent first</span></div>
+          <div class="card-body" style="padding-bottom:0">
+            <div class="journal-filter-row">
+              <input type="date" id="journalFilterFrom" onchange="applyJournalFilter()" title="From date">
+              <span style="color:var(--muted);font-weight:700">–</span>
+              <input type="date" id="journalFilterTo" onchange="applyJournalFilter()" title="To date">
+              <button class="btn btn-ghost" id="journalFilterClearBtn" onclick="clearJournalFilter()" style="display:none">✕ Clear</button>
+            </div>
+          </div>
           <div class="card-body" id="journalList" style="max-height:340px;overflow-y:auto"></div>
         </div>
       </div>
@@ -544,9 +552,13 @@
         </div>
       </div>
       <div class="card" style="margin-top:16px">
-        <div class="card-head"><h2>Packing list</h2><span class="hint">One item per line</span></div>
-        <div class="card-body">
-          <textarea class="notes-area" id="travelPacking" placeholder="Passport, chargers, warm jacket…" oninput="saveTravelPacking(this.value)"></textarea>
+        <div class="card-head"><h2>Packing list</h2></div>
+        <div class="card-body" id="travelPackingList"></div>
+        <div class="card-body" style="padding-top:0">
+          <div class="add-inline">
+            <input type="text" id="newPackingItem" placeholder="Passport, chargers, warm jacket…" onkeydown="if(event.key==='Enter')addPackingItem()">
+            <button class="btn btn-ghost" onclick="addPackingItem()">Add</button>
+          </div>
         </div>
       </div>
     </section>

@@ -215,7 +215,7 @@ function initWorldMap() {
   if (worldMapInstance) { worldMapInstance.map.invalidateSize(); return; }
   if (typeof L === "undefined") return;
 
-  const map = L.map(container).setView([20, 10], 2); // whole-world starting view
+  const map = L.map(container, { zoomSnap: 0.25, zoomDelta: 0.25 }).setView([20, 10], 2); // whole-world starting view
   addBaseLayer(map);
 
   const drawnItems = new L.FeatureGroup().addTo(map);

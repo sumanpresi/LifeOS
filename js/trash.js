@@ -48,6 +48,7 @@ function labelFor(entry) {
     case "workDoc": return p.name;
     case "travelPlan": return "Travel plan: " + p.name;
     case "travelStop": return p.place || "(unnamed stop)";
+    case "packingItem": return p.text;
     case "referencePage": return "Reference page: " + p.name;
     case "referenceLink": return p.title;
     case "financeItem": return p.name;
@@ -64,7 +65,7 @@ function labelFor(entry) {
 const TYPE_NAMES = {
   task: "Task", habit: "Habit", goal: "Goal", gsiProject: "GSI project", gsiProjectTask: "GSI task",
   log: "Work log entry", meeting: "Meeting", gsiLink: "GSI link", personalDoc: "Personal document",
-  workDoc: "Work document", travelPlan: "Travel plan", travelStop: "Travel stop",
+  workDoc: "Work document", travelPlan: "Travel plan", travelStop: "Travel stop", packingItem: "Packing item",
   referencePage: "Reference page", referenceLink: "Reference link", financeItem: "Finance item",
   financeLink: "Finance link", medicine: "Medicine", prescription: "Prescription",
   healthLink: "Health link", bookmarkLink: "Link", feed: "News feed", sectionLink: "Link"
@@ -128,6 +129,11 @@ export function restoreFromTrash(id) {
     case "travelStop": {
       const plan = state.travel.plans.find(x => x.id === m.planId) || state.travel.plans[0];
       if (plan) { plan.stops.push(p); if (plan.id !== m.planId) toast("Original plan was deleted — restored into \"" + plan.name + "\" instead"); }
+      break;
+    }
+    case "packingItem": {
+      const plan = state.travel.plans.find(x => x.id === m.planId) || state.travel.plans[0];
+      if (plan) { plan.packing.push(p); if (plan.id !== m.planId) toast("Original plan was deleted — restored into \"" + plan.name + "\" instead"); }
       break;
     }
     case "referencePage": state.reference.pages.push(p); break;

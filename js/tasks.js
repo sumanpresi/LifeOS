@@ -6,6 +6,14 @@ import { moveToTrash } from './trash.js';
 let taskFilter = "all"; // "all" | "work" | "personal"
 let sortByDate = false;
 
+function fmtCompletedAt(ts) {
+  const d = new Date(ts);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const isToday = d >= today;
+  const time = d.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" });
+  return isToday ? time : d.toLocaleDateString("en-IN", { day: "numeric", month: "short" }) + " · " + time;
+}
+
 function fmtDue(d) {
   if (!d) return "";
   const [y, m, day] = d.split("-").map(Number);
@@ -67,6 +75,7 @@ export function renderTasks() {
       </select>
       <input type="date" class="task-due-input" value="${esc(t.dueDate||"")}" onchange="editTaskMeta('${t.id}','dueDate',this.value)" title="Due date">
       ${due ? `<span class="due-pill ${due.cls}">${due.text}</span>` : ""}
+      ${t.done && t.completedAt ? `<span class="completed-pill" title="When this was checked off">✓ ${fmtCompletedAt(t.completedAt)}</span>` : ""}
       <input type="text" class="task-link-input" placeholder="link" value="${esc(t.link||"")}" onchange="editTaskMeta('${t.id}','link',this.value)">
       ${t.link ? `<a href="${esc(t.link.startsWith("http")?t.link:"https://"+t.link)}" target="_blank" rel="noopener" class="task-link-go" title="Open link">🔗</a>` : ""}
     </div>`;
@@ -94,7 +103,11 @@ export function addTask() {
 }
 export function toggleTask(id) {
   const t = state.tasks.find(x => x.id === id);
-  if (t) { t.done = !t.done; persist(); rerender(); }
+  if (t) {
+    t.done = !t.done;
+    t.completedAt = t.done ? Date.now() : null;
+    persist(); rerender();
+  }
 }
 export function toggleFlag(id) {
   const t = state.tasks.find(x => x.id === id);

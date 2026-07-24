@@ -132,15 +132,32 @@ function renderJournalEditor(viewDate) {
   const j = document.getElementById("dayJournal");
   if (document.activeElement !== j) j.value = state.journal[viewDate] || "";
 }
+let journalFilterFrom = "", journalFilterTo = "";
 function renderJournalList(viewDate) {
   const box = document.getElementById("journalList");
   if (!box) return;
-  const dates = Object.keys(state.journal).filter(d => (state.journal[d] || "").trim()).sort().reverse();
+  let dates = Object.keys(state.journal).filter(d => (state.journal[d] || "").trim()).sort().reverse();
+  if (journalFilterFrom) dates = dates.filter(d => d >= journalFilterFrom);
+  if (journalFilterTo) dates = dates.filter(d => d <= journalFilterTo);
+  const filterActive = journalFilterFrom || journalFilterTo;
   box.innerHTML = dates.map(d => `
     <button class="journal-list-item ${d === viewDate ? "active" : ""}" onclick="selectJournalDate('${d}')">
       <span class="jd-date">${fmtJournalDate(d)}</span>
       <span class="jd-snip">${esc((state.journal[d] || "").slice(0, 60))}</span>
-    </button>`).join("") || `<p class="hint">Past entries will appear here.</p>`;
+    </button>`).join("") || `<p class="hint">${filterActive ? "No entries in that date range." : "Past entries will appear here."}</p>`;
+}
+export function applyJournalFilter() {
+  journalFilterFrom = document.getElementById("journalFilterFrom").value;
+  journalFilterTo = document.getElementById("journalFilterTo").value;
+  document.getElementById("journalFilterClearBtn").style.display = (journalFilterFrom || journalFilterTo) ? "" : "none";
+  renderJournalList(currentJournalDate || todayKey());
+}
+export function clearJournalFilter() {
+  journalFilterFrom = journalFilterTo = "";
+  document.getElementById("journalFilterFrom").value = "";
+  document.getElementById("journalFilterTo").value = "";
+  document.getElementById("journalFilterClearBtn").style.display = "none";
+  renderJournalList(currentJournalDate || todayKey());
 }
 export function selectJournalDate(d) {
   currentJournalDate = d;

@@ -103,7 +103,7 @@ export const DEFAULT_STATE = {
   },
   travel: {
     plans: [
-      { id: "tp1", name: "General", notes: "", packing: "",
+      { id: "tp1", name: "General", notes: "", packing: [],  // [{id, text, done}]
         stops: [] }   // [{id, place, duration, hotel, bookedHotel, mapDrawing}] — mapDrawing is a saved GeoJSON FeatureCollection or null
     ],
     activePlan: "tp1"
@@ -153,6 +153,14 @@ function merge(saved) {
   s.finance = Object.assign(structuredClone(DEFAULT_STATE.finance), saved.finance || {});
   s.health = Object.assign(structuredClone(DEFAULT_STATE.health), saved.health || {});
   s.travel = Object.assign(structuredClone(DEFAULT_STATE.travel), saved.travel || {});
+  (s.travel.plans || []).forEach(p => {
+    if (typeof p.packing === "string") {
+      p.packing = p.packing.split("\n").map(line => line.trim()).filter(Boolean)
+        .map(text => ({ id: uid(), text, done: false }));
+    } else if (!Array.isArray(p.packing)) {
+      p.packing = [];
+    }
+  });
   s.reference = Object.assign(structuredClone(DEFAULT_STATE.reference), saved.reference || {});
   s.trash = Array.isArray(saved.trash) ? saved.trash : [];
   /* One-time migration: earlier versions stored Finance/Health/Travel notes

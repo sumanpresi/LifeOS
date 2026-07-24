@@ -93,8 +93,17 @@ export function renderTravel() {
     }
   }
 
-  const packEl = document.getElementById("travelPacking");
-  if (packEl && document.activeElement !== packEl) packEl.value = active.packing || "";
+  const packList = document.getElementById("travelPackingList");
+  if (packList) {
+    const items = active.packing || [];
+    packList.innerHTML = items.map(it => `
+      <div class="pack-item ${it.done ? "done" : ""}">
+        <button class="chk ${it.done ? "on" : ""}" onclick="togglePackingItem('${it.id}')" aria-label="Toggle packed">
+          <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
+        <span class="pack-item-text">${esc(it.text)}</span>
+        <button class="del" onclick="delPackingItem('${it.id}')" aria-label="Delete">✕</button>
+      </div>`).join("") || `<p class="hint">Add what you need to pack — passport, chargers, warm jacket…</p>`;
+  }
 }
 
 /* ---------- plans ---------- */
@@ -150,12 +159,23 @@ export function delStop(id) {
   persist(); renderTravel();
 }
 
-let packTimer = null;
-export function saveTravelPacking(v) {
+export function addPackingItem() {
+  const el = document.getElementById("newPackingItem");
+  const v = el.value.trim(); if (!v) return;
+  activePlan().packing.push({ id: uid(), text: v, done: false });
+  el.value = "";
+  persist(); renderTravel();
+}
+export function togglePackingItem(id) {
+  const item = activePlan().packing.find(x => x.id === id);
+  if (item) { item.done = !item.done; persist(); renderTravel(); }
+}
+export function delPackingItem(id) {
   const p = activePlan();
-  p.packing = v;
-  clearTimeout(packTimer);
-  packTimer = setTimeout(() => persist(), 800);
+  const item = p.packing.find(x => x.id === id);
+  if (item) moveToTrash("packingItem", item, { planId: p.id });
+  p.packing = p.packing.filter(x => x.id !== id);
+  persist(); renderTravel();
 }
 
 /* ---------- per-stop Leaflet map: init / destroy / recentre / draw persistence ---------- */
@@ -209,7 +229,11 @@ function initStopMap(plan, s) {
   const container = document.getElementById("leafletMap-" + s.id);
   if (!container || typeof L === "undefined") return;
 
-  const map = L.map(container).setView([22.5, 80], 5); // default: India, until geocoded
+  // zoomSnap/zoomDelta smaller than the 1.0 default let the map zoom in
+  // finer fractional steps instead of jumping a whole level per scroll
+  // tick — this is what actually makes wheel-zoom feel smooth rather than
+  // "steppy" (Leaflet's built-in wheel zoom is integer-only by default).
+  const map = L.map(container, { zoomSnap: 0.25, zoomDelta: 0.25 }).setView([22.5, 80], 5); // default: India, until geocoded
   addBaseLayer(map);
 
   const drawnItems = new L.FeatureGroup().addTo(map);
