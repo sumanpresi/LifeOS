@@ -1,6 +1,6 @@
 /* GitHub sign-in (via Supabase Auth), cloud storage, live sync. */
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
-import { state, replaceState, setRemoteSaver, uid, esc, rerender } from './state.js';
+import { state, replaceState, setRemoteSaver, uid, esc, rerender, flushPendingSave } from './state.js';
 import { setSyncPill, nowTime, toast } from './ui.js';
 import { pushCommunicationUpdate } from './communication-bridge.js';
 import { pushNgdrTrackerUpdate } from './ngdr-tracker-bridge.js';
@@ -168,6 +168,11 @@ export function initSupabase() {
     else { stopRealtime(); hasReconciled = false; pendingSaveAfterReconcile = false; setSyncPill("", "Local only"); }
   });
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden && user) loadRemote();
+    if (document.hidden) flushPendingSave();
+    else if (user) loadRemote();
   });
+  /* A second, independent safety net: on some platforms (especially
+     mobile) visibilitychange doesn't fire reliably right before an actual
+     tab close, but pagehide does. */
+  window.addEventListener("pagehide", flushPendingSave);
 }

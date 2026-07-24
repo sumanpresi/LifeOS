@@ -9,6 +9,7 @@ import { attachFreehandTool } from './leaflet-freehand.js';
 import { geocodeOne } from './geocode.js';
 import { addBaseLayer } from './map-basemap.js';
 import { moveToTrash } from './trash.js';
+import { getCurrentLocation } from './geolocation.js';
 
 let travelView = "itinerary"; // "itinerary" | "route"
 
@@ -70,6 +71,9 @@ export function renderTravel() {
           <button class="del" onclick="delStop('${s.id}')">✕</button>
         </div>
         <p class="hint stop-map-caption" id="mapCaption-${s.id}" style="display:${s.mapOpen ? "" : "none"};margin:8px 0 4px"></p>
+        <div class="stop-map-toolbar" id="mapToolbar-${s.id}" style="display:${s.mapOpen ? "" : "none"}">
+          <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="locateMeOnStopMap('${s.id}')">🎯 My location</button>
+        </div>
         <div class="leaflet-map-container" id="leafletMap-${s.id}" style="display:${s.mapOpen ? "" : "none"}"></div>
       </div>`).join("") || `<p class="hint">Add a stop to start planning this trip.</p>`;
 
@@ -171,9 +175,11 @@ export function toggleStopMap(id) {
   const btn = document.getElementById("mapToggleBtn-" + id);
   const container = document.getElementById("leafletMap-" + id);
   const caption = document.getElementById("mapCaption-" + id);
+  const toolbar = document.getElementById("mapToolbar-" + id);
   if (btn) btn.textContent = s.mapOpen ? "Hide map" : "🗺️ Map";
   if (container) container.style.display = s.mapOpen ? "" : "none";
   if (caption) { caption.style.display = s.mapOpen ? "" : "none"; caption.innerHTML = mapCaptionHtml(s); }
+  if (toolbar) toolbar.style.display = s.mapOpen ? "" : "none";
 
   if (s.mapOpen) initStopMap(p, s);
   else destroyStopMap(id);
@@ -224,7 +230,7 @@ function initStopMap(plan, s) {
   map.on(L.Draw.Event.DELETED, save);
   const freehand = attachFreehandTool(map, drawnItems, save);
 
-  mapInstances[s.id] = { map, drawnItems, bookedMarker: null, freehand };
+  mapInstances[s.id] = { map, drawnItems, bookedMarker: null, myLocationMarker: null, freehand };
   setTimeout(() => map.invalidateSize(), 100); // container just became visible
 
   if ((s.place || "").trim() || (s.bookedHotel || "").trim()) {
@@ -239,6 +245,24 @@ export function locateStop(id, field) {
   const s = p.stops.find(x => x.id === id); if (!s) return;
   if (!s.mapOpen) { toggleStopMap(id); return; } // opening already triggers a zoom attempt
   zoomStopToLocation(s, /*silent=*/false, field);
+}
+
+export async function locateMeOnStopMap(id) {
+  const inst = mapInstances[id];
+  if (!inst) return;
+  const btn = document.querySelector(`#mapToolbar-${id} button`);
+  if (btn) { btn.disabled = true; btn.textContent = "Locating…"; }
+  try {
+    const coords = await getCurrentLocation();
+    inst.map.setView(coords, 13);
+    if (inst.myLocationMarker) inst.map.removeLayer(inst.myLocationMarker);
+    inst.myLocationMarker = L.marker(coords).addTo(inst.map).bindPopup("📍 You are here").openPopup();
+    toast("Zoomed to your location");
+  } catch (e) {
+    toast(e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "🎯 My location"; }
+  }
 }
 
 async function zoomStopToLocation(s, silent, focusField) {

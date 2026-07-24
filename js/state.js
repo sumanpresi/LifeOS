@@ -220,6 +220,20 @@ export function persist(pushRemote = true) {
   store.set("lifeos-data", JSON.stringify(state));
   if (pushRemote && remoteSaver) {
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(remoteSaver, 1500);
+    saveTimer = setTimeout(() => { saveTimer = null; remoteSaver(); }, 1500);
+  }
+}
+
+/* Fires a pending debounced cloud save immediately instead of waiting out
+   the full delay. Called when the tab is about to go into the background
+   or close — without this, a quick edit (a map scribble, a habit tick)
+   followed right away by switching apps or closing the tab would never
+   reach the cloud at all, since the debounce timer simply never gets the
+   chance to fire. */
+export function flushPendingSave() {
+  if (saveTimer && remoteSaver) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+    remoteSaver();
   }
 }

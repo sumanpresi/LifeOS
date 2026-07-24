@@ -8,6 +8,8 @@ import { toast } from './ui.js';
 import { attachFreehandTool } from './leaflet-freehand.js';
 import { geocodeOne } from './geocode.js';
 import { addBaseLayer } from './map-basemap.js';
+import { getCurrentLocation } from './geolocation.js';
+import { getRoute, formatDuration } from './routing.js';
 import { moveToTrash } from './trash.js';
 
 function activeRefPage() {
@@ -109,6 +111,81 @@ export async function searchWorldMap() {
   if (worldSearchMarker) worldMapInstance.map.removeLayer(worldSearchMarker);
   worldSearchMarker = L.marker(result.coords).addTo(worldMapInstance.map).bindPopup(esc(q)).openPopup();
   toast("Zoomed to " + q);
+}
+
+let myLocationMarker = null;
+export async function locateMeOnWorldMap() {
+  if (!worldMapInstance) return;
+  const btn = document.getElementById("worldMapLocateBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "Locating…"; }
+  try {
+    const coords = await getCurrentLocation();
+    worldMapInstance.map.setView(coords, 13);
+    if (myLocationMarker) worldMapInstance.map.removeLayer(myLocationMarker);
+    myLocationMarker = L.marker(coords).addTo(worldMapInstance.map).bindPopup("📍 You are here").openPopup();
+    toast("Zoomed to your location");
+  } catch (e) {
+    toast(e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "🎯 My location"; }
+  }
+}
+
+/* ---- Distance & route (two place names, or "my location" as the start) ---- */
+let routeLayer = null;
+export async function useMyLocationForRouteFrom() {
+  const input = document.getElementById("routeFrom");
+  const btn = document.getElementById("routeFromLocateBtn");
+  if (btn) { btn.disabled = true; }
+  try {
+    const coords = await getCurrentLocation();
+    input.value = "My location";
+    input.dataset.coords = JSON.stringify(coords);
+    toast("Using your current location as the start");
+  } catch (e) {
+    toast(e.message);
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+export function clearRouteFromLocation() {
+  const input = document.getElementById("routeFrom");
+  if (input.dataset.coords) { delete input.dataset.coords; if (input.value === "My location") input.value = ""; }
+}
+
+export async function calculateWorldMapRoute() {
+  if (!worldMapInstance) return;
+  const fromInput = document.getElementById("routeFrom"), toInput = document.getElementById("routeTo");
+  const resultEl = document.getElementById("routeResult");
+  const fromText = fromInput.value.trim(), toText = toInput.value.trim();
+  if (!fromText || !toText) { toast("Enter both a starting place and a destination"); return; }
+
+  const btn = document.getElementById("routeCalcBtn");
+  if (btn) { btn.disabled = true; btn.textContent = "Calculating…"; }
+  resultEl.textContent = "";
+  try {
+    let fromCoords = fromInput.dataset.coords ? JSON.parse(fromInput.dataset.coords) : null;
+    if (!fromCoords) {
+      const g = await geocodeOne(fromText);
+      if (!g) { toast("Couldn't find \"" + fromText + "\""); return; }
+      fromCoords = g.coords;
+    }
+    const toGeo = await geocodeOne(toText);
+    if (!toGeo) { toast("Couldn't find \"" + toText + "\""); return; }
+    const toCoords = toGeo.coords;
+
+    const route = await getRoute(fromCoords, toCoords);
+    if (!route) { toast("Couldn't calculate a driving route between those two places"); return; }
+
+    resultEl.innerHTML = `<b>${route.distanceKm.toFixed(1)} km</b> by road · about ${formatDuration(route.durationMin)} driving`;
+
+    if (routeLayer) worldMapInstance.map.removeLayer(routeLayer);
+    const latlngs = route.geometry.coordinates.map(c => [c[1], c[0]]);
+    routeLayer = L.polyline(latlngs, { color: "#1D4E89", weight: 4, opacity: 0.85 }).addTo(worldMapInstance.map);
+    worldMapInstance.map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "Get route"; }
+  }
 }
 
 function initWorldMap() {

@@ -563,8 +563,23 @@
           <div class="add-inline" style="margin-bottom:10px">
             <input type="text" id="worldMapSearch" placeholder="Search for a place, e.g. Kyoto, Japan" onkeydown="if(event.key==='Enter')searchWorldMap()">
             <button class="btn btn-ghost" onclick="searchWorldMap()">🔍 Go</button>
+            <button class="btn btn-ghost" id="worldMapLocateBtn" onclick="locateMeOnWorldMap()">🎯 My location</button>
           </div>
           <div class="leaflet-map-container" id="worldMap" style="height:480px"></div>
+
+          <div class="route-panel">
+            <div class="route-panel-title">📏 Distance &amp; route by road</div>
+            <div class="route-inputs">
+              <span class="tsf-wrap">
+                <input type="text" id="routeFrom" placeholder="From — place name" oninput="clearRouteFromLocation()">
+                <button class="locate-btn" id="routeFromLocateBtn" onclick="useMyLocationForRouteFrom()" title="Use my current location">🎯</button>
+              </span>
+              <span style="color:var(--muted);font-weight:700">→</span>
+              <input type="text" id="routeTo" placeholder="To — place name" style="flex:1">
+              <button class="btn btn-primary" id="routeCalcBtn" onclick="calculateWorldMapRoute()">Get route</button>
+            </div>
+            <p class="route-result" id="routeResult"></p>
+          </div>
         </div>
       </div>
     </section>

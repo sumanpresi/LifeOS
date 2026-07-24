@@ -406,3 +406,15 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   background:var(--paper);color:var(--muted);padding:3px 9px;border-radius:999px;white-space:nowrap}
 .trash-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
 .trash-time{flex-shrink:0;color:var(--muted);font-size:12px;white-space:nowrap}
+
+/* ---------- Distance & route panel (World Map, Travel Plan) ---------- */
+.route-panel{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--paper)}
+.route-panel-title{font-weight:700;font-size:13.5px;margin-bottom:10px}
+.route-inputs{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.route-inputs input{border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#fff;font-size:13px;min-width:140px}
+.route-inputs .tsf-wrap{flex:1;min-width:160px}
+.route-result{margin:10px 0 0;font-size:14px}
+.route-result:empty{margin:0}
+
+/* ---------- Travel stop: map toolbar (My location) ---------- */
+.stop-map-toolbar{margin:6px 0}
