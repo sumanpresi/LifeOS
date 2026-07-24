@@ -2,6 +2,7 @@
    meeting minutes, GSI links, personal & work documents. */
 import { state, uid, esc, persist, rerender, todayKey } from './state.js';
 import { toast, autoGrow } from './ui.js';
+import { moveToTrash } from './trash.js';
 
 const STATUSES = [
   ["todo", "To do"], ["progress", "In progress"], ["done", "Done"], ["blocked", "Blocked"]
@@ -70,7 +71,8 @@ export function renameProject(v) {
 export function delProject() {
   if (state.gsi.projects.length <= 1) return;
   const p = activeProject();
-  if (!confirm(`Delete the "${p.name}" project and all its tasks? This cannot be undone.`)) return;
+  if (!confirm(`Delete the "${p.name}" project and all its tasks? You can restore it from Trash within 30 days.`)) return;
+  moveToTrash("gsiProject", p);
   state.gsi.projects = state.gsi.projects.filter(x => x.id !== p.id);
   state.gsi.activeProject = state.gsi.projects[0].id;
   persist(); renderProjects();
@@ -90,6 +92,8 @@ export function setTaskStatus(id, v) {
 }
 export function delProjectTask(id) {
   const p = activeProject();
+  const t = p.tasks.find(x => x.id === id);
+  if (t) moveToTrash("gsiProjectTask", t, { projectId: p.id });
   p.tasks = p.tasks.filter(x => x.id !== id);
   persist(); renderProjects();
 }
@@ -109,7 +113,11 @@ export function addLog() {
   state.gsi.log.push({ id: uid(), date: todayKey(), text: v }); el.value = "";
   persist(); renderLog();
 }
-export function delLog(id) { state.gsi.log = state.gsi.log.filter(x => x.id !== id); persist(); renderLog(); }
+export function delLog(id) {
+  const l = state.gsi.log.find(x => x.id === id);
+  if (l) moveToTrash("log", l);
+  state.gsi.log = state.gsi.log.filter(x => x.id !== id); persist(); renderLog();
+}
 
 /* ---------------- Meeting minutes (structured, click to expand) ---------------- */
 function renderMeetings() {
@@ -176,6 +184,8 @@ export function editMeetingText(id, field, v) {
 }
 export function delMeeting(id) {
   if (!confirm("Delete this meeting note?")) return;
+  const m = state.gsi.meetings.find(x => x.id === id);
+  if (m) moveToTrash("meeting", m);
   state.gsi.meetings = state.gsi.meetings.filter(x => x.id !== id);
   persist(); renderMeetings();
 }
@@ -207,7 +217,11 @@ export function addGsiLink() {
   t.value = u.value = "";
   persist(); rerender();
 }
-export function delGsiLink(id) { state.gsi.links = state.gsi.links.filter(x => x.id !== id); persist(); rerender(); }
+export function delGsiLink(id) {
+  const l = state.gsi.links.find(x => x.id === id);
+  if (l) moveToTrash("gsiLink", l);
+  state.gsi.links = state.gsi.links.filter(x => x.id !== id); persist(); rerender();
+}
 export function addPersonalDoc() {
   const n = document.getElementById("personalDocName"), u = document.getElementById("personalDocUrl");
   if (!n.value.trim() || !u.value.trim()) return toast("Name and link are required");
@@ -217,6 +231,8 @@ export function addPersonalDoc() {
   persist(); rerender();
 }
 export function delPersonalDoc(id) {
+  const d = (state.gsi.personalDocs || []).find(x => x.id === id);
+  if (d) moveToTrash("personalDoc", d);
   state.gsi.personalDocs = (state.gsi.personalDocs || []).filter(x => x.id !== id);
   persist(); rerender();
 }
@@ -229,6 +245,8 @@ export function addWorkDoc() {
   persist(); rerender();
 }
 export function delWorkDoc(id) {
+  const d = (state.gsi.workDocs || []).find(x => x.id === id);
+  if (d) moveToTrash("workDoc", d);
   state.gsi.workDocs = (state.gsi.workDocs || []).filter(x => x.id !== id);
   persist(); rerender();
 }

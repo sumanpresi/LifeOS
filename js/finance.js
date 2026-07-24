@@ -1,6 +1,7 @@
 /* Finance page: notes, links, and three simple tracked lists —
    Grocery, Shopping, Wishlist — each with a date and an optional link. */
 import { state, uid, esc, persist, rerender } from './state.js';
+import { moveToTrash } from './trash.js';
 import { toast } from './ui.js';
 
 const LISTS = ["grocery", "shopping", "wishlist"];
@@ -46,6 +47,8 @@ export function addFinanceLink() {
   persist(); rerender();
 }
 export function delFinanceLink(id) {
+  const l = state.finance.links.find(x => x.id === id);
+  if (l) moveToTrash("financeLink", l);
   state.finance.links = state.finance.links.filter(x => x.id !== id);
   persist(); rerender();
 }
@@ -66,6 +69,8 @@ export function editFinanceItem(key, id, field, v) {
   persist();
 }
 export function delFinanceItem(key, id) {
+  const it = state.finance[key].find(x => x.id === id);
+  if (it) moveToTrash("financeItem", it, { listKey: key });
   state.finance[key] = state.finance[key].filter(x => x.id !== id);
   persist(); renderList(key);
 }

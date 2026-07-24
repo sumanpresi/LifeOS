@@ -2,6 +2,7 @@
    tracker (same visual language as the habit tracker), a chronological log
    filterable by medicine name, and a simple prescriptions list. */
 import { state, uid, esc, persist, rerender, todayKey } from './state.js';
+import { moveToTrash } from './trash.js';
 import { toast } from './ui.js';
 import { weekDates } from './habits.js';
 
@@ -86,6 +87,8 @@ export function addMedicine() {
 }
 export function delMedicine(id) {
   if (!confirm("Remove this medicine and its dose history from view?")) return;
+  const m = state.health.medicines.find(x => x.id === id);
+  if (m) moveToTrash("medicine", m);
   state.health.medicines = state.health.medicines.filter(x => x.id !== id);
   persist(); renderHealth();
 }
@@ -110,6 +113,8 @@ export function addPrescription() {
   persist(); renderPrescriptions();
 }
 export function delPrescription(id) {
+  const p = state.health.prescriptions.find(x => x.id === id);
+  if (p) moveToTrash("prescription", p);
   state.health.prescriptions = state.health.prescriptions.filter(x => x.id !== id);
   persist(); renderPrescriptions();
 }
@@ -143,6 +148,8 @@ export function addHealthLink() {
   persist(); rerender();
 }
 export function delHealthLink(id) {
+  const l = state.health.links.find(x => x.id === id);
+  if (l) moveToTrash("healthLink", l);
   state.health.links = state.health.links.filter(x => x.id !== id);
   persist(); rerender();
 }

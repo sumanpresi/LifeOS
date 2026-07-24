@@ -1,5 +1,6 @@
 /* Habit tracking: week grid, calendar month view, 6-week trend, streaks, donut. */
 import { state, uid, esc, persist, rerender, todayKey } from './state.js';
+import { moveToTrash } from './trash.js';
 
 let weekOffset = 0;
 let monthCursor = new Date(); // which month the calendar view is showing
@@ -149,6 +150,8 @@ export function addHabit() {
 }
 export function delHabit(id) {
   if (!confirm("Remove this habit and its history from view?")) return;
+  const h = state.habits.find(x => x.id === id);
+  if (h) moveToTrash("habit", h);
   state.habits = state.habits.filter(x => x.id !== id);
   persist(); rerender();
 }

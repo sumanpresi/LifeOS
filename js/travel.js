@@ -7,6 +7,8 @@ import { state, uid, esc, persist, rerender } from './state.js';
 import { toast } from './ui.js';
 import { attachFreehandTool } from './leaflet-freehand.js';
 import { geocodeOne } from './geocode.js';
+import { addBaseLayer } from './map-basemap.js';
+import { moveToTrash } from './trash.js';
 
 let travelView = "itinerary"; // "itinerary" | "route"
 
@@ -111,7 +113,8 @@ export function renameTravelPlan(v) {
 export function delTravelPlan() {
   if (state.travel.plans.length <= 1) return;
   const p = activePlan();
-  if (!confirm(`Delete the "${p.name}" travel plan? This cannot be undone.`)) return;
+  if (!confirm(`Delete the "${p.name}" travel plan? You can restore it from Trash within 30 days.`)) return;
+  moveToTrash("travelPlan", p);
   state.travel.plans = state.travel.plans.filter(x => x.id !== p.id);
   state.travel.activePlan = state.travel.plans[0].id;
   persist(); renderTravel();
@@ -136,6 +139,8 @@ export function editStop(id, field, v) {
 }
 export function delStop(id) {
   const p = activePlan();
+  const s = p.stops.find(x => x.id === id);
+  if (s) moveToTrash("travelStop", s, { planId: p.id });
   p.stops = p.stops.filter(x => x.id !== id);
   persist(); renderTravel();
 }
@@ -198,10 +203,7 @@ function initStopMap(plan, s) {
   if (!container || typeof L === "undefined") return;
 
   const map = L.map(container).setView([22.5, 80], 5); // default: India, until geocoded
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-  }).addTo(map);
+  addBaseLayer(map);
 
   const drawnItems = new L.FeatureGroup().addTo(map);
   if (s.mapDrawing && s.mapDrawing.features && s.mapDrawing.features.length) {

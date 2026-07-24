@@ -7,6 +7,8 @@ import { state, uid, esc, persist, rerender } from './state.js';
 import { toast } from './ui.js';
 import { attachFreehandTool } from './leaflet-freehand.js';
 import { geocodeOne } from './geocode.js';
+import { addBaseLayer } from './map-basemap.js';
+import { moveToTrash } from './trash.js';
 
 function activeRefPage() {
   return state.reference.pages.find(p => p.id === state.reference.activePage) || state.reference.pages[0];
@@ -59,7 +61,8 @@ export function renameRefPage(v) {
 export function delRefPage() {
   if (state.reference.pages.length <= 1) return;
   const p = activeRefPage();
-  if (!confirm(`Delete the "${p.name}" reference page? This cannot be undone.`)) return;
+  if (!confirm(`Delete the "${p.name}" reference page? You can restore it from Trash within 30 days.`)) return;
+  moveToTrash("referencePage", p);
   state.reference.pages = state.reference.pages.filter(x => x.id !== p.id);
   state.reference.activePage = state.reference.pages[0].id;
   persist(); renderReference();
@@ -82,6 +85,8 @@ export function addRefLink() {
 }
 export function delRefLink(id) {
   const p = activeRefPage();
+  const l = p.links.find(x => x.id === id);
+  if (l) moveToTrash("referenceLink", l, { pageId: p.id });
   p.links = p.links.filter(x => x.id !== id);
   persist(); renderReference();
 }
@@ -113,10 +118,7 @@ function initWorldMap() {
   if (typeof L === "undefined") return;
 
   const map = L.map(container).setView([20, 10], 2); // whole-world starting view
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-  }).addTo(map);
+  addBaseLayer(map);
 
   const drawnItems = new L.FeatureGroup().addTo(map);
   const saved = state.reference.worldMapDrawing;

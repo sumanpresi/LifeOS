@@ -1,6 +1,7 @@
 /* Links, news feeds, quotes, meditation, Day Of page + journal. */
 import { state, uid, esc, persist, rerender, todayKey } from './state.js';
 import { toast } from './ui.js';
+import { moveToTrash } from './trash.js';
 import { isLogged, streak } from './habits.js';
 
 /* ---------- important links ---------- */
@@ -20,7 +21,11 @@ export function addLink() {
   t.value = u.value = d.value = "";
   persist(); rerender();
 }
-export function delLink(id) { state.links = state.links.filter(x => x.id !== id); persist(); rerender(); }
+export function delLink(id) {
+  const l = state.links.find(x => x.id === id);
+  if (l) moveToTrash("bookmarkLink", l);
+  state.links = state.links.filter(x => x.id !== id); persist(); rerender();
+}
 
 /* ---------- news feeds ---------- */
 export function renderFeeds() {
@@ -37,7 +42,11 @@ export function addFeed() {
   state.feeds.push({ id: uid(), name: n.value.trim(), url }); n.value = u.value = "";
   persist(); rerender();
 }
-export function delFeed(id) { state.feeds = state.feeds.filter(x => x.id !== id); persist(); rerender(); }
+export function delFeed(id) {
+  const f = state.feeds.find(x => x.id === id);
+  if (f) moveToTrash("feed", f);
+  state.feeds = state.feeds.filter(x => x.id !== id); persist(); rerender();
+}
 
 /* ---------- quotes ---------- */
 const dayIndex = () => {

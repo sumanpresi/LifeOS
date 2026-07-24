@@ -1,5 +1,6 @@
 /* Life goals with progress sliders. */
 import { state, uid, esc, persist, rerender } from './state.js';
+import { moveToTrash } from './trash.js';
 
 export function renderGoals() {
   document.getElementById("goalsList").innerHTML = state.goals.map((g, i) => `
@@ -31,6 +32,8 @@ export function editGoal(id, field, v, slider) {
   persist();
 }
 export function delGoal(id) {
+  const g = state.goals.find(x => x.id === id);
+  if (g) moveToTrash("goal", g);
   state.goals = state.goals.filter(x => x.id !== id);
   persist(); rerender();
 }

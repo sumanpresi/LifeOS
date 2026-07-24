@@ -11,6 +11,7 @@ import * as finance from './finance.js';
 import * as health from './health.js';
 import * as travel from './travel.js';
 import * as reference from './reference.js';
+import * as trash from './trash.js';
 import * as search from './search.js';
 import * as cloud from './supabase.js';
 import { initCommunicationBridge } from './communication-bridge.js';
@@ -34,6 +35,7 @@ function renderAll() {
   health.renderHealth();
   travel.renderTravel();
   reference.renderReference();
+  trash.renderTrash();
 }
 
 /* The markup uses plain onclick="…" handlers; expose them globally. */
@@ -72,6 +74,7 @@ Object.assign(window,
   { addRefPage: reference.addRefPage, switchRefPage: reference.switchRefPage, renameRefPage: reference.renameRefPage,
     delRefPage: reference.delRefPage, saveReferenceNotes: reference.saveReferenceNotes,
     addRefLink: reference.addRefLink, delRefLink: reference.delRefLink, searchWorldMap: reference.searchWorldMap },
+  { restoreFromTrash: trash.restoreFromTrash, permanentlyDeleteFromTrash: trash.permanentlyDeleteFromTrash },
   { openSearch: search.openSearch, closeSearch: search.closeSearch,
     searchHover: search.searchHover, searchPick: search.searchPick },
   { openGhModal: cloud.openGhModal, closeGhModal: cloud.closeGhModal, ghButton: cloud.ghButton,
@@ -81,6 +84,7 @@ Object.assign(window,
 /* ---- boot ---- */
 setRenderer(renderAll);
 sections.buildSectionPages();
+trash.purgeOldTrash();
 renderAll();
 ui.setSyncPill("", "Local only");
 search.initSearch();

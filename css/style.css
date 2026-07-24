@@ -386,12 +386,23 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .cal-cell.empty{border:none;background:transparent;cursor:default}
 .cal-cell:disabled{opacity:.35;cursor:default}
 
-/* ---------- Freehand sketch tool (maps) ---------- */
+/* ---------- Sketch tools (freehand draw + eraser) on maps ---------- */
 .freehand-toolbar{background:#fff}
 .freehand-btn{display:flex;align-items:center;justify-content:center;width:26px;height:26px;
   font-size:15px;text-decoration:none;cursor:pointer}
 .freehand-btn.on{background:var(--accent)}
+.eraser-btn.on{background:var(--warn)}
 .leaflet-container.freehand-active{cursor:crosshair}
+.leaflet-container.eraser-active{cursor:cell}
 /* Disable the browser's native touch gestures (scroll/pinch) on the map
-   while sketching, so a finger or stylus stroke draws instead of panning. */
-.leaflet-container.freehand-active{touch-action:none}
+   while sketching or erasing, so a finger or stylus stroke acts on the
+   map instead of panning it. */
+.leaflet-container.freehand-active,.leaflet-container.eraser-active{touch-action:none}
+
+/* ---------- Trash ---------- */
+.trash-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+.trash-row:last-child{border-bottom:none}
+.trash-type{flex-shrink:0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+  background:var(--paper);color:var(--muted);padding:3px 9px;border-radius:999px;white-space:nowrap}
+.trash-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.trash-time{flex-shrink:0;color:var(--muted);font-size:12px;white-space:nowrap}

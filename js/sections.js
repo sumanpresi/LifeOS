@@ -2,6 +2,7 @@
    (Work has a dedicated GSI page in gsi.js.) */
 import { state, uid, esc, persist, rerender, SECTION_META } from './state.js';
 import { toast } from './ui.js';
+import { moveToTrash } from './trash.js';
 
 export function buildSectionPages() {
   document.getElementById("sectionPages").innerHTML =
@@ -58,6 +59,8 @@ export function addSectionLink(key) {
   persist(); rerender();
 }
 export function delSectionLink(key, id) {
+  const l = (state.sections[key].links || []).find(x => x.id === id);
+  if (l) moveToTrash("sectionLink", l, { sectionKey: key });
   state.sections[key].links = state.sections[key].links.filter(x => x.id !== id);
   persist(); rerender();
 }

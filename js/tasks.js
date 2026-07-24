@@ -1,6 +1,7 @@
 /* Top 5 tasks — now with priority flag, due date, link, and Work/Personal category. */
 import { state, uid, esc, persist, rerender } from './state.js';
 import { toast } from './ui.js';
+import { moveToTrash } from './trash.js';
 
 let taskFilter = "all"; // "all" | "work" | "personal"
 let sortByDate = false;
@@ -111,6 +112,8 @@ export function editTaskMeta(id, field, v) {
   renderTasks();
 }
 export function delTask(id) {
+  const t = state.tasks.find(x => x.id === id);
+  if (t) moveToTrash("task", t);
   state.tasks = state.tasks.filter(x => x.id !== id);
   persist(); rerender();
 }

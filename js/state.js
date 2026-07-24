@@ -115,6 +115,9 @@ export const DEFAULT_STATE = {
     activePage: "r1",
     worldMapDrawing: null   // one shared world map's saved GeoJSON FeatureCollection
   },
+  /* One shared recycle bin for deletions from anywhere in the app.
+     [{id, type, payload, meta, deletedAt}] — see js/trash.js */
+  trash: [],
   updatedAt: 0
 };
 
@@ -151,6 +154,7 @@ function merge(saved) {
   s.health = Object.assign(structuredClone(DEFAULT_STATE.health), saved.health || {});
   s.travel = Object.assign(structuredClone(DEFAULT_STATE.travel), saved.travel || {});
   s.reference = Object.assign(structuredClone(DEFAULT_STATE.reference), saved.reference || {});
+  s.trash = Array.isArray(saved.trash) ? saved.trash : [];
   /* One-time migration: earlier versions stored Finance/Health/Travel notes
      and links under the generic sections.* template. Carry them forward so
      nothing already saved gets lost when those pages became dedicated. */
