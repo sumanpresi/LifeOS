@@ -138,22 +138,40 @@ function meetingBodyHtml(m) {
       <tr><td>Project duration</td><td><input type="text" placeholder="e.g. 3 months" value="${esc(m.duration||"")}" onchange="editMeeting('${m.id}','duration',this.value)"></td></tr>
     </table>
     <div class="mm-section">
-      <label>Agenda</label>
-      <div id="mm-agenda-${m.id}" class="mm-rich-editor"></div>
-      <div class="mm-grammar-row"><button class="mm-grammar-btn" id="gbtn-mm-agenda-${m.id}" onclick="runGrammarCheck('mm-agenda-${m.id}')">✓ Grammar check</button></div>
-      <div class="grammar-results" id="grammar-mm-agenda-${m.id}"></div>
+      <label>Agenda
+        <button class="expand-btn mm-expand-btn" onclick="expandView('mm-agenda-wrap-${m.id}','Agenda — ${esc(m.title)}')" title="View large">
+          <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+        </button>
+      </label>
+      <div id="mm-agenda-wrap-${m.id}">
+        <div id="mm-agenda-${m.id}" class="mm-rich-editor"></div>
+        <div class="mm-grammar-row"><button class="mm-grammar-btn" id="gbtn-mm-agenda-${m.id}" onclick="runGrammarCheck('mm-agenda-${m.id}')">✓ Grammar check</button></div>
+        <div class="grammar-results" id="grammar-mm-agenda-${m.id}"></div>
+      </div>
     </div>
     <div class="mm-section">
-      <label>General &amp; roundtable updates</label>
-      <div id="mm-updates-${m.id}" class="mm-rich-editor"></div>
-      <div class="mm-grammar-row"><button class="mm-grammar-btn" id="gbtn-mm-updates-${m.id}" onclick="runGrammarCheck('mm-updates-${m.id}')">✓ Grammar check</button></div>
-      <div class="grammar-results" id="grammar-mm-updates-${m.id}"></div>
+      <label>General &amp; roundtable updates
+        <button class="expand-btn mm-expand-btn" onclick="expandView('mm-updates-wrap-${m.id}','Updates — ${esc(m.title)}')" title="View large">
+          <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+        </button>
+      </label>
+      <div id="mm-updates-wrap-${m.id}">
+        <div id="mm-updates-${m.id}" class="mm-rich-editor"></div>
+        <div class="mm-grammar-row"><button class="mm-grammar-btn" id="gbtn-mm-updates-${m.id}" onclick="runGrammarCheck('mm-updates-${m.id}')">✓ Grammar check</button></div>
+        <div class="grammar-results" id="grammar-mm-updates-${m.id}"></div>
+      </div>
     </div>
     <div class="mm-section">
-      <label>Action items</label>
-      <div id="mm-actionItems-${m.id}" class="mm-rich-editor"></div>
-      <div class="mm-grammar-row"><button class="mm-grammar-btn" id="gbtn-mm-actionItems-${m.id}" onclick="runGrammarCheck('mm-actionItems-${m.id}')">✓ Grammar check</button></div>
-      <div class="grammar-results" id="grammar-mm-actionItems-${m.id}"></div>
+      <label>Action items
+        <button class="expand-btn mm-expand-btn" onclick="expandView('mm-actionItems-wrap-${m.id}','Action items — ${esc(m.title)}')" title="View large">
+          <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+        </button>
+      </label>
+      <div id="mm-actionItems-wrap-${m.id}">
+        <div id="mm-actionItems-${m.id}" class="mm-rich-editor"></div>
+        <div class="mm-grammar-row"><button class="mm-grammar-btn" id="gbtn-mm-actionItems-${m.id}" onclick="runGrammarCheck('mm-actionItems-${m.id}')">✓ Grammar check</button></div>
+        <div class="grammar-results" id="grammar-mm-actionItems-${m.id}"></div>
+      </div>
     </div>
     <div class="meeting-link-row">
       <input type="text" placeholder="Link (agenda doc, recording…)" value="${esc(m.link||"")}" onchange="editMeeting('${m.id}','link',this.value)">

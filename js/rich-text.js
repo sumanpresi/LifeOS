@@ -92,7 +92,14 @@ export function mountRichEditor(containerId, getInitialHtml, onChange) {
   addLineHeightControl(quill);
 
   let timer = null;
-  quill.on("text-change", () => {
+  quill.on("text-change", (delta, oldDelta, source) => {
+    // Loading existing content via dangerouslyPasteHTML above also fires
+    // this event (source 'api'), not just genuine typing (source 'user').
+    // Reacting to both would mean simply *opening* a meeting to read it
+    // triggers a save — silently bumping the sync timestamp as if it had
+    // been edited, which is exactly the mechanism behind the multi-device
+    // sync bug fixed earlier in this project. Only 'user' should count.
+    if (source !== "user") return;
     clearTimeout(timer);
     timer = setTimeout(() => onChange(quill.root.innerHTML), 500);
   });

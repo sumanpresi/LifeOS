@@ -216,7 +216,17 @@ export function setRenderer(fn) { renderer = fn; }
 export function rerender() { if (renderer) renderer(); }
 
 export function persist(pushRemote = true) {
-  state.updatedAt = Date.now();
+  /* pushRemote=false marks a purely local UI-state change — which tab is
+     active, whether a card is expanded, which quote is showing — not
+     something the person actually typed or edited. Bumping updatedAt for
+     these too would be a real bug: it's the exact same class of issue as
+     the Communication iframe's old unconditional save() — an action that
+     LOOKS like "this device has newer data" without any real edit behind
+     it, which can make a genuinely older, stale local copy of everything
+     else win the cross-device sync comparison and overwrite newer data
+     elsewhere. Any real edit that follows will bump updatedAt properly on
+     its own and carry this UI state along with it in the same snapshot. */
+  if (pushRemote) state.updatedAt = Date.now();
   store.set("lifeos-data", JSON.stringify(state));
   if (pushRemote && remoteSaver) {
     clearTimeout(saveTimer);

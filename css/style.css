@@ -390,8 +390,10 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .freehand-toolbar{background:#fff}
 .freehand-btn{display:flex;align-items:center;justify-content:center;width:26px;height:26px;
   font-size:15px;text-decoration:none;cursor:pointer}
-.freehand-btn.on{background:var(--accent)}
-.eraser-btn.on{background:var(--warn)}
+.freehand-btn.on{background:var(--accent);box-shadow:0 0 0 3px var(--lilac-deep),0 2px 8px rgba(91,84,217,.5);
+  transform:scale(1.12);border-radius:5px;position:relative;z-index:1}
+.eraser-btn.on{background:var(--warn);box-shadow:0 0 0 3px #FBD9C9,0 2px 8px rgba(211,120,60,.5);
+  transform:scale(1.12);border-radius:5px;position:relative;z-index:1}
 .leaflet-container.freehand-active{cursor:crosshair}
 .leaflet-container.eraser-active{cursor:cell}
 /* Disable the browser's native touch gestures (scroll/pinch) on the map
@@ -489,3 +491,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   color:var(--muted);cursor:pointer;flex-shrink:0}
 .expand-btn:hover{border-color:var(--accent);color:var(--accent-ink);background:#fff}
 .expand-btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2}
+
+/* Expand button embedded inline within a section label (meeting minutes) */
+.mm-section label{display:flex;align-items:center;justify-content:space-between}
+.mm-expand-btn{width:22px;height:22px}
