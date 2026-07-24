@@ -3,19 +3,13 @@
 import { state, uid, esc, persist, rerender, todayKey } from './state.js';
 import { toast, autoGrow } from './ui.js';
 import { moveToTrash } from './trash.js';
-import { wrapSelection, prefixLines, checkGrammar } from './text-tools.js';
+import { checkGrammar } from './text-tools.js';
+import { mountRichEditor, unmountRichEditor, getRichEditor } from './rich-text.js';
 
-function mmToolbarHtml(taId) {
-  return `
-    <div class="mm-toolbar">
-      <button onclick="formatMeetingText('${taId}','bold')" title="Bold"><b>B</b></button>
-      <button onclick="formatMeetingText('${taId}','italic')" title="Italic"><i>I</i></button>
-      <button onclick="formatMeetingText('${taId}','bullet')" title="Bullet list">• List</button>
-      <button onclick="formatMeetingText('${taId}','numbered')" title="Numbered list">1. List</button>
-      <button onclick="runGrammarCheck('${taId}')" title="Check grammar and spelling" class="mm-grammar-btn" id="gbtn-${taId}">✓ Grammar check</button>
-    </div>
-    <div class="grammar-results" id="grammar-${taId}"></div>`;
-}
+
+/* Formatting: Quill's own built-in toolbar (see rich-text.js) now handles
+   bold/italic/lists/etc. directly on the rendered content — no separate
+   markdown-insertion toolbar needed. */
 
 const STATUSES = [
   ["todo", "To do"], ["progress", "In progress"], ["done", "Done"], ["blocked", "Blocked"]
@@ -133,8 +127,56 @@ export function delLog(id) {
 }
 
 /* ---------------- Meeting minutes (structured, click to expand) ---------------- */
+function meetingBodyHtml(m) {
+  return `
+    <table class="mm-summary">
+      <tr><td>Date &amp; time</td><td>
+        <input type="date" value="${esc(m.date)}" onchange="editMeeting('${m.id}','date',this.value)">
+        <input type="text" placeholder="e.g. 11:00 AM" value="${esc(m.time||"")}" onchange="editMeeting('${m.id}','time',this.value)">
+      </td></tr>
+      <tr><td>Project name</td><td><input type="text" placeholder="Project name" value="${esc(m.title)}" onchange="editMeeting('${m.id}','title',this.value)"></td></tr>
+      <tr><td>Project duration</td><td><input type="text" placeholder="e.g. 3 months" value="${esc(m.duration||"")}" onchange="editMeeting('${m.id}','duration',this.value)"></td></tr>
+    </table>
+    <div class="mm-section">
+      <label>Agenda</label>
+      <div id="mm-agenda-${m.id}" class="mm-rich-editor"></div>
+      <div class="mm-grammar-row"><button class="mm-grammar-btn" id="gbtn-mm-agenda-${m.id}" onclick="runGrammarCheck('mm-agenda-${m.id}')">✓ Grammar check</button></div>
+      <div class="grammar-results" id="grammar-mm-agenda-${m.id}"></div>
+    </div>
+    <div class="mm-section">
+      <label>General &amp; roundtable updates</label>
+      <div id="mm-updates-${m.id}" class="mm-rich-editor"></div>
+      <div class="mm-grammar-row"><button class="mm-grammar-btn" id="gbtn-mm-updates-${m.id}" onclick="runGrammarCheck('mm-updates-${m.id}')">✓ Grammar check</button></div>
+      <div class="grammar-results" id="grammar-mm-updates-${m.id}"></div>
+    </div>
+    <div class="mm-section">
+      <label>Action items</label>
+      <div id="mm-actionItems-${m.id}" class="mm-rich-editor"></div>
+      <div class="mm-grammar-row"><button class="mm-grammar-btn" id="gbtn-mm-actionItems-${m.id}" onclick="runGrammarCheck('mm-actionItems-${m.id}')">✓ Grammar check</button></div>
+      <div class="grammar-results" id="grammar-mm-actionItems-${m.id}"></div>
+    </div>
+    <div class="meeting-link-row">
+      <input type="text" placeholder="Link (agenda doc, recording…)" value="${esc(m.link||"")}" onchange="editMeeting('${m.id}','link',this.value)">
+      ${m.link ? `<a href="${esc(m.link.startsWith("http")?m.link:"https://"+m.link)}" target="_blank" rel="noopener" title="Open link">🔗</a>` : ""}
+    </div>
+    <button class="del" style="margin-top:8px" onclick="delMeeting('${m.id}')">Delete meeting</button>`;
+}
+
+function mountMeetingEditors(m) {
+  ["agenda", "updates", "actionItems"].forEach(field => {
+    mountRichEditor("mm-" + field + "-" + m.id, () => m[field] || "", html => {
+      m[field] = html;
+      persist(); // rich-text.js already debounces text-change before calling us
+    });
+  });
+}
+function unmountMeetingEditors(m) {
+  ["agenda", "updates", "actionItems"].forEach(field => unmountRichEditor("mm-" + field + "-" + m.id));
+}
+
 function renderMeetings() {
   const meets = [...state.gsi.meetings].sort((a, b) => b.date.localeCompare(a.date));
+  meets.forEach(m => { if (m.open) unmountMeetingEditors(m); }); // about to rebuild their containers
   document.getElementById("meetingList").innerHTML = meets.map(m => `
     <div class="mm-card">
       <button class="mm-head" onclick="toggleMeetingOpen('${m.id}')">
@@ -142,63 +184,24 @@ function renderMeetings() {
         <span class="mm-title">${esc(m.title) || "Untitled meeting"}</span>
         <span class="mm-arw">${m.open ? "▼" : "▶"}</span>
       </button>
-      ${m.open ? `
-      <div class="mm-body">
-        <table class="mm-summary">
-          <tr><td>Date &amp; time</td><td>
-            <input type="date" value="${esc(m.date)}" onchange="editMeeting('${m.id}','date',this.value)">
-            <input type="text" placeholder="e.g. 11:00 AM" value="${esc(m.time||"")}" onchange="editMeeting('${m.id}','time',this.value)">
-          </td></tr>
-          <tr><td>Project name</td><td><input type="text" placeholder="Project name" value="${esc(m.title)}" onchange="editMeeting('${m.id}','title',this.value)"></td></tr>
-          <tr><td>Project duration</td><td><input type="text" placeholder="e.g. 3 months" value="${esc(m.duration||"")}" onchange="editMeeting('${m.id}','duration',this.value)"></td></tr>
-        </table>
-        <div class="mm-section">
-          <label>Agenda</label>
-          <textarea id="mm-agenda-${m.id}" placeholder="What this meeting covers…" oninput="editMeetingText('${m.id}','agenda',this.value);autoGrow(this)">${esc(m.agenda||"")}</textarea>
-          ${mmToolbarHtml("mm-agenda-" + m.id)}
-        </div>
-        <div class="mm-section">
-          <label>General &amp; roundtable updates</label>
-          <textarea id="mm-updates-${m.id}" placeholder="Updates from each participant…" oninput="editMeetingText('${m.id}','updates',this.value);autoGrow(this)">${esc(m.updates||"")}</textarea>
-          ${mmToolbarHtml("mm-updates-" + m.id)}
-        </div>
-        <div class="mm-section">
-          <label>Action items</label>
-          <textarea id="mm-actionItems-${m.id}" placeholder="Who does what, by when…" oninput="editMeetingText('${m.id}','actionItems',this.value);autoGrow(this)">${esc(m.actionItems||"")}</textarea>
-          ${mmToolbarHtml("mm-actionItems-" + m.id)}
-        </div>
-        <div class="meeting-link-row">
-          <input type="text" placeholder="Link (agenda doc, recording…)" value="${esc(m.link||"")}" onchange="editMeeting('${m.id}','link',this.value)">
-          ${m.link ? `<a href="${esc(m.link.startsWith("http")?m.link:"https://"+m.link)}" target="_blank" rel="noopener" title="Open link">🔗</a>` : ""}
-        </div>
-        <button class="del" style="margin-top:8px" onclick="delMeeting('${m.id}')">Delete meeting</button>
-      </div>` : ""}
+      <div class="mm-body" id="mmBody-${m.id}">${m.open ? meetingBodyHtml(m) : ""}</div>
     </div>`).join("") || `<p class="hint">Add a meeting to capture decisions and action points.</p>`;
-  document.querySelectorAll("#meetingList .mm-section textarea").forEach(autoGrow);
+  meets.forEach(m => { if (m.open) mountMeetingEditors(m); });
 }
 
-/* ---- Formatting toolbar + free grammar check (LanguageTool, no key) ---- */
-export function formatMeetingText(taId, kind) {
-  const ta = document.getElementById(taId);
-  if (!ta) return;
-  if (kind === "bold") wrapSelection(ta, "**", "**");
-  else if (kind === "italic") wrapSelection(ta, "_", "_");
-  else if (kind === "bullet") prefixLines(ta, () => "- ");
-  else if (kind === "numbered") prefixLines(ta, i => (i + 1) + ". ");
-}
-
-let grammarCache = {}; // taId -> last-checked text, so Apply buttons use fresh offsets
-export async function runGrammarCheck(taId) {
-  const ta = document.getElementById(taId);
-  const resultsEl = document.getElementById("grammar-" + taId);
-  const btn = document.getElementById("gbtn-" + taId);
-  if (!ta || !resultsEl) return;
-  if (!ta.value.trim()) { toast("Nothing to check yet"); return; }
+let grammarCache = {}; // richEditorId -> last-checked text, so Apply buttons use fresh offsets
+export async function runGrammarCheck(richId) {
+  const quill = getRichEditor(richId);
+  const resultsEl = document.getElementById("grammar-" + richId);
+  const btn = document.getElementById("gbtn-" + richId);
+  if (!quill || !resultsEl) return;
+  const text = quill.getText();
+  if (!text.trim()) { toast("Nothing to check yet"); return; }
   if (btn) { btn.disabled = true; btn.textContent = "Checking…"; }
-  const matches = await checkGrammar(ta.value);
+  const matches = await checkGrammar(text);
   if (btn) { btn.disabled = false; btn.textContent = "✓ Grammar check"; }
   if (matches === null) { toast("Grammar check is temporarily unavailable — try again shortly"); return; }
-  grammarCache[taId] = ta.value;
+  grammarCache[richId] = text;
   if (matches.length === 0) {
     resultsEl.innerHTML = `<p class="hint" style="margin:6px 0 0">No issues found. <a href="https://languagetool.org" target="_blank" rel="noopener">LanguageTool</a></p>`;
     return;
@@ -208,21 +211,21 @@ export async function runGrammarCheck(taId) {
       <div class="grammar-item">
         <span class="grammar-msg">${esc(m.message)}${m.original ? ` — "<b>${esc(m.original)}</b>"` : ""}</span>
         ${m.replacements.length ? m.replacements.map(r =>
-          `<button class="grammar-fix-btn" onclick="applyGrammarFix('${taId}',${i},'${esc(r).replace(/'/g, "\\'")}')">→ ${esc(r)}</button>`).join("") : ""}
+          `<button class="grammar-fix-btn" onclick="applyGrammarFix('${richId}',${i},'${esc(r).replace(/'/g, "\\'")}')">→ ${esc(r)}</button>`).join("") : ""}
       </div>`).join("") +
     `</div><p class="hint" style="margin:8px 0 0">${matches.length} issue${matches.length===1?"":"s"} found — <a href="https://languagetool.org" target="_blank" rel="noopener">LanguageTool</a></p>`;
   resultsEl.dataset.matches = JSON.stringify(matches);
 }
-export function applyGrammarFix(taId, matchIndex, replacement) {
-  const ta = document.getElementById(taId);
-  const resultsEl = document.getElementById("grammar-" + taId);
-  if (!ta || !resultsEl || !resultsEl.dataset.matches) return;
-  if (ta.value !== grammarCache[taId]) { toast("Text changed since the last check — checking again"); runGrammarCheck(taId); return; }
+export function applyGrammarFix(richId, matchIndex, replacement) {
+  const quill = getRichEditor(richId);
+  const resultsEl = document.getElementById("grammar-" + richId);
+  if (!quill || !resultsEl || !resultsEl.dataset.matches) return;
+  if (quill.getText() !== grammarCache[richId]) { toast("Text changed since the last check — checking again"); runGrammarCheck(richId); return; }
   const matches = JSON.parse(resultsEl.dataset.matches);
   const m = matches[matchIndex]; if (!m) return;
-  ta.value = ta.value.slice(0, m.offset) + replacement + ta.value.slice(m.offset + m.length);
-  ta.dispatchEvent(new Event("input", { bubbles: true }));
-  runGrammarCheck(taId); // fresh offsets for any remaining issues
+  quill.deleteText(m.offset, m.length);
+  quill.insertText(m.offset, replacement);
+  runGrammarCheck(richId); // fresh offsets for any remaining issues
 }
 export function addMeeting() {
   const el = document.getElementById("newMeeting"); const v = el.value.trim(); if (!v) return;
@@ -232,24 +235,45 @@ export function addMeeting() {
 }
 export function toggleMeetingOpen(id) {
   const m = state.gsi.meetings.find(x => x.id === id); if (!m) return;
+  const wasOpen = m.open;
   m.open = !m.open;
-  persist(false); renderMeetings();
+  persist(false);
+
+  const meets = [...state.gsi.meetings].sort((a, b) => b.date.localeCompare(a.date));
+  const idx = meets.findIndex(x => x.id === id);
+  const cards = document.querySelectorAll("#meetingList .mm-card");
+  const card = cards[idx];
+  if (!card) { renderMeetings(); return; } // structure drifted somehow — safe fallback
+  const arw = card.querySelector(".mm-arw");
+  const bodyEl = document.getElementById("mmBody-" + id);
+  if (arw) arw.textContent = m.open ? "▼" : "▶";
+  if (wasOpen) unmountMeetingEditors(m);
+  if (bodyEl) bodyEl.innerHTML = m.open ? meetingBodyHtml(m) : "";
+  if (m.open) mountMeetingEditors(m);
 }
 export function editMeeting(id, field, v) {
   const m = state.gsi.meetings.find(x => x.id === id);
-  if (m) { m[field] = v; persist(); renderMeetings(); }
-}
-let meetTimers = {};
-export function editMeetingText(id, field, v) {
-  const m = state.gsi.meetings.find(x => x.id === id); if (!m) return;
+  if (!m) return;
   m[field] = v;
-  clearTimeout(meetTimers[id + field]);
-  meetTimers[id + field] = setTimeout(() => persist(), 800);
+  persist();
+  if (field === "title" || field === "date" || field === "time") {
+    // Update just the collapsed header, not the whole list — a full
+    // re-render here would tear down this meeting's live rich editors.
+    const meets = [...state.gsi.meetings].sort((a, b) => b.date.localeCompare(a.date));
+    const idx = meets.findIndex(x => x.id === id);
+    const card = document.querySelectorAll("#meetingList .mm-card")[idx];
+    if (card) {
+      const titleEl = card.querySelector(".mm-title");
+      const dateEl = card.querySelector(".log-date");
+      if (titleEl) titleEl.textContent = m.title || "Untitled meeting";
+      if (dateEl) dateEl.textContent = fmtDate(m.date) + (m.time ? " · " + m.time : "");
+    }
+  }
 }
 export function delMeeting(id) {
   if (!confirm("Delete this meeting note?")) return;
   const m = state.gsi.meetings.find(x => x.id === id);
-  if (m) moveToTrash("meeting", m);
+  if (m) { moveToTrash("meeting", m); if (m.open) unmountMeetingEditors(m); }
   state.gsi.meetings = state.gsi.meetings.filter(x => x.id !== id);
   persist(); renderMeetings();
 }
