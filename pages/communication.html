@@ -1284,7 +1284,13 @@ $("#tabs").addEventListener("click",e=>{const b=e.target.closest(".tab");if(b)sw
   renderAll();
   renderReference();
   initGrammarBook();
-  save();
+  /* Deliberately NOT calling save() here. Saving unconditionally on every
+     boot — even when nothing changed — bumps the shared updatedAt timestamp
+     on every page load, which corrupts multi-device sync (a device just
+     being opened looks like it was "just edited," and can wrongly win a
+     last-write-wins comparison against a genuinely newer edit made
+     elsewhere). ensureToday()'s daily reset (if any) will be saved
+     naturally the moment the user does anything at all. */
 })();
 </script>
 </body>

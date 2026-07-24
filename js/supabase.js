@@ -79,6 +79,8 @@ function renderIdentity() {
 }
 
 /* ---------- database ---------- */
+let hasReconciled = false;      // has this session checked the cloud at least once?
+let pendingSaveAfterReconcile = false;
 function applyRemote(remote) {
   replaceState(remote);
   rerender();
@@ -95,15 +97,26 @@ export async function loadRemote(preferRemote = false) {
     if (data && data.data && Object.keys(data.data).length) {
       const remote = data.data;
       if (preferRemote || (remote.updatedAt || 0) > (state.updatedAt || 0)) applyRemote(remote);
-      else if ((state.updatedAt || 0) > (remote.updatedAt || 0)) { await saveRemote(); return; }
+      else if ((state.updatedAt || 0) > (remote.updatedAt || 0)) { hasReconciled = true; await saveRemote(); return; }
     } else {
-      await saveRemote(); return;      /* first device: seed the cloud copy */
+      hasReconciled = true; await saveRemote(); return;      /* first device: seed the cloud copy */
     }
+    hasReconciled = true;
+    if (pendingSaveAfterReconcile) { pendingSaveAfterReconcile = false; await saveRemote(); return; }
     setSyncPill("ok", "Synced · " + nowTime());
-  } catch (e) { setSyncPill("err", "Sync failed — tap Sync"); }
+  } catch (e) {
+    hasReconciled = true; // don't block saves forever over one failed check — the person can retry via Sync
+    setSyncPill("err", "Sync failed — tap Sync");
+  }
 }
 export async function saveRemote() {
-  if (!sb || !user) { return; }
+  if (!sb || !user) return;
+  /* Never push this device's data up before it has checked what's already in
+     the cloud — otherwise a stale local copy (e.g. a laptop that's been
+     asleep for days) can silently overwrite a newer edit made on another
+     device. Queue the save; it fires automatically once loadRemote() has
+     run at least once this session. */
+  if (!hasReconciled) { pendingSaveAfterReconcile = true; return; }
   setSyncPill("busy", "Saving…");
   try {
     const payload = Object.assign({}, state, { _client: CLIENT_ID });
@@ -152,7 +165,7 @@ export function initSupabase() {
     user = session ? session.user : null;
     renderIdentity();
     if (user) { loadRemote(); startRealtime(); }
-    else { stopRealtime(); setSyncPill("", "Local only"); }
+    else { stopRealtime(); hasReconciled = false; pendingSaveAfterReconcile = false; setSyncPill("", "Local only"); }
   });
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden && user) loadRemote();
