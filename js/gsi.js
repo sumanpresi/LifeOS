@@ -53,6 +53,10 @@ function renderProjects() {
       <input type="text" value="${esc(item.text)}" onchange="editProjectTask('${item.id}','text',this.value)">
       <input type="date" class="task-due-input" value="${esc(item.date||"")}" onchange="editProjectTask('${item.id}','date',this.value)" title="Date">
       <button class="del" onclick="delProjectTask('${item.id}')">✕</button>
+    </div>
+    <div class="task-meta-row">
+      <input type="text" class="task-link-input" placeholder="link" value="${esc(item.link||"")}" onchange="editProjectTask('${item.id}','link',this.value)">
+      ${item.link ? `<a href="${esc(item.link.startsWith("http")?item.link:"https://"+item.link)}" target="_blank" rel="noopener" class="task-link-go" title="Open link">🔗</a>` : ""}
     </div>`).join("") || `<p class="hint">Track this project's tasks here.</p>`;
   const openCount = active.tasks.filter(i => i.status !== "done").length;
   document.getElementById("ngdrCount").textContent = active.tasks.length ? `${openCount} open` : "";
@@ -86,7 +90,7 @@ export function delProject() {
 }
 export function addNgdr() {
   const el = document.getElementById("newNgdr"); const v = el.value.trim(); if (!v) return;
-  activeProject().tasks.push({ id: uid(), text: v, status: "todo", date: "" }); el.value = "";
+  activeProject().tasks.push({ id: uid(), text: v, status: "todo", date: "", link: "" }); el.value = "";
   persist(); renderProjects();
 }
 export function editProjectTask(id, field, v) {

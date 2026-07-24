@@ -7,7 +7,8 @@ import { state, uid, esc, persist, rerender } from './state.js';
 import { toast } from './ui.js';
 import { attachFreehandTool } from './leaflet-freehand.js';
 import { geocodeOne } from './geocode.js';
-import { addBaseLayer } from './map-basemap.js';
+import { addBaseLayer, enableClickToScrollZoom } from './map-basemap.js';
+import { addFullscreenControl } from './map-fullscreen.js';
 import { moveToTrash } from './trash.js';
 import { getCurrentLocation } from './geolocation.js';
 import { attachClickCoordinates } from './map-click-coords.js';
@@ -229,12 +230,14 @@ function initStopMap(plan, s) {
   const container = document.getElementById("leafletMap-" + s.id);
   if (!container || typeof L === "undefined") return;
 
-  // zoomSnap/zoomDelta smaller than the 1.0 default let the map zoom in
-  // finer fractional steps instead of jumping a whole level per scroll
-  // tick — this is what actually makes wheel-zoom feel smooth rather than
-  // "steppy" (Leaflet's built-in wheel zoom is integer-only by default).
-  const map = L.map(container, { zoomSnap: 0.25, zoomDelta: 0.25 }).setView([22.5, 80], 5); // default: India, until geocoded
+  // Fractional zoom (zoomSnap/zoomDelta below 1) was tried here for
+  // smoother wheel-zoom steps, but it visibly clashed with the vector
+  // tile base layer and made the whole map jittery — reverted to
+  // Leaflet's normal integer zoom levels, which render cleanly.
+  const map = L.map(container).setView([22.5, 80], 5); // default: India, until geocoded
   addBaseLayer(map);
+  enableClickToScrollZoom(map);
+  addFullscreenControl(map, s.place || "Map");
 
   const drawnItems = new L.FeatureGroup().addTo(map);
   if (s.mapDrawing && s.mapDrawing.features && s.mapDrawing.features.length) {

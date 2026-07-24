@@ -97,7 +97,8 @@ export function setTaskFilter(f) { taskFilter = f; renderTasks(); }
 export function addTask() {
   const el = document.getElementById("newTask"); const v = el.value.trim(); if (!v) return;
   if (state.tasks.length >= 5) { toast("Keep it to 5 — finish one first!"); return; }
-  state.tasks.push({ id: uid(), text: v, done: false, category: "work", flag: false, link: "", dueDate: "" });
+  const defaultCategory = (taskFilter === "work" || taskFilter === "personal") ? taskFilter : "work";
+  state.tasks.push({ id: uid(), text: v, done: false, category: defaultCategory, flag: false, link: "", dueDate: "" });
   el.value = "";
   persist(); rerender();
 }

@@ -290,7 +290,12 @@
           </div></div>
         </div>
         <div class="card">
-          <div class="card-head"><h2>Past entries</h2><span class="hint">Most recent first</span></div>
+          <div class="card-head"><h2>Past entries</h2><span class="hint">Most recent first</span>
+            <button class="expand-btn" onclick="expandView('journalListContent','Past entries')" title="View large">
+              <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            </button>
+          </div>
+          <div id="journalListContent">
           <div class="card-body" style="padding-bottom:0">
             <div class="journal-filter-row">
               <input type="date" id="journalFilterFrom" onchange="applyJournalFilter()" title="From date">
@@ -300,6 +305,7 @@
             </div>
           </div>
           <div class="card-body" id="journalList" style="max-height:340px;overflow-y:auto"></div>
+          </div>
         </div>
       </div>
     </section>

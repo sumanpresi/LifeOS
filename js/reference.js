@@ -7,7 +7,8 @@ import { state, uid, esc, persist, rerender } from './state.js';
 import { toast } from './ui.js';
 import { attachFreehandTool } from './leaflet-freehand.js';
 import { geocodeOne } from './geocode.js';
-import { addBaseLayer } from './map-basemap.js';
+import { addBaseLayer, enableClickToScrollZoom } from './map-basemap.js';
+import { addFullscreenControl } from './map-fullscreen.js';
 import { getCurrentLocation } from './geolocation.js';
 import { getRoute, formatDuration } from './routing.js';
 import { attachClickCoordinates } from './map-click-coords.js';
@@ -215,8 +216,10 @@ function initWorldMap() {
   if (worldMapInstance) { worldMapInstance.map.invalidateSize(); return; }
   if (typeof L === "undefined") return;
 
-  const map = L.map(container, { zoomSnap: 0.25, zoomDelta: 0.25 }).setView([20, 10], 2); // whole-world starting view
+  const map = L.map(container).setView([20, 10], 2); // whole-world starting view
   addBaseLayer(map);
+  enableClickToScrollZoom(map);
+  addFullscreenControl(map, "World map");
 
   const drawnItems = new L.FeatureGroup().addTo(map);
   const saved = state.reference.worldMapDrawing;

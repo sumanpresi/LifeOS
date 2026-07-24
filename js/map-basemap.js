@@ -25,3 +25,20 @@ export function addBaseLayer(map) {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
   }).addTo(map);
 }
+
+/* Scroll-wheel zoom is on by default in Leaflet, which means simply
+   scrolling down a page that happens to pass the mouse over an embedded
+   map hijacks that scroll into a zoom instead — a common, disorienting
+   problem with any inline interactive map. The standard fix: require a
+   click on the map first (a clear signal of intent to interact with it)
+   before scroll-wheel zoom activates, and turn it back off once the
+   pointer leaves, so scrolling the rest of the page is unaffected again. */
+export function enableClickToScrollZoom(map) {
+  try {
+    if (!map.scrollWheelZoom) return; // extra safety net — this is a core, always-present Leaflet handler, but a broken map is worse than a missing convenience feature
+    map.scrollWheelZoom.disable();
+    const container = map.getContainer();
+    container.addEventListener("click", () => map.scrollWheelZoom.enable());
+    container.addEventListener("mouseleave", () => map.scrollWheelZoom.disable());
+  } catch (e) { /* the map itself must still work even if this convenience feature can't be wired up */ }
+}

@@ -104,12 +104,26 @@ let currentJournalDate = null; // null = today (re-evaluated each render so it s
 export function renderDayOf() {
   const k = todayKey();
   const viewDate = currentJournalDate || k;
-  document.getElementById("dayTasks").innerHTML = state.tasks.map((t, i) => `
+
+  // "Today's focus" should reflect what's actually relevant to *today* —
+  // due today, overdue (still needs attention), or finished today (so the
+  // day's progress is visible) — not just the whole task list regardless
+  // of date.
+  const dayTaskList = state.tasks.filter(t => {
+    if (t.done) return t.completedAt && todayKey(new Date(t.completedAt)) === k;
+    return t.dueDate && t.dueDate <= k;
+  }).sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1; // completed sinks to the bottom
+    return (a.dueDate || "").localeCompare(b.dueDate || ""); // overdue (earlier date) first
+  });
+
+  document.getElementById("dayTasks").innerHTML = dayTaskList.map((t, i) => `
     <div class="task-row ${t.done ? "done" : ""}">
       <button class="chk ${t.done ? "on" : ""}" onclick="toggleTask('${t.id}')"><svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
       <span class="task-num">${i + 1}</span>
       <input type="text" value="${esc(t.text)}" onchange="editTask('${t.id}',this.value)">
-    </div>`).join("") || `<p class="hint">Nothing planned — add tasks on the Overview page.</p>`;
+      ${!t.done && t.dueDate && t.dueDate < k ? `<span class="due-pill overdue">Overdue</span>` : ""}
+    </div>`).join("") || `<p class="hint">Nothing due today — give a task a due date on Overview to see it here.</p>`;
   document.getElementById("dayHabits").innerHTML = state.habits.map(h => `
     <div class="task-row">
       <button class="chk ${isLogged(k, h.id) ? "on" : ""}" onclick="toggleHabit('${k}','${h.id}')"><svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
@@ -143,7 +157,7 @@ function renderJournalList(viewDate) {
   box.innerHTML = dates.map(d => `
     <button class="journal-list-item ${d === viewDate ? "active" : ""}" onclick="selectJournalDate('${d}')">
       <span class="jd-date">${fmtJournalDate(d)}</span>
-      <span class="jd-snip">${esc((state.journal[d] || "").slice(0, 60))}</span>
+      <span class="jd-snip">${esc(state.journal[d] || "")}</span>
     </button>`).join("") || `<p class="hint">${filterActive ? "No entries in that date range." : "Past entries will appear here."}</p>`;
 }
 export function applyJournalFilter() {

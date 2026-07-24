@@ -323,7 +323,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .journal-list-item:hover{background:var(--paper)}
 .journal-list-item.active{background:var(--lilac);border-color:var(--lilac-deep)}
 .jd-date{font-weight:700;font-size:12.5px}
-.jd-snip{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.jd-snip{font-size:12px;color:var(--muted);white-space:pre-wrap;word-break:break-word}
 
 /* ---------- Sort button (Overview tasks) ---------- */
 #taskSortBtn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -510,3 +510,17 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .pack-item:last-child{border-bottom:none}
 .pack-item-text{flex:1;font-weight:600}
 .pack-item.done .pack-item-text{text-decoration:line-through;color:var(--muted)}
+
+/* When Past Entries is reparented into the expand modal, let it use the
+   modal's own (much larger) scroll area instead of its normal compact
+   340px height — avoids an awkward scrollbar-within-a-scrollbar. */
+.expand-modal-body #journalList{max-height:none}
+
+/* ---------- Map fullscreen toggle ---------- */
+.map-fullscreen-btn{position:absolute;bottom:10px;right:10px;z-index:1000;
+  width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:#fff;
+  font-size:16px;line-height:1;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.15);color:var(--ink)}
+.map-fullscreen-btn:hover{border-color:var(--accent);color:var(--accent-ink)}
+.map-fullscreen-btn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+/* Give the map real breathing room while genuinely fullscreen. */
+.leaflet-map-container:fullscreen,.leaflet-map-container:-webkit-full-screen{height:100vh!important;width:100vw!important}

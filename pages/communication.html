@@ -170,11 +170,24 @@
   .acc summary{list-style:none;cursor:pointer;padding:14px 16px;font-weight:600;font-size:14.5px;
     display:flex;justify-content:space-between;align-items:center}
   .acc summary::-webkit-details-marker{display:none}
-  .acc summary .arw{color:var(--muted);transition:.2s;font-size:12px}
+  .acc summary .arw{color:var(--muted);transition:.2s;font-size:12px;padding:8px 4px 8px 12px;cursor:pointer;flex-shrink:0}
   .acc[open] summary .arw{transform:rotate(90deg)}
   .acc .body{padding:0 16px 16px}
   .ref-line{padding:7px 0;border-top:1px solid var(--line);color:var(--ink-soft);font-size:14px}
   .ref-line:first-child{border-top:none}
+  .ref-title-input{border:none;background:transparent;font-weight:600;font-size:14.5px;padding:0;flex:1;font-family:inherit}
+  .ref-line-edit{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line)}
+  .ref-line-edit:first-child{border-top:none}
+  .ref-line-edit input{flex:1;border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:13.5px;font-family:inherit;background:var(--paper)}
+  .ref-line-del{flex-shrink:0;border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;padding:4px}
+  .ref-line-del:hover{color:#c0392b}
+  .ref-add-row{display:flex;gap:8px;margin-top:10px}
+  .ref-add-row input{flex:1;border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13.5px;font-family:inherit;background:var(--paper)}
+  .ref-add-row button{border:1px solid var(--line);border-radius:8px;padding:7px 14px;background:#fff;font-weight:700;font-size:13px;cursor:pointer}
+  .ref-del-section{margin-top:12px;border:none;background:transparent;color:#c0392b;font-size:12.5px;font-weight:600;cursor:pointer;padding:2px 0}
+  .ref-add-section{display:flex;gap:8px;margin-top:6px}
+  .ref-add-section input{flex:1;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;font-family:inherit;background:#fff}
+  .ref-add-section button{border:1px solid var(--accent,#5B54D9);border-radius:10px;padding:10px 16px;background:var(--accent,#5B54D9);color:#fff;font-weight:700;font-size:13.5px;cursor:pointer}
 
   .timer{font-family:var(--serif);font-weight:600;font-size:46px;letter-spacing:.01em;line-height:1}
   .conf{display:flex;gap:8px;flex-wrap:wrap;margin-top:4px}
@@ -648,7 +661,8 @@ const defaultState=()=>({
   favWord:{}, favTopic:{},
   activity:{}, // date -> tasks completed count
   quizIndex:0, quizRight:0, quizSeen:0,
-  continueYesterday:null
+  continueYesterday:null,
+  referenceLibrary:null // null until first load — then seeded from the built-in REFERENCE defaults, see load()
 });
 let S=defaultState();
 
@@ -708,6 +722,13 @@ async function load(){
     }catch(e){ /* first run, or storage unavailable */ }
   }
   bootLoaded=true;
+  // One-time seed: give the person their own editable copy of the built-in
+  // reference phrases. Deliberately NOT calling save() here — this mirrors
+  // a real bug found and fixed elsewhere in LifeOS: saving unconditionally
+  // on every boot (even when nothing was actually edited) corrupts multi-
+  // device sync. The seeded content saves naturally the next time the
+  // person makes any real edit.
+  if(!Array.isArray(S.referenceLibrary)) S.referenceLibrary = JSON.parse(JSON.stringify(REFERENCE));
 }
 async function save(){
   if(EMBEDDED){
@@ -1087,13 +1108,64 @@ function renderAchievements(){
   $("#achGrid").innerHTML=A.map(a=>`<div class="ach ${a.on?"on":""}"><div class="ic">${a.ic}</div><div class="t">${a.t}</div><div class="s">${a.on?"Unlocked":a.s}</div></div>`).join("");
 }
 
-/* ---------- REFERENCE ---------- */
+/* ---------- REFERENCE (fully editable — see referenceLibrary in state) ---------- */
 function renderReference(){
-  $("#refAcc").innerHTML=REFERENCE.map((r,i)=>`
+  const lib = S.referenceLibrary || [];
+  $("#refAcc").innerHTML = lib.map((r,i)=>`
     <details class="acc" ${i===0?"open":""}>
-      <summary>${esc(r.t)} <span class="arw">▶</span></summary>
-      <div class="body">${r.lines.map(l=>`<div class="ref-line">${esc(l)}</div>`).join("")}</div>
-    </details>`).join("");
+      <summary>
+        <input type="text" class="ref-title-input" value="${esc(r.t)}"
+          onclick="event.stopPropagation()" onchange="editRefTitle(${i},this.value)">
+        <span class="arw" onclick="event.stopPropagation();event.preventDefault();this.closest('details').open=!this.closest('details').open">▶</span>
+      </summary>
+      <div class="body">
+        ${r.lines.map((l,j)=>`
+          <div class="ref-line-edit">
+            <input type="text" value="${esc(l)}" onchange="editRefLine(${i},${j},this.value)">
+            <button class="ref-line-del" onclick="delRefLine(${i},${j})" title="Remove this phrase">✕</button>
+          </div>`).join("") || `<p class="cap" style="margin:6px 0">No phrases yet — add one below.</p>`}
+        <div class="ref-add-row">
+          <input type="text" id="refAddInput-${i}" placeholder="Add a phrase…" onkeydown="if(event.key==='Enter'){addRefLine(${i});event.preventDefault();}">
+          <button onclick="addRefLine(${i})">Add</button>
+        </div>
+        <button class="ref-del-section" onclick="delRefSection(${i})">Delete this section</button>
+      </div>
+    </details>`).join("") + `
+    <div class="ref-add-section">
+      <input type="text" id="refNewSectionInput" placeholder="New section name, e.g. Customer Support" onkeydown="if(event.key==='Enter'){addRefSection();event.preventDefault();}">
+      <button onclick="addRefSection()">+ Add section</button>
+    </div>`;
+}
+function editRefTitle(i,v){
+  if(!v.trim()) return;
+  S.referenceLibrary[i].t = v.trim();
+  save();
+}
+function editRefLine(i,j,v){
+  if(!v.trim()){ delRefLine(i,j); return; }
+  S.referenceLibrary[i].lines[j] = v.trim();
+  save();
+}
+function delRefLine(i,j){
+  S.referenceLibrary[i].lines.splice(j,1);
+  save(); renderReference();
+}
+function addRefLine(i){
+  const el = document.getElementById("refAddInput-"+i);
+  const v = el.value.trim(); if(!v) return;
+  S.referenceLibrary[i].lines.push(v);
+  save(); renderReference();
+}
+function delRefSection(i){
+  if(!confirm(`Delete the "${S.referenceLibrary[i].t}" section? This can't be undone.`)) return;
+  S.referenceLibrary.splice(i,1);
+  save(); renderReference();
+}
+function addRefSection(){
+  const el = document.getElementById("refNewSectionInput");
+  const v = el.value.trim(); if(!v) return;
+  S.referenceLibrary.push({t:v, lines:[]});
+  save(); renderReference();
 }
 
 /* ---------- Grammar Book (Wren & Martin reference) ---------- */
