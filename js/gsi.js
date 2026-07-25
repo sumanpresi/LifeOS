@@ -272,7 +272,6 @@ function renderProjects() {
         <select class="gsi-status-sel s-${item.status}" onchange="setTaskStatus('${item.id}',this.value)">
           ${STATUSES.map(([v, l]) => `<option value="${v}" ${item.status === v ? "selected" : ""}>${l}</option>`).join("")}
         </select>
-        <button class="gsi-del" onclick="delProjectTask('${item.id}')" aria-label="Delete">✕</button>
       </div>
     </div>`;
   }).join("") || `<div class="gsi-empty"><p>No tasks yet in ${esc(active.name)}.</p><p class="hint">Add your first task below.</p></div>`;
