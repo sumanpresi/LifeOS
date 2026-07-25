@@ -23,6 +23,26 @@ const fmtDate = k => {
 function activeProject() {
   return state.gsi.projects.find(p => p.id === state.gsi.activeProject) || state.gsi.projects[0];
 }
+/* Finds a project task by id across EVERY project, not just the active
+   one — needed because these tasks are now also shown (and editable) from
+   Overview's unified task list, where a task could belong to any project. */
+export function findProjectTask(id) {
+  for (const p of state.gsi.projects) {
+    const t = p.tasks.find(x => x.id === id);
+    if (t) return { task: t, project: p };
+  }
+  return { task: null, project: null };
+}
+/* Every GSI project task, flattened into one list with its project name
+   attached — this is what Overview's "Work"/"All" task view merges in
+   alongside its own native tasks. */
+export function getAllGsiTasksFlat() {
+  const out = [];
+  state.gsi.projects.forEach(p => {
+    p.tasks.forEach(t => out.push(Object.assign({}, t, { projectId: p.id, projectName: p.name })));
+  });
+  return out;
+}
 
 function renderProjects() {
   const projects = state.gsi.projects;
@@ -47,6 +67,7 @@ function renderProjects() {
 
   document.getElementById("ngdrList").innerHTML = ordered.map(item => `
     <div class="task-row ${item.status === "done" ? "done" : ""}">
+      <button class="flag-btn ${item.flag ? "on" : ""}" onclick="toggleProjectTaskFlag('${item.id}')" title="${item.flag ? "Unflag" : "Flag as important"}">🚩</button>
       <select class="status-sel s-${item.status}" onchange="setTaskStatus('${item.id}',this.value)">
         ${STATUSES.map(([v, l]) => `<option value="${v}" ${item.status === v ? "selected" : ""}>${l}</option>`).join("")}
       </select>
@@ -91,23 +112,26 @@ export function delProject() {
 }
 export function addNgdr() {
   const el = document.getElementById("newNgdr"); const v = el.value.trim(); if (!v) return;
-  activeProject().tasks.push({ id: uid(), text: v, status: "todo", date: "", link: "" }); el.value = "";
-  persist(); renderProjects();
+  activeProject().tasks.push({ id: uid(), text: v, status: "todo", date: "", link: "", flag: false }); el.value = "";
+  persist(); rerender();
 }
 export function editProjectTask(id, field, v) {
-  const t = activeProject().tasks.find(x => x.id === id); if (!t) return;
-  t[field] = v; persist(); if (field === "text") return; renderProjects();
+  const { task: t } = findProjectTask(id); if (!t) return;
+  t[field] = v; persist(); if (field === "text") return; rerender();
 }
 export function setTaskStatus(id, v) {
-  const t = activeProject().tasks.find(x => x.id === id);
-  if (t) { t.status = v; persist(); renderProjects(); }
+  const { task: t } = findProjectTask(id);
+  if (t) { t.status = v; persist(); rerender(); }
 }
 export function delProjectTask(id) {
-  const p = activeProject();
-  const t = p.tasks.find(x => x.id === id);
-  if (t) moveToTrash("gsiProjectTask", t, { projectId: p.id });
+  const { task: t, project: p } = findProjectTask(id); if (!t) return;
+  moveToTrash("gsiProjectTask", t, { projectId: p.id });
   p.tasks = p.tasks.filter(x => x.id !== id);
-  persist(); renderProjects();
+  persist(); rerender();
+}
+export function toggleProjectTaskFlag(id) {
+  const { task: t } = findProjectTask(id);
+  if (t) { t.flag = !t.flag; persist(); rerender(); }
 }
 
 /* ---------------- Daily work log ---------------- */

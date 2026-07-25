@@ -3,7 +3,9 @@ import { state, uid, esc, persist, rerender } from './state.js';
 import { moveToTrash } from './trash.js';
 
 export function renderGoals() {
-  document.getElementById("goalsList").innerHTML = state.goals.map((g, i) => `
+  const el = document.getElementById("goalsList");
+  if (!el) return; // this page doesn't show goals right now — data and feature are untouched, just not rendered here
+  el.innerHTML = state.goals.map((g, i) => `
     <div class="goal">
       <div class="goal-top">
         <span class="task-num">${i + 1}</span>
@@ -16,7 +18,8 @@ export function renderGoals() {
     </div>`).join("") || `<p class="hint">Add the areas of life you're pushing forward.</p>`;
 }
 export function addGoal() {
-  const el = document.getElementById("newGoal"); const v = el.value.trim(); if (!v) return;
+  const el = document.getElementById("newGoal"); if (!el) return;
+  const v = el.value.trim(); if (!v) return;
   state.goals.push({ id: uid(), name: v, pct: 0 }); el.value = "";
   persist(); rerender();
 }

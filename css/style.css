@@ -527,3 +527,15 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .map-fullscreen-btn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
 /* Give the map real breathing room while genuinely fullscreen. */
 .leaflet-map-container:fullscreen,.leaflet-map-container:-webkit-full-screen{height:100vh!important;width:100vw!important}
+
+/* Project tag badge — shown on GSI project tasks merged into Overview's
+   unified Work/All task view, so it's clear where each one came from. */
+.task-project-tag{font-size:10.5px;font-weight:800;letter-spacing:.02em;padding:2px 7px;
+  border-radius:99px;background:var(--sand,#F3E7D3);color:#8a5a20;flex-shrink:0;text-transform:uppercase}
+
+/* ---------- Map Pen Annotation toolbar (stylus-only, separate from the
+   finger/mouse/stylus freehand scribble toolbar) ---------- */
+.pen-annotation-btn.on{background:#2A6FB0;box-shadow:0 0 0 3px #C7DDEF,0 2px 8px rgba(42,111,176,.5);
+  transform:scale(1.12);border-radius:5px;position:relative;z-index:1}
+.pen-eraser-btn.on{background:var(--warn);box-shadow:0 0 0 3px #FBD9C9,0 2px 8px rgba(211,120,60,.5);
+  transform:scale(1.12);border-radius:5px;position:relative;z-index:1}

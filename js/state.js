@@ -113,7 +113,8 @@ export const DEFAULT_STATE = {
       { id: "r1", name: "General", notes: "", links: [] }
     ],
     activePage: "r1",
-    worldMapDrawing: null   // one shared world map's saved GeoJSON FeatureCollection
+    worldMapDrawing: null,  // one shared world map's saved GeoJSON FeatureCollection
+    penAnnotations: { strokes: [] } // [{id, points:[{lat,lng,pressure,t}], color, width, opacity}] — stylus-only layer, separate from the finger/mouse/stylus freehand scribble above
   },
   /* One shared recycle bin for deletions from anywhere in the app.
      [{id, type, payload, meta, deletedAt}] — see js/trash.js */

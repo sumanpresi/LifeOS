@@ -6,6 +6,7 @@
 import { state, uid, esc, persist, rerender } from './state.js';
 import { toast } from './ui.js';
 import { attachFreehandTool } from './leaflet-freehand.js';
+import { attachPenAnnotationTool } from './map-pen-annotation.js';
 import { geocodeOne } from './geocode.js';
 import { addBaseLayer, enableClickToScrollZoom } from './map-basemap.js';
 import { addFullscreenControl } from './map-fullscreen.js';
@@ -236,9 +237,16 @@ function initWorldMap() {
   map.on(L.Draw.Event.EDITED, save);
   map.on(L.Draw.Event.DELETED, save);
   const freehand = attachFreehandTool(map, drawnItems, save);
+  const savePenAnnotations = () => persist();
+  const penAnnotation = attachPenAnnotationTool(
+    map,
+    () => state.reference.penAnnotations,
+    (next) => { state.reference.penAnnotations = next; },
+    savePenAnnotations
+  );
   attachClickCoordinates(map);
 
-  worldMapInstance = { map, drawnItems, freehand };
+  worldMapInstance = { map, drawnItems, freehand, penAnnotation };
   setTimeout(() => map.invalidateSize(), 100);
 }
 
