@@ -502,6 +502,18 @@
           <button class="btn btn-ghost" style="margin-top:12px" onclick="addEmiRow()">+ Add row</button>
         </div>
       </div>
+
+      <div class="card">
+        <div class="card-head"><h2>📊 Full spreadsheet (Google Sheets)</h2></div>
+        <div class="card-body">
+          <p class="hint" style="margin-bottom:10px">Opens in Google Sheets using your own sign-in — this is a link, not an embedded copy, so edits there won't sync back into LifeOS.</p>
+          <div class="fin-add">
+            <input type="text" id="finExternalSheetUrl" placeholder="https://docs.google.com/spreadsheets/…"
+              onchange="saveExternalSheetUrl(this.value)" style="flex:1">
+            <a id="finExternalSheetOpenBtn" class="btn btn-ghost" href="#" target="_blank" rel="noopener">Open ↗</a>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ======== PAGE: HEALTH ======== -->

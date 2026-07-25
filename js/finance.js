@@ -31,6 +31,17 @@ export function renderFinance() {
     </div>`).join("") || `<p class="hint">No links yet.</p>`;
   LISTS.forEach(renderList);
   renderEmiTable();
+  const sheetInput = document.getElementById("finExternalSheetUrl");
+  if (sheetInput && document.activeElement !== sheetInput) sheetInput.value = state.finance.externalSheetUrl || "";
+  const sheetOpenBtn = document.getElementById("finExternalSheetOpenBtn");
+  if (sheetOpenBtn) sheetOpenBtn.href = state.finance.externalSheetUrl || "#";
+}
+
+export function saveExternalSheetUrl(v) {
+  state.finance.externalSheetUrl = v.trim();
+  persist();
+  const sheetOpenBtn = document.getElementById("finExternalSheetOpenBtn");
+  if (sheetOpenBtn) sheetOpenBtn.href = state.finance.externalSheetUrl || "#";
 }
 
 let finTimer = null;
