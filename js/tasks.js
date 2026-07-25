@@ -14,6 +14,8 @@ import { getAllGsiTasksFlat, findProjectTask, editProjectTask, setTaskStatus as 
 
 let taskFilter = "all"; // "all" | "work" | "personal"
 let sortByDate = false;
+let collapsedSections = new Set(); // UI-only display state, not persisted — which of Today/Upcoming/Completed are collapsed
+let expandedTaskId = null; // UI-only — which single row currently has its edit controls open
 
 function fmtCompletedAt(ts) {
   const d = new Date(ts);
@@ -40,6 +42,63 @@ export function toggleSortByDate() {
   sortByDate = !sortByDate;
   renderTasks();
 }
+export function toggleTaskSection(name) {
+  if (collapsedSections.has(name)) collapsedSections.delete(name); else collapsedSections.add(name);
+  renderTasks();
+}
+export function toggleTaskExpanded(id) {
+  expandedTaskId = expandedTaskId === id ? null : id;
+  renderTasks();
+}
+
+function taskRowHtml(t) {
+  const due = fmtDue(t.dueDate);
+  const breadcrumb = t.isGsi
+    ? `${esc(t.projectName)} / ${({todo:"To do",progress:"In progress",done:"Done",blocked:"Blocked"})[t.status] || "To do"}`
+    : `${(t.category||"work")==="work"?"Work":"Personal"}${due ? " / " + due.text : ""}`;
+  return `
+    <div class="t-row ${t.done ? "done" : ""} ${expandedTaskId===t.id ? "t-expanded" : ""}" onclick="toggleTaskExpanded('${t.id}')">
+      <button class="t-chk ${t.done ? "on" : ""}" onclick="event.stopPropagation();toggleTask('${t.id}')" aria-label="Toggle task">
+        <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
+      <div class="t-main">
+        <div class="t-title-line">
+          <input type="text" class="t-title ${t.link ? "t-linked" : ""}" value="${esc(t.text)}"
+            onclick="event.stopPropagation()" onchange="editTask('${t.id}',this.value)">
+          <button class="t-flag ${t.flag ? "on" : ""}" onclick="event.stopPropagation();toggleFlag('${t.id}')"
+            title="${t.flag ? "Unflag" : "Flag as priority"}">🚩</button>
+        </div>
+        ${due ? `<div class="t-due ${due.cls==="overdue"?"t-overdue":due.cls===""?"t-future":""}">📅 <span>${due.text}</span></div>` : ""}
+        ${t.link ? `<a href="${esc(t.link.startsWith("http")?t.link:"https://"+t.link)}" target="_blank" rel="noopener" class="t-link-go" onclick="event.stopPropagation()">🔗 Open link</a>` : ""}
+      </div>
+      <div class="t-right">
+        <span class="t-breadcrumb">${breadcrumb}</span>
+        ${t.done && t.completedAt ? `<span class="t-completed-note">✓ ${fmtCompletedAt(t.completedAt)}</span>` : ""}
+      </div>
+      <button class="t-del" onclick="event.stopPropagation();delTask('${t.id}')" aria-label="Delete">✕</button>
+    </div>
+    <div class="t-meta" onclick="event.stopPropagation()">
+      ${t.isGsi ? "" : `
+      <select onchange="editTaskMeta('${t.id}','category',this.value)">
+        <option value="work" ${(t.category||"work")==="work"?"selected":""}>Work</option>
+        <option value="personal" ${t.category==="personal"?"selected":""}>Personal</option>
+      </select>`}
+      <input type="date" value="${esc(t.dueDate||"")}" onchange="editTaskMeta('${t.id}','dueDate',this.value)" title="Due date">
+      <input type="text" placeholder="link" value="${esc(t.link||"")}" onchange="editTaskMeta('${t.id}','link',this.value)">
+    </div>`;
+}
+
+function sectionHtml(name, label, tasks) {
+  const collapsed = collapsedSections.has(name);
+  return `
+    <div class="t-section ${collapsed ? "collapsed" : ""}">
+      <button class="t-section-head" onclick="toggleTaskSection('${name}')" aria-expanded="${!collapsed}">
+        <span class="t-section-title">${label}</span>
+        <span class="t-section-count">${tasks.length}</span>
+        <span class="t-section-chevron">▾</span>
+      </button>
+      <div class="t-section-rows">${tasks.map(taskRowHtml).join("")}</div>
+    </div>`;
+}
 
 export function renderTasks() {
   const list = document.getElementById("taskList");
@@ -52,17 +111,11 @@ export function renderTasks() {
     const gsiAsTasks = getAllGsiTasksFlat().map(t => ({
       id: t.id, text: t.text, done: t.status === "done", category: "work",
       flag: !!t.flag, link: t.link || "", dueDate: t.date || "", completedAt: null,
-      isGsi: true, projectName: t.projectName
+      isGsi: true, projectName: t.projectName, status: t.status
     }));
     visible = visible.concat(gsiAsTasks);
   }
 
-  /* Completed tasks always sink to the bottom, regardless of sort mode.
-     Within the open group, flagged ("important") tasks come first — that's
-     the whole point of flagging something. Then, if date-sort is on, by
-     due date (tasks with no due date fall after ones that have a date). */
-  const open = visible.filter(t => !t.done);
-  const done = visible.filter(t => t.done);
   const byFlagThenDate = (a, b) => {
     if (!!a.flag !== !!b.flag) return a.flag ? -1 : 1;
     if (!sortByDate) return 0;
@@ -71,47 +124,35 @@ export function renderTasks() {
     if (!b.dueDate) return -1;
     return a.dueDate.localeCompare(b.dueDate);
   };
-  open.sort(byFlagThenDate);
-  if (sortByDate) {
-    const byDate = (a, b) => {
-      if (!a.dueDate && !b.dueDate) return 0;
-      if (!a.dueDate) return 1;
-      if (!b.dueDate) return -1;
-      return a.dueDate.localeCompare(b.dueDate);
-    };
-    done.sort(byDate);
-  }
-  visible = [...open, ...done];
+  const byDate = (a, b) => {
+    if (!a.dueDate && !b.dueDate) return 0;
+    if (!a.dueDate) return 1;
+    if (!b.dueDate) return -1;
+    return a.dueDate.localeCompare(b.dueDate);
+  };
+
+  const todayKeyStr = new Date().toISOString().slice(0, 10);
+  const open = visible.filter(t => !t.done);
+  const done = visible.filter(t => t.done).sort(sortByDate ? byDate : () => 0);
+  const todayGroup = open.filter(t => t.dueDate === todayKeyStr).sort(byFlagThenDate);
+  const upcomingGroup = open.filter(t => t.dueDate !== todayKeyStr).sort(byFlagThenDate);
 
   const sortBtn = document.getElementById("taskSortBtn");
   if (sortBtn) sortBtn.classList.toggle("on", sortByDate);
 
-  list.innerHTML = visible.map((t, i) => {
-    const due = fmtDue(t.dueDate);
-    return `
-    <div class="task-row ${t.done ? "done" : ""}">
-      <button class="flag-btn ${t.flag ? "on" : ""}" onclick="toggleFlag('${t.id}')" title="${t.flag ? "Unflag" : "Flag as priority"}">🚩</button>
-      <button class="chk ${t.done ? "on" : ""}" onclick="toggleTask('${t.id}')" aria-label="Toggle task">
-        <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
-      <span class="task-num">${i + 1}</span>
-      ${t.isGsi ? `<span class="task-project-tag" title="Work·GSI project">${esc(t.projectName)}</span>` : ""}
-      <input type="text" class="${t.link ? "task-text-linked" : ""}" value="${esc(t.text)}" onchange="editTask('${t.id}',this.value)">
-      ${t.link ? `<a href="${esc(t.link.startsWith("http")?t.link:"https://"+t.link)}" target="_blank" rel="noopener" class="task-link-go-inline" title="Open link">🔗</a>` : ""}
-      <button class="del" onclick="delTask('${t.id}')" aria-label="Delete">✕</button>
-    </div>
-    <div class="task-meta-row">
-      ${t.isGsi ? "" : `
-      <select class="task-cat-sel" onchange="editTaskMeta('${t.id}','category',this.value)">
-        <option value="work" ${(t.category||"work")==="work"?"selected":""}>Work</option>
-        <option value="personal" ${t.category==="personal"?"selected":""}>Personal</option>
-      </select>`}
-      <input type="date" class="task-due-input" value="${esc(t.dueDate||"")}" onchange="editTaskMeta('${t.id}','dueDate',this.value)" title="Due date">
-      ${due ? `<span class="due-pill ${due.cls}">${due.text}</span>` : ""}
-      ${t.done && t.completedAt ? `<span class="completed-pill" title="When this was checked off">✓ ${fmtCompletedAt(t.completedAt)}</span>` : ""}
-      <input type="text" class="task-link-input" placeholder="link" value="${esc(t.link||"")}" onchange="editTaskMeta('${t.id}','link',this.value)">
-      ${t.link ? `<a href="${esc(t.link.startsWith("http")?t.link:"https://"+t.link)}" target="_blank" rel="noopener" class="task-link-go" title="Open link">🔗</a>` : ""}
-    </div>`;
-  }).join("") || `<p class="hint">${state.tasks.length ? "No tasks match this filter." : "No tasks yet — add your top priorities for today."}</p>`;
+  if (!visible.length) {
+    list.innerHTML = state.tasks.length ? `<p class="hint" style="padding:18px">No tasks match this filter.</p>` : `
+      <div class="t-empty">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M9 11l3 3L22 4M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2h-5l-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+        <div class="t-empty-title">No tasks yet</div>
+        <div class="t-empty-sub">Add your first task below to get started.</div>
+      </div>`;
+  } else {
+    list.innerHTML =
+      sectionHtml("today", "Today", todayGroup) +
+      sectionHtml("upcoming", "Upcoming", upcomingGroup) +
+      (done.length ? sectionHtml("completed", "Completed", done) : "");
+  }
 
   const openCount = state.tasks.filter(t => !t.done).length;
   document.getElementById("taskCount").textContent = state.tasks.length ? `${openCount} open` : "";

@@ -539,3 +539,114 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   transform:scale(1.12);border-radius:5px;position:relative;z-index:1}
 .pen-eraser-btn.on{background:var(--warn);box-shadow:0 0 0 3px #FBD9C9,0 2px 8px rgba(211,120,60,.5);
   transform:scale(1.12);border-radius:5px;position:relative;z-index:1}
+
+/* ================================================================
+   TASKS PAGE REDESIGN — scoped entirely to #tasksCard. Deliberately
+   does NOT touch the shared .task-row/.chk/.flag-btn classes used by
+   Day Of's "Today's focus" or Work·GSI's own task list — this redesign
+   was requested specifically for the Tasks page, so those stay exactly
+   as they were rather than changing pages that weren't asked for.
+   ================================================================ */
+#tasksCard{--t-bg:#F7F8FA;--t-card:#FFFFFF;--t-ink:#1F2937;--t-ink2:#6B7280;
+  --t-accent:#2563EB;--t-danger:#EF4444;--t-border:#E5E7EB;
+  background:var(--t-bg);font-family:'Inter',sans-serif;border-color:var(--t-border)}
+#tasksCard .card-head{background:var(--t-card);border-bottom:1px solid var(--t-border)}
+#tasksCard .card-head h2{font-family:'Inter',sans-serif;font-size:20px;font-weight:600;color:var(--t-ink)}
+
+/* ---- Section headers (Today / Upcoming / Completed) ---- */
+.t-section{margin-bottom:4px}
+.t-section-head{display:flex;align-items:center;gap:10px;padding:14px 18px 8px;
+  cursor:pointer;user-select:none;background:transparent;border:none;width:100%;text-align:left}
+.t-section-head:focus-visible{outline:2px solid var(--t-accent);outline-offset:2px;border-radius:8px}
+.t-section-title{font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--t-ink);
+  text-transform:uppercase;letter-spacing:.04em}
+.t-section-count{font-size:13px;font-weight:400;color:var(--t-ink2);background:var(--t-bg);
+  border-radius:99px;padding:1px 9px}
+.t-section-chevron{margin-left:auto;color:var(--t-ink2);transition:transform 200ms ease;font-size:12px}
+.t-section.collapsed .t-section-chevron{transform:rotate(-90deg)}
+.t-section-body{overflow:hidden;transition:grid-template-rows 200ms ease}
+.t-section.collapsed .t-section-rows{display:none}
+
+/* ---- Task rows ---- */
+.t-row{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;
+  border-bottom:1px solid var(--t-border);background:var(--t-card);cursor:pointer;
+  border-radius:10px;margin:0 8px;transition:background 200ms ease,box-shadow 200ms ease}
+.t-row:last-child{border-bottom:none}
+.t-row:hover{background:#FAFBFD;box-shadow:0 1px 6px rgba(31,41,55,.06)}
+.t-row:focus-within{box-shadow:0 0 0 2px var(--t-accent)}
+
+/* Circular checkbox with an animated checkmark */
+.t-chk{width:22px;height:22px;border-radius:50%;border:1.5px solid #C7CCD4;background:#fff;
+  flex-shrink:0;margin-top:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:border-color 200ms ease,background 200ms ease}
+.t-chk:hover{border-color:var(--t-accent)}
+.t-chk svg{width:13px;height:13px;stroke:#fff;stroke-width:3;fill:none;stroke-dasharray:20;
+  stroke-dashoffset:20;transition:stroke-dashoffset 220ms ease}
+.t-chk.on{background:var(--t-accent);border-color:var(--t-accent)}
+.t-chk.on svg{stroke-dashoffset:0}
+
+.t-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.t-title-line{display:flex;align-items:center;gap:8px}
+.t-title{border:none;background:transparent;font-family:'Inter',sans-serif;font-size:16px;
+  font-weight:500;color:var(--t-ink);padding:0;flex:1;min-width:0}
+.t-title:focus{outline:none;text-decoration:underline;text-decoration-color:var(--t-border)}
+.t-row.done .t-title{color:var(--t-ink2);text-decoration:line-through;opacity:.65}
+.t-title.t-linked{color:var(--t-accent);text-decoration:underline;text-decoration-color:#BFD3F8}
+.t-link-go{font-size:12.5px;color:var(--t-accent);text-decoration:none;display:inline-flex;
+  align-items:center;gap:4px;width:fit-content}
+.t-link-go:hover{text-decoration:underline}
+
+.t-due{display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;color:#B54747}
+.t-due.t-overdue{color:var(--t-danger);font-weight:500}
+.t-due.t-future{color:var(--t-ink2)}
+
+.t-flag{background:none;border:none;font-size:14px;opacity:.35;cursor:pointer;flex-shrink:0;
+  filter:grayscale(.7);padding:2px;transition:opacity 150ms ease,transform 150ms ease}
+.t-flag:hover{opacity:.8}
+.t-flag.on{opacity:1;filter:none;transform:scale(1.1)}
+
+.t-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;padding-top:1px}
+.t-breadcrumb{font-size:12px;font-weight:400;color:var(--t-ink2);background:var(--t-bg);
+  border-radius:6px;padding:3px 9px;white-space:nowrap}
+.t-del{background:none;border:none;color:var(--t-ink2);font-size:13px;cursor:pointer;padding:3px;
+  opacity:0;transition:opacity 150ms ease}
+.t-row:hover .t-del,.t-row:focus-within .t-del{opacity:1}
+.t-del:hover{color:var(--t-danger)}
+.t-completed-note{font-size:12px;color:#16A34A;background:#EFFCF3;border-radius:6px;padding:3px 9px}
+
+/* ---- Expandable meta editing (category / due date / link) — the
+   existing editing controls, restyled, revealed on row click rather
+   than always visible, matching "entire row clickable" while keeping
+   the title input directly editable rather than also toggling this. ---- */
+.t-meta{display:none;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 18px 14px 52px;
+  background:var(--t-card);margin:0 8px 8px}
+.t-row.t-expanded + .t-meta{display:flex}
+.t-meta select,.t-meta input[type=date],.t-meta input[type=text]{border:1px solid var(--t-border);
+  border-radius:8px;padding:6px 10px;font-family:'Inter',sans-serif;font-size:13px;color:var(--t-ink);
+  background:var(--t-bg)}
+.t-meta input[type=text]{flex:1;min-width:120px}
+
+/* ---- Empty state ---- */
+.t-empty{padding:56px 24px;text-align:center;color:var(--t-ink2)}
+.t-empty svg{width:64px;height:64px;margin:0 auto 14px;opacity:.5}
+.t-empty-title{font-family:'Inter',sans-serif;font-size:16px;font-weight:600;color:var(--t-ink);margin-bottom:4px}
+.t-empty-sub{font-size:13.5px}
+
+/* ---- Add task, styled like Microsoft To Do's inline add row ---- */
+.t-add-row{display:flex;align-items:center;gap:10px;padding:14px 18px;background:var(--t-card)}
+.t-add-icon{width:22px;height:22px;border-radius:50%;border:1.5px dashed #C7CCD4;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;color:var(--t-accent);font-size:14px}
+.t-add-row input{flex:1;border:none;background:transparent;font-family:'Inter',sans-serif;
+  font-size:15px;color:var(--t-ink);padding:6px 0}
+.t-add-row input::placeholder{color:var(--t-ink2)}
+.t-add-row input:focus{outline:none}
+.t-add-btn{border:none;background:var(--t-accent);color:#fff;font-family:'Inter',sans-serif;
+  font-weight:600;font-size:13px;padding:8px 16px;border-radius:8px;cursor:pointer;
+  transition:background 150ms ease}
+.t-add-btn:hover{background:#1D4ED8}
+
+@media (max-width:640px){
+  .t-row{padding:12px 14px;margin:0 4px}
+  .t-right{align-items:flex-start}
+  .t-meta{padding-left:14px}
+}
