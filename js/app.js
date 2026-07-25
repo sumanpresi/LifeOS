@@ -15,6 +15,7 @@ import * as trash from './trash.js';
 import * as dateShortcuts from './date-shortcuts.js';
 import * as expandView from './expand-view.js';
 import * as mapCoords from './map-click-coords.js';
+import * as calScribble from './calendar-scribble.js';
 import * as search from './search.js';
 import * as cloud from './supabase.js';
 import { initCommunicationBridge } from './communication-bridge.js';
@@ -50,7 +51,9 @@ Object.assign(window,
   { addGoal: goals.addGoal, editGoal: goals.editGoal, delGoal: goals.delGoal },
   { toggleHabit: habits.toggleHabit, addHabit: habits.addHabit, delHabit: habits.delHabit,
     setHabitView: habits.setHabitView, shiftWeek: habits.shiftWeek,
-    setCalendarHabit: habits.setCalendarHabit, shiftCalendarMonth: habits.shiftCalendarMonth },
+    setCalendarHabit: habits.setCalendarHabit, shiftCalendarMonth: habits.shiftCalendarMonth,
+    toggleDayPopover: habits.toggleDayPopover, goToCalendarTask: habits.goToCalendarTask,
+    toggleScribbleMode: habits.toggleScribbleMode },
   { addLink: widgets.addLink, delLink: widgets.delLink, addFeed: widgets.addFeed, delFeed: widgets.delFeed,
     nextQuote: widgets.nextQuote, setMed: widgets.setMed, toggleMed: widgets.toggleMed,
     saveJournal: widgets.saveJournal, selectJournalDate: widgets.selectJournalDate, journalGoToday: widgets.journalGoToday,
@@ -94,6 +97,8 @@ Object.assign(window,
   { toggleDatePopover: dateShortcuts.toggleDatePopover, setQuickDate: dateShortcuts.setQuickDate },
   { expandView: expandView.expandView, closeExpandView: expandView.closeExpandView },
   { copyCoordsToClipboard: mapCoords.copyCoordsToClipboard },
+  { openScribbleFor: calScribble.openScribbleFor, closeScribbleModal: calScribble.closeScribbleModal,
+    clearScribble: calScribble.clearScribble },
   { openSearch: search.openSearch, closeSearch: search.closeSearch,
     searchHover: search.searchHover, searchPick: search.searchPick },
   { openGhModal: cloud.openGhModal, closeGhModal: cloud.closeGhModal, ghButton: cloud.ghButton,

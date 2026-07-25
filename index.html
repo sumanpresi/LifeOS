@@ -179,6 +179,7 @@
                 <button onclick="shiftCalendarMonth(1)" aria-label="Next month"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
               </span>
               <span class="hint" id="calSummary"></span>
+              <button class="cal-scribble-toggle" id="calScribbleBtn" onclick="toggleScribbleMode()" title="Toggle scribble mode: tap a date to write a note on it">✏️ Scribble</button>
             </div>
             <div id="calGrid"></div>
           </div>
@@ -713,6 +714,20 @@
       <button class="btn btn-ghost" onclick="closeArchiveView()">✕ Close</button>
     </div>
     <div class="gsi-archive-modal-body" id="gsiArchiveList"></div>
+  </div>
+</div>
+
+<div class="scribble-modal-bg" id="scribbleModalBg">
+  <div class="scribble-modal">
+    <div class="expand-modal-head">
+      <h2 id="scribbleModalTitle">Note</h2>
+      <button class="btn btn-ghost" onclick="closeScribbleModal()">✕ Done</button>
+    </div>
+    <canvas id="scribbleCanvas" class="scribble-canvas"></canvas>
+    <div class="scribble-modal-foot">
+      <button class="btn btn-ghost" onclick="clearScribble()">Clear</button>
+      <span class="hint">Draw with mouse, finger, or stylus — saves automatically</span>
+    </div>
   </div>
 </div>
 

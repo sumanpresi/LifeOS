@@ -1,6 +1,10 @@
-/* Habit tracking: week grid, calendar month view, 6-week trend, streaks, donut. */
+/* Habit tracking: week grid, calendar month view, 6-week trend, streaks, donut.
+   The month calendar also shows every task (personal + GSI Workspace) due
+   on each date, and supports a freehand scribble note per date. */
 import { state, uid, esc, persist, rerender, todayKey } from './state.js';
 import { moveToTrash } from './trash.js';
+import { getAllGsiTasksFlat } from './gsi.js';
+import { go } from './ui.js';
 
 let weekOffset = 0;
 let monthCursor = new Date(); // which month the calendar view is showing
@@ -67,6 +71,17 @@ function renderTrendView() {
 }
 
 /* ---------- true calendar month view (one habit at a time) ---------- */
+let scribbleMode = false;
+let openDayPopover = null; // dateKey of the currently-open task/scribble popover, if any
+
+function tasksForDate(k) {
+  const personal = state.tasks.filter(t => t.dueDate === k)
+    .map(t => ({ id: t.id, text: t.text, done: t.done, isGsi: false, source: (t.category === "personal" ? "Personal" : "Work") }));
+  const gsi = getAllGsiTasksFlat().filter(t => t.date === k)
+    .map(t => ({ id: t.id, text: t.text, done: t.status === "done", isGsi: true, source: t.projectName }));
+  return [...personal, ...gsi];
+}
+
 function renderCalendarView() {
   const sel = document.getElementById("calHabitSelect");
   if (!sel) return;
@@ -81,6 +96,10 @@ function renderCalendarView() {
   const grid = document.getElementById("calGrid");
   if (!grid) return;
   if (label) label.textContent = monthCursor.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+
+  const scribbleBtn = document.getElementById("calScribbleBtn");
+  if (scribbleBtn) scribbleBtn.classList.toggle("on", scribbleMode);
+
   if (!calendarHabitId) { grid.innerHTML = `<p class="hint">Add a habit to see its calendar.</p>`; return; }
 
   const year = monthCursor.getFullYear(), month = monthCursor.getMonth();
@@ -91,14 +110,25 @@ function renderCalendarView() {
 
   const dayNames = ["M", "T", "W", "T", "F", "S", "S"];
   let html = `<div class="cal-dow">${dayNames.map(d => `<div>${d}</div>`).join("")}</div><div class="cal-days">`;
-  for (let i = 0; i < startOffset; i++) html += `<div class="cal-cell empty"></div>`;
+  for (let i = 0; i < startOffset; i++) html += `<div class="cal-cell-wrap empty"></div>`;
   for (let day = 1; day <= daysInMonth; day++) {
     const d = new Date(year, month, day);
     const k = todayKey(d);
     const future = k > tKey;
     const done = isLogged(k, calendarHabitId);
-    html += `<button class="cal-cell ${done ? "done" : ""} ${k === tKey ? "today" : ""}" ${future ? "disabled" : ""}
-      onclick="toggleHabit('${k}','${calendarHabitId}')">${day}</button>`;
+    const dayTasks = tasksForDate(k);
+    const hasScribble = !!(state.calendarScribbles[k] && state.calendarScribbles[k].strokes && state.calendarScribbles[k].strokes.length);
+    // A plain div here, not a button — cells now host nested action buttons
+    // (task badge, scribble trigger) alongside the habit-toggle click area,
+    // and a button can't legally contain another button.
+    html += `
+      <div class="cal-cell-wrap ${k === tKey ? "today" : ""}">
+        <div class="cal-cell ${done ? "done" : ""} ${future ? "cal-future" : ""} ${scribbleMode ? "cal-scribble-armed" : ""}"
+          onclick="${scribbleMode ? `openScribbleFor('${k}')` : (future ? "" : `toggleHabit('${k}','${calendarHabitId}')`)}">${day}</div>
+        ${dayTasks.length ? `<button class="cal-task-badge" onclick="event.stopPropagation();toggleDayPopover('${k}')" title="${dayTasks.length} task(s) due">${dayTasks.length}</button>` : ""}
+        ${hasScribble ? `<span class="cal-scribble-dot" title="Has a note">✏️</span>` : ""}
+        ${openDayPopover === k ? dayPopoverHtml(k, dayTasks) : ""}
+      </div>`;
   }
   html += `</div>`;
   grid.innerHTML = html;
@@ -111,9 +141,37 @@ function renderCalendarView() {
   const summary = document.getElementById("calSummary");
   if (summary) summary.textContent = eligCount ? `${doneCount} of ${eligCount} days this month` : "";
 }
+
+function dayPopoverHtml(k, dayTasks) {
+  const fmt = new Date(k + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  return `
+    <div class="cal-day-popover" onclick="event.stopPropagation()">
+      <div class="cal-day-popover-head">${fmt}</div>
+      ${dayTasks.map(t => `
+        <button class="cal-day-task ${t.done ? "done" : ""}" onclick="goToCalendarTask('${t.id}',${t.isGsi})">
+          <span class="cal-day-task-text">${esc(t.text)}</span>
+          <span class="cal-day-task-source">${esc(t.source)}</span>
+        </button>`).join("")}
+    </div>`;
+}
+export function toggleDayPopover(k) {
+  openDayPopover = openDayPopover === k ? null : k;
+  renderCalendarView();
+}
+export function goToCalendarTask(id, isGsi) {
+  openDayPopover = null;
+  if (isGsi) { go("work"); }
+  else { go("overview"); }
+  renderCalendarView();
+}
 export function setCalendarHabit(id) { calendarHabitId = id; renderCalendarView(); }
 export function shiftCalendarMonth(n) {
   monthCursor = new Date(monthCursor.getFullYear(), monthCursor.getMonth() + n, 1);
+  renderCalendarView();
+}
+export function toggleScribbleMode() {
+  scribbleMode = !scribbleMode;
+  openDayPopover = null;
   renderCalendarView();
 }
 
