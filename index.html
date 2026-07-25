@@ -478,6 +478,30 @@
           </div>
         </div>
       </div>
+
+      <div class="section-title">Expense &amp; EMI Tracker</div>
+      <div class="card">
+        <div class="card-head">
+          <h2>Expense &amp; EMI Tracker</h2>
+          <button class="icon-btn" onclick="openEmiDropdownManager()">⚙️ Manage dropdowns</button>
+        </div>
+        <div class="card-body">
+          <div class="emi-table-scroll">
+            <table class="emi-table">
+              <thead>
+                <tr>
+                  <th>Sr No</th><th>Expense</th><th>Monthly Amount</th><th>EMI Start Date</th>
+                  <th>EMI End Date</th><th>Remaining Amount</th><th>Months Remaining</th>
+                  <th>Bank</th><th>Term</th><th>Status</th><th>Notes</th><th></th>
+                </tr>
+              </thead>
+              <tbody id="emiTableBody"></tbody>
+              <tfoot><tr id="emiTotalsRow" class="emi-totals-row"></tr></tfoot>
+            </table>
+          </div>
+          <button class="btn btn-ghost" style="margin-top:12px" onclick="addEmiRow()">+ Add row</button>
+        </div>
+      </div>
     </section>
 
     <!-- ======== PAGE: HEALTH ======== -->
@@ -728,6 +752,16 @@
       <button class="btn btn-ghost" onclick="clearScribble()">Clear</button>
       <span class="hint">Draw with mouse, finger, or stylus — saves automatically</span>
     </div>
+  </div>
+</div>
+
+<div class="emi-dd-modal-bg" id="emiDropdownModalBg">
+  <div class="emi-dd-modal">
+    <div class="expand-modal-head">
+      <h2>Manage dropdown options</h2>
+      <button class="btn btn-ghost" onclick="closeEmiDropdownManager()">✕ Close</button>
+    </div>
+    <div class="emi-dd-modal-body" id="emiDropdownManagerBody"></div>
   </div>
 </div>
 

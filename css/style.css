@@ -973,3 +973,52 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   .gsi-archive-modal{max-width:none;max-height:100vh;border-radius:0;height:100vh}
   .gsi-archive-restore,.gsi-archive-remove{min-height:36px}
 }
+
+/* ================================================================
+   FINANCE — Expense & EMI Tracker table
+   ================================================================ */
+.emi-table-scroll{overflow-x:auto;border:1px solid var(--line);border-radius:12px}
+.emi-table{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap}
+.emi-table th{background:var(--paper);text-align:left;padding:9px 10px;font-size:11px;
+  font-weight:800;color:var(--muted);letter-spacing:.03em;border-bottom:1px solid var(--line);position:sticky;top:0}
+.emi-table td{padding:4px 6px;border-bottom:1px solid var(--line)}
+.emi-table tbody tr:hover{background:var(--paper)}
+.emi-table input,.emi-table select{border:1px solid transparent;background:transparent;font-family:inherit;
+  font-size:13px;padding:6px 7px;border-radius:7px;width:100%;box-sizing:border-box;color:var(--ink)}
+.emi-table input:hover,.emi-table select:hover{border-color:var(--line)}
+.emi-table input:focus,.emi-table select:focus{outline:none;border-color:var(--accent);background:#fff;
+  box-shadow:0 0 0 3px rgba(99,102,241,.12)}
+.emi-table input[type=number]{text-align:right}
+.emi-table input[type=date]{min-width:120px}
+.emi-srno{text-align:center;color:var(--muted);font-weight:700;padding:4px 10px}
+.emi-formula-cell{color:var(--ink-soft,var(--ink));font-weight:600;padding:6px 10px;text-align:right;
+  background:linear-gradient(0deg,rgba(99,102,241,.04),rgba(99,102,241,.04))} /* subtle tint marks these as computed, not typed */
+.emi-table .del{opacity:0;background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;border-radius:6px}
+.emi-table tbody tr:hover .del{opacity:1}
+.emi-table .del:hover{color:#DC2626;background:#FEE2E2}
+.emi-totals-row td{font-weight:800;background:var(--paper);border-top:2px solid var(--line);border-bottom:none;padding:9px 10px}
+.emi-totals-row td:nth-child(3),.emi-totals-row td:nth-child(6){text-align:right}
+
+/* ---------- Manage dropdown options modal ---------- */
+.emi-dd-modal-bg{display:none;position:fixed;inset:0;background:rgba(27,27,26,.45);z-index:230;
+  align-items:center;justify-content:center;padding:6vh 5vw}
+.emi-dd-modal-bg.open{display:flex}
+.emi-dd-modal{width:100%;max-width:480px;max-height:80vh;background:var(--card);border-radius:18px;
+  box-shadow:0 30px 80px -20px rgba(0,0,0,.4);display:flex;flex-direction:column;overflow:hidden}
+.emi-dd-modal-body{flex:1;overflow-y:auto;padding:6px 20px 20px}
+.emi-dd-group{padding:14px 0;border-bottom:1px solid var(--line)}
+.emi-dd-group:last-child{border-bottom:none}
+.emi-dd-group h4{margin:0 0 8px;font-size:13px;font-weight:800;color:var(--muted);letter-spacing:.03em}
+.emi-dd-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.emi-dd-row input{flex:1;border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit}
+.emi-dd-row button{border:none;background:none;color:var(--muted);cursor:pointer;padding:4px 6px;border-radius:6px}
+.emi-dd-row button:hover{color:#DC2626;background:#FEE2E2}
+.emi-dd-add{border:1px dashed var(--line);background:none;border-radius:8px;padding:7px 10px;
+  font-size:12.5px;font-weight:600;color:var(--accent-ink);cursor:pointer;width:100%;text-align:left;margin-top:4px}
+.emi-dd-add:hover{border-color:var(--accent);background:var(--lilac)}
+
+@media(max-width:767px){
+  .emi-dd-modal-bg{padding:0}
+  .emi-dd-modal{max-width:none;border-radius:0;height:100vh;max-height:100vh}
+  .emi-table input,.emi-table select{min-height:36px}
+}

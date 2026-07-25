@@ -94,7 +94,17 @@ export const DEFAULT_STATE = {
     notes: "", links: [],
     grocery: [],   // [{id, name, date, link}]
     shopping: [],  // [{id, name, date, link}]
-    wishlist: []   // [{id, name, date, link}]
+    wishlist: [],  // [{id, name, date, link}]
+    emiTable: {
+      // Remaining Amount and Months Remaining are never stored — they're
+      // derived fresh from monthlyAmount/endDate on every render, so they
+      // always reflect the current date rather than going stale like a
+      // one-time-computed value would.
+      rows: [],  // [{id, expense, monthlyAmount, startDate, endDate, bank, term, status, notes}]
+      banks: ["ICICI Amazon Pay", "SBI Credit Card", "HDFC Finance", "Bajaj", "Cred Cash"],
+      terms: ["Short", "Medium", "Long"],
+      statuses: ["Active", "Paid", "Closed", "Paused"]
+    }
   },
   health: {
     notes: "", links: [],
