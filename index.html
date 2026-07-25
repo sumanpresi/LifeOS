@@ -504,6 +504,27 @@
       </div>
 
       <div class="card">
+        <div class="card-head"><h2>Monthly Expenses</h2></div>
+        <div class="card-body">
+          <div class="fin-month-tabbar">
+            <button class="fin-month-nav" onclick="addExpenseMonthBefore()" title="Add an earlier month">◀ +</button>
+            <div class="fin-month-tabs" id="finMonthTabs"></div>
+            <button class="fin-month-nav" onclick="addExpenseMonthAfter()" title="Add a later month">+ ▶</button>
+          </div>
+          <div class="emi-table-scroll">
+            <table class="emi-table">
+              <thead>
+                <tr><th>Date</th><th>Category</th><th>Description</th><th>Amount</th><th>Payment</th><th>Notes</th><th></th></tr>
+              </thead>
+              <tbody id="finMonthlyTableBody"></tbody>
+              <tfoot><tr id="finMonthlyTotalsRow" class="emi-totals-row"></tr></tfoot>
+            </table>
+          </div>
+          <button class="btn btn-ghost" style="margin-top:12px" onclick="addExpenseRow()">+ Add row</button>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="card-head"><h2>📊 Full spreadsheet (Google Sheets)</h2></div>
         <div class="card-body">
           <p class="hint" style="margin-bottom:10px">Opens in Google Sheets using your own sign-in — this is a link, not an embedded copy, so edits there won't sync back into LifeOS.</p>

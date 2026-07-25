@@ -31,6 +31,7 @@ export function renderFinance() {
     </div>`).join("") || `<p class="hint">No links yet.</p>`;
   LISTS.forEach(renderList);
   renderEmiTable();
+  renderMonthlyExpenses();
   const sheetInput = document.getElementById("finExternalSheetUrl");
   if (sheetInput && document.activeElement !== sheetInput) sheetInput.value = state.finance.externalSheetUrl || "";
   const sheetOpenBtn = document.getElementById("finExternalSheetOpenBtn");
@@ -42,6 +43,101 @@ export function saveExternalSheetUrl(v) {
   persist();
   const sheetOpenBtn = document.getElementById("finExternalSheetOpenBtn");
   if (sheetOpenBtn) sheetOpenBtn.href = state.finance.externalSheetUrl || "#";
+}
+
+/* ---------- Monthly Expenses (tabbed by month) ---------- */
+let activeExpenseMonth = null; // "YYYY-MM" — re-derived to current month on first render if unset
+function monthKey(d) { return d.toISOString().slice(0, 7); }
+function monthLabel(k) {
+  const [y, m] = k.split("-").map(Number);
+  return new Date(y, m - 1, 1).toLocaleDateString("en-IN", { month: "short", year: "numeric" });
+}
+function monthsStore() { return state.finance.monthlyExpenses.months; }
+function ensureMonth(k) { monthsStore()[k] = monthsStore()[k] || { rows: [] }; return monthsStore()[k]; }
+
+function sortedMonthKeys() {
+  const keys = new Set(Object.keys(monthsStore()));
+  keys.add(monthKey(new Date())); // current month is always available, even before anything's added
+  if (activeExpenseMonth) keys.add(activeExpenseMonth);
+  return [...keys].sort();
+}
+
+export function renderMonthlyExpenses() {
+  if (!activeExpenseMonth) activeExpenseMonth = monthKey(new Date());
+  const keys = sortedMonthKeys();
+  const tabsBox = document.getElementById("finMonthTabs");
+  if (tabsBox) {
+    tabsBox.innerHTML = keys.map(k => `
+      <button class="fin-month-tab ${k === activeExpenseMonth ? "on" : ""}" onclick="setActiveExpenseMonth('${k}')">${monthLabel(k)}</button>
+    `).join("");
+  }
+
+  ensureMonth(activeExpenseMonth);
+  const rows = monthsStore()[activeExpenseMonth].rows;
+  const tbody = document.getElementById("finMonthlyTableBody");
+  if (!tbody) return;
+
+  let total = 0;
+  tbody.innerHTML = rows.map(r => {
+    total += parseFloat(r.amount) || 0;
+    return `
+    <tr>
+      <td><input type="date" value="${esc(r.date || "")}" onchange="editExpenseRow('${r.id}','date',this.value)"></td>
+      <td><input type="text" value="${esc(r.category || "")}" onchange="editExpenseRow('${r.id}','category',this.value)" placeholder="Category"></td>
+      <td><input type="text" value="${esc(r.description || "")}" onchange="editExpenseRow('${r.id}','description',this.value)" placeholder="Description"></td>
+      <td><input type="number" step="0.01" value="${r.amount || ""}" onchange="editExpenseRow('${r.id}','amount',this.value)" placeholder="0.00"></td>
+      <td><input type="text" value="${esc(r.payment || "")}" onchange="editExpenseRow('${r.id}','payment',this.value)" placeholder="Cash / Card / UPI"></td>
+      <td><input type="text" value="${esc(r.notes || "")}" onchange="editExpenseRow('${r.id}','notes',this.value)" placeholder="Notes"></td>
+      <td><button class="del" onclick="delExpenseRow('${r.id}')" aria-label="Delete row">✕</button></td>
+    </tr>`;
+  }).join("") || `<tr><td colspan="7" class="hint" style="text-align:center;padding:18px">No expenses logged for ${monthLabel(activeExpenseMonth)} yet.</td></tr>`;
+
+  const totalsRow = document.getElementById("finMonthlyTotalsRow");
+  if (totalsRow) totalsRow.innerHTML = `<td></td><td>Total</td><td></td><td>${fmtInr(total)}</td><td></td><td></td><td></td>`;
+}
+
+export function setActiveExpenseMonth(k) { activeExpenseMonth = k; renderMonthlyExpenses(); }
+export function addExpenseMonthBefore() {
+  const first = sortedMonthKeys()[0];
+  const [y, m] = first.split("-").map(Number);
+  const prev = new Date(y, m - 2, 1);
+  activeExpenseMonth = monthKey(prev);
+  ensureMonth(activeExpenseMonth);
+  persist(); renderMonthlyExpenses();
+}
+export function addExpenseMonthAfter() {
+  const keys = sortedMonthKeys();
+  const last = keys[keys.length - 1];
+  const [y, m] = last.split("-").map(Number);
+  const next = new Date(y, m, 1);
+  activeExpenseMonth = monthKey(next);
+  ensureMonth(activeExpenseMonth);
+  persist(); renderMonthlyExpenses();
+}
+
+export function addExpenseRow() {
+  ensureMonth(activeExpenseMonth).rows.push({ id: uid(), date: "", category: "", description: "", amount: "", payment: "", notes: "" });
+  persist(); renderMonthlyExpenses();
+}
+function findExpenseRow(id) {
+  for (const k of Object.keys(monthsStore())) {
+    const r = monthsStore()[k].rows.find(x => x.id === id);
+    if (r) return { row: r, monthKey: k };
+  }
+  return { row: null, monthKey: null };
+}
+export function editExpenseRow(id, field, v) {
+  const { row } = findExpenseRow(id);
+  if (!row) return;
+  row[field] = v;
+  persist(); renderMonthlyExpenses(); // amount changes affect the total, so recompute the whole view
+}
+export function delExpenseRow(id) {
+  const { row, monthKey: k } = findExpenseRow(id);
+  if (!row) return;
+  moveToTrash("monthlyExpenseRow", row, { monthKey: k });
+  monthsStore()[k].rows = monthsStore()[k].rows.filter(x => x.id !== id);
+  persist(); renderMonthlyExpenses();
 }
 
 let finTimer = null;

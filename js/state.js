@@ -96,6 +96,7 @@ export const DEFAULT_STATE = {
     shopping: [],  // [{id, name, date, link}]
     wishlist: [],  // [{id, name, date, link}]
     externalSheetUrl: "https://docs.google.com/spreadsheets/d/19RqVQburOvAEe1UgHiESOkgzsi_DyAJP/edit?usp=sharing&ouid=100091168235788573849&rtpof=true&sd=true",
+    monthlyExpenses: { months: {} }, // { "2026-07": { rows: [{id,date,category,description,amount,payment,notes}] } }
     emiTable: {
       // Remaining Amount and Months Remaining are never stored — they're
       // derived fresh from monthlyAmount/endDate on every render, so they
