@@ -12,6 +12,7 @@ import * as health from './health.js';
 import * as travel from './travel.js';
 import * as reference from './reference.js';
 import * as trash from './trash.js';
+import * as dateShortcuts from './date-shortcuts.js';
 import * as expandView from './expand-view.js';
 import * as mapCoords from './map-click-coords.js';
 import * as search from './search.js';
@@ -58,6 +59,8 @@ Object.assign(window,
     delSectionLink: sections.delSectionLink },
   { addNgdr: gsi.addNgdr, editProjectTask: gsi.editProjectTask, setTaskStatus: gsi.setTaskStatus, delProjectTask: gsi.delProjectTask,
     addProject: gsi.addProject, switchProject: gsi.switchProject, renameProject: gsi.renameProject, delProject: gsi.delProject,
+    toggleWorkspaceDropdown: gsi.toggleWorkspaceDropdown, filterWorkspaceOptions: gsi.filterWorkspaceOptions,
+    chooseWorkspace: gsi.chooseWorkspace, addWorkspaceFromDropdown: gsi.addWorkspaceFromDropdown,
     addLog: gsi.addLog, delLog: gsi.delLog, addMeeting: gsi.addMeeting, editMeeting: gsi.editMeeting,
     toggleMeetingOpen: gsi.toggleMeetingOpen, delMeeting: gsi.delMeeting,
     addGsiLink: gsi.addGsiLink, delGsiLink: gsi.delGsiLink,
@@ -83,6 +86,7 @@ Object.assign(window,
     clearRouteFromLocation: reference.clearRouteFromLocation, calculateWorldMapRoute: reference.calculateWorldMapRoute,
     resetWorldMapRoute: reference.resetWorldMapRoute },
   { restoreFromTrash: trash.restoreFromTrash, permanentlyDeleteFromTrash: trash.permanentlyDeleteFromTrash },
+  { toggleDatePopover: dateShortcuts.toggleDatePopover, setQuickDate: dateShortcuts.setQuickDate },
   { expandView: expandView.expandView, closeExpandView: expandView.closeExpandView },
   { copyCoordsToClipboard: mapCoords.copyCoordsToClipboard },
   { openSearch: search.openSearch, closeSearch: search.closeSearch,

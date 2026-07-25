@@ -229,7 +229,9 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   background:var(--paper);color:var(--muted)}
 
 /* ---------- v0.3: GSI workspace ---------- */
-.status-sel{border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-weight:700;font-size:12.5px;background:var(--paper);flex-shrink:0}
+.status-sel{border:1px solid var(--line);border-radius:16px;padding:5px 12px;font-weight:700;font-size:12.5px;
+  background:var(--paper);flex-shrink:0;box-shadow:0 1px 3px rgba(34,31,51,.06);transition:box-shadow 150ms ease}
+.status-sel:hover{box-shadow:0 2px 6px rgba(34,31,51,.1)}
 .status-sel.s-todo{color:var(--muted)}
 .status-sel.s-progress{color:var(--accent-ink);border-color:var(--lilac-deep);background:var(--lilac)}
 .status-sel.s-done{color:var(--ok);background:#EAF3EC;border-color:#CDE3D3}
@@ -650,3 +652,44 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   .t-right{align-items:flex-start}
   .t-meta{padding-left:14px}
 }
+
+/* ---------- Workspace dropdown (replaces the project tabs) ---------- */
+.ws-dropdown{position:relative;display:inline-block}
+.ws-dropdown-btn{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:16px;
+  padding:9px 16px;background:#fff;box-shadow:0 1px 3px rgba(34,31,51,.06);cursor:pointer;
+  font-size:13.5px;transition:box-shadow 150ms ease,border-color 150ms ease}
+.ws-dropdown-btn:hover{box-shadow:0 2px 8px rgba(34,31,51,.1);border-color:var(--accent)}
+.ws-dropdown-label{color:var(--muted);font-weight:600}
+.ws-dropdown-value{color:var(--ink);font-weight:700}
+.ws-dropdown-chevron{color:var(--muted);font-size:11px;margin-left:2px;transition:transform 150ms ease}
+.ws-dropdown-btn.open .ws-dropdown-chevron{transform:rotate(180deg)}
+.ws-dropdown-panel{display:none;position:absolute;top:calc(100% + 6px);left:0;min-width:260px;z-index:50;
+  background:#fff;border:1px solid var(--line);border-radius:16px;
+  box-shadow:0 12px 32px -8px rgba(34,31,51,.22);padding:8px;
+  opacity:0;transform:translateY(-4px) scale(.98);transition:opacity 160ms ease,transform 160ms ease}
+.ws-dropdown-panel.open{display:block;opacity:1;transform:translateY(0) scale(1)}
+.ws-search{width:100%;border:1px solid var(--line);border-radius:10px;padding:8px 11px;
+  font-size:13.5px;margin-bottom:6px;background:var(--paper)}
+.ws-options{max-height:220px;overflow-y:auto;display:flex;flex-direction:column;gap:2px}
+.ws-option{text-align:left;border:none;background:transparent;border-radius:10px;padding:8px 11px;
+  font-size:13.5px;font-weight:600;color:var(--ink);cursor:pointer;transition:background 120ms ease}
+.ws-option:hover{background:var(--paper)}
+.ws-option.selected{background:var(--lilac);color:var(--accent-ink)}
+.ws-add-new{width:100%;text-align:left;border:none;border-top:1px solid var(--line);background:transparent;
+  border-radius:0;margin-top:6px;padding:10px 11px 4px;font-size:13.5px;font-weight:700;
+  color:var(--accent-ink);cursor:pointer}
+.ws-add-new:hover{text-decoration:underline}
+
+/* ---------- Due-date quick shortcuts popover ---------- */
+.date-popover-wrap{position:relative;display:flex;align-items:center;gap:2px;flex-shrink:0}
+.date-popover-btn{border:1px solid var(--line);border-radius:8px;background:var(--paper);
+  font-size:12px;padding:4px 6px;cursor:pointer;line-height:1}
+.date-popover-btn:hover{border-color:var(--accent)}
+.date-popover{display:none;position:absolute;top:calc(100% + 5px);right:0;z-index:50;
+  background:#fff;border:1px solid var(--line);border-radius:14px;
+  box-shadow:0 12px 28px -8px rgba(34,31,51,.22);padding:6px;min-width:130px;
+  opacity:0;transform:translateY(-4px);transition:opacity 140ms ease,transform 140ms ease}
+.date-popover.open{display:flex;flex-direction:column;gap:1px;opacity:1;transform:translateY(0)}
+.date-popover button{text-align:left;border:none;background:transparent;border-radius:8px;
+  padding:7px 10px;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer}
+.date-popover button:hover{background:var(--paper)}
