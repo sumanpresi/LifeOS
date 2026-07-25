@@ -7,7 +7,7 @@
    (a 4-state status, not a simple done/not-done) — this only merges them
    for DISPLAY, routing edits back to the correct underlying data. */
 import { state, uid, esc, persist, rerender } from './state.js';
-import { toast } from './ui.js';
+import { toast, autoGrow } from './ui.js';
 import { moveToTrash } from './trash.js';
 import { getAllGsiTasksFlat, findProjectTask, editProjectTask, setTaskStatus as setGsiTaskStatus,
   delProjectTask, toggleProjectTaskFlag } from './gsi.js';
@@ -62,8 +62,8 @@ function taskRowHtml(t) {
         <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
       <div class="t-main">
         <div class="t-title-line">
-          <input type="text" class="t-title ${t.link ? "t-linked" : ""}" value="${esc(t.text)}"
-            onclick="event.stopPropagation()" onchange="editTask('${t.id}',this.value)">
+          <textarea class="t-title ${t.link ? "t-linked" : ""}" rows="1"
+            onclick="event.stopPropagation()" onchange="editTask('${t.id}',this.value)" oninput="autoGrow(this)">${esc(t.text)}</textarea>
           <button class="t-flag ${t.flag ? "on" : ""}" onclick="event.stopPropagation();toggleFlag('${t.id}')"
             title="${t.flag ? "Unflag" : "Flag as priority"}">🚩</button>
         </div>
@@ -74,7 +74,6 @@ function taskRowHtml(t) {
         <span class="t-breadcrumb">${breadcrumb}</span>
         ${t.done && t.completedAt ? `<span class="t-completed-note">✓ ${fmtCompletedAt(t.completedAt)}</span>` : ""}
       </div>
-      <button class="t-del" onclick="event.stopPropagation();delTask('${t.id}')" aria-label="Delete">✕</button>
     </div>
     <div class="t-meta" onclick="event.stopPropagation()">
       ${t.isGsi ? "" : `
@@ -158,6 +157,10 @@ export function renderTasks() {
   document.getElementById("taskCount").textContent = state.tasks.length ? `${openCount} open` : "";
   document.getElementById("catTasksSub").textContent =
     state.tasks.length ? `${openCount} of ${state.tasks.length} still open` : "Plan your day.";
+  // Same "measure after render" requirement as GSI Workspace's title
+  // fields — see go() in ui.js for the re-run when this page was
+  // hidden at the moment this render happened.
+  list.querySelectorAll(".t-title").forEach(autoGrow);
 
   const filterBox = document.getElementById("taskFilterBar");
   if (filterBox) {

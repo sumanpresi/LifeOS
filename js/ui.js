@@ -27,6 +27,7 @@ export function go(page) {
     // now that the page is actually visible and layout can be computed.
     el.querySelectorAll(".mm-section textarea").forEach(autoGrow);
     el.querySelectorAll(".gsi-title").forEach(autoGrow);
+    el.querySelectorAll(".t-title").forEach(autoGrow);
     if (page === "reference") import("./reference.js").then(m => m.showWorldMap());
   }
   document.getElementById("sidebar").classList.remove("open");

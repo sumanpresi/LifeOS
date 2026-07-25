@@ -590,7 +590,8 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .t-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 .t-title-line{display:flex;align-items:center;gap:8px}
 .t-title{border:none;background:transparent;font-family:'Inter',sans-serif;font-size:16px;
-  font-weight:500;color:var(--t-ink);padding:0;flex:1;min-width:0}
+  font-weight:500;color:var(--t-ink);padding:0;flex:1;min-width:0;resize:none;overflow:hidden;
+  white-space:pre-wrap;word-break:break-word;line-height:1.35;display:block;box-sizing:border-box}
 .t-title:focus{outline:none;text-decoration:underline;text-decoration-color:var(--t-border)}
 .t-row.done .t-title{color:var(--t-ink2);text-decoration:line-through;opacity:.65}
 .t-title.t-linked{color:var(--t-accent);text-decoration:underline;text-decoration-color:#BFD3F8}
@@ -708,7 +709,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   .t-row{
     flex-wrap:wrap;
     width:100%;
-    padding:16px 60px 16px 16px; /* right padding reserves clear space for the absolutely-positioned delete button */
+    padding:16px;
     border-radius:18px;
     margin:0;
     box-shadow:0 1px 3px rgba(31,41,55,.08),0 1px 2px rgba(31,41,55,.06);
@@ -735,16 +736,6 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
     gap:8px;
   }
   .t-completed-note{order:0}
-  /* Delete moves to a clearly-tappable corner rather than a cramped
-     inline icon, and only appears via press/expand — consistent with
-     "nothing should overflow" and a 44px-minimum touch target. Sized to
-     the spec's explicit 44px minimum (was 32px), with the row's right
-     padding above widened to match, so nothing else can ever sit under it. */
-  .t-del{
-    position:absolute;top:2px;right:2px;opacity:1;
-    width:44px;height:44px;display:flex;align-items:center;justify-content:center;
-    border-radius:50%;background:var(--t-bg,#F7F8FA);font-size:14px;box-sizing:border-box;
-  }
   .t-meta{margin:0;border-radius:0 0 18px 18px;padding:12px 16px 16px 54px}
   .t-row.t-expanded{border-bottom-left-radius:0;border-bottom-right-radius:0}
 
