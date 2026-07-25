@@ -830,8 +830,9 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 
 .gsi-card-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
 .gsi-title{border:none;background:transparent;font-family:inherit;font-size:16px;font-weight:700;
-  color:var(--ink);padding:0;width:100%;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}
-.gsi-title:focus{outline:none;white-space:normal;text-overflow:clip;overflow:visible}
+  color:var(--ink);padding:0;width:100%;resize:none;overflow:hidden;white-space:pre-wrap;
+  word-break:break-word;line-height:1.35;display:block;box-sizing:border-box}
+.gsi-title:focus{outline:none}
 
 .gsi-link-row{display:flex;align-items:center;gap:6px;min-height:20px}
 .gsi-link-display{color:#2563EB;text-decoration:underline;font-size:13px;white-space:nowrap;
@@ -895,8 +896,13 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .gsi-add-btn:active{transform:scale(.97)}
 
 @media(max-width:767px){
-  .gsi-card{padding:14px;min-height:auto}
-  .gsi-card-right{flex-direction:column;align-items:flex-end;gap:10px}
+  .gsi-card{padding:14px;min-height:auto;flex-wrap:wrap}
+  .gsi-card-main{flex-basis:0;min-width:0}
+  .gsi-card-right{
+    flex-basis:100%;flex-direction:row;align-items:center;justify-content:flex-start;
+    gap:10px;margin-top:2px;padding-left:36px; /* aligns under the title, past the checkbox */
+  }
+  .gsi-title{font-size:15.5px} /* the real fix is width, from .gsi-card-right now wrapping below — this input still can't multi-line wrap */
   .gsi-flag,.gsi-del{opacity:1;width:36px;height:36px;display:flex;align-items:center;justify-content:center}
   .gsi-status-sel{padding:8px 12px;min-height:36px}
   .gsi-toolbar-row{gap:8px}

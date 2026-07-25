@@ -238,7 +238,7 @@ function renderProjects() {
       <button class="gsi-chk ${item.status === "done" ? "on" : ""}" onclick="setTaskStatus('${item.id}','${item.status === "done" ? "todo" : "done"}')" aria-label="Toggle done">
         <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
       <div class="gsi-card-main">
-        <input type="text" class="gsi-title" value="${esc(item.text)}" onchange="editProjectTask('${item.id}','text',this.value)" title="${esc(item.text)}">
+        <textarea class="gsi-title" rows="1" onchange="editProjectTask('${item.id}','text',this.value)" oninput="autoGrow(this)">${esc(item.text)}</textarea>
         <div class="gsi-link-row">
           ${item.link
             ? `<a href="${esc(item.link.startsWith("http")?item.link:"https://"+item.link)}" target="_blank" rel="noopener" class="gsi-link-display">🔗 ${esc(item.link.replace(/^https?:\/\//,""))}</a>
@@ -278,6 +278,14 @@ function renderProjects() {
 
   const openCount = active.tasks.filter(i => i.status !== "done").length;
   document.getElementById("ngdrCount").textContent = active.tasks.length ? `${openCount} open` : "";
+  // Newly-rendered textareas start at their default single-row height —
+  // they don't auto-size until something measures and sets height
+  // explicitly, so do that pass right after render (same pattern used
+  // for Reference Library's phrase fields). If this render happened
+  // while the Work·GSI page itself was hidden (e.g. during initial app
+  // boot, before navigating here), this measurement will be wrong —
+  // go() in ui.js re-runs this once the page actually becomes visible.
+  document.querySelectorAll(".gsi-title").forEach(autoGrow);
 }
 export function toggleGsiLinkEdit(evt, id) {
   evt.stopPropagation();
