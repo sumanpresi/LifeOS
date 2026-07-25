@@ -199,7 +199,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 
 .page{display:none}.page.visible{display:block}
 .mob-toggle{display:none}
-@media(max-width:760px){
+@media(max-width:767px){
   .sidebar{position:fixed;z-index:40;left:0;top:0;transform:translateX(-100%);transition:transform .22s ease;box-shadow:var(--shadow)}
   .sidebar.open{transform:translateX(0)}
   .main{padding:18px 16px 60px}
@@ -256,7 +256,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   background:#fff;
   box-shadow:var(--shadow);
 }
-@media(max-width:760px){
+@media(max-width:767px){
   .iframe-page{height:calc(100vh - 120px);min-height:600px;border-radius:12px}
 }
 
@@ -265,7 +265,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   height:1500px;
   min-height:1200px;
 }
-@media(max-width:760px){
+@media(max-width:767px){
   .ngdr-tracker-frame{height:1900px}
 }
 
@@ -638,7 +638,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .t-add-row{display:flex;align-items:center;gap:10px;padding:14px 18px;background:var(--t-card)}
 .t-add-icon{width:22px;height:22px;border-radius:50%;border:1.5px dashed #C7CCD4;flex-shrink:0;
   display:flex;align-items:center;justify-content:center;color:var(--t-accent);font-size:14px}
-.t-add-row input{flex:1;border:none;background:transparent;font-family:'Inter',sans-serif;
+.t-add-row input{flex:1;min-width:0;border:none;background:transparent;font-family:'Inter',sans-serif;
   font-size:15px;color:var(--t-ink);padding:6px 0}
 .t-add-row input::placeholder{color:var(--t-ink2)}
 .t-add-row input:focus{outline:none}
@@ -693,3 +693,78 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .date-popover button{text-align:left;border:none;background:transparent;border-radius:8px;
   padding:7px 10px;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer}
 .date-popover button:hover{background:var(--paper)}
+
+/* ================================================================
+   MOBILE TASK CARDS — scoped to <768px only, exactly matching the
+   brief's own breakpoint. Desktop's .t-row layout (flex row: checkbox |
+   main | breadcrumb | delete) is completely untouched above 768px.
+   This achieves the mobile card layout purely through CSS re-flow —
+   flex-wrap and order — with zero HTML or JS changes, since the same
+   DOM elements just need to visually rearrange, not restructure.
+   ================================================================ */
+@media(max-width:767px){
+  #tasksCard{padding:0}
+  .t-section-rows{display:flex;flex-direction:column;gap:12px;padding:4px 0}
+  .t-row{
+    flex-wrap:wrap;
+    width:100%;
+    padding:16px;
+    border-radius:18px;
+    margin:0;
+    box-shadow:0 1px 3px rgba(31,41,55,.08),0 1px 2px rgba(31,41,55,.06);
+    border-bottom:none;
+    position:relative;
+    transition:transform 120ms ease,box-shadow 120ms ease;
+  }
+  .t-row:active{transform:scale(.985);box-shadow:0 1px 2px rgba(31,41,55,.1)}
+  .t-chk{width:26px;height:26px} /* larger touch target */
+  .t-main{flex:1;min-width:0}
+  .t-title{font-size:16px}
+  .t-flag{font-size:17px;padding:6px} /* comfortable tap size */
+  /* Metadata (breadcrumb, status) moves below the title, full width,
+     instead of sitting in a right-hand column — this is the "everything
+     below the title" layout the brief describes. */
+  .t-right{
+    order:5;
+    flex-basis:100%;
+    flex-direction:row;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:flex-start;
+    padding-left:38px; /* align under the title text, past the checkbox */
+    gap:8px;
+  }
+  .t-completed-note{order:0}
+  /* Delete moves to a clearly-tappable corner rather than a cramped
+     inline icon, and only appears via press/expand — consistent with
+     "nothing should overflow" and a 44px-minimum touch target. */
+  .t-del{
+    position:absolute;top:10px;right:10px;opacity:1;
+    width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+    border-radius:50%;background:var(--t-bg,#F7F8FA);font-size:14px;
+  }
+  .t-meta{margin:0;border-radius:0 0 18px 18px;padding:12px 16px 16px 54px}
+  .t-row.t-expanded{border-bottom-left-radius:0;border-bottom-right-radius:0}
+
+  /* Section headers get a bit more breathing room and a bigger tap area */
+  .t-section-head{padding:16px 4px 10px}
+  .t-section-title{font-size:15px}
+
+  /* Filter tabs (All / Work / Personal) become horizontally scrollable
+     chips instead of wrapping or overflowing. */
+  #taskFilterBar{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;
+    scrollbar-width:none;padding-bottom:2px}
+  #taskFilterBar::-webkit-scrollbar{display:none}
+  #taskFilterBar button{flex-shrink:0;white-space:nowrap}
+
+  .t-add-row{padding:16px}
+  .t-add-icon,.t-add-btn{min-height:44px} /* comfortable tap target */
+  .t-add-btn{padding:8px 14px;font-size:12.5px;flex-shrink:0}
+
+  /* Existing mobile nav (a slide-in sidebar, not a bottom bar — see note
+     in the delivery message) gets larger touch targets, matching the
+     spirit of "26px icons, comfortable tap area" even though the actual
+     nav pattern here is different from what the brief assumed exists. */
+  .nav-item{min-height:44px;padding:11px 12px;font-size:14.5px}
+  .nav-item svg{width:20px;height:20px}
+}
