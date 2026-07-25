@@ -57,6 +57,7 @@
 
   .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
     box-shadow:var(--shadow);padding:24px}
+  @media(max-width:600px){ .card{padding:14px} .acc .body{padding:0 6px 12px} }
   .card h2{font-family:var(--serif);font-weight:600;font-size:21px;margin:0 0 3px;letter-spacing:-.01em}
   .card .cap{color:var(--muted);font-size:13px;margin:0 0 16px}
   .grid{display:grid;gap:18px}
@@ -178,7 +179,7 @@
   .ref-title-input{border:none;background:transparent;font-weight:600;font-size:14.5px;padding:0;flex:1;font-family:inherit}
   .ref-line-edit{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line)}
   .ref-line-edit:first-child{border-top:none}
-  .ref-line-edit input{flex:1;border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:13.5px;font-family:inherit;background:var(--paper)}
+  .ref-line-edit input{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:13.5px;font-family:inherit;background:var(--paper)}
   .ref-line-del{flex-shrink:0;border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;padding:4px}
   .ref-line-del:hover{color:#c0392b}
   .ref-add-row{display:flex;gap:8px;margin-top:10px}
