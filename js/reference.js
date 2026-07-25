@@ -7,6 +7,7 @@ import { state, uid, esc, persist, rerender } from './state.js';
 import { toast } from './ui.js';
 import { attachFreehandTool } from './leaflet-freehand.js';
 import { attachPenAnnotationTool } from './map-pen-annotation.js';
+import { createToolCoordinator } from './map-tool-state.js';
 import { geocodeOne } from './geocode.js';
 import { addBaseLayer, enableClickToScrollZoom } from './map-basemap.js';
 import { addFullscreenControl } from './map-fullscreen.js';
@@ -236,13 +237,19 @@ function initWorldMap() {
   map.on(L.Draw.Event.CREATED, e => { drawnItems.addLayer(e.layer); save(); });
   map.on(L.Draw.Event.EDITED, save);
   map.on(L.Draw.Event.DELETED, save);
-  const freehand = attachFreehandTool(map, drawnItems, save);
+  // Both drawing tools below share ONE coordinator so exactly one of the
+  // four buttons (scribble draw/erase, pen draw/erase) can ever be active
+  // at a time — this is what fixes the "both toolbars show active"
+  // state-management bug.
+  const toolCoordinator = createToolCoordinator();
+  const freehand = attachFreehandTool(map, drawnItems, save, toolCoordinator);
   const savePenAnnotations = () => persist();
   const penAnnotation = attachPenAnnotationTool(
     map,
     () => state.reference.penAnnotations,
     (next) => { state.reference.penAnnotations = next; },
-    savePenAnnotations
+    savePenAnnotations,
+    toolCoordinator
   );
   attachClickCoordinates(map);
 

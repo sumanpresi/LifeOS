@@ -10,8 +10,8 @@
    persistence path already in place, and the eraser works on anything in
    that group — freehand strokes or Leaflet.draw shapes alike.
 
-   Usage: attachFreehandTool(map, drawnItems, onChanged) */
-export function attachFreehandTool(map, drawnItems, onChanged) {
+   Usage: attachFreehandTool(map, drawnItems, onChanged, toolCoordinator) */
+export function attachFreehandTool(map, drawnItems, onChanged, toolCoordinator) {
   let mode = null; // null | "draw" | "erase"
   let currentStroke = null; // Leaflet polyline being drawn right now
   let points = [];
@@ -118,8 +118,12 @@ export function attachFreehandTool(map, drawnItems, onChanged) {
   container.addEventListener("pointerup", onPointerUp);
   container.addEventListener("pointercancel", onPointerUp);
 
-  function setMode(next) {
-    mode = mode === next ? null : next; // clicking the active tool again turns it off
+  /* Applies a mode LOCALLY (this tool's own UI + map dragging state) —
+     does not touch the coordinator. Called both when this tool activates
+     itself, and when the coordinator tells it to deactivate because a
+     different tool (including the other drawing toolbar) was selected. */
+  function applyLocalMode(next) {
+    mode = next;
     container.classList.toggle("freehand-active", mode === "draw");
     container.classList.toggle("eraser-active", mode === "erase");
     if (drawBtn) drawBtn.classList.toggle("on", mode === "draw");
@@ -133,6 +137,16 @@ export function attachFreehandTool(map, drawnItems, onChanged) {
       map.doubleClickZoom.enable();
       if (map.tap) map.tap.enable();
     }
+  }
+  if (toolCoordinator) {
+    toolCoordinator.register("scribble-draw", () => applyLocalMode(null));
+    toolCoordinator.register("scribble-erase", () => applyLocalMode(null));
+  }
+  function setMode(next) {
+    if (!toolCoordinator) { applyLocalMode(mode === next ? null : next); return; }
+    const toolId = next === "draw" ? "scribble-draw" : "scribble-erase";
+    const active = toolCoordinator.setActiveTool(toolId);
+    applyLocalMode(active === toolId ? next : null);
   }
 
   const SketchControl = L.Control.extend({

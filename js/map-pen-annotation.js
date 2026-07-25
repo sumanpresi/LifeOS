@@ -15,11 +15,11 @@
    rendered as short pressure-weighted segments rather than one uniform
    line, so real stylus pressure actually shows up visually.
 
-   Usage: attachPenAnnotationTool(map, getAnnotations, setAnnotations, onChanged)
+   Usage: attachPenAnnotationTool(map, getAnnotations, setAnnotations, onChanged, toolCoordinator)
    - getAnnotations(): returns the current {strokes:[...]} object
    - setAnnotations(next): persists a new {strokes:[...]} object
    - onChanged(): called after any change, for the caller to persist() */
-export function attachPenAnnotationTool(map, getAnnotations, setAnnotations, onChanged) {
+export function attachPenAnnotationTool(map, getAnnotations, setAnnotations, onChanged, toolCoordinator) {
   let mode = null; // null | "draw" | "erase"
   let currentPoints = null; // points of the in-progress stroke
   let currentSegmentLayers = null; // Leaflet polylines drawn live, for the in-progress stroke
@@ -158,13 +158,27 @@ export function attachPenAnnotationTool(map, getAnnotations, setAnnotations, onC
   container.addEventListener("pointerup", onPointerUp);
   container.addEventListener("pointercancel", onPointerUp);
 
-  function setMode(next) {
-    mode = mode === next ? null : next;
+  /* Applies a mode LOCALLY (this tool's own UI) — does not touch the
+     coordinator. Called both when this tool activates itself, and when
+     the coordinator tells it to deactivate because a different tool
+     (including the original scribble toolbar) was selected. */
+  function applyLocalMode(next) {
+    mode = next;
     if (penBtn) penBtn.classList.toggle("on", mode === "draw");
     if (eraseBtn) eraseBtn.classList.toggle("on", mode === "erase");
     // Deliberately NOT touching map.dragging/doubleClickZoom/tap here —
     // finger and mouse must keep working normally the whole time this
     // tool is active. Only pen input is ever intercepted, above.
+  }
+  if (toolCoordinator) {
+    toolCoordinator.register("pen-draw", () => applyLocalMode(null));
+    toolCoordinator.register("pen-erase", () => applyLocalMode(null));
+  }
+  function setMode(next) {
+    if (!toolCoordinator) { applyLocalMode(mode === next ? null : next); return; }
+    const toolId = next === "draw" ? "pen-draw" : "pen-erase";
+    const active = toolCoordinator.setActiveTool(toolId);
+    applyLocalMode(active === toolId ? next : null);
   }
 
   const PenControl = L.Control.extend({

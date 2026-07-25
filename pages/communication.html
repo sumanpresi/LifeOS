@@ -179,7 +179,9 @@
   .ref-title-input{border:none;background:transparent;font-weight:600;font-size:14.5px;padding:0;flex:1;font-family:inherit}
   .ref-line-edit{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line)}
   .ref-line-edit:first-child{border-top:none}
-  .ref-line-edit input{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:6px 9px;font-size:13.5px;font-family:inherit;background:var(--paper)}
+  .ref-line-edit textarea.ref-line-textarea{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;
+    padding:6px 9px;font-size:13.5px;font-family:inherit;background:var(--paper);resize:none;overflow:hidden;
+    white-space:pre-wrap;word-break:break-word;line-height:1.4;min-height:32px;box-sizing:border-box}
   .ref-line-del{flex-shrink:0;border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:13px;padding:4px}
   .ref-line-del:hover{color:#c0392b}
   .ref-add-row{display:flex;gap:8px;margin-top:10px}
@@ -1113,7 +1115,7 @@ function renderAchievements(){
 function renderReference(){
   const lib = S.referenceLibrary || [];
   $("#refAcc").innerHTML = lib.map((r,i)=>`
-    <details class="acc" ${i===0?"open":""}>
+    <details class="acc" ${i===0?"open":""} ontoggle="if(this.open)this.querySelectorAll('.ref-line-textarea').forEach(autoSizeRefTextarea)">
       <summary>
         <input type="text" class="ref-title-input" value="${esc(r.t)}"
           onclick="event.stopPropagation()" onchange="editRefTitle(${i},this.value)">
@@ -1122,7 +1124,7 @@ function renderReference(){
       <div class="body">
         ${r.lines.map((l,j)=>`
           <div class="ref-line-edit">
-            <input type="text" value="${esc(l)}" onchange="editRefLine(${i},${j},this.value)">
+            <textarea class="ref-line-textarea" rows="1" onchange="editRefLine(${i},${j},this.value)" oninput="autoSizeRefTextarea(this)">${esc(l)}</textarea>
             <button class="ref-line-del" onclick="delRefLine(${i},${j})" title="Remove this phrase">✕</button>
           </div>`).join("") || `<p class="cap" style="margin:6px 0">No phrases yet — add one below.</p>`}
         <div class="ref-add-row">
@@ -1136,6 +1138,14 @@ function renderReference(){
       <input type="text" id="refNewSectionInput" placeholder="New section name, e.g. Customer Support" onkeydown="if(event.key==='Enter'){addRefSection();event.preventDefault();}">
       <button onclick="addRefSection()">+ Add section</button>
     </div>`;
+  // Newly-rendered textareas start at their default (single-row) height —
+  // they don't auto-size themselves until something measures and sets
+  // their height explicitly, so do that pass right after render.
+  document.querySelectorAll(".ref-line-textarea").forEach(autoSizeRefTextarea);
+}
+function autoSizeRefTextarea(el){
+  el.style.height = "auto";
+  el.style.height = (el.scrollHeight + 3) + "px"; // small buffer so border/rounding can never clip the last line
 }
 function editRefTitle(i,v){
   if(!v.trim()) return;
