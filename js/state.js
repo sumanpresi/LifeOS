@@ -21,6 +21,7 @@ export const DEFAULT_STATE = {
   ],
   habitLog: {},              // { "2026-07-19": { h1:true } }
   calendarScribbles: {},     // { "2026-07-19": { strokes: [{points:[{x,y}],...}] } } — one freehand note per date
+  whiteboard: { strokes: [] }, // [{points:[{x,y}], color, width, erase}] — one persistent canvas on Overview
   links: [
     { id: "l1", title: "PM GatiShakti portal", url: "https://www.pmgatishakti.gov.in", desc: "NGDR staging / UAT" },
     { id: "l2", title: "GSI Bhukosh", url: "https://bhukosh.gsi.gov.in", desc: "Geoscience data" }

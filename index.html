@@ -243,6 +243,34 @@
           </div>
         </div>
       </div>
+
+      <div class="card" id="whiteboardCard" style="margin-top:16px">
+        <div class="card-head">
+          <h2>Whiteboard</h2>
+          <div class="wb-toolbar">
+            <div class="wb-colors">
+              <button class="wb-color-swatch" data-color="#1B1B1A" style="background:#1B1B1A" onclick="setWhiteboardColor('#1B1B1A')" title="Black"></button>
+              <button class="wb-color-swatch" data-color="#DC2626" style="background:#DC2626" onclick="setWhiteboardColor('#DC2626')" title="Red"></button>
+              <button class="wb-color-swatch" data-color="#2563EB" style="background:#2563EB" onclick="setWhiteboardColor('#2563EB')" title="Blue"></button>
+              <button class="wb-color-swatch" data-color="#16A34A" style="background:#16A34A" onclick="setWhiteboardColor('#16A34A')" title="Green"></button>
+              <button class="wb-color-swatch" data-color="#F59E0B" style="background:#F59E0B" onclick="setWhiteboardColor('#F59E0B')" title="Orange"></button>
+              <button class="wb-color-swatch" data-color="#7C3AED" style="background:#7C3AED" onclick="setWhiteboardColor('#7C3AED')" title="Purple"></button>
+            </div>
+            <div class="wb-widths">
+              <button class="wb-width-btn" data-width="thin" onclick="setWhiteboardWidth('thin')" title="Thin">●</button>
+              <button class="wb-width-btn" data-width="medium" onclick="setWhiteboardWidth('medium')" title="Medium">●</button>
+              <button class="wb-width-btn" data-width="thick" onclick="setWhiteboardWidth('thick')" title="Thick">●</button>
+            </div>
+            <button class="icon-btn" id="wbEraseBtn" onclick="toggleWhiteboardEraser()" title="Eraser">🧹 Erase</button>
+            <button class="icon-btn" onclick="undoWhiteboardStroke()" title="Undo last stroke">↶ Undo</button>
+            <button class="icon-btn" onclick="clearWhiteboard()" title="Clear everything">Clear</button>
+          </div>
+        </div>
+        <div class="card-body" style="padding-top:0">
+          <canvas id="whiteboardCanvas" class="whiteboard-canvas"></canvas>
+          <p class="hint" style="margin-top:8px">Draw with S Pen, Apple Pencil, finger, or mouse — saves automatically.</p>
+        </div>
+      </div>
     </section>
 
     <!-- ======== PAGE: DAY OF ======== -->

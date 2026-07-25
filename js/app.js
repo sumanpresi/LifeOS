@@ -16,6 +16,7 @@ import * as dateShortcuts from './date-shortcuts.js';
 import * as expandView from './expand-view.js';
 import * as mapCoords from './map-click-coords.js';
 import * as calScribble from './calendar-scribble.js';
+import * as whiteboard from './whiteboard.js';
 import * as search from './search.js';
 import * as cloud from './supabase.js';
 import { initCommunicationBridge } from './communication-bridge.js';
@@ -40,6 +41,7 @@ function renderAll() {
   travel.renderTravel();
   reference.renderReference();
   trash.renderTrash();
+  whiteboard.initWhiteboard();
 }
 
 /* The markup uses plain onclick="…" handlers; expose them globally. */
@@ -106,6 +108,9 @@ Object.assign(window,
   { copyCoordsToClipboard: mapCoords.copyCoordsToClipboard },
   { openScribbleFor: calScribble.openScribbleFor, closeScribbleModal: calScribble.closeScribbleModal,
     clearScribble: calScribble.clearScribble },
+  { setWhiteboardColor: whiteboard.setWhiteboardColor, setWhiteboardWidth: whiteboard.setWhiteboardWidth,
+    toggleWhiteboardEraser: whiteboard.toggleWhiteboardEraser, undoWhiteboardStroke: whiteboard.undoWhiteboardStroke,
+    clearWhiteboard: whiteboard.clearWhiteboard },
   { openSearch: search.openSearch, closeSearch: search.closeSearch,
     searchHover: search.searchHover, searchPick: search.searchPick },
   { openGhModal: cloud.openGhModal, closeGhModal: cloud.closeGhModal, ghButton: cloud.ghButton,

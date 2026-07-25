@@ -1,5 +1,6 @@
 /* Navigation, toasts, header, sync pill. */
 import { state, replaceState, persist, rerender } from './state.js';
+import { resizeWhiteboardIfVisible } from './whiteboard.js';
 
 export function toast(msg) {
   const t = document.getElementById("toast");
@@ -28,6 +29,7 @@ export function go(page) {
     el.querySelectorAll(".mm-section textarea").forEach(autoGrow);
     el.querySelectorAll(".gsi-title").forEach(autoGrow);
     el.querySelectorAll(".t-title").forEach(autoGrow);
+    if (page === "overview") resizeWhiteboardIfVisible();
     if (page === "reference") import("./reference.js").then(m => m.showWorldMap());
   }
   document.getElementById("sidebar").classList.remove("open");
