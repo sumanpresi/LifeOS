@@ -110,14 +110,81 @@ export function setGsiSortMode(mode) {
   gsiSortMode = mode;
   renderProjects();
 }
-export function deleteCompletedTasks() {
+
+/* Archive is deliberately separate from Trash: Trash is for mistakes —
+   items you meant to delete, kept temporarily in case you didn't.
+   Archive is the opposite intent — completed tasks you want OUT of your
+   active list but never intended to delete, kept indefinitely, with
+   full selective restore. Stored per-project as p.archivedTasks. */
+export function archiveCompletedTasks() {
   const p = activeProject();
   const completed = p.tasks.filter(t => t.status === "done");
-  if (!completed.length) { toast("No completed tasks to delete"); return; }
-  if (!confirm(`Delete ${completed.length} completed task${completed.length===1?"":"s"}? They'll go to Trash.`)) return;
-  completed.forEach(t => moveToTrash("gsiProjectTask", t, { projectId: p.id }));
+  if (!completed.length) { toast("No completed tasks to archive"); return; }
+  p.archivedTasks = p.archivedTasks || [];
+  p.archivedTasks.unshift(...completed);
   p.tasks = p.tasks.filter(t => t.status !== "done");
   persist(); renderProjects();
+  toast(`Archived ${completed.length} task${completed.length===1?"":"s"}`);
+}
+export function openArchiveView() {
+  const modal = document.getElementById("gsiArchiveModalBg");
+  if (!modal) return;
+  modal.classList.add("open");
+  renderArchiveList();
+}
+export function closeArchiveView() {
+  const modal = document.getElementById("gsiArchiveModalBg");
+  if (modal) modal.classList.remove("open");
+}
+function renderArchiveList() {
+  const p = activeProject();
+  const archived = p.archivedTasks || [];
+  const box = document.getElementById("gsiArchiveList");
+  if (!box) return;
+  box.innerHTML = archived.map(t => `
+    <div class="gsi-archive-row">
+      <span class="gsi-archive-text">${esc(t.text)}</span>
+      <div class="gsi-archive-actions">
+        <button class="gsi-archive-restore" onclick="restoreArchivedTask('${t.id}')">↺ Restore</button>
+        <button class="gsi-archive-remove" onclick="removeFromArchive('${t.id}')" title="Remove permanently">✕</button>
+      </div>
+    </div>`).join("") || `<p class="hint" style="padding:12px 0">Nothing archived yet — completed tasks you archive will appear here.</p>`;
+}
+export function restoreArchivedTask(id) {
+  const p = activeProject();
+  const archived = p.archivedTasks || [];
+  const t = archived.find(x => x.id === id);
+  if (!t) return;
+  p.archivedTasks = archived.filter(x => x.id !== id);
+  p.tasks.push(t);
+  persist(); renderProjects(); renderArchiveList();
+  toast("Restored to task list");
+}
+export function removeFromArchive(id) {
+  const p = activeProject();
+  const archived = p.archivedTasks || [];
+  const t = archived.find(x => x.id === id);
+  if (!t) return;
+  if (!confirm(`Permanently remove "${t.text}" from the archive? This cannot be undone.`)) return;
+  p.archivedTasks = archived.filter(x => x.id !== id);
+  persist(); renderArchiveList();
+}
+
+/* Project delete already goes through Trash (see delProject below), so
+   restoring one just needs a convenient, visible entry point — this
+   shows a "Restore last deleted project" action right beside Delete
+   whenever a recently-deleted project is sitting in Trash. */
+export function restoreLastDeletedProject() {
+  const entry = [...state.trash].reverse().find(x => x.type === "gsiProject");
+  if (!entry) return;
+  state.gsi.projects.push(entry.payload);
+  state.gsi.activeProject = entry.payload.id;
+  state.trash = state.trash.filter(x => x.id !== entry.id);
+  persist(); renderProjects();
+  toast(`Restored "${entry.payload.name}"`);
+}
+function hasRecentlyDeletedProject() {
+  return state.trash.some(x => x.type === "gsiProject");
 }
 
 function sortGsiTasks(open) {
@@ -149,6 +216,13 @@ function renderProjects() {
   if (nameEl && document.activeElement !== nameEl) nameEl.value = active.name;
   const delBtn = document.getElementById("projectDelBtn");
   if (delBtn) delBtn.style.display = projects.length > 1 ? "" : "none";
+  const restoreBtn = document.getElementById("projectRestoreBtn");
+  if (restoreBtn) restoreBtn.style.display = hasRecentlyDeletedProject() ? "" : "none";
+  const archiveBtn = document.getElementById("gsiArchiveBtn");
+  if (archiveBtn) {
+    const n = (active.archivedTasks || []).length;
+    archiveBtn.textContent = `📦 Archive${n ? ` (${n})` : ""}`;
+  }
 
   /* Completed tasks always sink to the bottom, sorted separately from
      the chosen sort mode (matches Microsoft To Do / Todoist convention:

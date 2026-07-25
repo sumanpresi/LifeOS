@@ -324,6 +324,7 @@
             <input type="text" id="projectName" onchange="renameProject(this.value)"
               style="border:none;background:transparent;font-family:'Fraunces',serif;font-size:19px;font-weight:600;flex:1;padding:0">
             <button class="icon-btn" id="projectDelBtn" onclick="delProject()" title="Delete this project" style="display:none;margin-left:8px">Delete</button>
+            <button class="icon-btn gsi-restore-project-btn" id="projectRestoreBtn" onclick="restoreLastDeletedProject()" title="Restore the most recently deleted project" style="display:none;margin-left:6px">↺ Restore</button>
             <button class="expand-btn" onclick="expandView('ngdrCardContent',document.getElementById('projectName').value || 'Project tasks')" title="View large">
               <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
             </button>
@@ -340,7 +341,8 @@
               <option value="oldest">Sort: Oldest</option>
             </select>
             <span class="hint" id="ngdrCount"></span>
-            <button class="gsi-del-completed-btn" onclick="deleteCompletedTasks()">Delete completed</button>
+            <button class="gsi-archive-btn" id="gsiArchiveBtn" onclick="openArchiveView()">📦 Archive</button>
+            <button class="gsi-del-completed-btn" onclick="archiveCompletedTasks()">Archive completed</button>
           </div>
           <div class="card-body" id="ngdrList"></div>
           <div class="card-body gsi-add-row" style="padding-top:0">
@@ -701,6 +703,16 @@
       <button class="btn btn-ghost" onclick="closeExpandView()">✕ Close</button>
     </div>
     <div class="expand-modal-body" id="expandModalContent"></div>
+  </div>
+</div>
+
+<div class="gsi-archive-modal-bg" id="gsiArchiveModalBg">
+  <div class="gsi-archive-modal">
+    <div class="expand-modal-head">
+      <h2>Archived tasks</h2>
+      <button class="btn btn-ghost" onclick="closeArchiveView()">✕ Close</button>
+    </div>
+    <div class="gsi-archive-modal-body" id="gsiArchiveList"></div>
   </div>
 </div>
 

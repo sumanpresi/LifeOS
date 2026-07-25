@@ -904,3 +904,33 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   .gsi-del-completed-btn{min-height:40px}
   .gsi-add-row input,.gsi-add-btn{min-height:46px}
 }
+
+/* ---------- GSI Archive & project-restore ---------- */
+.gsi-restore-project-btn{background:var(--lilac);color:var(--accent-ink);border-color:var(--lilac-deep)}
+.gsi-archive-btn{border:1px solid var(--line);border-radius:10px;padding:6px 12px;font-size:12.5px;
+  font-weight:600;background:#fff;color:var(--ink-soft);cursor:pointer}
+.gsi-archive-btn:hover{border-color:var(--accent);color:var(--accent-ink)}
+
+.gsi-archive-modal-bg{display:none;position:fixed;inset:0;background:rgba(27,27,26,.45);z-index:210;
+  align-items:center;justify-content:center;padding:6vh 5vw}
+.gsi-archive-modal-bg.open{display:flex}
+.gsi-archive-modal{width:100%;max-width:600px;max-height:80vh;background:var(--card);border-radius:18px;
+  box-shadow:0 30px 80px -20px rgba(0,0,0,.4);display:flex;flex-direction:column;overflow:hidden}
+.gsi-archive-modal-body{flex:1;overflow-y:auto;padding:12px 20px 20px}
+.gsi-archive-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:10px 0;border-bottom:1px dashed var(--line)}
+.gsi-archive-row:last-child{border-bottom:none}
+.gsi-archive-text{font-size:14px;color:var(--ink);flex:1;min-width:0}
+.gsi-archive-actions{display:flex;gap:6px;flex-shrink:0}
+.gsi-archive-restore{border:1px solid var(--lilac-deep);background:var(--lilac);color:var(--accent-ink);
+  border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer}
+.gsi-archive-restore:hover{background:var(--accent);color:#fff}
+.gsi-archive-remove{border:none;background:none;color:var(--muted);font-size:13px;cursor:pointer;padding:5px 6px}
+.gsi-archive-remove:hover{color:#DC2626}
+
+@media(max-width:767px){
+  .gsi-restore-project-btn,.gsi-archive-btn{min-height:40px}
+  .gsi-archive-modal-bg{padding:0}
+  .gsi-archive-modal{max-width:none;max-height:100vh;border-radius:0;height:100vh}
+  .gsi-archive-restore,.gsi-archive-remove{min-height:36px}
+}
