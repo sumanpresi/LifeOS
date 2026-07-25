@@ -800,3 +800,107 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   #ngdrList .task-meta-row{padding:0 14px 14px;margin:-4px 0 10px;border-bottom:none}
   #ngdrList .task-meta-row input[type=text]{min-height:40px;font-size:14px;box-sizing:border-box}
 }
+
+/* ================================================================
+   GSI WORKSPACE TASK CARDS — Microsoft To Do / Todoist-style redesign.
+   Scoped entirely to .gsi-* classes and #ngdrList, so nothing else in
+   LifeOS (including Day Of's shared .task-row) is affected.
+   ================================================================ */
+#ngdrList{display:flex;flex-direction:column;gap:10px}
+.gsi-card{
+  display:flex;align-items:flex-start;gap:12px;
+  background:#fff;border:1px solid var(--line);border-radius:14px;
+  padding:16px;min-height:90px;box-shadow:0 1px 2px rgba(34,31,51,.05);
+  transition:box-shadow 200ms ease,transform 150ms ease,opacity 250ms ease;
+}
+.gsi-card:hover{box-shadow:0 6px 18px -6px rgba(34,31,51,.18);transform:translateY(-1px)}
+.gsi-card.done{opacity:.62}
+.gsi-card.done .gsi-title{color:var(--muted);text-decoration:line-through}
+
+/* Checkbox — quick done/not-done toggle, distinct from (but consistent
+   with) the fuller status dropdown on the right */
+.gsi-chk{width:24px;height:24px;border-radius:50%;border:1.5px solid #C7CCD4;background:#fff;
+  flex-shrink:0;margin-top:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:border-color 200ms ease,background 200ms ease}
+.gsi-chk:hover{border-color:var(--accent)}
+.gsi-chk svg{width:13px;height:13px;stroke:#fff;stroke-width:3;fill:none;stroke-dasharray:20;
+  stroke-dashoffset:20;transition:stroke-dashoffset 220ms ease}
+.gsi-chk.on{background:#2E9E5B;border-color:#2E9E5B}
+.gsi-chk.on svg{stroke-dashoffset:0}
+
+.gsi-card-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.gsi-title{border:none;background:transparent;font-family:inherit;font-size:16px;font-weight:700;
+  color:var(--ink);padding:0;width:100%;text-overflow:ellipsis;white-space:nowrap;overflow:hidden}
+.gsi-title:focus{outline:none;white-space:normal;text-overflow:clip;overflow:visible}
+
+.gsi-link-row{display:flex;align-items:center;gap:6px;min-height:20px}
+.gsi-link-display{color:#2563EB;text-decoration:underline;font-size:13px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:260px}
+.gsi-link-edit-btn{border:none;background:none;font-size:11px;color:var(--muted);cursor:pointer;padding:2px 4px;opacity:0}
+.gsi-card:hover .gsi-link-edit-btn{opacity:1}
+.gsi-add-link{border:none;background:none;color:var(--muted);font-size:13px;cursor:pointer;padding:0;
+  text-decoration:underline;text-decoration-style:dotted}
+.gsi-add-link:hover{color:var(--accent-ink)}
+.gsi-link-input{border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:12.5px;
+  font-family:inherit;background:var(--paper);width:220px;max-width:100%}
+
+.gsi-date-row{font-size:13px}
+.gsi-date-display,.gsi-add-date{border:none;background:none;cursor:pointer;font-size:13px;
+  font-family:inherit;padding:0;display:inline-flex;align-items:center;gap:4px}
+.gsi-add-date{color:var(--muted)}
+.gsi-add-date:hover{color:var(--accent-ink)}
+.gsi-date-row.gsi-overdue .gsi-date-display{color:#DC2626;font-weight:600}
+.gsi-date-row.gsi-today .gsi-date-display{color:#2563EB;font-weight:600}
+.gsi-date-row.gsi-future .gsi-date-display{color:var(--muted)}
+.gsi-date-hidden-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+
+.gsi-card-right{display:flex;align-items:center;gap:8px;flex-shrink:0;padding-top:1px}
+.gsi-flag{background:none;border:none;font-size:16px;opacity:.3;cursor:pointer;filter:grayscale(1);
+  transition:opacity 150ms ease,transform 150ms ease,filter 150ms ease}
+.gsi-flag:hover{opacity:.7}
+.gsi-flag.on{opacity:1;filter:none;transform:scale(1.12)}
+
+.gsi-status-sel{border:1px solid var(--line);border-radius:99px;padding:6px 12px;font-size:12px;
+  font-weight:700;cursor:pointer;transition:background 200ms ease,color 200ms ease,border-color 200ms ease}
+.gsi-status-sel.s-todo{background:#F1F2F4;color:#6B7280;border-color:#E5E7EB}
+.gsi-status-sel.s-progress{background:#DBEAFE;color:#1D4ED8;border-color:#BFDBFE}
+.gsi-status-sel.s-blocked{background:#FFEDD5;color:#C2410C;border-color:#FED7AA}
+.gsi-status-sel.s-done{background:#DCFCE7;color:#15803D;border-color:#BBF7D0}
+
+.gsi-del{background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:4px;
+  border-radius:6px;opacity:0;transition:opacity 150ms ease,background 150ms ease,color 150ms ease}
+.gsi-card:hover .gsi-del,.gsi-card:focus-within .gsi-del{opacity:1}
+.gsi-del:hover{background:#FEE2E2;color:#DC2626}
+
+.gsi-empty{padding:32px 16px;text-align:center;color:var(--muted)}
+
+/* Header toolbar: sort dropdown, open count, delete-completed */
+.gsi-toolbar-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.gsi-sort-sel{border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:12.5px;
+  font-weight:600;background:#fff;color:var(--ink-soft);cursor:pointer}
+.gsi-del-completed-btn{margin-left:auto;border:none;background:none;color:var(--muted);font-size:12.5px;
+  font-weight:600;cursor:pointer;padding:4px 6px;text-decoration:underline;text-decoration-style:dotted}
+.gsi-del-completed-btn:hover{color:#DC2626}
+
+/* Add-task row: large rounded input, solid dark button */
+.gsi-add-row{display:flex;gap:10px;align-items:center}
+.gsi-add-row input{flex:1;min-width:0;border:1px solid var(--line);border-radius:14px;
+  padding:12px 16px;font-size:14.5px;font-family:inherit;background:#fff;
+  transition:border-color 150ms ease,box-shadow 150ms ease}
+.gsi-add-row input:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 3px rgba(27,27,26,.08)}
+.gsi-add-btn{border:none;background:var(--ink);color:#fff;font-weight:700;font-size:14px;
+  padding:12px 22px;border-radius:14px;cursor:pointer;transition:background 150ms ease,transform 100ms ease;
+  flex-shrink:0}
+.gsi-add-btn:hover{background:#000}
+.gsi-add-btn:active{transform:scale(.97)}
+
+@media(max-width:767px){
+  .gsi-card{padding:14px;min-height:auto}
+  .gsi-card-right{flex-direction:column;align-items:flex-end;gap:10px}
+  .gsi-flag,.gsi-del{opacity:1;width:36px;height:36px;display:flex;align-items:center;justify-content:center}
+  .gsi-status-sel{padding:8px 12px;min-height:36px}
+  .gsi-toolbar-row{gap:8px}
+  .gsi-sort-sel{min-height:40px}
+  .gsi-del-completed-btn{min-height:40px}
+  .gsi-add-row input,.gsi-add-btn{min-height:46px}
+}

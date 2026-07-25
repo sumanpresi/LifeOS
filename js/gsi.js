@@ -93,6 +93,50 @@ export function getAllGsiTasksFlat() {
   return out;
 }
 
+function fmtGsiDate(d) {
+  if (!d) return null;
+  const [y, m, day] = d.split("-").map(Number);
+  const dt = new Date(y, m - 1, day);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((dt - today) / 86400000);
+  const label = dt.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  if (diffDays < 0) return { text: label, cls: "gsi-overdue" };
+  if (diffDays === 0) return { text: "Today", cls: "gsi-today" };
+  return { text: label, cls: "gsi-future" };
+}
+
+let gsiSortMode = "default";
+export function setGsiSortMode(mode) {
+  gsiSortMode = mode;
+  renderProjects();
+}
+export function deleteCompletedTasks() {
+  const p = activeProject();
+  const completed = p.tasks.filter(t => t.status === "done");
+  if (!completed.length) { toast("No completed tasks to delete"); return; }
+  if (!confirm(`Delete ${completed.length} completed task${completed.length===1?"":"s"}? They'll go to Trash.`)) return;
+  completed.forEach(t => moveToTrash("gsiProjectTask", t, { projectId: p.id }));
+  p.tasks = p.tasks.filter(t => t.status !== "done");
+  persist(); renderProjects();
+}
+
+function sortGsiTasks(open) {
+  const byFlag = (a, b) => (!!b.flag) - (!!a.flag);
+  const byDate = (a, b) => (a.date || "9999") .localeCompare(b.date || "9999");
+  const byAlpha = (a, b) => a.text.localeCompare(b.text);
+  const statusOrder = { blocked: 0, progress: 1, todo: 2, done: 3 };
+  const byStatus = (a, b) => statusOrder[a.status] - statusOrder[b.status];
+  switch (gsiSortMode) {
+    case "date": return [...open].sort(byDate);
+    case "priority": return [...open].sort(byFlag);
+    case "status": return [...open].sort(byStatus);
+    case "alphabetical": return [...open].sort(byAlpha);
+    case "newest": return [...open].reverse();
+    case "oldest": return [...open];
+    default: return open; // "default" — insertion order, as before
+  }
+}
+
 function renderProjects() {
   const projects = state.gsi.projects;
   const active = activeProject();
@@ -106,37 +150,68 @@ function renderProjects() {
   const delBtn = document.getElementById("projectDelBtn");
   if (delBtn) delBtn.style.display = projects.length > 1 ? "" : "none";
 
-  /* Completed tasks always sink to the bottom. */
-  const open = active.tasks.filter(t => t.status !== "done");
+  /* Completed tasks always sink to the bottom, sorted separately from
+     the chosen sort mode (matches Microsoft To Do / Todoist convention:
+     sort controls apply to your active work, not the completed pile). */
+  const open = sortGsiTasks(active.tasks.filter(t => t.status !== "done"));
   const done = active.tasks.filter(t => t.status === "done");
   const ordered = [...open, ...done];
 
-  document.getElementById("ngdrList").innerHTML = ordered.map(item => `
-    <div class="task-row ${item.status === "done" ? "done" : ""}">
-      <button class="flag-btn ${item.flag ? "on" : ""}" onclick="toggleProjectTaskFlag('${item.id}')" title="${item.flag ? "Unflag" : "Flag as important"}">🚩</button>
-      <select class="status-sel s-${item.status}" onchange="setTaskStatus('${item.id}',this.value)">
-        ${STATUSES.map(([v, l]) => `<option value="${v}" ${item.status === v ? "selected" : ""}>${l}</option>`).join("")}
-      </select>
-      <input type="text" class="${item.link ? "task-text-linked" : ""}" value="${esc(item.text)}" onchange="editProjectTask('${item.id}','text',this.value)">
-      ${item.link ? `<a href="${esc(item.link.startsWith("http")?item.link:"https://"+item.link)}" target="_blank" rel="noopener" class="task-link-go-inline" title="Open link">🔗</a>` : ""}
-      <div class="date-popover-wrap">
-        <input type="date" class="task-due-input" id="gsi-date-${item.id}" value="${esc(item.date||"")}" onchange="editProjectTask('${item.id}','date',this.value)" title="Date">
-        <button class="date-popover-btn" onclick="toggleDatePopover(event,'gsi-date-${item.id}')" title="Quick date options">📅</button>
-        <div class="date-popover" id="pop-gsi-date-${item.id}">
-          <button onclick="setQuickDate('gsi-date-${item.id}','today')">Today</button>
-          <button onclick="setQuickDate('gsi-date-${item.id}','tomorrow')">Tomorrow</button>
-          <button onclick="setQuickDate('gsi-date-${item.id}','nextweek')">Next week</button>
-          <button onclick="setQuickDate('gsi-date-${item.id}','clear')">Clear date</button>
+  document.getElementById("ngdrList").innerHTML = ordered.map(item => {
+    const due = fmtGsiDate(item.date);
+    return `
+    <div class="gsi-card ${item.status === "done" ? "done" : ""}">
+      <button class="gsi-chk ${item.status === "done" ? "on" : ""}" onclick="setTaskStatus('${item.id}','${item.status === "done" ? "todo" : "done"}')" aria-label="Toggle done">
+        <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
+      <div class="gsi-card-main">
+        <input type="text" class="gsi-title" value="${esc(item.text)}" onchange="editProjectTask('${item.id}','text',this.value)" title="${esc(item.text)}">
+        <div class="gsi-link-row">
+          ${item.link
+            ? `<a href="${esc(item.link.startsWith("http")?item.link:"https://"+item.link)}" target="_blank" rel="noopener" class="gsi-link-display">🔗 ${esc(item.link.replace(/^https?:\/\//,""))}</a>
+               <button class="gsi-link-edit-btn" onclick="toggleGsiLinkEdit(event,'${item.id}')" title="Edit link">✎</button>`
+            : `<button class="gsi-add-link" onclick="toggleGsiLinkEdit(event,'${item.id}')">+ Add link</button>`}
+          <input type="text" class="gsi-link-input" id="gsi-link-edit-${item.id}" placeholder="Paste a link…" value="${esc(item.link||"")}"
+            onchange="editProjectTask('${item.id}','link',this.value)" onblur="this.style.display='none'" style="display:none">
         </div>
+        ${due ? `<div class="gsi-date-row ${due.cls}"><span class="date-popover-wrap">
+            <button class="gsi-date-display" onclick="toggleDatePopover(event,'gsi-date-${item.id}')">📅 ${due.text}</button>
+            <input type="date" class="gsi-date-hidden-input" id="gsi-date-${item.id}" value="${esc(item.date||"")}" onchange="editProjectTask('${item.id}','date',this.value)">
+            <div class="date-popover" id="pop-gsi-date-${item.id}">
+              <button onclick="setQuickDate('gsi-date-${item.id}','today')">Today</button>
+              <button onclick="setQuickDate('gsi-date-${item.id}','tomorrow')">Tomorrow</button>
+              <button onclick="setQuickDate('gsi-date-${item.id}','nextweek')">Next week</button>
+              <button onclick="setQuickDate('gsi-date-${item.id}','clear')">Clear date</button>
+            </div>
+          </span></div>`
+          : `<div class="gsi-date-row"><span class="date-popover-wrap">
+              <button class="gsi-add-date" onclick="toggleDatePopover(event,'gsi-date-${item.id}')">📅 Add date</button>
+              <input type="date" class="gsi-date-hidden-input" id="gsi-date-${item.id}" value="" onchange="editProjectTask('${item.id}','date',this.value)">
+              <div class="date-popover" id="pop-gsi-date-${item.id}">
+                <button onclick="setQuickDate('gsi-date-${item.id}','today')">Today</button>
+                <button onclick="setQuickDate('gsi-date-${item.id}','tomorrow')">Tomorrow</button>
+                <button onclick="setQuickDate('gsi-date-${item.id}','nextweek')">Next week</button>
+              </div>
+            </span></div>`}
       </div>
-      <button class="del" onclick="delProjectTask('${item.id}')">✕</button>
-    </div>
-    <div class="task-meta-row">
-      <input type="text" class="task-link-input" placeholder="link" value="${esc(item.link||"")}" onchange="editProjectTask('${item.id}','link',this.value)">
-      ${item.link ? `<a href="${esc(item.link.startsWith("http")?item.link:"https://"+item.link)}" target="_blank" rel="noopener" class="task-link-go" title="Open link">🔗</a>` : ""}
-    </div>`).join("") || `<p class="hint">Track this project's tasks here.</p>`;
+      <div class="gsi-card-right">
+        <button class="gsi-flag ${item.flag ? "on" : ""}" onclick="toggleProjectTaskFlag('${item.id}')" title="${item.flag ? "Remove priority" : "Mark high priority"}">🚩</button>
+        <select class="gsi-status-sel s-${item.status}" onchange="setTaskStatus('${item.id}',this.value)">
+          ${STATUSES.map(([v, l]) => `<option value="${v}" ${item.status === v ? "selected" : ""}>${l}</option>`).join("")}
+        </select>
+        <button class="gsi-del" onclick="delProjectTask('${item.id}')" aria-label="Delete">✕</button>
+      </div>
+    </div>`;
+  }).join("") || `<div class="gsi-empty"><p>No tasks yet in ${esc(active.name)}.</p><p class="hint">Add your first task below.</p></div>`;
+
   const openCount = active.tasks.filter(i => i.status !== "done").length;
   document.getElementById("ngdrCount").textContent = active.tasks.length ? `${openCount} open` : "";
+}
+export function toggleGsiLinkEdit(evt, id) {
+  evt.stopPropagation();
+  const input = document.getElementById("gsi-link-edit-" + id);
+  if (!input) return;
+  input.style.display = "inline-block";
+  input.focus();
 }
 
 export function addProject() {
