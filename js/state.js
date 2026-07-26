@@ -193,13 +193,20 @@ function merge(saved) {
      multiple pages onto one canvas would just overlap into an unreadable
      mess) rather than silently discarding everything. */
   s.whiteboards = structuredClone(DEFAULT_STATE.whiteboards);
-  if (saved.whiteboard && Array.isArray(saved.whiteboard.strokes)) {
-    s.whiteboards.overview.strokes = saved.whiteboard.strokes;
-  } else if (saved.whiteboard && Array.isArray(saved.whiteboard.pages)) {
-    const p0 = saved.whiteboard.pages[0] || {};
-    s.whiteboards.overview.strokes = p0.strokes || [];
-    s.whiteboards.overview.objects = p0.objects || [];
-  } else if (saved.whiteboards) {
+  /* The current multi-board field takes priority. It used to be checked
+     last, behind two legacy-singular-field branches sharing the same
+     if/else-if chain — meaning that whenever an old saved.whiteboard
+     (singular) field was still lingering on a payload (nothing ever
+     deleted it, so once present it re-saved forward indefinitely), this
+     chain took the legacy branch and restored ONLY the overview board
+     from stale singular data, while the branch that restores every
+     board from saved.whiteboards — including gsi — never ran at all.
+     That's what caused overview to silently diverge from gsi's sync
+     behavior even though every other part of the pipeline is identical
+     between boards. Checking saved.whiteboards first, and only falling
+     back to the singular shapes for genuinely pre-migration saves that
+     never had a whiteboards field, removes that asymmetry. */
+  if (saved.whiteboards) {
     Object.keys(saved.whiteboards).forEach(k => {
       const board = saved.whiteboards[k];
       if (!board) return;
@@ -211,7 +218,14 @@ function merge(saved) {
         s.whiteboards[k] = { strokes: p0.strokes || [], objects: p0.objects || [] };
       }
     });
+  } else if (saved.whiteboard && Array.isArray(saved.whiteboard.strokes)) {
+    s.whiteboards.overview.strokes = saved.whiteboard.strokes;
+  } else if (saved.whiteboard && Array.isArray(saved.whiteboard.pages)) {
+    const p0 = saved.whiteboard.pages[0] || {};
+    s.whiteboards.overview.strokes = p0.strokes || [];
+    s.whiteboards.overview.objects = p0.objects || [];
   }
+  delete s.whiteboard; // never let the legacy singular field persist forward once migrated
   /* One-time migration: earlier versions stored Finance/Health/Travel notes
      and links under the generic sections.* template. Carry them forward so
      nothing already saved gets lost when those pages became dedicated. */
