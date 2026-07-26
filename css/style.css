@@ -1128,7 +1128,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   box-shadow:0 2px 6px rgba(0,0,0,.15);display:flex;flex-direction:column;
   min-width:60px;min-height:60px;box-sizing:border-box}
 .wb-sticky.selected{outline:2px solid var(--accent);outline-offset:2px}
-.wb-sticky-drag-handle{height:14px;flex-shrink:0;cursor:grab;border-radius:6px 6px 0 0}
+.wb-sticky-drag-handle{height:14px;flex-shrink:0;cursor:grab;border-radius:6px 6px 0 0;touch-action:none}
 .wb-sticky-drag-handle:active{cursor:grabbing}
 .wb-sticky-text{flex:1;padding:2px 8px 8px;font-size:13px;line-height:1.35;color:#1B1B1A;
   overflow:hidden;outline:none;word-break:break-word;cursor:text}
@@ -1143,7 +1143,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .wb-sticky.selected .wb-sticky-toolbar{display:flex}
 .wb-sticky-color{width:16px;height:16px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
 .wb-sticky-color.on{border-color:var(--ink)}
-.wb-sticky-resize-handle{position:absolute;bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize;
+.wb-sticky-resize-handle{position:absolute;bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize;touch-action:none;
   display:none;background:linear-gradient(135deg,transparent 50%,rgba(0,0,0,.25) 50%);border-radius:0 0 6px 0}
 .wb-sticky.selected .wb-sticky-resize-handle{display:block}
 .whiteboard-canvas{width:100%;aspect-ratio:4/3;touch-action:none;cursor:not-allowed;
@@ -1163,4 +1163,5 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   .wb-eraser-size-btn{min-height:38px}
   .wb-zoom-float{bottom:64px;right:8px}
   .wb-canvas-area{padding-left:0;padding-bottom:64px}
+  .wb-sticky-resize-handle{width:30px;height:30px}
 }

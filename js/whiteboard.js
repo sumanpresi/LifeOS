@@ -111,9 +111,32 @@ export function mergeBoardData(a, b) {
     const key = s.id || JSON.stringify(s.points[0]) + s.color + s.points.length; // fallback for strokes saved before ids existed
     if (!seenStrokes.has(key)) { seenStrokes.add(key); strokes.push(s); }
   });
-  const objects = [], seenObjects = new Set();
+  // Strokes are add-only and immutable once drawn (an eraser stroke is
+  // just another stroke, never a mutation of an old one), so "keep
+  // whichever copy of a given id is seen first" is a safe merge for
+  // them. Sticky notes are not: the same note id gets its text, color,
+  // position and size edited in place over time, and a delete is
+  // recorded as a tombstone (deleted:true) rather than removed outright
+  // — see attachStickyHandlers' delete handler. The old version of this
+  // merge used that same "first seen wins" rule for notes too, which
+  // meant whichever side happened to be passed as `a` always kept its
+  // own copy of a conflicting note id and silently discarded the other
+  // side's edit — the actual cause of sticky notes syncing
+  // inconsistently. Comparing each note's own updatedAt and keeping the
+  // newer one (an edit, a move, a resize, or a delete — whichever
+  // genuinely happened last) fixes that regardless of merge order.
+  const objects = [];
+  const newestById = new Map();
   [...(a.objects || []), ...(b.objects || [])].forEach(o => {
-    if (!seenObjects.has(o.id)) { seenObjects.add(o.id); objects.push(o); }
+    const prev = newestById.get(o.id);
+    if (!prev || (o.updatedAt || 0) >= (prev.updatedAt || 0)) newestById.set(o.id, o);
+  });
+  // Tombstones only need to survive long enough for every device to
+  // have had a chance to see the delete during a sync; kept far past
+  // that, they'd just grow the payload forever for no benefit.
+  const TOMBSTONE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+  newestById.forEach(o => {
+    if (!o.deleted || Date.now() - (o.updatedAt || 0) < TOMBSTONE_MAX_AGE_MS) objects.push(o);
   });
   return { strokes, objects };
 }
@@ -479,8 +502,22 @@ function renderToolbarState(boardId) {
    ================================================================ */
 const STICKY_COLORS = ["#FEF08A", "#FCA5A5", "#93C5FD", "#86EFAC", "#D8B4FE"];
 const STICKY_DEFAULT_W = 0.15, STICKY_DEFAULT_H = 0.15;
+// Smaller default footprint on phones only — a full desktop-sized note
+// eats a big share of a phone screen the instant it's created. Desktop
+// sizing is untouched; the note still grows naturally from typed text
+// (via CSS) or a manual resize on either platform.
+const STICKY_DEFAULT_W_MOBILE = 0.11, STICKY_DEFAULT_H_MOBILE = 0.09;
 const STICKY_MIN = 0.06;
+const STICKY_MAX = 0.6; // keeps a note from being resized larger than the board is useful for
 let selectedStickyId = null;
+
+// Same breakpoint the rest of the whiteboard's mobile CSS uses (see
+// @media(max-width:767px) in style.css) — kept in one place so the
+// default-size decision here and the layout rules there never drift.
+function isMobileViewport() { return window.matchMedia("(max-width:767px)").matches; }
+function defaultStickySize() {
+  return isMobileViewport() ? { w: STICKY_DEFAULT_W_MOBILE, h: STICKY_DEFAULT_H_MOBILE } : { w: STICKY_DEFAULT_W, h: STICKY_DEFAULT_H };
+}
 
 export function selectStickyTool(boardId) {
   const s = inst(boardId);
@@ -496,14 +533,21 @@ function attachLayerHandlers(boardId, layer) {
     if (evt.target !== layer) return; // clicked an existing note, not empty space — let the note handle it instead
     evt.stopPropagation(); // otherwise this same event also reaches the document-level "click elsewhere deselects" listener below, undoing the selection this creates
     const box = layer.getBoundingClientRect();
+    const { w: dw, h: dh } = defaultStickySize();
     const normX = (evt.clientX - box.left) / box.width;
     const normY = (evt.clientY - box.top) / box.width;
-    createSticky(boardId, Math.max(0, normX - STICKY_DEFAULT_W / 2), Math.max(0, normY - STICKY_DEFAULT_H / 2));
+    createSticky(boardId, Math.max(0, normX - dw / 2), Math.max(0, normY - dh / 2));
   });
 }
 
 function createSticky(boardId, normX, normY) {
-  const obj = { id: uid(), x: normX, y: normY, w: STICKY_DEFAULT_W, h: STICKY_DEFAULT_H, text: "", color: STICKY_COLORS[0] };
+  const { w, h } = defaultStickySize();
+  // updatedAt drives both sync conflict resolution (see mergeBoardData
+  // in this file) and soft-delete below — every mutation to a note
+  // bumps it so the two devices' copies of the same note id can be
+  // compared and the newer one kept, instead of one side's edit
+  // silently winning just because of merge argument order.
+  const obj = { id: uid(), x: normX, y: normY, w, h, text: "", color: STICKY_COLORS[0], updatedAt: Date.now() };
   board(boardId).objects.push(obj);
   selectedStickyId = obj.id;
   persist();
@@ -518,9 +562,50 @@ function renderObjects(boardId) {
   const s = inst(boardId);
   if (!s.layer || !s.canvas) return;
   const w = s.canvas.width / s.dpr; // same basis as strokes
-  const objs = board(boardId).objects;
-  s.layer.innerHTML = objs.map(o => stickyHtml(o, w)).join("");
-  objs.forEach(o => attachStickyHandlers(boardId, o.id, w));
+  const objs = board(boardId).objects.filter(o => !o.deleted); // tombstones stay in state for sync, never in the DOM
+
+  // TEMPORARY — remove once sync is confirmed reliable across devices.
+  console.log(`[sticky-sync] ${boardId}: rendering ${objs.length} note(s)`);
+
+  // Reconcile against the existing DOM instead of the previous
+  // `innerHTML = …` full rebuild. That rebuild ran on every render pass
+  // — including the one triggered by the window "resize" event that
+  // Android fires the instant its on-screen keyboard opens — which
+  // destroyed and recreated every note's DOM node, including whichever
+  // one currently held focus. Losing that node closes the keyboard
+  // immediately, which is exactly the "keyboard opens then instantly
+  // closes" symptom. Updating existing nodes in place, and never
+  // touching a note's text while it's the focused element, means a
+  // remote sync or a resize can no longer interrupt an edit in progress.
+  const existingEls = {};
+  Array.from(s.layer.children).forEach(el => { existingEls[el.dataset.objId] = el; });
+  const keepIds = new Set();
+
+  objs.forEach(o => {
+    keepIds.add(o.id);
+    let el = existingEls[o.id];
+    if (!el) {
+      s.layer.insertAdjacentHTML("beforeend", stickyHtml(o, w));
+      el = s.layer.querySelector(`[data-obj-id="${o.id}"]`);
+      attachStickyHandlers(boardId, o.id, w);
+    } else {
+      el.style.left = (o.x * w) + "px";
+      el.style.top = (o.y * w) + "px";
+      el.style.width = (o.w * w) + "px";
+      el.style.height = (o.h * w) + "px";
+      el.style.background = o.color;
+      const textEl = el.querySelector(".wb-sticky-text");
+      if (textEl && document.activeElement !== textEl && textEl.textContent !== o.text) {
+        textEl.textContent = o.text; // never touch the text node of the note currently being edited
+      }
+      el.querySelectorAll(".wb-sticky-color").forEach(b => b.classList.toggle("on", b.dataset.color === o.color));
+    }
+    el.classList.toggle("selected", o.id === selectedStickyId);
+  });
+
+  // Only notes that are gone (deleted, or dropped entirely) still need
+  // their DOM node removed.
+  Object.keys(existingEls).forEach(objId => { if (!keepIds.has(objId)) existingEls[objId].remove(); });
 }
 
 function stickyHtml(o, w) {
@@ -555,7 +640,7 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
   // and on input, so it saves even if the user never clicks away.
   const textEl = el.querySelector(".wb-sticky-text");
   textEl.addEventListener("pointerdown", (evt) => evt.stopPropagation()); // typing shouldn't start a drag
-  const saveText = () => { const o = getObj(); if (o) { o.text = textEl.textContent; persist(); } };
+  const saveText = () => { const o = getObj(); if (o) { o.text = textEl.textContent; o.updatedAt = Date.now(); persist(); } };
   textEl.addEventListener("input", saveText);
   textEl.addEventListener("blur", saveText);
 
@@ -565,9 +650,11 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
   dragHandle.addEventListener("pointerdown", (evt) => {
     evt.preventDefault(); evt.stopPropagation();
     selectedStickyId = objId; el.classList.add("selected");
+    try { dragHandle.setPointerCapture(evt.pointerId); } catch (e) { /* rare — harmless to skip */ }
     const startX = evt.clientX, startY = evt.clientY;
     const o = getObj(); const startLeft = o.x * canvasWidth, startTop = o.y * canvasWidth;
     const onMove = (mv) => {
+      mv.preventDefault(); // finger dragging the handle shouldn't also scroll the page
       const nx = (startLeft + (mv.clientX - startX)) / canvasWidth;
       const ny = (startTop + (mv.clientY - startY)) / canvasWidth;
       el.style.left = (nx * canvasWidth) + "px";
@@ -577,6 +664,7 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      const o2 = getObj(); if (o2) o2.updatedAt = Date.now();
       persist();
     };
     window.addEventListener("pointermove", onMove);
@@ -589,17 +677,20 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
   resizeHandle.addEventListener("pointerdown", (evt) => {
     evt.preventDefault(); evt.stopPropagation();
     selectedStickyId = objId; el.classList.add("selected");
+    try { resizeHandle.setPointerCapture(evt.pointerId); } catch (e) { /* rare — harmless to skip */ }
     const startX = evt.clientX, startY = evt.clientY;
     const o = getObj(); const startW = o.w * canvasWidth, startH = o.h * canvasWidth;
     const onMove = (mv) => {
-      const nw = Math.max(STICKY_MIN * canvasWidth, startW + (mv.clientX - startX));
-      const nh = Math.max(STICKY_MIN * canvasWidth, startH + (mv.clientY - startY));
+      mv.preventDefault(); // finger dragging the handle shouldn't also scroll the page
+      const nw = Math.min(STICKY_MAX * canvasWidth, Math.max(STICKY_MIN * canvasWidth, startW + (mv.clientX - startX)));
+      const nh = Math.min(STICKY_MAX * canvasWidth, Math.max(STICKY_MIN * canvasWidth, startH + (mv.clientY - startY)));
       el.style.width = nw + "px"; el.style.height = nh + "px";
       o.w = nw / canvasWidth; o.h = nh / canvasWidth;
     };
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      const o2 = getObj(); if (o2) o2.updatedAt = Date.now();
       persist();
     };
     window.addEventListener("pointermove", onMove);
@@ -612,18 +703,26 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
     btn.addEventListener("click", () => {
       const o = getObj(); if (!o) return;
       o.color = btn.dataset.color;
+      o.updatedAt = Date.now();
       el.style.background = o.color;
       el.querySelectorAll(".wb-sticky-color").forEach(b => b.classList.toggle("on", b === btn));
       persist();
     });
   });
 
-  // Delete
+  // Delete — a tombstone (deleted:true + updatedAt), not a splice. A
+  // hard splice here only removes the note locally; if the other device
+  // hadn't yet pulled this delete and pushes an edit of its own first,
+  // the plain union-by-id merge in mergeBoardData would have no record
+  // that this id was ever removed and would silently bring it back.
+  // Keeping a timestamped tombstone lets merge compare it against a
+  // concurrent edit the same way it compares any other conflicting
+  // change, so whichever one is actually newer wins. renderObjects
+  // already filters deleted:true notes out of what's drawn.
   el.querySelector(".wb-sticky-delete").addEventListener("pointerdown", (evt) => evt.stopPropagation());
   el.querySelector(".wb-sticky-delete").addEventListener("click", () => {
-    const arr = board(boardId).objects;
-    const idx = arr.findIndex(o => o.id === objId);
-    if (idx !== -1) arr.splice(idx, 1);
+    const o = getObj();
+    if (o) { o.deleted = true; o.updatedAt = Date.now(); }
     if (selectedStickyId === objId) selectedStickyId = null;
     persist();
     el.remove();
