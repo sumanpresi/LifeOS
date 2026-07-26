@@ -60,6 +60,7 @@
       lag and the eraser visually misbehaving on high-frequency,
       high-resolution mobile input. */
 import { state, persist, uid, esc } from './state.js';
+import { toast } from './ui.js';
 
 const COLORS = ["#1B1B1A", "#DC2626", "#2563EB", "#16A34A", "#F59E0B", "#7C3AED"];
 const WIDTHS = { thin: 2, medium: 4, thick: 8 };
@@ -84,7 +85,20 @@ function inst(boardId) {
   }
   return instances[boardId];
 }
+function activeBrainstormBoard() {
+  const boards = state.brainstormBoards || [];
+  let b = boards.find(x => x.id === state.activeBrainstormBoard && !x.archived && !x.deleted);
+  if (!b) b = boards.find(x => !x.archived && !x.deleted) || boards[0];
+  if (b && state.activeBrainstormBoard !== b.id) state.activeBrainstormBoard = b.id;
+  return b || null;
+}
 function board(boardId) {
+  if (boardId === "gsi") {
+    const b = activeBrainstormBoard();
+    if (!b) return { strokes: [], objects: [] }; // no tabs at all (shouldn't happen — addBrainstormBoard always leaves one)
+    b.objects = b.objects || [];
+    return b;
+  }
   state.whiteboards[boardId] = state.whiteboards[boardId] || { strokes: [], objects: [] };
   const b = state.whiteboards[boardId];
   b.objects = b.objects || []; // additive field — older saved boards predate sticky notes
@@ -152,7 +166,9 @@ export function initWhiteboard(boardId) {
     attachLayerHandlers(boardId, s.layer);
     window.addEventListener("resize", () => sizeCanvas(boardId));
     s.initialized = true;
+    if (boardId === "gsi") s.zoomPct = (activeBrainstormBoard() || {}).zoom || 100; // restore the active tab's own zoom on first mount
   }
+  if (boardId === "gsi") renderBrainstormTabs();
   sizeCanvas(boardId);
 }
 
@@ -403,6 +419,10 @@ function setZoom(boardId, pct) {
   if (outer) outer.style.width = pct + "%";
   const label = document.getElementById(id(boardId, "wbZoomLevel"));
   if (label) label.textContent = pct + "%";
+  if (boardId === "gsi") {
+    const b = activeBrainstormBoard();
+    if (b && b.zoom !== pct) { b.zoom = pct; b.updatedAt = Date.now(); persist(); }
+  }
   // A real width change, not a CSS transform — the canvas genuinely
   // resizes, so it needs re-sizing and re-drawing at its new actual
   // pixel dimensions, the same pipeline already used for window resize.
@@ -737,3 +757,264 @@ document.addEventListener("pointerdown", (evt) => {
     document.querySelectorAll(".wb-sticky.selected").forEach(el => el.classList.remove("selected"));
   }
 });
+
+/* ================================================================
+   BRAINSTORMING TABS — multiple independent Brainstorming boards,
+   switched like browser tabs. Only the GSI board ("gsi") gets tabs;
+   Overview's "Whiteboard" is untouched and still reads
+   state.whiteboards.overview exactly as it always has. See board()
+   above: board('gsi') now resolves to whichever entry in
+   state.brainstormBoards is active, so drawing, erasing, undo, and
+   sticky notes all become per-tab automatically without any changes
+   of their own — they already only ever went through board(boardId).
+
+   Pan position: there is no panning feature anywhere in this app
+   today (only zoom). Each tab still carries a `pan` field so a real
+   pan feature could read/write it later without another migration,
+   but nothing currently moves it — this is a placeholder, not a
+   working pan implementation.
+
+   Redo: doesn't exist for this whiteboard (only undoWhiteboardStroke,
+   a single-step "undo last stroke," does) — not fabricated here.
+   ================================================================ */
+let renamingTabId = null;
+let openTabMenuId = null;
+
+function nextUntitledName() {
+  const taken = new Set((state.brainstormBoards || []).filter(b => !b.deleted).map(b => b.name));
+  if (!taken.has("Untitled")) return "Untitled";
+  let n = 2;
+  while (taken.has(`Untitled ${n}`)) n++;
+  return `Untitled ${n}`;
+}
+
+export function addBrainstormBoard() {
+  if (!state.brainstormBoards) state.brainstormBoards = [];
+  const obj = {
+    id: "bb_" + uid(), name: nextUntitledName(), archived: false,
+    strokes: [], objects: [], zoom: 100, pan: { x: 0, y: 0 },
+    createdAt: Date.now(), updatedAt: Date.now()
+  };
+  state.brainstormBoards.push(obj);
+  switchBrainstormBoard(obj.id);
+}
+
+export function switchBrainstormBoard(tabId) {
+  const b = (state.brainstormBoards || []).find(x => x.id === tabId && !x.deleted);
+  if (!b) return;
+  state.activeBrainstormBoard = tabId;
+  selectedStickyId = null; // a note selected on the previous tab shouldn't carry over
+  persist(false); // which tab is active is local UI state, not a content edit — see persist()'s own note on this distinction
+  renderBrainstormTabs();
+  setZoom("gsi", b.zoom || 100); // also runs sizeCanvas, which repaints strokes + sticky notes from the newly active board
+}
+
+function startRenameBrainstormTab(tabId) {
+  closeBrainstormTabMenu();
+  const nameEl = document.querySelector(`.wb-tab-name[data-tab-id="${tabId}"]`);
+  if (!nameEl) return;
+  renamingTabId = tabId;
+  nameEl.contentEditable = "true";
+  nameEl.focus();
+  try {
+    const range = document.createRange();
+    range.selectNodeContents(nameEl);
+    const sel = window.getSelection();
+    sel.removeAllRanges(); sel.addRange(range);
+  } catch (e) { /* selection API quirks — harmless if this doesn't select everything */ }
+
+  const finish = (commit) => {
+    nameEl.removeEventListener("keydown", onKeydown);
+    nameEl.removeEventListener("blur", onBlur);
+    nameEl.contentEditable = "false";
+    const b = (state.brainstormBoards || []).find(x => x.id === tabId);
+    if (commit && b) {
+      const v = nameEl.textContent.trim();
+      if (v) { b.name = v; b.updatedAt = Date.now(); persist(); }
+    }
+    renamingTabId = null;
+    renderBrainstormTabs();
+  };
+  const onKeydown = (evt) => {
+    if (evt.key === "Enter") { evt.preventDefault(); finish(true); }
+    else if (evt.key === "Escape") { evt.preventDefault(); finish(false); }
+  };
+  const onBlur = () => finish(true); // clicking outside saves, per spec
+  nameEl.addEventListener("keydown", onKeydown);
+  nameEl.addEventListener("blur", onBlur);
+}
+
+function toggleBrainstormTabMenu(tabId) {
+  openTabMenuId = openTabMenuId === tabId ? null : tabId;
+  document.querySelectorAll(".wb-tab-menu").forEach(m => m.classList.toggle("open", m.dataset.tabId === openTabMenuId));
+}
+function closeBrainstormTabMenu() {
+  openTabMenuId = null;
+  document.querySelectorAll(".wb-tab-menu.open").forEach(m => m.classList.remove("open"));
+}
+document.addEventListener("pointerdown", (evt) => {
+  if (evt.target.closest(".wb-tab-menu") || evt.target.closest(".wb-tab-menu-btn")) return;
+  if (openTabMenuId) closeBrainstormTabMenu();
+});
+
+export function duplicateBrainstormBoard(tabId) {
+  const src = (state.brainstormBoards || []).find(x => x.id === tabId && !x.deleted);
+  if (!src) return;
+  const clone = {
+    id: "bb_" + uid(), name: src.name + " copy", archived: false,
+    // Fresh ids on every stroke and note — reusing the source's ids
+    // would make the sync merge treat this tab's content as literally
+    // the same strokes/notes as the original tab's the next time both
+    // sync, corrupting both instead of producing two independent tabs.
+    strokes: (src.strokes || []).map(s => ({ ...s, id: uid() })),
+    objects: (src.objects || []).filter(o => !o.deleted).map(o => ({ ...o, id: uid(), updatedAt: Date.now() })),
+    zoom: src.zoom || 100,
+    pan: src.pan ? { ...src.pan } : { x: 0, y: 0 },
+    createdAt: Date.now(), updatedAt: Date.now()
+  };
+  state.brainstormBoards.push(clone);
+  switchBrainstormBoard(clone.id);
+  toast(`Duplicated "${src.name}"`);
+}
+
+export function archiveBrainstormBoard(tabId) {
+  const boards = state.brainstormBoards || [];
+  const b = boards.find(x => x.id === tabId && !x.deleted);
+  if (!b) return;
+  const remaining = boards.filter(x => x.id !== tabId && !x.archived && !x.deleted);
+  if (!remaining.length) { toast("Can't archive the only open tab — add another one first"); return; }
+  b.archived = true; b.updatedAt = Date.now();
+  const wasActive = state.activeBrainstormBoard === tabId;
+  persist();
+  if (wasActive) switchBrainstormBoard(remaining[0].id); else renderBrainstormTabs();
+  toast(`Archived "${b.name}"`);
+}
+
+// The tab-bar "Delete" is deliberately the same safe archive underneath
+// — one accidental tap here shouldn't be able to permanently destroy a
+// board's drawings. It only differs from Archive in asking for
+// confirmation first, since "Delete" reads as more final to whoever's
+// using it. Truly permanent removal only happens from the Archived
+// Boards manager's own "Delete Permanently", below.
+export function deleteBrainstormBoardFromTabBar(tabId) {
+  const b = (state.brainstormBoards || []).find(x => x.id === tabId && !x.deleted);
+  if (!b) return;
+  if (!confirm(`Delete "${b.name}"? It moves to Archived Boards, where you can restore it or delete it permanently.`)) return;
+  archiveBrainstormBoard(tabId);
+}
+
+export function openBrainstormArchive() {
+  const modal = document.getElementById("wbArchiveModalBg");
+  if (!modal) return;
+  modal.classList.add("open");
+  renderBrainstormArchiveList();
+}
+export function closeBrainstormArchive() {
+  const modal = document.getElementById("wbArchiveModalBg");
+  if (modal) modal.classList.remove("open");
+}
+function renderBrainstormArchiveList() {
+  const box = document.getElementById("wbArchiveList");
+  if (!box) return;
+  const archived = (state.brainstormBoards || []).filter(b => b.archived && !b.deleted);
+  box.innerHTML = archived.map(b => `
+    <div class="gsi-archive-row">
+      <span class="gsi-archive-text">${esc(b.name)}</span>
+      <div class="gsi-archive-actions">
+        <button class="gsi-archive-restore" onclick="restoreBrainstormBoard('${b.id}')">↺ Restore</button>
+        <button class="gsi-archive-remove" onclick="deleteBrainstormBoardPermanently('${b.id}')" title="Delete permanently">✕</button>
+      </div>
+    </div>`).join("") || `<p class="hint" style="padding:12px 0">No archived boards — boards you archive from a tab's ⋮ menu will appear here.</p>`;
+}
+export function restoreBrainstormBoard(tabId) {
+  const b = (state.brainstormBoards || []).find(x => x.id === tabId);
+  if (!b) return;
+  b.archived = false; b.updatedAt = Date.now();
+  persist();
+  renderBrainstormArchiveList();
+  renderBrainstormTabs();
+  toast(`Restored "${b.name}"`);
+}
+export function deleteBrainstormBoardPermanently(tabId) {
+  const b = (state.brainstormBoards || []).find(x => x.id === tabId);
+  if (!b) return;
+  if (!confirm(`Permanently delete "${b.name}"? This can't be undone.`)) return;
+  // Tombstoned (deleted:true), not spliced out — same reasoning as the
+  // sticky-note delete above: splicing only removes it locally, and if
+  // the other device hadn't yet pulled this delete before pushing an
+  // unrelated change of its own, a plain array merge would have no
+  // record the tab was ever removed and would bring it back.
+  // mergeIncomingBrainstormBoards (supabase.js) prunes old tombstones.
+  b.deleted = true; b.updatedAt = Date.now();
+  persist();
+  renderBrainstormArchiveList();
+  renderBrainstormTabs();
+  toast(`Deleted "${b.name}"`);
+}
+
+function renderBrainstormTabs() {
+  const list = document.getElementById("wbTabsList");
+  if (!list) return;
+  if (renamingTabId) return; // don't blow away an in-progress inline rename with a rebuild
+
+  const boards = (state.brainstormBoards || []).filter(b => !b.archived && !b.deleted);
+  if (!boards.length) { addBrainstormBoard(); return; } // always leaves at least one open tab; recurses exactly once
+  if (!boards.some(b => b.id === state.activeBrainstormBoard)) state.activeBrainstormBoard = boards[0].id;
+
+  list.innerHTML = boards.map(b => `
+    <div class="wb-tab ${b.id === state.activeBrainstormBoard ? "active" : ""}" data-tab-id="${b.id}">
+      <span class="wb-tab-name" data-tab-id="${b.id}">${esc(b.name)}</span>
+      <button class="wb-tab-menu-btn" title="Tab options" data-tab-id="${b.id}">⋮</button>
+      <div class="wb-tab-menu" data-tab-id="${b.id}">
+        <button data-action="rename">Rename</button>
+        <button data-action="duplicate">Duplicate</button>
+        <button data-action="archive">Archive</button>
+        <button class="danger" data-action="delete">Delete</button>
+      </div>
+    </div>`).join("");
+
+  list.querySelectorAll(".wb-tab").forEach(el => {
+    const tabId = el.dataset.tabId;
+    el.addEventListener("click", (evt) => {
+      if (evt.target.closest(".wb-tab-menu") || evt.target.closest(".wb-tab-menu-btn")) return;
+      if (evt.target.isContentEditable) return; // mid-rename — a stray click shouldn't switch tabs
+      switchBrainstormBoard(tabId);
+    });
+    const nameEl = el.querySelector(".wb-tab-name");
+    nameEl.addEventListener("dblclick", (evt) => { evt.stopPropagation(); startRenameBrainstormTab(tabId); }); // desktop
+    let pressTimer = null;
+    nameEl.addEventListener("pointerdown", (evt) => {
+      if (evt.pointerType !== "touch") return;
+      pressTimer = setTimeout(() => startRenameBrainstormTab(tabId), 550); // mobile long-press
+    });
+    const cancelPress = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
+    nameEl.addEventListener("pointerup", cancelPress);
+    nameEl.addEventListener("pointercancel", cancelPress);
+    nameEl.addEventListener("pointermove", cancelPress);
+
+    el.querySelector(".wb-tab-menu-btn").addEventListener("click", (evt) => { evt.stopPropagation(); toggleBrainstormTabMenu(tabId); });
+    el.querySelectorAll(".wb-tab-menu button").forEach(btn => {
+      btn.addEventListener("click", (evt) => {
+        evt.stopPropagation();
+        closeBrainstormTabMenu();
+        const action = btn.dataset.action;
+        if (action === "rename") startRenameBrainstormTab(tabId);
+        else if (action === "duplicate") duplicateBrainstormBoard(tabId);
+        else if (action === "archive") archiveBrainstormBoard(tabId);
+        else if (action === "delete") deleteBrainstormBoardFromTabBar(tabId);
+      });
+    });
+  });
+
+  if (openTabMenuId) {
+    const menu = list.querySelector(`.wb-tab-menu[data-tab-id="${openTabMenuId}"]`);
+    if (menu) menu.classList.add("open"); else openTabMenuId = null;
+  }
+
+  const archiveBtn = document.getElementById("wbTabsArchiveBtn");
+  if (archiveBtn) {
+    const n = (state.brainstormBoards || []).filter(b => b.archived && !b.deleted).length;
+    archiveBtn.textContent = `🗄 Archived${n ? ` (${n})` : ""}`;
+  }
+  if (document.getElementById("wbArchiveModalBg")?.classList.contains("open")) renderBrainstormArchiveList();
+}

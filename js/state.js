@@ -25,6 +25,14 @@ export const DEFAULT_STATE = {
     overview: { strokes: [], objects: [] },
     gsi: { strokes: [], objects: [] }
   }, // keyed by board id — flat, single-canvas: {strokes:[{points,color,width,erase}], objects:[{id,x,y,w,h,text,color}]}
+  // Brainstorming board tabs — the GSI "Brainstorming board" is backed by
+  // one of these (whichever matches activeBrainstormBoard) instead of the
+  // fixed whiteboards.gsi entry above. Overview's "Whiteboard" is
+  // unaffected and still reads whiteboards.overview exactly as before.
+  brainstormBoards: [
+    { id: "legacy-gsi", name: "Brainstorming", archived: false, strokes: [], objects: [], zoom: 100, pan: { x: 0, y: 0 }, createdAt: 0, updatedAt: 0 }
+  ],
+  activeBrainstormBoard: "legacy-gsi",
   links: [
     { id: "l1", title: "PM GatiShakti portal", url: "https://www.pmgatishakti.gov.in", desc: "NGDR staging / UAT" },
     { id: "l2", title: "GSI Bhukosh", url: "https://bhukosh.gsi.gov.in", desc: "Geoscience data" }
@@ -226,6 +234,35 @@ function merge(saved) {
     s.whiteboards.overview.objects = p0.objects || [];
   }
   delete s.whiteboard; // never let the legacy singular field persist forward once migrated
+
+  /* One-time migration: fold the pre-tabs single Brainstorming board
+     (whiteboards.gsi, already restored above) into the new multi-tab
+     brainstormBoards array as one tab named "Brainstorming". Once this
+     has run and saved once, saved.brainstormBoards exists on every
+     future payload and this branch never runs again — same
+     self-perpetuating pattern as the whiteboards singular->plural
+     migration above. A fixed id ("legacy-gsi") is used deliberately: if
+     two devices each still have the pre-tabs shape and migrate
+     independently before either has synced the new field, they still
+     produce a tab with the same id, so the ordinary per-tab merge (see
+     mergeIncomingBrainstormBoards in supabase.js) combines their
+     strokes/notes into one tab instead of leaving two duplicates
+     sitting side by side after the first sync. */
+  if (Array.isArray(saved.brainstormBoards) && saved.brainstormBoards.length) {
+    s.brainstormBoards = saved.brainstormBoards;
+  } else {
+    const legacy = s.whiteboards.gsi || { strokes: [], objects: [] };
+    s.brainstormBoards = [{
+      id: "legacy-gsi", name: "Brainstorming", archived: false,
+      strokes: legacy.strokes || [], objects: legacy.objects || [],
+      zoom: 100, pan: { x: 0, y: 0 }, createdAt: Date.now(), updatedAt: Date.now()
+    }];
+  }
+  s.activeBrainstormBoard =
+    (saved.activeBrainstormBoard && s.brainstormBoards.some(b => b.id === saved.activeBrainstormBoard && !b.deleted))
+      ? saved.activeBrainstormBoard
+      : (s.brainstormBoards.find(b => !b.archived && !b.deleted) || s.brainstormBoards[0]).id;
+
   /* One-time migration: earlier versions stored Finance/Health/Travel notes
      and links under the generic sections.* template. Carry them forward so
      nothing already saved gets lost when those pages became dedicated. */

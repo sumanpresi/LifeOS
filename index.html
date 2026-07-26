@@ -488,6 +488,11 @@
       <div class="card" id="whiteboardCard-gsi" style="margin-top:16px">
         <div class="card-head"><h2>Brainstorming board</h2></div>
         <div class="card-body" style="padding-top:0">
+          <div class="wb-tabs-row">
+            <div class="wb-tabs" id="wbTabsList"></div>
+            <button class="wb-tab-add" onclick="addBrainstormBoard()" title="New tab">+</button>
+            <button class="wb-tabs-archive-btn" id="wbTabsArchiveBtn" onclick="openBrainstormArchive()" title="Archived boards">🗄 Archived</button>
+          </div>
           <p class="hint" id="wbHint-gsi" style="margin-bottom:8px">A quick space for scribbling ideas alongside your GSI Workspace tasks — Pen or Eraser to start, S Pen or Apple Pencil to draw.</p>
           <div class="wb-canvas-area" id="wbCanvasArea-gsi">
             <div class="wb-canvas-wrap" id="wbCanvasWrap-gsi">
@@ -912,6 +917,16 @@
       <button class="btn btn-ghost" onclick="closeArchiveView()">✕ Close</button>
     </div>
     <div class="gsi-archive-modal-body" id="gsiArchiveList"></div>
+  </div>
+</div>
+
+<div class="gsi-archive-modal-bg" id="wbArchiveModalBg">
+  <div class="gsi-archive-modal">
+    <div class="expand-modal-head">
+      <h2>Archived boards</h2>
+      <button class="btn btn-ghost" onclick="closeBrainstormArchive()">✕ Close</button>
+    </div>
+    <div class="gsi-archive-modal-body" id="wbArchiveList"></div>
   </div>
 </div>
 

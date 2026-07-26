@@ -1121,6 +1121,36 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
    region entirely rather than needing to out-maneuver it. */
 .wb-canvas-area{padding-left:68px}
 .wb-canvas-wrap{position:relative;width:100%}
+
+/* ---------- Brainstorming board tabs ---------- */
+.wb-tabs-row{display:flex;align-items:center;gap:6px;margin-bottom:10px;overflow-x:auto;scrollbar-width:none}
+.wb-tabs-row::-webkit-scrollbar{display:none}
+.wb-tabs{display:flex;gap:4px;flex:1;min-width:0}
+.wb-tab{position:relative;display:flex;align-items:center;gap:4px;padding:6px 8px 6px 10px;
+  border-radius:9px 9px 0 0;background:var(--paper);border:1px solid var(--line);border-bottom:none;
+  cursor:pointer;font-size:13px;white-space:nowrap;flex-shrink:0;max-width:160px;color:var(--ink-soft)}
+.wb-tab.active{background:var(--card);color:var(--ink);font-weight:600;border-color:var(--accent)}
+.wb-tab-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px;outline:none}
+.wb-tab-name[contenteditable="true"]{overflow:visible;background:#fff;border-radius:4px;padding:0 3px;box-shadow:0 0 0 1px var(--accent)}
+.wb-tab-menu-btn{border:none;background:none;color:var(--muted);cursor:pointer;padding:2px 3px;font-size:14px;line-height:1;border-radius:5px;flex-shrink:0}
+.wb-tab-menu-btn:hover{background:var(--line);color:var(--ink)}
+.wb-tab-add{flex-shrink:0;width:26px;height:26px;border:1px solid var(--line);border-radius:8px;background:#fff;
+  cursor:pointer;color:var(--muted);font-size:16px;display:flex;align-items:center;justify-content:center;line-height:1}
+.wb-tab-add:hover{border-color:var(--accent);color:var(--accent-ink)}
+.wb-tabs-archive-btn{flex-shrink:0;border:1px solid var(--line);border-radius:8px;background:#fff;
+  padding:0 10px;height:26px;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap}
+.wb-tabs-archive-btn:hover{border-color:var(--accent);color:var(--accent-ink)}
+.wb-tab-menu{position:absolute;top:calc(100% + 4px);right:0;min-width:140px;background:#fff;border-radius:10px;
+  box-shadow:0 6px 18px -4px rgba(0,0,0,.2),0 0 0 1px var(--line);z-index:60;display:none;flex-direction:column;padding:4px}
+.wb-tab-menu.open{display:flex}
+.wb-tab-menu button{text-align:left;border:none;background:none;padding:7px 10px;border-radius:7px;
+  font-size:13px;cursor:pointer;color:var(--ink)}
+.wb-tab-menu button:hover{background:var(--paper)}
+.wb-tab-menu button.danger:hover{background:#FEE2E2;color:#DC2626}
+@media(max-width:767px){
+  .wb-tab{padding:9px 8px 9px 10px;max-width:130px}
+  .wb-tab-menu-btn{padding:4px}
+}
 .wb-object-layer{position:absolute;inset:0;pointer-events:none}
 .wb-object-layer.creating{pointer-events:auto;cursor:copy}
 

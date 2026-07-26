@@ -109,6 +109,35 @@ function mergeIncomingWhiteboards(remote) {
   remote.whiteboards = mergedBoards;
   console.log("[sticky-sync] after merge:", stickyCounts(mergedBoards)); // TEMPORARY
 }
+// Same reasoning as mergeIncomingWhiteboards above, extended to the
+// Brainstorming board's tabs: each tab is merged individually by id,
+// reusing the exact same per-board stroke/sticky-note merge a single
+// board already uses, instead of letting one device's whole tab list
+// wholesale-replace the other's. A tab's own updatedAt decides whose
+// name/archived/zoom "wins" when both sides touched it — the content
+// (strokes/notes) is combined either way, never dropped.
+function mergeIncomingBrainstormBoards(remote) {
+  const localBoards = state.brainstormBoards || [];
+  const remoteBoards = remote.brainstormBoards || [];
+  const byId = new Map();
+  localBoards.forEach(b => byId.set(b.id, b));
+  remoteBoards.forEach(rb => {
+    const lb = byId.get(rb.id);
+    if (!lb) { byId.set(rb.id, rb); return; }
+    const mergedContent = mergeBoardData(lb, rb);
+    const newerMeta = (lb.updatedAt || 0) >= (rb.updatedAt || 0) ? lb : rb;
+    byId.set(rb.id, Object.assign({}, newerMeta, mergedContent));
+  });
+  let mergedBoards = Array.from(byId.values());
+  const TOMBSTONE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // same pruning window as sticky notes
+  mergedBoards = mergedBoards.filter(b => !b.deleted || Date.now() - (b.updatedAt || 0) < TOMBSTONE_MAX_AGE_MS);
+  state.brainstormBoards = mergedBoards;
+  remote.brainstormBoards = mergedBoards;
+  if (!mergedBoards.some(b => b.id === state.activeBrainstormBoard && !b.archived && !b.deleted)) {
+    const fallback = mergedBoards.find(b => !b.archived && !b.deleted) || mergedBoards[0];
+    if (fallback) state.activeBrainstormBoard = fallback.id;
+  }
+}
 function applyRemote(remote) {
   replaceState(remote);
   rerender();
@@ -126,6 +155,7 @@ export async function loadRemote(preferRemote = false) {
       const remote = data.data;
       console.log("[sticky-sync] after download:", stickyCounts(remote.whiteboards)); // TEMPORARY
       mergeIncomingWhiteboards(remote);
+      mergeIncomingBrainstormBoards(remote);
       // The merge just changed local state (possibly pulling in board
       // data from the remote side) independent of whatever the win/lose
       // branching below decides — make sure that's actually reflected
@@ -198,6 +228,7 @@ function startRealtime() {
         if (row && row.data && row.data._client !== CLIENT_ID &&
             (row.data.updatedAt || 0) > (state.updatedAt || 0)) {
           mergeIncomingWhiteboards(row.data);
+          mergeIncomingBrainstormBoards(row.data);
           applyRemote(row.data);
           toast("Updated from another device");
         }
