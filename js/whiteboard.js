@@ -71,7 +71,8 @@ function inst(boardId) {
     instances[boardId] = {
       canvas: null, layer: null, ctx: null, dpr: 1, initialized: false,
       drawing: false, currentStroke: null,
-      activeTool: null, activeColor: COLORS[0], activeWidthKey: "medium", activeEraserKey: "small", zoomPct: 100
+      activeTool: null, activeColor: COLORS[0], activeWidthKey: "medium", activeEraserKey: "small", zoomPct: 100,
+      penFlyoutOpen: false, eraserFlyoutOpen: false
     };
   }
   return instances[boardId];
@@ -198,15 +199,9 @@ function onPointerDown(boardId, evt, canvas) {
     ? { points: [pointToNorm(canvas, evt)], color: "#000000", width: ERASER_SIZES[s.activeEraserKey], erase: true }
     : { points: [pointToNorm(canvas, evt)], color: s.activeColor, width: WIDTHS[s.activeWidthKey], erase: false };
   try { canvas.setPointerCapture(evt.pointerId); } catch (e) { /* pointer already invalidated — rare, harmless to skip */ }
-  // touch-action:none is set permanently in CSS, not toggled here — see
-  // file header for why that matters. This is a belt-and-suspenders
-  // backstop on top of it: if the outer page scrolls mid-stroke anyway,
-  // every subsequent point (computed from the canvas's on-screen
-  // position via getBoundingClientRect) would map to the wrong place
-  // relative to where the pen physically is — that's what "lines
-  // appearing on their own" actually is. Tracking scroll position here
-  // lets a corrupted stroke be caught and discarded instead of drawn.
-  s.strokeStartScroll = { winY: window.scrollY, winX: window.scrollX };
+  // touch-action:none is set permanently in CSS, not toggled — see file
+  // header for why that matters for actually preventing the page from
+  // moving during a stroke.
 }
 const touchHintShownAt = {};
 function showTouchRejectedHint(boardId) {
@@ -223,13 +218,6 @@ function onPointerMove(boardId, evt, canvas) {
   const s = inst(boardId);
   if (!s.drawing || !s.currentStroke) return;
   evt.preventDefault(); // the missing half of the fix — pointerdown alone isn't enough to suppress a gesture recognized from the move events that follow it
-  // If the outer page's scroll position has shifted since the stroke
-  // started, every point from here on would map to the wrong place
-  // relative to the pen — better to cleanly abandon this stroke than
-  // let it draw somewhere it shouldn't.
-  const scrollMoved = s.strokeStartScroll &&
-    (window.scrollY !== s.strokeStartScroll.winY || window.scrollX !== s.strokeStartScroll.winX);
-  if (scrollMoved) { abortStroke(boardId); return; }
   const prevPoint = s.currentStroke.points[s.currentStroke.points.length - 1];
   const newPoint = pointToNorm(canvas, evt);
   if (!s.ctx) return;
@@ -244,18 +232,6 @@ function onPointerMove(boardId, evt, canvas) {
   // last stored one.
   const dx = newPoint.x - prevPoint.x, dy = newPoint.y - prevPoint.y;
   if (Math.sqrt(dx * dx + dy * dy) > 0.003) s.currentStroke.points.push(newPoint);
-}
-function abortStroke(boardId) {
-  const s = inst(boardId);
-  s.drawing = false;
-  s.currentStroke = null;
-  redraw(boardId); // wipe whatever partial/corrupted line was drawn live, back to the last saved state
-  const toast = document.getElementById("toast");
-  if (toast) {
-    toast.textContent = "Stroke cancelled — the page moved while drawing";
-    toast.classList.add("show");
-    setTimeout(() => toast.classList.remove("show"), 2200);
-  }
 }
 function onPointerUp(boardId, evt, canvas) {
   const s = inst(boardId);
@@ -279,21 +255,34 @@ function onPointerUp(boardId, evt, canvas) {
 export function selectPenTool(boardId) {
   const s = inst(boardId);
   s.activeTool = s.activeTool === "pen" ? null : "pen";
+  s.penFlyoutOpen = s.activeTool === "pen"; // selecting the tool opens its picker; deselecting closes it
   renderToolbarState(boardId);
 }
 export function selectEraserTool(boardId) {
   const s = inst(boardId);
   s.activeTool = s.activeTool === "eraser" ? null : "eraser";
+  s.eraserFlyoutOpen = s.activeTool === "eraser";
   renderToolbarState(boardId);
 }
 export function setWhiteboardColor(boardId, c) {
   const s = inst(boardId);
   s.activeColor = c;
   s.activeTool = "pen"; // choosing a color is a reasonable way to pick up the pen too, not just the dedicated Pen button
+  s.penFlyoutOpen = false; // collapse once a choice is actually made, rather than staying open indefinitely
   renderToolbarState(boardId);
 }
-export function setWhiteboardWidth(boardId, k) { inst(boardId).activeWidthKey = k; renderToolbarState(boardId); }
-export function setEraserSize(boardId, k) { inst(boardId).activeEraserKey = k; renderToolbarState(boardId); }
+export function setWhiteboardWidth(boardId, k) {
+  const s = inst(boardId);
+  s.activeWidthKey = k;
+  s.penFlyoutOpen = false;
+  renderToolbarState(boardId);
+}
+export function setEraserSize(boardId, k) {
+  const s = inst(boardId);
+  s.activeEraserKey = k;
+  s.eraserFlyoutOpen = false;
+  renderToolbarState(boardId);
+}
 
 export function undoWhiteboardStroke(boardId) {
   const b = board(boardId);
@@ -394,11 +383,11 @@ function renderToolbarState(boardId) {
   const penBtn = document.getElementById(id(boardId, "wbPenBtn"));
   if (penBtn) penBtn.classList.toggle("on", s.activeTool === "pen");
   const penFlyout = document.getElementById(id(boardId, "wbPenFlyout"));
-  if (penFlyout) penFlyout.classList.toggle("open", s.activeTool === "pen");
+  if (penFlyout) penFlyout.classList.toggle("open", s.activeTool === "pen" && s.penFlyoutOpen);
   const eraseBtn = document.getElementById(id(boardId, "wbEraseBtn"));
   if (eraseBtn) eraseBtn.classList.toggle("on", s.activeTool === "eraser");
   const eraserSizeBox = document.getElementById(id(boardId, "wbEraserSizes"));
-  if (eraserSizeBox) eraserSizeBox.classList.toggle("open", s.activeTool === "eraser");
+  if (eraserSizeBox) eraserSizeBox.classList.toggle("open", s.activeTool === "eraser" && s.eraserFlyoutOpen);
   const stickyBtn = document.getElementById(id(boardId, "wbStickyBtn"));
   if (stickyBtn) stickyBtn.classList.toggle("on", s.activeTool === "sticky");
   const canvas = document.getElementById(id(boardId, "whiteboardCanvas"));
