@@ -65,14 +65,21 @@ const COLORS = ["#1B1B1A", "#DC2626", "#2563EB", "#16A34A", "#F59E0B", "#7C3AED"
 const WIDTHS = { thin: 2, medium: 4, thick: 8 };
 const ERASER_SIZES = { small: 16, large: 40 }; // deliberately much bigger than pen widths — erasing needs to cover ground fast
 
-const instances = {}; // { [boardId]: { canvas, layer, ctx, dpr, initialized, drawing, currentStroke, activeTool, activeColor, activeWidthKey, activeEraserKey, zoomPct } }
+const instances = {}; // { [boardId]: { canvas, layer, ctx, dpr, initialized, drawing, currentStroke, activeTool, activeColor, activeWidthKey, activeEraserKey, zoomPct, touchPoints, pinching, pinchStartDist, pinchStartZoom } }
 function inst(boardId) {
   if (!instances[boardId]) {
     instances[boardId] = {
       canvas: null, layer: null, ctx: null, dpr: 1, initialized: false,
       drawing: false, currentStroke: null,
       activeTool: null, activeColor: COLORS[0], activeWidthKey: "medium", activeEraserKey: "small", zoomPct: 100,
-      penFlyoutOpen: false, eraserFlyoutOpen: false
+      penFlyoutOpen: false, eraserFlyoutOpen: false,
+      // Pinch-zoom: a live map of every currently-touching finger, keyed
+      // by pointerId, so a second finger landing can be detected
+      // regardless of what the first one is doing. Separate from
+      // drawing/currentStroke, since fingers never draw on this board
+      // (S Pen / Apple Pencil only) — two fingers together mean zoom,
+      // not a stroke.
+      touchPoints: new Map(), pinching: false, pinchStartDist: 0, pinchStartZoom: 100
     };
   }
   return instances[boardId];
@@ -210,15 +217,26 @@ function attachPointerHandlers(boardId, canvas) {
 
 function onPointerDown(boardId, evt, canvas) {
   const s = inst(boardId);
-  if (!s.activeTool) return; // nothing selected — drawing is gated until a tool is explicitly chosen
   if (evt.pointerType === "touch") {
     // Finger and palm both report as "touch" in the Pointer Events spec —
-    // excluding touch excludes both in one rule. Let it fall through as
-    // a native gesture (scrolling the outer page) instead of
-    // preventDefault-ing it away.
-    showTouchRejectedHint(boardId);
+    // neither ever draws (S Pen / Apple Pencil only). Checked ahead of
+    // the tool-selected gate below, since pinch-zoom is a viewport
+    // action, not a drawing one, and should work whether or not a pen
+    // tool happens to be selected. A second finger landing turns this
+    // into a pinch; a single finger just shows the existing hint.
+    try { canvas.setPointerCapture(evt.pointerId); } catch (e) { /* pointer already invalidated — rare, harmless to skip */ }
+    s.touchPoints.set(evt.pointerId, { x: evt.clientX, y: evt.clientY });
+    if (s.touchPoints.size === 2) {
+      evt.preventDefault();
+      s.pinching = true;
+      s.pinchStartDist = touchDistance(s.touchPoints);
+      s.pinchStartZoom = s.zoomPct;
+    } else if (s.touchPoints.size === 1) {
+      showTouchRejectedHint(boardId);
+    }
     return;
   }
+  if (!s.activeTool) return; // nothing selected — drawing is gated until a tool is explicitly chosen
   evt.preventDefault();
   s.drawing = true;
   s.currentStroke = s.activeTool === "eraser"
@@ -240,8 +258,31 @@ function showTouchRejectedHint(boardId) {
   toast.classList.add("show");
   setTimeout(() => toast.classList.remove("show"), 2200);
 }
+// Straight-line distance between the two active fingers, in raw client
+// pixels — only their ratio to the distance at pinch-start matters, so
+// no need to normalize against canvas size the way stroke points are.
+function touchDistance(pointsMap) {
+  const pts = Array.from(pointsMap.values());
+  if (pts.length < 2) return 0;
+  const dx = pts[0].x - pts[1].x, dy = pts[0].y - pts[1].y;
+  return Math.sqrt(dx * dx + dy * dy);
+}
 function onPointerMove(boardId, evt, canvas) {
   const s = inst(boardId);
+  if (evt.pointerType === "touch" && s.touchPoints.has(evt.pointerId)) {
+    s.touchPoints.set(evt.pointerId, { x: evt.clientX, y: evt.clientY });
+    if (s.pinching && s.touchPoints.size === 2 && s.pinchStartDist > 0) {
+      evt.preventDefault();
+      const ratio = touchDistance(s.touchPoints) / s.pinchStartDist;
+      // Snapped to the nearest 5% — the same zoomPct steps the +/-
+      // buttons already use — so setZoom (which resizes the actual
+      // canvas buffer and redraws) only fires on a real, visible change
+      // instead of on every sub-pixel finger jitter.
+      const pct = Math.max(50, Math.min(200, Math.round(s.pinchStartZoom * ratio / 5) * 5));
+      if (pct !== s.zoomPct) setZoom(boardId, pct);
+    }
+    return;
+  }
   if (!s.drawing || !s.currentStroke) return;
   evt.preventDefault(); // the missing half of the fix — pointerdown alone isn't enough to suppress a gesture recognized from the move events that follow it
   const prevPoint = s.currentStroke.points[s.currentStroke.points.length - 1];
@@ -261,6 +302,11 @@ function onPointerMove(boardId, evt, canvas) {
 }
 function onPointerUp(boardId, evt, canvas) {
   const s = inst(boardId);
+  if (evt.pointerType === "touch") {
+    s.touchPoints.delete(evt.pointerId);
+    if (s.touchPoints.size < 2) { s.pinching = false; s.pinchStartDist = 0; }
+    return;
+  }
   if (!s.drawing || !s.currentStroke) return;
   s.drawing = false;
   // The throttle in onPointerMove can skip storing points that are too
