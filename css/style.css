@@ -230,9 +230,9 @@ h1,h2,.display{font-family:'Fraunces',serif}
 .modal .err{color:var(--warn);font-weight:700;font-size:13px;margin-top:8px;display:none}
 code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 
-.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--ink);color:#fff;
-  padding:10px 18px;border-radius:12px;font-weight:700;font-size:14px;transition:transform .25s ease;z-index:60}
-.toast.show{transform:translateX(-50%) translateY(0)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(16px);opacity:0;background:var(--ink);color:#fff;
+  padding:10px 18px;border-radius:12px;font-weight:700;font-size:14px;transition:transform .28s var(--ease),opacity .28s var(--ease);z-index:60}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
 
 .page{display:none}.page.visible{display:block}
 .mob-toggle{display:none}
@@ -1100,7 +1100,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .wb-toolbar-divider{width:26px;height:1px;background:var(--line);margin:4px 0}
 
 .wb-icon-tool{width:40px;height:40px;border:none;background:transparent;border-radius:10px;
-  cursor:pointer;color:var(--ink-soft);display:flex;align-items:center;justify-content:center;transition:.12s}
+  cursor:pointer;color:var(--ink-soft);display:flex;align-items:center;justify-content:center;transition:.16s var(--ease)}
 .wb-icon-tool svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .wb-icon-tool:hover{background:var(--paper)}
 /* Selecting a tool is made deliberately prominent (filled, scaled up) —
@@ -1299,4 +1299,85 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   .modal-bg,.search-bg,.scribble-modal-bg,.expand-modal-bg,.gsi-archive-modal-bg,.emi-dd-modal-bg{
     -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
   }
+}
+
+/* ================================================================
+   MOTION DESIGN — page/card entrances, press feedback, list/search
+   stagger, sticky-note entrance. Everything here uses `animation`
+   with fill-mode:backwards (not `both`/`forwards`) wherever the
+   target already has its own hover/active transitions (.card,
+   .btn, .pill) — `both` would let the entrance animation's final
+   keyframe permanently outrank those later, since a still-filling
+   animation has higher cascade priority than an ordinary :hover
+   transition on the same property. `backwards` only fills before
+   the animation starts, so once it's done here it steps aside and
+   normal hover/press transitions work exactly as before.
+   The global reduced-motion rule near the top of this file
+   (`@media(prefers-reduced-motion:reduce)`) already disables every
+   animation and transition defined here — nothing further needed.
+   ================================================================ */
+
+/* ---- Page transitions (200-300ms) ---- */
+@keyframes pageEnter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.page.visible{animation:pageEnter .24s var(--ease) backwards}
+
+/* ---- Card entrance — fades/lifts in once per page visit, then gets
+   out of the way so the existing hover-lift (.card:hover) still works. ---- */
+@keyframes cardEnter{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+.page.visible .card{animation:cardEnter .3s var(--ease) backwards}
+.page.visible .card:nth-of-type(1){animation-delay:0ms}
+.page.visible .card:nth-of-type(2){animation-delay:40ms}
+.page.visible .card:nth-of-type(3){animation-delay:80ms}
+.page.visible .card:nth-of-type(4){animation-delay:120ms}
+/* Desktop hover already exists (.card:hover) — this just brightens the
+   glass slightly on top of the existing lift+shadow, per "brighten the
+   glass panel" on hover. Desktop-only: coarse-pointer/touch devices
+   don't get a hover state that can get "stuck" after a tap. */
+@media(hover:hover) and (pointer:fine){
+  .card:hover{background:var(--glass-bg-strong)}
+}
+
+/* ---- Press feedback — buttons, pills, nav items ---- */
+.btn,.pill,.nav-item,.wb-tab-add,.wb-tabs-archive-btn{transition:transform .16s var(--ease),box-shadow .16s var(--ease),background .16s var(--ease),color .16s var(--ease)}
+.btn:active,.pill:active{transform:scale(.97)}
+.nav-item:active{transform:scale(.98)}
+
+/* ---- Search results — fade in with a slight stagger ---- */
+@keyframes searchItemIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.search-item{animation:searchItemIn .18s var(--ease) backwards}
+.search-item:nth-child(1){animation-delay:0ms}
+.search-item:nth-child(2){animation-delay:18ms}
+.search-item:nth-child(3){animation-delay:36ms}
+.search-item:nth-child(4){animation-delay:54ms}
+.search-item:nth-child(5){animation-delay:72ms}
+.search-item:nth-child(6){animation-delay:90ms}
+.search-item{transition:background .12s var(--ease)}
+
+/* ---- Sticky notes ----
+   Creation: a brand-new .wb-sticky element starts this animation the
+   moment it's inserted (renderObjects in whiteboard.js only ever
+   inserts fresh DOM for a genuinely new note — existing notes are
+   updated in place, not recreated — so this plays exactly once per
+   note, never on an unrelated re-render).
+   "Opening" (entering edit mode) is handled with :focus-within, a
+   plain CSS reactive state — no JS needed to know when the note's
+   text is focused.
+   "Deleting" and "minimizing" are NOT included here: deletion
+   currently calls el.remove() synchronously in JS, and a CSS
+   animation cannot delay or intercept that removal — the node is
+   gone from the DOM the instant JS removes it, regardless of any
+   transition in flight. Minimizing isn't a feature that exists today.
+   Doing either would need a small, explicit JS change (holding the
+   element for one animation frame before removing it) rather than
+   something achievable from this stylesheet alone. */
+@keyframes stickyEnter{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+.wb-sticky{animation:stickyEnter .18s var(--ease) backwards}
+.wb-sticky:focus-within{box-shadow:0 4px 10px rgba(34,31,51,.1),0 18px 34px -12px rgba(91,84,217,.32);
+  transition:box-shadow .18s var(--ease)}
+
+@media(max-width:767px){
+  /* Card stagger is a desktop-scale nicety; on a phone, one page is
+     usually one or two cards tall, so the delays just make things
+     feel slower to appear for no visible benefit. */
+  .page.visible .card:nth-of-type(n){animation-delay:0ms}
 }
