@@ -21,7 +21,7 @@ export const DEFAULT_STATE = {
   ],
   habitLog: {},              // { "2026-07-19": { h1:true } }
   calendarScribbles: {},     // { "2026-07-19": { strokes: [{points:[{x,y}],...}] } } — one freehand note per date
-  whiteboard: { strokes: [] }, // [{points:[{x,y}], color, width, erase}] — one persistent canvas on Overview
+  whiteboard: { pages: Array.from({ length: 10 }, () => ({ strokes: [] })) }, // 10 independent scrollable pages, each [{points:[{x,y}],color,width,erase}]
   links: [
     { id: "l1", title: "PM GatiShakti portal", url: "https://www.pmgatishakti.gov.in", desc: "NGDR staging / UAT" },
     { id: "l2", title: "GSI Bhukosh", url: "https://bhukosh.gsi.gov.in", desc: "Geoscience data" }
@@ -178,6 +178,16 @@ function merge(saved) {
   });
   s.reference = Object.assign(structuredClone(DEFAULT_STATE.reference), saved.reference || {});
   s.trash = Array.isArray(saved.trash) ? saved.trash : [];
+  /* One-time migration: the whiteboard was originally a single canvas
+     ({strokes:[]}) before becoming 10 scrollable pages. If saved data
+     still has the old shape, carry its strokes forward as page 1 rather
+     than silently discarding whatever was already drawn. */
+  if (saved.whiteboard && Array.isArray(saved.whiteboard.strokes)) {
+    s.whiteboard = structuredClone(DEFAULT_STATE.whiteboard);
+    s.whiteboard.pages[0].strokes = saved.whiteboard.strokes;
+  } else if (saved.whiteboard && Array.isArray(saved.whiteboard.pages)) {
+    s.whiteboard = Object.assign(structuredClone(DEFAULT_STATE.whiteboard), saved.whiteboard);
+  }
   /* One-time migration: earlier versions stored Finance/Health/Travel notes
      and links under the generic sections.* template. Carry them forward so
      nothing already saved gets lost when those pages became dedicated. */

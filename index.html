@@ -248,6 +248,7 @@
         <div class="card-head">
           <h2>Whiteboard</h2>
           <div class="wb-toolbar">
+            <button class="wb-tool-btn" id="wbPenBtn" onclick="selectPenTool()" title="Pen">✏️ Pen</button>
             <div class="wb-colors">
               <button class="wb-color-swatch" data-color="#1B1B1A" style="background:#1B1B1A" onclick="setWhiteboardColor('#1B1B1A')" title="Black"></button>
               <button class="wb-color-swatch" data-color="#DC2626" style="background:#DC2626" onclick="setWhiteboardColor('#DC2626')" title="Red"></button>
@@ -261,14 +262,18 @@
               <button class="wb-width-btn" data-width="medium" onclick="setWhiteboardWidth('medium')" title="Medium">●</button>
               <button class="wb-width-btn" data-width="thick" onclick="setWhiteboardWidth('thick')" title="Thick">●</button>
             </div>
-            <button class="icon-btn" id="wbEraseBtn" onclick="toggleWhiteboardEraser()" title="Eraser">🧹 Erase</button>
-            <button class="icon-btn" onclick="undoWhiteboardStroke()" title="Undo last stroke">↶ Undo</button>
-            <button class="icon-btn" onclick="clearWhiteboard()" title="Clear everything">Clear</button>
+            <button class="wb-tool-btn" id="wbEraseBtn" onclick="selectEraserTool()" title="Eraser">🧹 Eraser</button>
+            <div class="wb-eraser-sizes" id="wbEraserSizes" style="display:none">
+              <button class="wb-eraser-size-btn" data-size="small" onclick="setEraserSize('small')" title="Small eraser">Small</button>
+              <button class="wb-eraser-size-btn" data-size="large" onclick="setEraserSize('large')" title="Large eraser — erase quickly">Large</button>
+            </div>
+            <button class="icon-btn" onclick="undoWhiteboardStroke()" title="Undo last stroke on the page you're viewing">↶ Undo</button>
+            <button class="icon-btn" onclick="clearWhiteboardPage()" title="Clear the page you're currently viewing">Clear page</button>
           </div>
         </div>
         <div class="card-body" style="padding-top:0">
-          <canvas id="whiteboardCanvas" class="whiteboard-canvas"></canvas>
-          <p class="hint" style="margin-top:8px">Draw with S Pen, Apple Pencil, finger, or mouse — saves automatically.</p>
+          <p class="hint" id="wbHint" style="margin-bottom:8px">Select Pen or Eraser above to start drawing — S Pen, Apple Pencil, finger, or mouse all work, and saves automatically.</p>
+          <div class="wb-pages-scroll" id="whiteboardPages"></div>
         </div>
       </div>
     </section>
