@@ -195,7 +195,7 @@ function onPointerDown(boardId, evt, canvas, pageIndex) {
   s.currentStroke = s.activeTool === "eraser"
     ? { points: [pointToNorm(canvas, evt)], color: "#000000", width: ERASER_SIZES[s.activeEraserKey], erase: true }
     : { points: [pointToNorm(canvas, evt)], color: s.activeColor, width: WIDTHS[s.activeWidthKey], erase: false };
-  canvas.setPointerCapture(evt.pointerId);
+  try { canvas.setPointerCapture(evt.pointerId); } catch (e) { /* pointer already invalidated — rare, harmless to skip */ }
   // touch-action:pan-y (set in CSS so a finger can still scroll pages
   // now that it can't draw) lets the browser recognize native vertical
   // scroll gestures on this element based on movement direction, not
@@ -212,6 +212,17 @@ function onPointerDown(boardId, evt, canvas, pageIndex) {
   // for the duration of the stroke removes that path entirely.
   const scrollParent = document.getElementById(id(boardId, "wbPagesScroll"));
   if (scrollParent) scrollParent.style.overflow = "hidden";
+  // A third, independent line of defense: rather than only trying to
+  // prevent every possible way the page could still move, also detect
+  // if it does anyway and respond correctly instead of drawing garbage.
+  // Every point in a stroke is computed from the canvas's on-screen
+  // position at that instant (getBoundingClientRect) — if ANYTHING
+  // scrolls mid-stroke, that position is now stale, and every
+  // subsequent point maps to the wrong place relative to where the pen
+  // physically is. That's what "lines appearing on their own" actually
+  // is: not a separate bug, but this coordinate math silently breaking
+  // the moment a scroll slips through despite the locks above.
+  s.strokeStartScroll = { top: scrollParent ? scrollParent.scrollTop : 0, winY: window.scrollY, winX: window.scrollX };
 }
 const touchHintShownAt = {};
 function showTouchRejectedHint(boardId) {
@@ -228,6 +239,16 @@ function onPointerMove(boardId, evt, canvas, pageIndex) {
   const s = inst(boardId);
   if (!s.drawing || !s.currentStroke || pageIndex !== s.currentPageIndex) return;
   evt.preventDefault(); // the missing half of the fix — pointerdown alone isn't enough to suppress a gesture recognized from the move events that follow it
+  // If the canvas's position on screen has shifted since the stroke
+  // started, every point from here on would map to the wrong place
+  // relative to the pen — better to cleanly abandon this stroke than
+  // let it draw somewhere it shouldn't.
+  const scrollParent = document.getElementById(id(boardId, "wbPagesScroll"));
+  const scrollMoved = s.strokeStartScroll && (
+    (scrollParent && scrollParent.scrollTop !== s.strokeStartScroll.top) ||
+    window.scrollY !== s.strokeStartScroll.winY || window.scrollX !== s.strokeStartScroll.winX
+  );
+  if (scrollMoved) { abortStroke(boardId, pageIndex); return; }
   const prevPoint = s.currentStroke.points[s.currentStroke.points.length - 1];
   const newPoint = pointToNorm(canvas, evt);
   const entry = s.pageEls[pageIndex];
@@ -243,6 +264,19 @@ function onPointerMove(boardId, evt, canvas, pageIndex) {
   // last stored one.
   const dx = newPoint.x - prevPoint.x, dy = newPoint.y - prevPoint.y;
   if (Math.sqrt(dx * dx + dy * dy) > 0.003) s.currentStroke.points.push(newPoint);
+}
+function abortStroke(boardId, pageIndex) {
+  const s = inst(boardId);
+  s.drawing = false;
+  s.currentStroke = null;
+  s.currentPageIndex = null;
+  redrawPage(boardId, pageIndex); // wipe whatever partial/corrupted line was drawn live, back to the last saved state
+  const toast = document.getElementById("toast");
+  if (toast) {
+    toast.textContent = "Stroke cancelled — the page moved while drawing";
+    toast.classList.add("show");
+    setTimeout(() => toast.classList.remove("show"), 2200);
+  }
 }
 function onPointerUp(boardId, evt, canvas, pageIndex) {
   const s = inst(boardId);
