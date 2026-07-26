@@ -1,8 +1,16 @@
-/* Whiteboard — 10 independent, vertically-scrollable pages for
-   scribbling ideas on Overview, built for S Pen / Apple Pencil / finger /
-   mouse via Pointer Events.
+/* Whiteboard — supports multiple independent instances (Overview's
+   general scribble board, GSI Workspace's brainstorming board, and any
+   future ones), each with its own 10 vertically-scrollable pages, its
+   own tool state, and its own data under state.whiteboards[boardId].
+   Built for S Pen / Apple Pencil / finger / mouse via Pointer Events.
 
-   Two things here specifically fix real bugs from the previous version:
+   Every exported function takes a boardId as its first argument so the
+   same module and the same fixes apply to every board rather than
+   duplicating this logic per instance — the DOM ids and toolbar
+   elements are all suffixed with -${boardId} to keep instances from
+   colliding with each other on the same page.
+
+   Three things here specifically fix real bugs from earlier versions:
 
    1. The canvas paints its own white background via the 2D context
       instead of relying on CSS `background: #fff`. Samsung Browser's
@@ -13,12 +21,20 @@
       where a CSS background color isn't.
 
    2. Stroke points are normalized against a single reference dimension
-      (width) for both X and Y, not width-for-X/height-for-Y separately.
-      The canvas is CSS width:100% with a fixed height, so its aspect
-      ratio changes across screen sizes — normalizing each axis against
-      its own dimension meant redrawing on a differently-shaped canvas
-      stretched or squeezed the drawing. Scaling both axes by the same
-      factor preserves the original proportions instead. */
+      (width) for both X and Y, not width-for-X/height-for-Y separately,
+      and the canvas uses a fixed aspect-ratio (not a fixed pixel
+      height with a flexible width) so its actual shape is identical on
+      every screen size. Both together are what keep a drawing's
+      proportions intact — and the whole drawing present — regardless of
+      what device it's viewed on.
+
+   3. Only the newest segment is drawn on each pointermove, not the
+      entire page re-filled and re-stroked from scratch. A stylus fires
+      move events at a much higher rate than a mouse; redrawing
+      everything on every one of those, and getting more expensive as a
+      page accumulates strokes, was the likely cause of both rendering
+      lag and the eraser visually misbehaving on high-frequency,
+      high-resolution mobile input. */
 import { state, persist } from './state.js';
 
 const PAGE_COUNT = 10;
@@ -26,94 +42,84 @@ const COLORS = ["#1B1B1A", "#DC2626", "#2563EB", "#16A34A", "#F59E0B", "#7C3AED"
 const WIDTHS = { thin: 2, medium: 4, thick: 8 };
 const ERASER_SIZES = { small: 16, large: 40 }; // deliberately much bigger than pen widths — erasing needs to cover ground fast
 
-let activeTool = null; // null | "pen" | "eraser" — nothing selected by default, so drawing is gated until a tool is explicitly chosen
-let activeColor = COLORS[0];
-let activeWidthKey = "medium";
-let activeEraserKey = "small";
-let zoomPct = 100; // 50–200, in steps of 25
-const ZOOM_MIN = 50, ZOOM_MAX = 200, ZOOM_STEP = 25;
-
-const pageEls = []; // [{canvas, ctx, dpr}] per page, index-aligned with state.whiteboard.pages
-let initialized = false;
-let drawing = false;
-let currentStroke = null;
-let currentPageIndex = null;
-
-function pages() { return state.whiteboard.pages; }
-
-export function zoomWhiteboardIn() { setZoom(Math.min(ZOOM_MAX, zoomPct + ZOOM_STEP)); }
-export function zoomWhiteboardOut() { setZoom(Math.max(ZOOM_MIN, zoomPct - ZOOM_STEP)); }
-export function resetWhiteboardZoom() { setZoom(100); }
-function setZoom(pct) {
-  zoomPct = pct;
-  const inner = document.getElementById("whiteboardPages");
-  if (inner) inner.style.width = zoomPct + "%";
-  const label = document.getElementById("wbZoomLevel");
-  if (label) label.textContent = zoomPct + "%";
-  // A real width change, not a CSS transform — canvases genuinely
-  // resize, so they need re-sizing and re-drawing at their new actual
-  // pixel dimensions, the same pipeline already used for window resize
-  // and for keeping drawings consistent across different screen sizes.
-  sizeAllCanvases();
-}
-
-export function initWhiteboard() {
-  const container = document.getElementById("whiteboardPages");
-  if (!container) return;
-  if (!initialized) {
-    buildPages(container);
-    window.addEventListener("resize", sizeAllCanvases);
-    initialized = true;
+const instances = {}; // { [boardId]: { pageEls, initialized, drawing, currentStroke, currentPageIndex, activeTool, activeColor, activeWidthKey, activeEraserKey, zoomPct } }
+function inst(boardId) {
+  if (!instances[boardId]) {
+    instances[boardId] = {
+      pageEls: [], initialized: false, drawing: false, currentStroke: null, currentPageIndex: null,
+      activeTool: null, activeColor: COLORS[0], activeWidthKey: "medium", activeEraserKey: "small", zoomPct: 100
+    };
   }
-  sizeAllCanvases();
+  return instances[boardId];
+}
+function pages(boardId) {
+  state.whiteboards[boardId] = state.whiteboards[boardId] || { pages: Array.from({ length: PAGE_COUNT }, () => ({ strokes: [] })) };
+  return state.whiteboards[boardId].pages;
+}
+const id = (boardId, base) => base + "-" + boardId;
+
+export function initWhiteboard(boardId) {
+  const container = document.getElementById(id(boardId, "whiteboardPages"));
+  if (!container) return;
+  const s = inst(boardId);
+  if (!s.initialized) {
+    buildPages(boardId, container);
+    window.addEventListener("resize", () => sizeAllCanvases(boardId));
+    s.initialized = true;
+  }
+  sizeAllCanvases(boardId);
 }
 
-function buildPages(container) {
-  container.innerHTML = pages().map((p, i) => `
+function buildPages(boardId, container) {
+  container.innerHTML = pages(boardId).map((p, i) => `
     <div class="wb-page">
       <div class="wb-page-label">Page ${i + 1} of ${PAGE_COUNT}</div>
-      <canvas class="whiteboard-canvas" id="wbCanvas${i}" data-page="${i}"></canvas>
+      <canvas class="whiteboard-canvas" id="wbCanvas${i}-${boardId}" data-page="${i}"></canvas>
     </div>`).join("");
-  pageEls.length = 0;
+  const s = inst(boardId);
+  s.pageEls.length = 0;
   for (let i = 0; i < PAGE_COUNT; i++) {
-    const canvas = document.getElementById("wbCanvas" + i);
+    const canvas = document.getElementById(`wbCanvas${i}-${boardId}`);
     const entry = { canvas, ctx: null, dpr: 1 };
-    pageEls.push(entry);
-    attachPointerHandlers(canvas, i);
+    s.pageEls.push(entry);
+    attachPointerHandlers(boardId, canvas, i);
   }
 }
 
 // Same "measured while hidden" concern as everywhere else a canvas or
-// textarea gets sized in this app — call this again once Overview is
-// actually visible, not just once at initial construction.
-export function resizeWhiteboardIfVisible() {
-  const container = document.getElementById("whiteboardPages");
-  if (container && container.offsetParent !== null) sizeAllCanvases();
+// textarea gets sized in this app — call this again once the board's
+// page is actually visible, not just once at initial construction.
+export function resizeWhiteboardIfVisible(boardId) {
+  const container = document.getElementById(id(boardId, "whiteboardPages"));
+  if (container && container.offsetParent !== null) sizeAllCanvases(boardId);
 }
 
-function sizeAllCanvases() {
-  pageEls.forEach((entry, i) => sizeCanvas(entry, i));
+function sizeAllCanvases(boardId) {
+  inst(boardId).pageEls.forEach((entry, i) => sizeCanvas(boardId, entry, i));
 }
-function sizeCanvas(entry, i) {
+function sizeCanvas(boardId, entry, i) {
   const box = entry.canvas.getBoundingClientRect();
   if (box.width === 0 || box.height === 0) return; // still hidden — nothing to size yet
-  entry.dpr = window.devicePixelRatio || 1;
+  // Capped rather than using the raw value — very high-resolution phones
+  // can report devicePixelRatio well above 2, which multiplies the
+  // canvas buffer size and the cost of every redraw for no visible
+  // sharpness benefit past that point.
+  entry.dpr = Math.min(window.devicePixelRatio || 1, 2);
   entry.canvas.width = box.width * entry.dpr;
   entry.canvas.height = box.height * entry.dpr;
   entry.ctx = entry.canvas.getContext("2d");
   entry.ctx.scale(entry.dpr, entry.dpr);
-  redrawPage(i);
+  redrawPage(boardId, i);
 }
 
-function redrawPage(i) {
-  const entry = pageEls[i];
-  if (!entry.ctx) return;
+function redrawPage(boardId, i) {
+  const entry = inst(boardId).pageEls[i];
+  if (!entry || !entry.ctx) return;
   const w = entry.canvas.width / entry.dpr, h = entry.canvas.height / entry.dpr;
-  // Explicit fill, not CSS background — see the file header for why.
   entry.ctx.fillStyle = "#ffffff";
   entry.ctx.fillRect(0, 0, w, h);
   entry.ctx.lineCap = "round"; entry.ctx.lineJoin = "round";
-  pages()[i].strokes.forEach(s => drawStroke(entry.ctx, s, w));
+  pages(boardId)[i].strokes.forEach(st => drawStroke(entry.ctx, st, w));
 }
 
 // Scale is a single factor (canvas width) applied to BOTH axes — this is
@@ -133,144 +139,163 @@ function drawStroke(ctx, stroke, scaleBasis) {
   ctx.restore();
 }
 
+// Draws just the newest segment (previous point → new point) rather than
+// the whole stroke — used while actively drawing, so each pointermove
+// costs one short line instead of a full-page redraw. See file header.
+function drawSegment(ctx, p1, p2, scaleBasis, stroke) {
+  ctx.save();
+  ctx.globalCompositeOperation = stroke.erase ? "destination-out" : "source-over";
+  ctx.strokeStyle = stroke.color;
+  ctx.lineWidth = stroke.width;
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(p1.x * scaleBasis, p1.y * scaleBasis);
+  ctx.lineTo(p2.x * scaleBasis, p2.y * scaleBasis);
+  ctx.stroke();
+  ctx.restore();
+}
+
 function pointToNorm(canvas, evt) {
   const box = canvas.getBoundingClientRect();
-  // Both axes divided by width (not height) — matches how drawStroke
-  // scales back out, so a point recorded at x=200,y=100 on a 400-wide
-  // canvas is 0.5, 0.25, and replaying it against any canvas width
-  // reconstructs the same proportions rather than the same fraction of
-  // whatever that canvas's (possibly different-ratio) height happens to be.
+  // Both axes divided by width (not height) — see file header.
   return { x: (evt.clientX - box.left) / box.width, y: (evt.clientY - box.top) / box.width };
 }
 
-function attachPointerHandlers(canvas, pageIndex) {
-  canvas.addEventListener("pointerdown", (evt) => onPointerDown(evt, canvas, pageIndex));
-  canvas.addEventListener("pointermove", (evt) => onPointerMove(evt, canvas, pageIndex));
-  canvas.addEventListener("pointerup", () => onPointerUp(pageIndex));
-  canvas.addEventListener("pointercancel", () => onPointerUp(pageIndex));
+function attachPointerHandlers(boardId, canvas, pageIndex) {
+  canvas.addEventListener("pointerdown", (evt) => onPointerDown(boardId, evt, canvas, pageIndex));
+  canvas.addEventListener("pointermove", (evt) => onPointerMove(boardId, evt, canvas, pageIndex));
+  canvas.addEventListener("pointerup", () => onPointerUp(boardId, pageIndex));
+  canvas.addEventListener("pointercancel", () => onPointerUp(boardId, pageIndex));
 }
 
-function onPointerDown(evt, canvas, pageIndex) {
-  if (!activeTool) return; // nothing selected — drawing is gated until a tool is explicitly chosen
+function onPointerDown(boardId, evt, canvas, pageIndex) {
+  const s = inst(boardId);
+  if (!s.activeTool) return; // nothing selected — drawing is gated until a tool is explicitly chosen
   if (evt.pointerType === "touch") {
     // Finger and palm both report as "touch" in the Pointer Events spec —
-    // there's no separate palm signal to check, but since palm contact
-    // is itself a touch, excluding touch excludes both in one rule.
-    // Let it fall through as a native gesture (scrolling) instead of
-    // preventDefault-ing it away, and say why nothing happened rather
-    // than silently ignoring the touch.
-    showTouchRejectedHint();
+    // excluding touch excludes both in one rule. Let it fall through as
+    // a native gesture (scrolling) instead of preventDefault-ing it away.
+    showTouchRejectedHint(boardId);
     return;
   }
   evt.preventDefault();
-  drawing = true;
-  currentPageIndex = pageIndex;
-  currentStroke = activeTool === "eraser"
-    ? { points: [pointToNorm(canvas, evt)], color: "#000000", width: ERASER_SIZES[activeEraserKey], erase: true }
-    : { points: [pointToNorm(canvas, evt)], color: activeColor, width: WIDTHS[activeWidthKey], erase: false };
+  s.drawing = true;
+  s.currentPageIndex = pageIndex;
+  s.currentStroke = s.activeTool === "eraser"
+    ? { points: [pointToNorm(canvas, evt)], color: "#000000", width: ERASER_SIZES[s.activeEraserKey], erase: true }
+    : { points: [pointToNorm(canvas, evt)], color: s.activeColor, width: WIDTHS[s.activeWidthKey], erase: false };
   canvas.setPointerCapture(evt.pointerId);
 }
-let touchHintShownAt = 0;
-function showTouchRejectedHint() {
+const touchHintShownAt = {};
+function showTouchRejectedHint(boardId) {
   const now = Date.now();
-  if (now - touchHintShownAt < 2500) return; // don't spam a toast on every finger-scroll touch
-  touchHintShownAt = now;
+  if (now - (touchHintShownAt[boardId] || 0) < 2500) return; // don't spam a toast on every finger-scroll touch
+  touchHintShownAt[boardId] = now;
   const toast = document.getElementById("toast");
   if (!toast) return;
   toast.textContent = "This whiteboard only draws with S Pen or Apple Pencil — finger scrolls instead";
   toast.classList.add("show");
   setTimeout(() => toast.classList.remove("show"), 2200);
 }
-function onPointerMove(evt, canvas, pageIndex) {
-  if (!drawing || !currentStroke || pageIndex !== currentPageIndex) return;
-  currentStroke.points.push(pointToNorm(canvas, evt));
-  const entry = pageEls[pageIndex];
+function onPointerMove(boardId, evt, canvas, pageIndex) {
+  const s = inst(boardId);
+  if (!s.drawing || !s.currentStroke || pageIndex !== s.currentPageIndex) return;
+  const prevPoint = s.currentStroke.points[s.currentStroke.points.length - 1];
+  const newPoint = pointToNorm(canvas, evt);
+  s.currentStroke.points.push(newPoint);
+  const entry = s.pageEls[pageIndex];
   if (!entry.ctx) return;
-  // Redraw the whole page each move rather than just stroking the new
-  // segment — simplest way to keep an in-progress eraser stroke showing
-  // correctly against everything already on the page beneath it.
-  redrawPage(pageIndex);
-  drawStroke(entry.ctx, currentStroke, entry.canvas.width / entry.dpr);
+  drawSegment(entry.ctx, prevPoint, newPoint, entry.canvas.width / entry.dpr, s.currentStroke);
 }
-function onPointerUp(pageIndex) {
-  if (!drawing || !currentStroke) return;
-  drawing = false;
-  if (currentStroke.points.length > 1) {
-    pages()[pageIndex].strokes.push(currentStroke);
+function onPointerUp(boardId, pageIndex) {
+  const s = inst(boardId);
+  if (!s.drawing || !s.currentStroke) return;
+  s.drawing = false;
+  if (s.currentStroke.points.length > 1) {
+    pages(boardId)[pageIndex].strokes.push(s.currentStroke);
     persist(); // auto-save on every completed stroke
   }
-  currentStroke = null;
-  currentPageIndex = null;
+  s.currentStroke = null;
+  s.currentPageIndex = null;
 }
 
-export function selectPenTool() {
-  activeTool = "pen";
-  renderToolbarState();
+export function selectPenTool(boardId) { inst(boardId).activeTool = "pen"; renderToolbarState(boardId); }
+export function selectEraserTool(boardId) { inst(boardId).activeTool = "eraser"; renderToolbarState(boardId); }
+export function setWhiteboardColor(boardId, c) {
+  const s = inst(boardId);
+  s.activeColor = c;
+  s.activeTool = "pen"; // choosing a color is a reasonable way to pick up the pen too, not just the dedicated Pen button
+  renderToolbarState(boardId);
 }
-export function selectEraserTool() {
-  activeTool = "eraser";
-  renderToolbarState();
-}
-export function setWhiteboardColor(c) {
-  activeColor = c;
-  activeTool = "pen"; // choosing a color is a reasonable way to pick up the pen too, not just the dedicated Pen button
-  renderToolbarState();
-}
-export function setWhiteboardWidth(k) {
-  activeWidthKey = k;
-  renderToolbarState();
-}
-export function setEraserSize(k) {
-  activeEraserKey = k;
-  renderToolbarState();
-}
-export function undoWhiteboardStroke() {
+export function setWhiteboardWidth(boardId, k) { inst(boardId).activeWidthKey = k; renderToolbarState(boardId); }
+export function setEraserSize(boardId, k) { inst(boardId).activeEraserKey = k; renderToolbarState(boardId); }
+
+export function undoWhiteboardStroke(boardId) {
   // Undo applies to whichever page you're currently looking at — the one
   // most centered in the scrollable container — since there's no single
   // "active" page the way tabs would give you.
-  const container = document.getElementById("whiteboardPages");
+  const container = document.getElementById(id(boardId, "wbPagesScroll"));
   if (!container) return;
-  const i = mostVisiblePageIndex(container);
-  if (!pages()[i].strokes.length) return;
-  pages()[i].strokes.pop();
-  persist(); redrawPage(i);
+  const i = mostVisiblePageIndex(boardId, container);
+  if (!pages(boardId)[i].strokes.length) return;
+  pages(boardId)[i].strokes.pop();
+  persist(); redrawPage(boardId, i);
 }
-export function clearWhiteboardPage() {
-  const container = document.getElementById("whiteboardPages");
+export function clearWhiteboardPage(boardId) {
+  const container = document.getElementById(id(boardId, "wbPagesScroll"));
   if (!container) return;
-  const i = mostVisiblePageIndex(container);
-  if (!pages()[i].strokes.length) return;
+  const i = mostVisiblePageIndex(boardId, container);
+  if (!pages(boardId)[i].strokes.length) return;
   if (!confirm(`Clear page ${i + 1}? This can't be undone.`)) return;
-  pages()[i].strokes = [];
-  persist(); redrawPage(i);
+  pages(boardId)[i].strokes = [];
+  persist(); redrawPage(boardId, i);
 }
-function mostVisiblePageIndex(container) {
+function mostVisiblePageIndex(boardId, container) {
   const mid = container.scrollTop + container.clientHeight / 2;
   let best = 0, bestDist = Infinity;
-  pageEls.forEach((entry, i) => {
+  inst(boardId).pageEls.forEach((entry, i) => {
     const dist = Math.abs(entry.canvas.offsetTop - mid);
     if (dist < bestDist) { bestDist = dist; best = i; }
   });
   return best;
 }
 
-function renderToolbarState() {
-  document.querySelectorAll(".wb-color-swatch").forEach(el => {
-    el.classList.toggle("on", el.dataset.color === activeColor && activeTool === "pen");
+export function zoomWhiteboardIn(boardId) { setZoom(boardId, Math.min(200, inst(boardId).zoomPct + 25)); }
+export function zoomWhiteboardOut(boardId) { setZoom(boardId, Math.max(50, inst(boardId).zoomPct - 25)); }
+export function resetWhiteboardZoom(boardId) { setZoom(boardId, 100); }
+function setZoom(boardId, pct) {
+  inst(boardId).zoomPct = pct;
+  const inner = document.getElementById(id(boardId, "whiteboardPages"));
+  if (inner) inner.style.width = pct + "%";
+  const label = document.getElementById(id(boardId, "wbZoomLevel"));
+  if (label) label.textContent = pct + "%";
+  // A real width change, not a CSS transform — canvases genuinely
+  // resize, so they need re-sizing and re-drawing at their new actual
+  // pixel dimensions, the same pipeline already used for window resize.
+  sizeAllCanvases(boardId);
+}
+
+function renderToolbarState(boardId) {
+  const s = inst(boardId);
+  const scope = document.getElementById(id(boardId, "wbFloatToolbar"))?.closest(".wb-canvas-area") || document;
+  scope.querySelectorAll(".wb-color-swatch").forEach(el => {
+    el.classList.toggle("on", el.dataset.color === s.activeColor && s.activeTool === "pen");
   });
-  document.querySelectorAll(".wb-width-btn").forEach(el => {
-    el.classList.toggle("on", el.dataset.width === activeWidthKey);
+  scope.querySelectorAll(".wb-width-btn").forEach(el => {
+    el.classList.toggle("on", el.dataset.width === s.activeWidthKey);
   });
-  document.querySelectorAll(".wb-eraser-size-btn").forEach(el => {
-    el.classList.toggle("on", el.dataset.size === activeEraserKey);
+  scope.querySelectorAll(".wb-eraser-size-btn").forEach(el => {
+    el.classList.toggle("on", el.dataset.size === s.activeEraserKey);
   });
-  const penBtn = document.getElementById("wbPenBtn");
-  if (penBtn) penBtn.classList.toggle("on", activeTool === "pen");
-  const eraseBtn = document.getElementById("wbEraseBtn");
-  if (eraseBtn) eraseBtn.classList.toggle("on", activeTool === "eraser");
-  const eraserSizeBox = document.getElementById("wbEraserSizes");
-  if (eraserSizeBox) eraserSizeBox.style.display = activeTool === "eraser" ? "flex" : "none";
-  document.querySelectorAll(".whiteboard-canvas").forEach(c => {
-    c.style.cursor = !activeTool ? "not-allowed" : activeTool === "eraser" ? "cell" : "crosshair";
+  const penBtn = document.getElementById(id(boardId, "wbPenBtn"));
+  if (penBtn) penBtn.classList.toggle("on", s.activeTool === "pen");
+  const penFlyout = document.getElementById(id(boardId, "wbPenFlyout"));
+  if (penFlyout) penFlyout.classList.toggle("open", s.activeTool === "pen");
+  const eraseBtn = document.getElementById(id(boardId, "wbEraseBtn"));
+  if (eraseBtn) eraseBtn.classList.toggle("on", s.activeTool === "eraser");
+  const eraserSizeBox = document.getElementById(id(boardId, "wbEraserSizes"));
+  if (eraserSizeBox) eraserSizeBox.classList.toggle("open", s.activeTool === "eraser");
+  scope.querySelectorAll(".whiteboard-canvas").forEach(c => {
+    c.style.cursor = !s.activeTool ? "not-allowed" : s.activeTool === "eraser" ? "cell" : "crosshair";
   });
 }

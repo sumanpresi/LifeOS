@@ -21,7 +21,10 @@ export const DEFAULT_STATE = {
   ],
   habitLog: {},              // { "2026-07-19": { h1:true } }
   calendarScribbles: {},     // { "2026-07-19": { strokes: [{points:[{x,y}],...}] } } — one freehand note per date
-  whiteboard: { pages: Array.from({ length: 10 }, () => ({ strokes: [] })) }, // 10 independent scrollable pages, each [{points:[{x,y}],color,width,erase}]
+  whiteboards: {
+    overview: { pages: Array.from({ length: 10 }, () => ({ strokes: [] })) },
+    gsi: { pages: Array.from({ length: 10 }, () => ({ strokes: [] })) }
+  }, // keyed by board id — { pages: [{strokes:[{points,color,width,erase}]}] }
   links: [
     { id: "l1", title: "PM GatiShakti portal", url: "https://www.pmgatishakti.gov.in", desc: "NGDR staging / UAT" },
     { id: "l2", title: "GSI Bhukosh", url: "https://bhukosh.gsi.gov.in", desc: "Geoscience data" }
@@ -178,15 +181,25 @@ function merge(saved) {
   });
   s.reference = Object.assign(structuredClone(DEFAULT_STATE.reference), saved.reference || {});
   s.trash = Array.isArray(saved.trash) ? saved.trash : [];
-  /* One-time migration: the whiteboard was originally a single canvas
-     ({strokes:[]}) before becoming 10 scrollable pages. If saved data
-     still has the old shape, carry its strokes forward as page 1 rather
-     than silently discarding whatever was already drawn. */
+  /* One-time migrations for the whiteboard: it went from a single canvas,
+     to 10 scrollable pages, to multiple independent boards (one per
+     embedding location, e.g. Overview and now GSI Workspace) — each
+     carries data forward from whichever shape was actually saved rather
+     than discarding it, and a newly-added board like "gsi" always gets
+     a valid pages array even when saved data predates it existing. */
   if (saved.whiteboard && Array.isArray(saved.whiteboard.strokes)) {
-    s.whiteboard = structuredClone(DEFAULT_STATE.whiteboard);
-    s.whiteboard.pages[0].strokes = saved.whiteboard.strokes;
+    s.whiteboards = structuredClone(DEFAULT_STATE.whiteboards);
+    s.whiteboards.overview.pages[0].strokes = saved.whiteboard.strokes;
   } else if (saved.whiteboard && Array.isArray(saved.whiteboard.pages)) {
-    s.whiteboard = Object.assign(structuredClone(DEFAULT_STATE.whiteboard), saved.whiteboard);
+    s.whiteboards = structuredClone(DEFAULT_STATE.whiteboards);
+    s.whiteboards.overview = Object.assign(structuredClone(DEFAULT_STATE.whiteboards.overview), saved.whiteboard);
+  } else {
+    s.whiteboards = structuredClone(DEFAULT_STATE.whiteboards);
+    if (saved.whiteboards) {
+      Object.keys(saved.whiteboards).forEach(k => {
+        s.whiteboards[k] = Object.assign(s.whiteboards[k] || { pages: Array.from({ length: 10 }, () => ({ strokes: [] })) }, saved.whiteboards[k]);
+      });
+    }
   }
   /* One-time migration: earlier versions stored Finance/Health/Travel notes
      and links under the generic sections.* template. Carry them forward so

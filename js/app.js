@@ -41,7 +41,8 @@ function renderAll() {
   travel.renderTravel();
   reference.renderReference();
   trash.renderTrash();
-  whiteboard.initWhiteboard();
+  whiteboard.initWhiteboard("overview");
+  whiteboard.initWhiteboard("gsi");
 }
 
 /* The markup uses plain onclick="…" handlers; expose them globally. */

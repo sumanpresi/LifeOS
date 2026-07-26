@@ -1039,53 +1039,85 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 }
 
 /* ================================================================
-   WHITEBOARD — 10 vertically-scrollable pages on Overview
-   ================================================================ */
-.wb-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+   WHITEBOARD — 10 vertically-scrollable pages on Overview.
+   Floating toolbar, Miro-style: a vertical icon rail pinned to the
+   left edge of the canvas area on desktop, switching to a horizontal
+   bar pinned to the bottom on mobile (media query below). Positioned
+   `absolute` within .wb-canvas-area rather than viewport-`fixed` —
+   this board is one card on a longer page, not a full-screen app, so
+   the toolbar should stay pinned while scrolling through its own 10
+   pages, but shouldn't keep floating on screen after scrolling away
+   from the whiteboard entirely. */
+.wb-canvas-area{position:relative}
 
-/* Pen / Eraser — the two mutually-exclusive tools. Selecting one is
-   made deliberately prominent (filled background, ring, bold border)
-   since nothing else on the board indicates whether you can draw at
-   all — an unselected toolbar with no visual state was the actual
-   complaint being fixed here. */
-.wb-tool-btn{border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:8px 14px;
-  font-size:13px;font-weight:700;color:var(--ink-soft);cursor:pointer;transition:.12s}
-.wb-tool-btn:hover{border-color:var(--accent)}
-.wb-tool-btn.on{background:var(--ink);border-color:var(--ink);color:#fff;
-  box-shadow:0 0 0 3px var(--lilac);transform:scale(1.04)}
+.wb-float-toolbar{position:absolute;left:12px;top:50%;transform:translateY(-50%);z-index:20;
+  display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px;
+  background:#fff;border-radius:16px;box-shadow:0 8px 24px -6px rgba(0,0,0,.18),0 0 0 1px var(--line)}
+.wb-float-tool-wrap{position:relative}
+.wb-toolbar-divider{width:26px;height:1px;background:var(--line);margin:4px 0}
+
+.wb-icon-tool{width:40px;height:40px;border:none;background:transparent;border-radius:10px;
+  cursor:pointer;color:var(--ink-soft);display:flex;align-items:center;justify-content:center;transition:.12s}
+.wb-icon-tool svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.wb-icon-tool:hover{background:var(--paper)}
+/* Selecting a tool is made deliberately prominent (filled, scaled up) —
+   nothing else on the board indicates whether you can draw at all, so
+   an unselected toolbar with no visual state was the original complaint. */
+.wb-icon-tool.on{background:var(--ink);color:#fff;transform:scale(1.08);box-shadow:0 0 0 3px var(--lilac)}
+
+/* Flyouts — Miro shows a tool's sub-options only once that tool is
+   selected, appearing beside the rail rather than permanently taking
+   up toolbar space. */
+.wb-flyout{position:absolute;left:calc(100% + 8px);top:0;z-index:21;display:none;
+  align-items:center;gap:8px;padding:8px 10px;background:#fff;border-radius:12px;
+  box-shadow:0 8px 24px -6px rgba(0,0,0,.18),0 0 0 1px var(--line)}
+.wb-flyout.open{display:flex}
+.wb-flyout-divider{width:1px;align-self:stretch;background:var(--line)}
 
 .wb-colors{display:flex;gap:6px}
-.wb-color-swatch{width:24px;height:24px;border-radius:50%;border:2px solid transparent;cursor:pointer;
-  padding:0;box-shadow:0 0 0 1px var(--line) inset;transition:.12s}
-.wb-color-swatch.on{border-color:var(--ink);transform:scale(1.3);box-shadow:0 0 0 3px var(--lilac),0 0 0 1px var(--line) inset}
-.wb-widths{display:flex;gap:4px;align-items:center;border-left:1px solid var(--line);border-right:1px solid var(--line);padding:0 10px}
+.wb-color-swatch{width:22px;height:22px;border-radius:50%;border:2px solid transparent;cursor:pointer;
+  padding:0;box-shadow:0 0 0 1px var(--line) inset;transition:.12s;flex-shrink:0}
+.wb-color-swatch.on{border-color:var(--ink);transform:scale(1.25);box-shadow:0 0 0 3px var(--lilac),0 0 0 1px var(--line) inset}
+.wb-widths{display:flex;gap:2px;align-items:center}
 .wb-width-btn{border:none;background:none;cursor:pointer;color:var(--muted);padding:4px;border-radius:6px;line-height:1;transition:.12s}
 .wb-width-btn[data-width="thin"]{font-size:8px}
 .wb-width-btn[data-width="medium"]{font-size:13px}
 .wb-width-btn[data-width="thick"]{font-size:19px}
-.wb-width-btn.on{color:var(--accent-ink);background:var(--lilac);transform:scale(1.2);box-shadow:0 0 0 2px var(--lilac-deep)}
+.wb-width-btn.on{color:var(--accent-ink);background:var(--lilac);transform:scale(1.15);box-shadow:0 0 0 2px var(--lilac-deep)}
 
-.wb-eraser-sizes{display:flex;gap:6px}
 .wb-eraser-size-btn{border:1.5px solid var(--line);background:#fff;border-radius:8px;padding:6px 11px;
-  font-size:12px;font-weight:600;color:var(--ink-soft);cursor:pointer}
+  font-size:12px;font-weight:600;color:var(--ink-soft);cursor:pointer;white-space:nowrap}
 .wb-eraser-size-btn.on{background:var(--lilac);border-color:var(--lilac-deep);color:var(--accent-ink);
-  transform:scale(1.08);box-shadow:0 0 0 2px var(--lilac-deep)}
+  transform:scale(1.06);box-shadow:0 0 0 2px var(--lilac-deep)}
 
-.wb-pages-scroll{max-height:600px;overflow:auto;padding:4px;background:var(--paper);border-radius:12px}
-#whiteboardPages{width:100%;display:flex;flex-direction:column;gap:14px;transition:width 150ms ease}
+.wb-zoom-float{position:absolute;bottom:12px;right:12px;z-index:20;display:flex;align-items:center;gap:2px;
+  padding:4px;background:#fff;border-radius:12px;box-shadow:0 8px 24px -6px rgba(0,0,0,.18),0 0 0 1px var(--line)}
+.wb-zoom-float button{width:28px;height:28px;border:none;background:none;border-radius:8px;
+  cursor:pointer;font-size:15px;font-weight:700;color:var(--ink-soft)}
+.wb-zoom-float button:hover{background:var(--paper)}
+.wb-zoom-level{font-size:11.5px;font-weight:700;color:var(--ink-soft);min-width:36px;text-align:center}
+.wb-zoom-reset{font-size:10.5px !important;font-weight:600 !important;color:var(--muted) !important}
+
+.wb-pages-scroll{max-height:600px;overflow:auto;padding:4px 4px 4px 68px;background:var(--paper);border-radius:12px}
+[id^="whiteboardPages"]{width:100%;display:flex;flex-direction:column;gap:14px}
 .wb-page{position:relative}
 .wb-page-label{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.04em;
   padding:0 2px 6px;text-align:center}
 .whiteboard-canvas{width:100%;aspect-ratio:16/9;touch-action:pan-y;cursor:not-allowed;
   display:block;border:1px solid var(--line);border-radius:12px;background:#fff}
 
-.wb-zoom-controls{display:flex;align-items:center;gap:4px;margin-left:auto}
-.wb-zoom-level{font-size:12px;font-weight:700;color:var(--ink-soft);min-width:42px;text-align:center}
-
 @media(max-width:767px){
-  .wb-toolbar{width:100%;justify-content:flex-start}
-  .wb-tool-btn{min-height:38px}
+  /* The rail rotates into a bottom bar — same elements, same JS, just a
+     different flex direction and edge to pin to, matching how Miro's
+     own mobile app relocates its toolbar to the bottom of the screen. */
+  .wb-float-toolbar{left:8px;right:8px;top:auto;bottom:8px;transform:none;
+    flex-direction:row;justify-content:center;width:auto}
+  .wb-toolbar-divider{width:1px;height:26px;margin:0 4px}
+  .wb-icon-tool{width:44px;height:44px}
+  .wb-flyout{left:50%;top:auto;bottom:calc(100% + 8px);transform:translateX(-50%);
+    flex-wrap:wrap;max-width:min(90vw,320px)}
   .wb-color-swatch{width:28px;height:28px}
-  .icon-btn{min-height:38px}
-  .wb-pages-scroll{max-height:70vh}
+  .wb-eraser-size-btn{min-height:38px}
+  .wb-zoom-float{bottom:64px;right:8px}
+  .wb-pages-scroll{max-height:70vh;padding:4px 4px 76px}
 }
