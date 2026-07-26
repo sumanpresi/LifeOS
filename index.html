@@ -269,11 +269,19 @@
             </div>
             <button class="icon-btn" onclick="undoWhiteboardStroke()" title="Undo last stroke on the page you're viewing">↶ Undo</button>
             <button class="icon-btn" onclick="clearWhiteboardPage()" title="Clear the page you're currently viewing">Clear page</button>
+            <div class="wb-zoom-controls">
+              <button class="icon-btn" onclick="zoomWhiteboardOut()" title="Zoom out">−</button>
+              <span class="wb-zoom-level" id="wbZoomLevel">100%</span>
+              <button class="icon-btn" onclick="zoomWhiteboardIn()" title="Zoom in">+</button>
+              <button class="icon-btn" onclick="resetWhiteboardZoom()" title="Reset zoom">Reset</button>
+            </div>
           </div>
         </div>
         <div class="card-body" style="padding-top:0">
-          <p class="hint" id="wbHint" style="margin-bottom:8px">Select Pen or Eraser above to start drawing — S Pen, Apple Pencil, finger, or mouse all work, and saves automatically.</p>
-          <div class="wb-pages-scroll" id="whiteboardPages"></div>
+          <p class="hint" id="wbHint" style="margin-bottom:8px">Select Pen or Eraser above to start drawing with S Pen or Apple Pencil — finger scrolls, saves automatically.</p>
+          <div class="wb-pages-scroll" id="wbPagesScroll">
+            <div id="whiteboardPages"></div>
+          </div>
         </div>
       </div>
     </section>

@@ -30,6 +30,8 @@ let activeTool = null; // null | "pen" | "eraser" — nothing selected by defaul
 let activeColor = COLORS[0];
 let activeWidthKey = "medium";
 let activeEraserKey = "small";
+let zoomPct = 100; // 50–200, in steps of 25
+const ZOOM_MIN = 50, ZOOM_MAX = 200, ZOOM_STEP = 25;
 
 const pageEls = []; // [{canvas, ctx, dpr}] per page, index-aligned with state.whiteboard.pages
 let initialized = false;
@@ -38,6 +40,22 @@ let currentStroke = null;
 let currentPageIndex = null;
 
 function pages() { return state.whiteboard.pages; }
+
+export function zoomWhiteboardIn() { setZoom(Math.min(ZOOM_MAX, zoomPct + ZOOM_STEP)); }
+export function zoomWhiteboardOut() { setZoom(Math.max(ZOOM_MIN, zoomPct - ZOOM_STEP)); }
+export function resetWhiteboardZoom() { setZoom(100); }
+function setZoom(pct) {
+  zoomPct = pct;
+  const inner = document.getElementById("whiteboardPages");
+  if (inner) inner.style.width = zoomPct + "%";
+  const label = document.getElementById("wbZoomLevel");
+  if (label) label.textContent = zoomPct + "%";
+  // A real width change, not a CSS transform — canvases genuinely
+  // resize, so they need re-sizing and re-drawing at their new actual
+  // pixel dimensions, the same pipeline already used for window resize
+  // and for keeping drawings consistent across different screen sizes.
+  sizeAllCanvases();
+}
 
 export function initWhiteboard() {
   const container = document.getElementById("whiteboardPages");
@@ -134,6 +152,16 @@ function attachPointerHandlers(canvas, pageIndex) {
 
 function onPointerDown(evt, canvas, pageIndex) {
   if (!activeTool) return; // nothing selected — drawing is gated until a tool is explicitly chosen
+  if (evt.pointerType === "touch") {
+    // Finger and palm both report as "touch" in the Pointer Events spec —
+    // there's no separate palm signal to check, but since palm contact
+    // is itself a touch, excluding touch excludes both in one rule.
+    // Let it fall through as a native gesture (scrolling) instead of
+    // preventDefault-ing it away, and say why nothing happened rather
+    // than silently ignoring the touch.
+    showTouchRejectedHint();
+    return;
+  }
   evt.preventDefault();
   drawing = true;
   currentPageIndex = pageIndex;
@@ -141,6 +169,17 @@ function onPointerDown(evt, canvas, pageIndex) {
     ? { points: [pointToNorm(canvas, evt)], color: "#000000", width: ERASER_SIZES[activeEraserKey], erase: true }
     : { points: [pointToNorm(canvas, evt)], color: activeColor, width: WIDTHS[activeWidthKey], erase: false };
   canvas.setPointerCapture(evt.pointerId);
+}
+let touchHintShownAt = 0;
+function showTouchRejectedHint() {
+  const now = Date.now();
+  if (now - touchHintShownAt < 2500) return; // don't spam a toast on every finger-scroll touch
+  touchHintShownAt = now;
+  const toast = document.getElementById("toast");
+  if (!toast) return;
+  toast.textContent = "This whiteboard only draws with S Pen or Apple Pencil — finger scrolls instead";
+  toast.classList.add("show");
+  setTimeout(() => toast.classList.remove("show"), 2200);
 }
 function onPointerMove(evt, canvas, pageIndex) {
   if (!drawing || !currentStroke || pageIndex !== currentPageIndex) return;
