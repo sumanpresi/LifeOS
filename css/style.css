@@ -78,8 +78,9 @@ h1,h2,.display{font-family:'Fraunces',serif}
 /* tasks */
 .task-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line)}
 .task-row:last-child{border-bottom:none}
-.task-row input[type=text]{flex:1;min-width:0;border:none;background:transparent;font-weight:600;outline:none;padding:2px}
-.task-row input[type=text]::placeholder{color:var(--muted);font-weight:500}
+.task-row textarea{flex:1;min-width:0;border:none;background:transparent;font-weight:600;outline:none;
+  padding:2px;resize:none;overflow:hidden;white-space:pre-wrap;word-break:break-word;line-height:1.35;
+  font-family:inherit;font-size:inherit;color:inherit;box-sizing:border-box;display:block}
 .task-row .del{opacity:.35}
 .task-row .del:hover{opacity:1;color:var(--warn)}
 .task-num{width:22px;height:22px;border-radius:50%;background:var(--lilac);color:var(--accent-ink);font-size:12px;font-weight:800;
@@ -288,7 +289,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .due-pill.overdue{background:#F8ECE6;color:var(--warn)}
 .task-link-input{border:1px solid var(--line);border-radius:7px;padding:3px 6px;font-size:11.5px;background:var(--paper);flex:1;min-width:70px}
 .task-link-go{font-size:13px;flex-shrink:0}
-.task-row input[type=text].task-text-linked{color:var(--accent-ink);text-decoration:underline;text-decoration-color:var(--lilac-deep)}
+.task-row textarea.task-text-linked{color:var(--accent-ink);text-decoration:underline;text-decoration-color:var(--lilac-deep)}
 .task-link-go-inline{font-size:13px;flex-shrink:0;text-decoration:none;padding:2px 4px;border-radius:6px}
 .task-link-go-inline:hover{background:var(--lilac)}
 

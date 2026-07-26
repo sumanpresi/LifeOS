@@ -175,8 +175,8 @@ function pointToNorm(canvas, evt) {
 function attachPointerHandlers(boardId, canvas, pageIndex) {
   canvas.addEventListener("pointerdown", (evt) => onPointerDown(boardId, evt, canvas, pageIndex));
   canvas.addEventListener("pointermove", (evt) => onPointerMove(boardId, evt, canvas, pageIndex));
-  canvas.addEventListener("pointerup", () => onPointerUp(boardId, canvas, pageIndex));
-  canvas.addEventListener("pointercancel", () => onPointerUp(boardId, canvas, pageIndex));
+  canvas.addEventListener("pointerup", (evt) => onPointerUp(boardId, evt, canvas, pageIndex));
+  canvas.addEventListener("pointercancel", (evt) => onPointerUp(boardId, evt, canvas, pageIndex));
 }
 
 function onPointerDown(boardId, evt, canvas, pageIndex) {
@@ -205,6 +205,13 @@ function onPointerDown(boardId, evt, canvas, pageIndex) {
   // it only while a stroke is actually in progress keeps finger-scroll
   // working normally between strokes.
   canvas.style.touchAction = "none";
+  // Belt-and-suspenders: also lock the actual scrollable ancestor
+  // directly. touch-action + preventDefault stop the gesture at the
+  // canvas itself, but some mobile browsers can still hand a stray
+  // scroll to a genuinely overflow:auto parent — locking it outright
+  // for the duration of the stroke removes that path entirely.
+  const scrollParent = document.getElementById(id(boardId, "wbPagesScroll"));
+  if (scrollParent) scrollParent.style.overflow = "hidden";
 }
 const touchHintShownAt = {};
 function showTouchRejectedHint(boardId) {
@@ -223,16 +230,35 @@ function onPointerMove(boardId, evt, canvas, pageIndex) {
   evt.preventDefault(); // the missing half of the fix — pointerdown alone isn't enough to suppress a gesture recognized from the move events that follow it
   const prevPoint = s.currentStroke.points[s.currentStroke.points.length - 1];
   const newPoint = pointToNorm(canvas, evt);
-  s.currentStroke.points.push(newPoint);
   const entry = s.pageEls[pageIndex];
   if (!entry.ctx) return;
+  // Live segment always draws at full smoothness, regardless of what
+  // gets stored — this only affects what's kept for saving/syncing.
   drawSegment(entry.ctx, prevPoint, newPoint, entry.canvas.width / entry.dpr, s.currentStroke);
+  // A stylus can fire pointermove far more often than a mouse, and
+  // storing every single one (with no minimum spacing) makes a long
+  // stroke accumulate hundreds of nearly-identical points — larger
+  // payload to sync for no visible difference in the stroke's shape.
+  // Only keep a point once it's moved a small minimum distance from the
+  // last stored one.
+  const dx = newPoint.x - prevPoint.x, dy = newPoint.y - prevPoint.y;
+  if (Math.sqrt(dx * dx + dy * dy) > 0.003) s.currentStroke.points.push(newPoint);
 }
-function onPointerUp(boardId, canvas, pageIndex) {
+function onPointerUp(boardId, evt, canvas, pageIndex) {
   const s = inst(boardId);
   canvas.style.touchAction = "pan-y"; // restore finger-scroll now that the stroke is done
+  const scrollParent = document.getElementById(id(boardId, "wbPagesScroll"));
+  if (scrollParent) scrollParent.style.overflow = "auto";
   if (!s.drawing || !s.currentStroke) return;
   s.drawing = false;
+  // The throttle in onPointerMove can skip storing points that are too
+  // close together — always capture the true final position here so a
+  // stroke's endpoint is never lost, and so a short, quick stroke that
+  // never crossed the throttle distance still ends up with 2 points
+  // instead of being silently dropped for having only 1.
+  const finalPoint = pointToNorm(canvas, evt);
+  const lastStored = s.currentStroke.points[s.currentStroke.points.length - 1];
+  if (finalPoint.x !== lastStored.x || finalPoint.y !== lastStored.y) s.currentStroke.points.push(finalPoint);
   if (s.currentStroke.points.length > 1) {
     pages(boardId)[pageIndex].strokes.push(s.currentStroke);
     persist(); // auto-save on every completed stroke
@@ -241,8 +267,16 @@ function onPointerUp(boardId, canvas, pageIndex) {
   s.currentPageIndex = null;
 }
 
-export function selectPenTool(boardId) { inst(boardId).activeTool = "pen"; renderToolbarState(boardId); }
-export function selectEraserTool(boardId) { inst(boardId).activeTool = "eraser"; renderToolbarState(boardId); }
+export function selectPenTool(boardId) {
+  const s = inst(boardId);
+  s.activeTool = s.activeTool === "pen" ? null : "pen";
+  renderToolbarState(boardId);
+}
+export function selectEraserTool(boardId) {
+  const s = inst(boardId);
+  s.activeTool = s.activeTool === "eraser" ? null : "eraser";
+  renderToolbarState(boardId);
+}
 export function setWhiteboardColor(boardId, c) {
   const s = inst(boardId);
   s.activeColor = c;
@@ -394,7 +428,11 @@ const STICKY_DEFAULT_W = 0.15, STICKY_DEFAULT_H = 0.15;
 const STICKY_MIN = 0.06;
 let selectedStickyId = null;
 
-export function selectStickyTool(boardId) { inst(boardId).activeTool = "sticky"; renderToolbarState(boardId); }
+export function selectStickyTool(boardId) {
+  const s = inst(boardId);
+  s.activeTool = s.activeTool === "sticky" ? null : "sticky";
+  renderToolbarState(boardId);
+}
 
 function attachLayerHandlers(boardId, layer, pageIndex) {
   layer.addEventListener("pointerdown", (evt) => {

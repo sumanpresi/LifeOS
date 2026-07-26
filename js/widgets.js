@@ -1,6 +1,6 @@
 /* Links, news feeds, quotes, meditation, Day Of page + journal. */
 import { state, uid, esc, persist, rerender, todayKey } from './state.js';
-import { toast } from './ui.js';
+import { toast, autoGrow } from './ui.js';
 import { moveToTrash } from './trash.js';
 import { isLogged, streak } from './habits.js';
 import { getAllGsiTasksFlat } from './gsi.js';
@@ -136,11 +136,15 @@ export function renderDayOf() {
     <div class="task-row ${t.done ? "done" : ""}">
       <button class="chk ${t.done ? "on" : ""}" onclick="toggleTask('${t.id}')"><svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
       <span class="task-num">${i + 1}</span>
-      <input type="text" class="${t.link ? "task-text-linked" : ""}" value="${esc(t.text)}" onchange="editTask('${t.id}',this.value)">
+      <textarea class="${t.link ? "task-text-linked" : ""}" rows="1" onclick="event.stopPropagation()" onchange="editTask('${t.id}',this.value)" oninput="autoGrow(this)">${esc(t.text)}</textarea>
       ${t.source ? `<span class="task-source-badge">${esc(t.source)}</span>` : ""}
       ${t.link ? `<a href="${esc(t.link.startsWith("http")?t.link:"https://"+t.link)}" target="_blank" rel="noopener" class="task-link-go-inline" title="Open link">🔗</a>` : ""}
       ${!t.done && t.dueDate && t.dueDate < k ? `<span class="due-pill overdue">Overdue</span>` : ""}
     </div>`).join("") || `<p class="hint">Nothing due today — give a task a due date on Overview to see it here.</p>`;
+  // Same "measure after render" requirement as everywhere else this
+  // input→textarea fix has been applied — see go() in ui.js for the
+  // re-run when this page was hidden at the moment this render happened.
+  document.getElementById("dayTasks").querySelectorAll("textarea").forEach(autoGrow);
   document.getElementById("dayHabits").innerHTML = state.habits.map(h => `
     <div class="task-row">
       <button class="chk ${isLogged(k, h.id) ? "on" : ""}" onclick="toggleHabit('${k}','${h.id}')"><svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>

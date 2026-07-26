@@ -29,6 +29,7 @@ export function go(page) {
     el.querySelectorAll(".mm-section textarea").forEach(autoGrow);
     el.querySelectorAll(".gsi-title").forEach(autoGrow);
     el.querySelectorAll(".t-title").forEach(autoGrow);
+    el.querySelectorAll(".task-row textarea").forEach(autoGrow);
     if (page === "overview") resizeWhiteboardIfVisible("overview");
     if (page === "work") resizeWhiteboardIfVisible("gsi");
     if (page === "reference") import("./reference.js").then(m => m.showWorldMap());
