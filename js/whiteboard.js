@@ -9,13 +9,23 @@
    lives on. On real touchscreen hardware (confirmed specifically on a
    Galaxy S26 Ultra with S Pen, on Samsung Internet), that nested region
    made gesture disambiguation ("is this drawing, or does an inner
-   container want to scroll, or does the outer page") fragile in ways no
-   amount of downstream JS fixing fully closed off — every additional
-   layer (touch-action toggling, explicit overflow locks, detecting and
-   discarding a stroke if a scroll slipped through anyway) reduced how
-   often it happened without eliminating the underlying cause. Going
-   back to a single, un-nested canvas removes that region entirely
-   rather than continuing to patch around it.
+   container want to scroll, or does the outer page") fragile. Going
+   back to a single, un-nested canvas removes that region entirely.
+
+   touch-action on the canvas is `none`, permanently, in CSS — not
+   toggled by JS. An earlier version toggled it between `none` (while
+   drawing) and `pan-y` (so a finger could scroll between strokes, once
+   only S Pen/Apple Pencil could draw). That toggle is a real weakness:
+   touch-action is read by the browser's compositor to decide gesture
+   handling, and a value changed by JS *in response to* the same
+   pointerdown that starts the gesture can lose that race on some
+   browsers — the compositor may have already committed to allowing a
+   scroll before the JS handler finishes updating the style. The
+   original version of this whiteboard never toggled it at all, and
+   never had this problem. With a single canvas (not 10 pages needing
+   internal scroll), there's no real need left for a finger to scroll
+   *inside* the canvas specifically — the page around it still scrolls
+   normally — so the simpler, permanently-set value is strictly better.
 
    Every exported function takes a boardId as its first argument so the
    same module and the same fixes apply to every board rather than
@@ -188,24 +198,14 @@ function onPointerDown(boardId, evt, canvas) {
     ? { points: [pointToNorm(canvas, evt)], color: "#000000", width: ERASER_SIZES[s.activeEraserKey], erase: true }
     : { points: [pointToNorm(canvas, evt)], color: s.activeColor, width: WIDTHS[s.activeWidthKey], erase: false };
   try { canvas.setPointerCapture(evt.pointerId); } catch (e) { /* pointer already invalidated — rare, harmless to skip */ }
-  // touch-action:pan-y (set in CSS so a finger can still scroll the
-  // outer page now that it can't draw) lets the browser recognize
-  // native vertical scroll gestures on this element based on movement
-  // direction, not pointerType — a horizontal stroke has no vertical
-  // component and never triggers it, but a diagonal one does.
-  // Suppressing it only while a stroke is actually in progress keeps
-  // finger-scroll working normally between strokes.
-  canvas.style.touchAction = "none";
-  // A second, independent line of defense: rather than only trying to
-  // prevent every possible way the page could still move, also detect
-  // if it does anyway and respond correctly instead of drawing garbage.
-  // Every point in a stroke is computed from the canvas's on-screen
-  // position at that instant (getBoundingClientRect) — if the outer
-  // page scrolls mid-stroke, that position is now stale, and every
-  // subsequent point maps to the wrong place relative to where the pen
-  // physically is. That's what "lines appearing on their own" actually
-  // is: not a separate bug, but this coordinate math silently breaking
-  // the moment a scroll slips through.
+  // touch-action:none is set permanently in CSS, not toggled here — see
+  // file header for why that matters. This is a belt-and-suspenders
+  // backstop on top of it: if the outer page scrolls mid-stroke anyway,
+  // every subsequent point (computed from the canvas's on-screen
+  // position via getBoundingClientRect) would map to the wrong place
+  // relative to where the pen physically is — that's what "lines
+  // appearing on their own" actually is. Tracking scroll position here
+  // lets a corrupted stroke be caught and discarded instead of drawn.
   s.strokeStartScroll = { winY: window.scrollY, winX: window.scrollX };
 }
 const touchHintShownAt = {};
@@ -259,7 +259,6 @@ function abortStroke(boardId) {
 }
 function onPointerUp(boardId, evt, canvas) {
   const s = inst(boardId);
-  canvas.style.touchAction = "pan-y"; // restore finger-scroll now that the stroke is done
   if (!s.drawing || !s.currentStroke) return;
   s.drawing = false;
   // The throttle in onPointerMove can skip storing points that are too

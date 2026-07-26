@@ -1146,7 +1146,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .wb-sticky-resize-handle{position:absolute;bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize;
   display:none;background:linear-gradient(135deg,transparent 50%,rgba(0,0,0,.25) 50%);border-radius:0 0 6px 0}
 .wb-sticky.selected .wb-sticky-resize-handle{display:block}
-.whiteboard-canvas{width:100%;aspect-ratio:4/3;touch-action:pan-y;cursor:not-allowed;
+.whiteboard-canvas{width:100%;aspect-ratio:4/3;touch-action:none;cursor:not-allowed;
   display:block;border:1px solid var(--line);border-radius:12px;background:#fff}
 
 @media(max-width:767px){
