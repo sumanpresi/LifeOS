@@ -1098,9 +1098,51 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .wb-zoom-level{font-size:11.5px;font-weight:700;color:var(--ink-soft);min-width:36px;text-align:center}
 .wb-zoom-reset{font-size:10.5px !important;font-weight:600 !important;color:var(--muted) !important}
 
+.wb-fullscreen-btn{position:absolute;top:12px;right:12px;z-index:20;
+  width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:#fff;
+  cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.15);color:var(--ink-soft);
+  display:flex;align-items:center;justify-content:center}
+.wb-fullscreen-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.wb-fullscreen-btn:hover{border-color:var(--accent);color:var(--accent-ink)}
+.wb-fullscreen-btn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+/* Native :fullscreen gives the canvas area real breathing room automatically.
+   The fallback class does the same job via plain CSS for browsers without
+   Fullscreen API support, so the toggle still works everywhere. */
+.wb-canvas-area:fullscreen,.wb-canvas-area.wb-fallback-fullscreen{
+  background:var(--card);padding:16px;display:flex;flex-direction:column}
+.wb-canvas-area:fullscreen .wb-pages-scroll,.wb-canvas-area.wb-fallback-fullscreen .wb-pages-scroll{
+  flex:1;max-height:none}
+.wb-canvas-area.wb-fallback-fullscreen{position:fixed;inset:0;z-index:500}
+
 .wb-pages-scroll{max-height:600px;overflow:auto;padding:4px 4px 4px 68px;background:var(--paper);border-radius:12px}
 [id^="whiteboardPages"]{width:100%;display:flex;flex-direction:column;gap:14px}
 .wb-page{position:relative}
+.wb-page-stack{position:relative}
+.wb-object-layer{position:absolute;inset:0;pointer-events:none}
+.wb-object-layer.creating{pointer-events:auto;cursor:copy}
+
+.wb-sticky{position:absolute;pointer-events:auto;border-radius:6px;
+  box-shadow:0 2px 6px rgba(0,0,0,.15);display:flex;flex-direction:column;
+  min-width:60px;min-height:60px;box-sizing:border-box}
+.wb-sticky.selected{outline:2px solid var(--accent);outline-offset:2px}
+.wb-sticky-drag-handle{height:14px;flex-shrink:0;cursor:grab;border-radius:6px 6px 0 0}
+.wb-sticky-drag-handle:active{cursor:grabbing}
+.wb-sticky-text{flex:1;padding:2px 8px 8px;font-size:13px;line-height:1.35;color:#1B1B1A;
+  overflow:hidden;outline:none;word-break:break-word;cursor:text}
+.wb-sticky-text:empty::before{content:attr(data-placeholder);color:rgba(27,27,26,.4)}
+.wb-sticky-delete{position:absolute;top:-9px;right:-9px;width:20px;height:20px;border-radius:50%;
+  border:1px solid var(--line);background:#fff;color:var(--muted);font-size:10px;cursor:pointer;
+  display:none;align-items:center;justify-content:center;padding:0}
+.wb-sticky.selected .wb-sticky-delete{display:flex}
+.wb-sticky-delete:hover{background:#FEE2E2;color:#DC2626}
+.wb-sticky-toolbar{position:absolute;bottom:calc(100% + 6px);left:0;display:none;gap:5px;
+  padding:5px;background:#fff;border-radius:9px;box-shadow:0 6px 18px -4px rgba(0,0,0,.2),0 0 0 1px var(--line)}
+.wb-sticky.selected .wb-sticky-toolbar{display:flex}
+.wb-sticky-color{width:16px;height:16px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
+.wb-sticky-color.on{border-color:var(--ink)}
+.wb-sticky-resize-handle{position:absolute;bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize;
+  display:none;background:linear-gradient(135deg,transparent 50%,rgba(0,0,0,.25) 50%);border-radius:0 0 6px 0}
+.wb-sticky.selected .wb-sticky-resize-handle{display:block}
 .wb-page-label{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.04em;
   padding:0 2px 6px;text-align:center}
 .whiteboard-canvas{width:100%;aspect-ratio:16/9;touch-action:pan-y;cursor:not-allowed;
