@@ -1,9 +1,10 @@
 /* GitHub sign-in (via Supabase Auth), cloud storage, live sync. */
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
-import { state, replaceState, setRemoteSaver, uid, esc, rerender, flushPendingSave } from './state.js';
+import { state, replaceState, persist, setRemoteSaver, uid, esc, rerender, flushPendingSave } from './state.js';
 import { setSyncPill, nowTime, toast } from './ui.js';
 import { pushCommunicationUpdate } from './communication-bridge.js';
 import { pushNgdrTrackerUpdate } from './ngdr-tracker-bridge.js';
+import { mergeBoardData } from './whiteboard.js';
 
 const CLIENT_ID = uid() + uid();
 const GH_SVG = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.54-3.87-1.54-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.26.72-1.55-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12v3.14c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>';
@@ -81,6 +82,24 @@ function renderIdentity() {
 /* ---------- database ---------- */
 let hasReconciled = false;      // has this session checked the cloud at least once?
 let pendingSaveAfterReconcile = false;
+// The reconciliation used by both loadRemote() and the realtime
+// subscription below resolves conflicts by comparing one timestamp for
+// the *entire* saved state — whichever side's overall timestamp is
+// newer replaces everything, field by field, discarding the other
+// side's version wholesale. For most data that's an acceptable
+// simplification, but for whiteboards it silently erased real drawings
+// whenever the *other* side happened to be ahead on something
+// unrelated. Merging here, before either caller decides a winner,
+// means it doesn't matter afterward which side "wins" — board data
+// from both is already combined by that point.
+function mergeIncomingWhiteboards(remote) {
+  const mergedBoards = {};
+  Object.keys(Object.assign({}, state.whiteboards, remote.whiteboards)).forEach(boardId => {
+    mergedBoards[boardId] = mergeBoardData(state.whiteboards[boardId], remote.whiteboards?.[boardId]);
+  });
+  state.whiteboards = mergedBoards;
+  remote.whiteboards = mergedBoards;
+}
 function applyRemote(remote) {
   replaceState(remote);
   rerender();
@@ -96,6 +115,12 @@ export async function loadRemote(preferRemote = false) {
     if (error) throw error;
     if (data && data.data && Object.keys(data.data).length) {
       const remote = data.data;
+      mergeIncomingWhiteboards(remote);
+      // The merge just changed local state (possibly pulling in board
+      // data from the remote side) independent of whatever the win/lose
+      // branching below decides — make sure that's actually reflected
+      // here, not just in the payload that eventually gets pushed back.
+      persist(false); rerender();
       if (preferRemote || (remote.updatedAt || 0) > (state.updatedAt || 0)) applyRemote(remote);
       else if ((state.updatedAt || 0) > (remote.updatedAt || 0)) { hasReconciled = true; await saveRemote(); return; }
     } else {
@@ -140,7 +165,14 @@ export async function syncNow() {
     } catch (e) { /* fall through */ }
   }
   if (!user) { ghButton(); return; }
-  await saveRemote(); await loadRemote();
+  // Load before save, not the other way around — pushing first would
+  // overwrite whatever's in the cloud with this device's own (possibly
+  // stale) copy before ever getting a chance to pull down something
+  // newer from another device. loadRemote() reconciles first: if the
+  // cloud is newer, it's applied locally; if this device is newer, it
+  // schedules a save itself. Either way, saveRemote() afterward is a
+  // safe no-op or a genuine push of what's actually newest.
+  await loadRemote(); await saveRemote();
   toast("Synced");
 }
 
@@ -154,6 +186,7 @@ function startRealtime() {
         const row = payload.new;
         if (row && row.data && row.data._client !== CLIENT_ID &&
             (row.data.updatedAt || 0) > (state.updatedAt || 0)) {
+          mergeIncomingWhiteboards(row.data);
           applyRemote(row.data);
           toast("Updated from another device");
         }

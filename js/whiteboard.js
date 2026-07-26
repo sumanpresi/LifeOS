@@ -85,6 +85,32 @@ function board(boardId) {
 }
 const id = (boardId, base) => base + "-" + boardId;
 
+// The general sync system resolves conflicts by comparing one timestamp
+// for a device's entire saved state — whichever device's overall
+// timestamp is newer replaces everything, field by field, even ones
+// that didn't actually change on that device. For most data that's an
+// acceptable simplification; for whiteboards it silently erased real
+// drawings whenever the *other* device happened to touch anything
+// unrelated more recently. This merges the two boards' strokes and
+// notes by id instead of letting one wholesale-replace the other, so a
+// device that's behind on other data doesn't lose drawings it's ahead
+// on. Exported for supabase.js to apply specifically to whiteboard data
+// during reconciliation, since this app-wide default doesn't fit here.
+export function mergeBoardData(a, b) {
+  if (!a) return b || { strokes: [], objects: [] };
+  if (!b) return a;
+  const strokes = [], seenStrokes = new Set();
+  [...(a.strokes || []), ...(b.strokes || [])].forEach(s => {
+    const key = s.id || JSON.stringify(s.points[0]) + s.color + s.points.length; // fallback for strokes saved before ids existed
+    if (!seenStrokes.has(key)) { seenStrokes.add(key); strokes.push(s); }
+  });
+  const objects = [], seenObjects = new Set();
+  [...(a.objects || []), ...(b.objects || [])].forEach(o => {
+    if (!seenObjects.has(o.id)) { seenObjects.add(o.id); objects.push(o); }
+  });
+  return { strokes, objects };
+}
+
 export function initWhiteboard(boardId) {
   const canvas = document.getElementById(id(boardId, "whiteboardCanvas"));
   if (!canvas) return;
@@ -196,8 +222,8 @@ function onPointerDown(boardId, evt, canvas) {
   evt.preventDefault();
   s.drawing = true;
   s.currentStroke = s.activeTool === "eraser"
-    ? { points: [pointToNorm(canvas, evt)], color: "#000000", width: ERASER_SIZES[s.activeEraserKey], erase: true }
-    : { points: [pointToNorm(canvas, evt)], color: s.activeColor, width: WIDTHS[s.activeWidthKey], erase: false };
+    ? { id: uid(), points: [pointToNorm(canvas, evt)], color: "#000000", width: ERASER_SIZES[s.activeEraserKey], erase: true }
+    : { id: uid(), points: [pointToNorm(canvas, evt)], color: s.activeColor, width: WIDTHS[s.activeWidthKey], erase: false };
   try { canvas.setPointerCapture(evt.pointerId); } catch (e) { /* pointer already invalidated — rare, harmless to skip */ }
   // touch-action:none is set permanently in CSS, not toggled — see file
   // header for why that matters for actually preventing the page from
