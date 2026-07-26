@@ -1110,15 +1110,17 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
    The fallback class does the same job via plain CSS for browsers without
    Fullscreen API support, so the toggle still works everywhere. */
 .wb-canvas-area:fullscreen,.wb-canvas-area.wb-fallback-fullscreen{
-  background:var(--card);padding:16px;display:flex;flex-direction:column}
-.wb-canvas-area:fullscreen .wb-pages-scroll,.wb-canvas-area.wb-fallback-fullscreen .wb-pages-scroll{
-  flex:1;max-height:none}
+  background:var(--card);padding:16px;display:flex;flex-direction:column;justify-content:center}
 .wb-canvas-area.wb-fallback-fullscreen{position:fixed;inset:0;z-index:500}
 
-.wb-pages-scroll{max-height:600px;overflow:auto;padding:4px 4px 4px 68px;background:var(--paper);border-radius:12px}
-[id^="whiteboardPages"]{width:100%;display:flex;flex-direction:column;gap:14px}
-.wb-page{position:relative}
-.wb-page-stack{position:relative}
+/* No scrollable wrapper here on purpose — a nested scrollable region
+   between the canvas and the page it lives on was the actual root
+   cause of real scroll-during-drawing conflicts on touchscreen
+   hardware (confirmed specifically on a Galaxy S26 Ultra with S Pen).
+   A single canvas that fits naturally within its card removes the
+   region entirely rather than needing to out-maneuver it. */
+.wb-canvas-area{padding-left:68px}
+.wb-canvas-wrap{position:relative;width:100%}
 .wb-object-layer{position:absolute;inset:0;pointer-events:none}
 .wb-object-layer.creating{pointer-events:auto;cursor:copy}
 
@@ -1144,9 +1146,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .wb-sticky-resize-handle{position:absolute;bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize;
   display:none;background:linear-gradient(135deg,transparent 50%,rgba(0,0,0,.25) 50%);border-radius:0 0 6px 0}
 .wb-sticky.selected .wb-sticky-resize-handle{display:block}
-.wb-page-label{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.04em;
-  padding:0 2px 6px;text-align:center}
-.whiteboard-canvas{width:100%;aspect-ratio:16/9;touch-action:pan-y;cursor:not-allowed;
+.whiteboard-canvas{width:100%;aspect-ratio:4/3;touch-action:pan-y;cursor:not-allowed;
   display:block;border:1px solid var(--line);border-radius:12px;background:#fff}
 
 @media(max-width:767px){
@@ -1162,5 +1162,5 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   .wb-color-swatch{width:28px;height:28px}
   .wb-eraser-size-btn{min-height:38px}
   .wb-zoom-float{bottom:64px;right:8px}
-  .wb-pages-scroll{max-height:70vh;padding:4px 4px 76px}
+  .wb-canvas-area{padding-left:0;padding-bottom:64px}
 }

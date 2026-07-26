@@ -22,9 +22,9 @@ export const DEFAULT_STATE = {
   habitLog: {},              // { "2026-07-19": { h1:true } }
   calendarScribbles: {},     // { "2026-07-19": { strokes: [{points:[{x,y}],...}] } } — one freehand note per date
   whiteboards: {
-    overview: { pages: Array.from({ length: 10 }, () => ({ strokes: [] })) },
-    gsi: { pages: Array.from({ length: 10 }, () => ({ strokes: [] })) }
-  }, // keyed by board id — { pages: [{strokes:[{points,color,width,erase}]}] }
+    overview: { strokes: [], objects: [] },
+    gsi: { strokes: [], objects: [] }
+  }, // keyed by board id — flat, single-canvas: {strokes:[{points,color,width,erase}], objects:[{id,x,y,w,h,text,color}]}
   links: [
     { id: "l1", title: "PM GatiShakti portal", url: "https://www.pmgatishakti.gov.in", desc: "NGDR staging / UAT" },
     { id: "l2", title: "GSI Bhukosh", url: "https://bhukosh.gsi.gov.in", desc: "Geoscience data" }
@@ -182,24 +182,35 @@ function merge(saved) {
   s.reference = Object.assign(structuredClone(DEFAULT_STATE.reference), saved.reference || {});
   s.trash = Array.isArray(saved.trash) ? saved.trash : [];
   /* One-time migrations for the whiteboard: it went from a single canvas,
-     to 10 scrollable pages, to multiple independent boards (one per
-     embedding location, e.g. Overview and now GSI Workspace) — each
-     carries data forward from whichever shape was actually saved rather
-     than discarding it, and a newly-added board like "gsi" always gets
-     a valid pages array even when saved data predates it existing. */
+     to 10 scrollable pages, to multiple independent boards, and now back
+     to a single canvas per board — the 10-page version turned out to
+     introduce a nested scrollable region that was the actual source of
+     real drawing/scroll conflicts on touchscreen hardware, something no
+     amount of downstream JS fixing could fully guarantee against, so it
+     was removed rather than patched further. Whatever shape was actually
+     saved gets flattened forward: for the 10-page shapes, page 1's
+     content is kept (the safest unambiguous choice — spatially merging
+     multiple pages onto one canvas would just overlap into an unreadable
+     mess) rather than silently discarding everything. */
+  s.whiteboards = structuredClone(DEFAULT_STATE.whiteboards);
   if (saved.whiteboard && Array.isArray(saved.whiteboard.strokes)) {
-    s.whiteboards = structuredClone(DEFAULT_STATE.whiteboards);
-    s.whiteboards.overview.pages[0].strokes = saved.whiteboard.strokes;
+    s.whiteboards.overview.strokes = saved.whiteboard.strokes;
   } else if (saved.whiteboard && Array.isArray(saved.whiteboard.pages)) {
-    s.whiteboards = structuredClone(DEFAULT_STATE.whiteboards);
-    s.whiteboards.overview = Object.assign(structuredClone(DEFAULT_STATE.whiteboards.overview), saved.whiteboard);
-  } else {
-    s.whiteboards = structuredClone(DEFAULT_STATE.whiteboards);
-    if (saved.whiteboards) {
-      Object.keys(saved.whiteboards).forEach(k => {
-        s.whiteboards[k] = Object.assign(s.whiteboards[k] || { pages: Array.from({ length: 10 }, () => ({ strokes: [] })) }, saved.whiteboards[k]);
-      });
-    }
+    const p0 = saved.whiteboard.pages[0] || {};
+    s.whiteboards.overview.strokes = p0.strokes || [];
+    s.whiteboards.overview.objects = p0.objects || [];
+  } else if (saved.whiteboards) {
+    Object.keys(saved.whiteboards).forEach(k => {
+      const board = saved.whiteboards[k];
+      if (!board) return;
+      s.whiteboards[k] = s.whiteboards[k] || { strokes: [], objects: [] };
+      if (Array.isArray(board.strokes)) {
+        s.whiteboards[k] = { strokes: board.strokes, objects: board.objects || [] };
+      } else if (Array.isArray(board.pages)) {
+        const p0 = board.pages[0] || {};
+        s.whiteboards[k] = { strokes: p0.strokes || [], objects: p0.objects || [] };
+      }
+    });
   }
   /* One-time migration: earlier versions stored Finance/Health/Travel notes
      and links under the generic sections.* template. Carry them forward so

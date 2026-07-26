@@ -249,8 +249,9 @@
         <div class="card-body" style="padding-top:0">
           <p class="hint" id="wbHint-overview" style="margin-bottom:8px">Select Pen or Eraser to start drawing with S Pen or Apple Pencil — finger scrolls, saves automatically.</p>
           <div class="wb-canvas-area" id="wbCanvasArea-overview">
-            <div class="wb-pages-scroll" id="wbPagesScroll-overview">
-              <div id="whiteboardPages-overview"></div>
+            <div class="wb-canvas-wrap" id="wbCanvasWrap-overview">
+              <canvas class="whiteboard-canvas" id="whiteboardCanvas-overview"></canvas>
+              <div class="wb-object-layer" id="wbObjLayer-overview"></div>
             </div>
 
             <!-- Floating tool rail — vertical on desktop, bottom bar on mobile (CSS handles the switch) -->
@@ -489,8 +490,9 @@
         <div class="card-body" style="padding-top:0">
           <p class="hint" id="wbHint-gsi" style="margin-bottom:8px">A quick space for scribbling ideas alongside your GSI Workspace tasks — Pen or Eraser to start, S Pen or Apple Pencil to draw.</p>
           <div class="wb-canvas-area" id="wbCanvasArea-gsi">
-            <div class="wb-pages-scroll" id="wbPagesScroll-gsi">
-              <div id="whiteboardPages-gsi"></div>
+            <div class="wb-canvas-wrap" id="wbCanvasWrap-gsi">
+              <canvas class="whiteboard-canvas" id="whiteboardCanvas-gsi"></canvas>
+              <div class="wb-object-layer" id="wbObjLayer-gsi"></div>
             </div>
 
             <!-- Floating tool rail — vertical on desktop, bottom bar on mobile (CSS handles the switch) -->
