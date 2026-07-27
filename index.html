@@ -936,6 +936,24 @@
   </div>
 </div>
 
+<div class="gsi-archive-modal-bg" id="taskArchiveModalBg">
+  <div class="gsi-archive-modal">
+    <div class="expand-modal-head">
+      <h2>Archived tasks (<span id="taskArchiveModalCount">0</span>)</h2>
+      <button class="btn btn-ghost" onclick="closeArchivedTasksModal()">✕ Close</button>
+    </div>
+    <div class="row" style="padding:12px 20px 0">
+      <select id="taskArchiveModalSort" class="t-archived-sort" onchange="setArchivedSort(this.value)" title="Sort archived tasks">
+        <option value="newest">Newest archived</option>
+        <option value="oldest">Oldest archived</option>
+        <option value="completed">Completed date</option>
+        <option value="alpha">Alphabetical</option>
+      </select>
+    </div>
+    <div class="gsi-archive-modal-body" id="taskArchiveModalList"></div>
+  </div>
+</div>
+
 <div class="scribble-modal-bg" id="scribbleModalBg">
   <div class="scribble-modal">
     <div class="expand-modal-head">

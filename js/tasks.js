@@ -14,7 +14,7 @@ import { getAllGsiTasksFlat, findProjectTask, editProjectTask, setTaskStatus as 
 
 let taskFilter = "all"; // "all" | "work" | "personal"
 let sortByDate = false;
-let collapsedSections = new Set(["archived"]); // UI-only display state, not persisted — which of Today/Upcoming/Completed/Archived are collapsed; Archived starts collapsed
+let collapsedSections = new Set(); // UI-only display state, not persisted — which of Today/Upcoming/Completed are collapsed
 let expandedTaskId = null; // UI-only — which single row currently has its edit controls open
 let archivedSort = "newest"; // "newest" | "oldest" | "completed" | "alpha" — UI-only, not persisted
 
@@ -113,7 +113,7 @@ function sortArchived(list) {
   else if (archivedSort === "alpha") arr.sort((a, b) => a.text.localeCompare(b.text));
   return arr;
 }
-export function setArchivedSort(v) { archivedSort = v; renderTasks(); }
+export function setArchivedSort(v) { archivedSort = v; renderArchivedTasksModal(); }
 
 function archivedTaskRowHtml(t) {
   const cat = (t.category || "work") === "work" ? "Work" : "Personal";
@@ -136,26 +136,38 @@ function archivedTaskRowHtml(t) {
       </div>
     </div>`;
 }
-function archivedSectionHtml(tasks) {
-  const collapsed = collapsedSections.has("archived");
-  const sorted = sortArchived(tasks);
+// A plain, always-tappable trigger — same pattern as GSI Workspace's own
+// "Archive" / "Archive completed" buttons, deliberately not another
+// inline collapsible section. Opens a modal instead, same mechanism as
+// GSI's own archive view and the Brainstorming Board's archive manager.
+function archivedTriggerHtml(count) {
   return `
-    <div class="t-section t-archived-section ${collapsed ? "collapsed" : ""}" data-section="archived">
-      <div class="t-section-head">
-        <button class="t-section-toggle" onclick="toggleTaskSection('archived')" aria-expanded="${!collapsed}">
-          <span class="t-section-title">Archived</span>
-          <span class="t-section-count">${tasks.length}</span>
-          <span class="t-section-chevron">▾</span>
-        </button>
-        <select class="t-archived-sort" onchange="setArchivedSort(this.value)" title="Sort archived tasks">
-          <option value="newest" ${archivedSort === "newest" ? "selected" : ""}>Newest archived</option>
-          <option value="oldest" ${archivedSort === "oldest" ? "selected" : ""}>Oldest archived</option>
-          <option value="completed" ${archivedSort === "completed" ? "selected" : ""}>Completed date</option>
-          <option value="alpha" ${archivedSort === "alpha" ? "selected" : ""}>Alphabetical</option>
-        </select>
-      </div>
-      <div class="t-section-rows"><div class="t-section-rows-inner">${sorted.map(archivedTaskRowHtml).join("")}</div></div>
+    <div class="t-archived-trigger-row">
+      <button class="t-archived-trigger" onclick="openArchivedTasksModal()">🗂 Archived <span class="t-section-count">${count}</span></button>
     </div>`;
+}
+function currentArchivedTasks() {
+  return state.tasks.filter(t => t.archived && (taskFilter === "all" || (t.category || "work") === taskFilter));
+}
+export function openArchivedTasksModal() {
+  const modal = document.getElementById("taskArchiveModalBg");
+  if (!modal) return;
+  modal.classList.add("open");
+  renderArchivedTasksModal();
+}
+export function closeArchivedTasksModal() {
+  document.getElementById("taskArchiveModalBg")?.classList.remove("open");
+}
+function renderArchivedTasksModal() {
+  const box = document.getElementById("taskArchiveModalList");
+  if (!box) return; // modal not open/mounted — nothing to refresh
+  const archived = sortArchived(currentArchivedTasks());
+  box.innerHTML = archived.length ? archived.map(archivedTaskRowHtml).join("") :
+    `<p class="hint" style="padding:18px">No archived tasks${taskFilter !== "all" ? " in this filter" : ""}.</p>`;
+  const countEl = document.getElementById("taskArchiveModalCount");
+  if (countEl) countEl.textContent = archived.length;
+  const sortSel = document.getElementById("taskArchiveModalSort");
+  if (sortSel) sortSel.value = archivedSort;
 }
 
 export function renderTasks() {
@@ -218,9 +230,12 @@ export function renderTasks() {
       (done.length ? sectionHtml("completed", "Completed", done) : "");
   }
   // Archived can be non-empty even when everything else is (e.g. filtered
-  // to a category with nothing open/completed left), so it's appended
-  // independent of the visible.length branch above.
-  if (archivedTasks.length) list.innerHTML += archivedSectionHtml(archivedTasks);
+  // to a category with nothing open/completed left), so its trigger is
+  // shown independent of the visible.length branch above — same
+  // "always there, just not always useful yet" convention as GSI
+  // Workspace's own Archive button.
+  if (state.tasks.length) list.innerHTML += archivedTriggerHtml(archivedTasks.length);
+  if (document.getElementById("taskArchiveModalBg")?.classList.contains("open")) renderArchivedTasksModal();
 
   const openCount = state.tasks.filter(t => !t.done).length;
   document.getElementById("taskCount").textContent = state.tasks.length ? `${openCount} open` : "";
