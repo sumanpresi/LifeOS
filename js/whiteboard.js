@@ -539,6 +539,60 @@ function defaultStickySize() {
   return isMobileViewport() ? { w: STICKY_DEFAULT_W_MOBILE, h: STICKY_DEFAULT_H_MOBILE } : { w: STICKY_DEFAULT_W, h: STICKY_DEFAULT_H };
 }
 
+/* ---------- Rich text ----------
+   Notes now store formatted content as sanitized HTML (o.html) instead
+   of plain text (o.text). o.text is read once as a migration source for
+   pre-existing notes and never written to again. */
+const STICKY_FONTS = [["Sans-serif","-apple-system,Segoe UI,Roboto,sans-serif"],["Serif","Georgia,'Times New Roman',serif"],["Mono","'Courier New',monospace"],["Fraunces","'Fraunces',serif"]];
+const STICKY_FONT_SIZES = [["S","2"],["M","3"],["L","5"],["XL","6"]]; // legacy execCommand fontSize scale (1-7)
+
+// Every note's HTML round-trips through Supabase and gets rendered on
+// another device via innerHTML — this is the render-time allowlist that
+// makes that safe, independent of what actually produced the HTML
+// (this editor's own toolbar, a stray paste, or old/foreign data).
+const STICKY_ALLOWED_TAGS = new Set(["B","STRONG","I","EM","U","S","STRIKE","SPAN","DIV","P","BR","UL","OL","LI","A","HR","LABEL"]);
+const STICKY_ALLOWED_ATTRS = { SPAN: ["style"], DIV: ["class"], A: ["href","target","rel"], LI: ["class"] };
+const STICKY_ALLOWED_STYLE_PROPS = /^(color|background-color|font-size|font-family|text-align)\s*:/i;
+function sanitizeStickyHtml(html) {
+  const root = document.createElement("div");
+  root.innerHTML = html || "";
+  (function walk(node) {
+    Array.from(node.childNodes).forEach(child => {
+      if (child.nodeType === 3) return; // plain text — always safe
+      if (child.nodeType !== 1) { node.removeChild(child); return; } // comments etc.
+      if (!STICKY_ALLOWED_TAGS.has(child.tagName)) {
+        while (child.firstChild) node.insertBefore(child.firstChild, child); // unwrap, keep the content
+        node.removeChild(child);
+        return;
+      }
+      const allowedAttrs = STICKY_ALLOWED_ATTRS[child.tagName] || [];
+      Array.from(child.attributes).forEach(attr => {
+        if (!allowedAttrs.includes(attr.name.toLowerCase())) child.removeAttribute(attr.name);
+      });
+      if (child.tagName === "SPAN" && child.hasAttribute("style")) {
+        const safe = child.getAttribute("style").split(";").map(s => s.trim())
+          .filter(s => STICKY_ALLOWED_STYLE_PROPS.test(s)).join(";");
+        if (safe) child.setAttribute("style", safe); else child.removeAttribute("style");
+      }
+      if (child.tagName === "A") {
+        const href = child.getAttribute("href") || "";
+        if (!/^https?:\/\//i.test(href)) child.removeAttribute("href");
+        else { child.setAttribute("target", "_blank"); child.setAttribute("rel", "noopener noreferrer"); }
+      }
+      walk(child);
+    });
+  })(root);
+  return root.innerHTML;
+}
+// Reads a note's rich content, migrating a pre-rich-text note (plain
+// o.text only) into o.html exactly once. Newlines become <br> so
+// existing multi-line notes don't visually collapse on upgrade.
+function getStickyHtml(o) {
+  if (typeof o.html === "string") return o.html;
+  o.html = esc(o.text || "").replace(/\n/g, "<br>");
+  return o.html;
+}
+
 export function selectStickyTool(boardId) {
   const s = inst(boardId);
   s.activeTool = s.activeTool === "sticky" ? null : "sticky";
@@ -567,7 +621,7 @@ function createSticky(boardId, normX, normY) {
   // bumps it so the two devices' copies of the same note id can be
   // compared and the newer one kept, instead of one side's edit
   // silently winning just because of merge argument order.
-  const obj = { id: uid(), x: normX, y: normY, w, h, text: "", color: STICKY_COLORS[0], updatedAt: Date.now() };
+  const obj = { id: uid(), x: normX, y: normY, w, h, html: "", color: STICKY_COLORS[0], updatedAt: Date.now() };
   board(boardId).objects.push(obj);
   selectedStickyId = obj.id;
   persist();
@@ -615,8 +669,9 @@ function renderObjects(boardId) {
       el.style.height = (o.h * w) + "px";
       el.style.background = o.color;
       const textEl = el.querySelector(".wb-sticky-text");
-      if (textEl && document.activeElement !== textEl && textEl.textContent !== o.text) {
-        textEl.textContent = o.text; // never touch the text node of the note currently being edited
+      if (textEl && document.activeElement !== textEl) {
+        const safeHtml = sanitizeStickyHtml(getStickyHtml(o));
+        if (textEl.innerHTML !== safeHtml) textEl.innerHTML = safeHtml; // never touch the note currently being edited
       }
       el.querySelectorAll(".wb-sticky-color").forEach(b => b.classList.toggle("on", b.dataset.color === o.color));
     }
@@ -635,10 +690,42 @@ function stickyHtml(o, w) {
     <div class="wb-sticky ${selected ? "selected" : ""}" data-obj-id="${o.id}"
       style="left:${px}px;top:${py}px;width:${pw}px;height:${ph}px;background:${o.color}">
       <div class="wb-sticky-drag-handle" title="Drag to move"></div>
-      <div class="wb-sticky-text" contenteditable="true" data-placeholder="Type something…">${esc(o.text)}</div>
+      <div class="wb-sticky-text" contenteditable="true" data-placeholder="Type something…">${sanitizeStickyHtml(getStickyHtml(o))}</div>
       <button class="wb-sticky-delete" title="Delete note">✕</button>
       <div class="wb-sticky-toolbar">
         ${STICKY_COLORS.map(c => `<button class="wb-sticky-color ${o.color === c ? "on" : ""}" data-color="${c}" style="background:${c}"></button>`).join("")}
+      </div>
+      <div class="wb-sticky-format-toolbar">
+        <div class="wb-sfmt-row wb-sfmt-core">
+          <button data-cmd="bold" title="Bold (Ctrl+B)"><b>B</b></button>
+          <button data-cmd="italic" title="Italic (Ctrl+I)"><i>I</i></button>
+          <button data-cmd="underline" title="Underline (Ctrl+U)"><u>U</u></button>
+          <input type="color" class="wb-sfmt-color" data-cmd="foreColor" title="Text color" value="#1B1B1A">
+          <select class="wb-sfmt-size" data-cmd="fontSize" title="Font size">
+            ${STICKY_FONT_SIZES.map(([label, val]) => `<option value="${val}" ${val === "3" ? "selected" : ""}>${label}</option>`).join("")}
+          </select>
+          <button data-cmd="insertUnorderedList" title="Bulleted list">• ≡</button>
+          <button class="wb-sfmt-more" title="More formatting">⋯</button>
+        </div>
+        <div class="wb-sfmt-row wb-sfmt-extra">
+          <button data-cmd="undo" title="Undo (Ctrl+Z)">↺</button>
+          <button data-cmd="redo" title="Redo (Ctrl+Y)">↻</button>
+          <button data-cmd="strikeThrough" title="Strikethrough"><s>S</s></button>
+          <input type="color" class="wb-sfmt-color" data-cmd="hiliteColor" title="Highlight color" value="#FEF08A">
+          <select class="wb-sfmt-font" data-cmd="fontName" title="Font family">
+            ${STICKY_FONTS.map(([label, val]) => `<option value="${val}">${label}</option>`).join("")}
+          </select>
+          <button data-cmd="insertOrderedList" title="Numbered list">1. ≡</button>
+          <button class="wb-sfmt-checklist" title="Checkbox list">☑ list</button>
+          <button data-cmd="justifyLeft" title="Align left">L</button>
+          <button data-cmd="justifyCenter" title="Align center">C</button>
+          <button data-cmd="justifyRight" title="Align right">R</button>
+          <button data-cmd="indent" title="Indent (Tab)">→</button>
+          <button data-cmd="outdent" title="Outdent (Shift+Tab)">←</button>
+          <button data-cmd="removeFormat" title="Clear formatting">Tx</button>
+          <button data-cmd="insertHorizontalRule" title="Divider">―</button>
+          <button class="wb-sfmt-link" title="Insert link (Ctrl+K)">🔗</button>
+        </div>
       </div>
       <div class="wb-sticky-resize-handle" title="Drag to resize"></div>
     </div>`;
@@ -658,11 +745,171 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
 
   // Text — contenteditable handles typing natively; just persist on blur
   // and on input, so it saves even if the user never clicks away.
+  // Sanitizing happens at render time (renderObjects/stickyHtml), not on
+  // every keystroke here — this is the user's own browser rendering
+  // their own just-typed input, no different in risk from any other
+  // text field. The one local vector for genuinely foreign markup is
+  // paste, handled separately below.
   const textEl = el.querySelector(".wb-sticky-text");
   textEl.addEventListener("pointerdown", (evt) => evt.stopPropagation()); // typing shouldn't start a drag
-  const saveText = () => { const o = getObj(); if (o) { o.text = textEl.textContent; o.updatedAt = Date.now(); persist(); } };
-  textEl.addEventListener("input", saveText);
-  textEl.addEventListener("blur", saveText);
+  const saveHtml = () => { const o = getObj(); if (o) { o.html = textEl.innerHTML; o.updatedAt = Date.now(); persist(); } };
+
+  // execCommand acts on the current selection, and clicking a toolbar
+  // button/color-swatch would normally move focus away from the note
+  // first, collapsing that selection before the command ever runs. This
+  // tracks the last real selection inside this note so it can be
+  // restored right before running a command, regardless of what else
+  // took focus in between (a <select> or <input type=color> needs to
+  // take real focus to open its native picker — pointerdown can't be
+  // prevented on those the way it can on plain buttons).
+  let lastRange = null;
+  const saveRange = () => {
+    const sel = window.getSelection();
+    if (sel.rangeCount && el.contains(sel.anchorNode)) lastRange = sel.getRangeAt(0).cloneRange();
+  };
+  const restoreRange = () => {
+    textEl.focus();
+    if (!lastRange) return;
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(lastRange);
+  };
+  textEl.addEventListener("mouseup", saveRange);
+  textEl.addEventListener("keyup", saveRange);
+  textEl.addEventListener("touchend", saveRange);
+
+  const fmtToolbar = el.querySelector(".wb-sticky-format-toolbar");
+  const updateActiveStates = () => {
+    ["bold", "italic", "underline", "strikeThrough"].forEach(cmd => {
+      const btn = fmtToolbar.querySelector(`button[data-cmd="${cmd}"]`);
+      if (!btn) return;
+      try { btn.classList.toggle("on", document.queryCommandState(cmd)); } catch (e) { /* unsupported in some browsers — harmless to skip */ }
+    });
+  };
+  textEl.addEventListener("mouseup", updateActiveStates);
+  textEl.addEventListener("keyup", updateActiveStates);
+
+  fmtToolbar.addEventListener("pointerdown", (evt) => evt.stopPropagation()); // never let this reach the note's own drag-select logic
+  fmtToolbar.querySelector(".wb-sfmt-more").addEventListener("click", () => fmtToolbar.classList.toggle("expanded"));
+
+  // Plain command buttons (bold, italic, lists, align, indent, etc.) —
+  // preventDefault on pointerdown keeps focus (and the selection) on
+  // the note's text the entire time, so the click handler right after
+  // can run execCommand immediately with no restoreRange() needed.
+  fmtToolbar.querySelectorAll("button[data-cmd]").forEach(btn => {
+    btn.addEventListener("pointerdown", (evt) => evt.preventDefault());
+    btn.addEventListener("click", () => {
+      document.execCommand(btn.dataset.cmd, false, null);
+      saveHtml(); updateActiveStates();
+    });
+  });
+  // Color pickers and the font/size selects genuinely need to take
+  // focus to open their native UI, so the selection has to be
+  // explicitly restored afterward instead of just never losing it.
+  fmtToolbar.querySelectorAll(".wb-sfmt-color, select[data-cmd]").forEach(ctrl => {
+    ctrl.addEventListener("pointerdown", saveRange);
+    ctrl.addEventListener(ctrl.tagName === "SELECT" ? "change" : "input", () => {
+      restoreRange();
+      document.execCommand(ctrl.dataset.cmd, false, ctrl.value);
+      saveHtml();
+    });
+  });
+  // Checkbox list — not a native execCommand; inserts a custom block
+  // whose checkbox is contenteditable="false" (so clicking it toggles
+  // state instead of placing a text cursor inside it) and toggled via
+  // the delegated click handler on textEl below.
+  fmtToolbar.querySelector(".wb-sfmt-checklist").addEventListener("pointerdown", (evt) => evt.preventDefault());
+  fmtToolbar.querySelector(".wb-sfmt-checklist").addEventListener("click", () => {
+    document.execCommand("insertHTML", false, '<div class="wb-check-item"><span class="wb-check-box" contenteditable="false" data-checked="false">☐</span>\u00A0</div>');
+    saveHtml();
+  });
+  const insertLink = () => {
+    restoreRange();
+    const url = prompt("Link URL:", "https://");
+    if (!url) return;
+    restoreRange();
+    const sel = window.getSelection();
+    if (!sel.rangeCount || sel.isCollapsed) {
+      document.execCommand("insertHTML", false, `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(url)}</a>`);
+    } else {
+      document.execCommand("createLink", false, url);
+    }
+    saveHtml();
+  };
+  fmtToolbar.querySelector(".wb-sfmt-link").addEventListener("pointerdown", (evt) => evt.preventDefault());
+  fmtToolbar.querySelector(".wb-sfmt-link").addEventListener("click", insertLink);
+
+  // Checkbox toggling — delegated so it works for every checklist item
+  // in the note, including ones added after this listener was attached.
+  textEl.addEventListener("click", (evt) => {
+    const box = evt.target.closest(".wb-check-box");
+    if (!box) return;
+    evt.preventDefault();
+    const on = box.dataset.checked === "true";
+    box.dataset.checked = on ? "false" : "true";
+    box.textContent = on ? "☐" : "☑";
+    const item = box.closest(".wb-check-item");
+    if (item) item.classList.toggle("done", !on);
+    saveHtml();
+  });
+
+  // Auto-detects bare URLs and turns them into real links — run only on
+  // blur (not per keystroke), since rewriting text nodes mid-typing is
+  // exactly the kind of thing that fights a contenteditable's cursor
+  // position and makes typing feel broken.
+  const autoLinkOnBlur = () => {
+    const urlRe = /(https?:\/\/[^\s<]+)/g;
+    const walker = document.createTreeWalker(textEl, NodeFilter.SHOW_TEXT, null);
+    const targets = [];
+    let n;
+    while ((n = walker.nextNode())) {
+      if (n.parentElement && n.parentElement.closest("a")) continue;
+      urlRe.lastIndex = 0;
+      if (urlRe.test(n.nodeValue)) targets.push(n);
+    }
+    targets.forEach(node => {
+      const text = node.nodeValue;
+      const frag = document.createDocumentFragment();
+      let lastIndex = 0, m; urlRe.lastIndex = 0;
+      while ((m = urlRe.exec(text))) {
+        if (m.index > lastIndex) frag.appendChild(document.createTextNode(text.slice(lastIndex, m.index)));
+        const a = document.createElement("a");
+        a.href = m[0]; a.target = "_blank"; a.rel = "noopener noreferrer"; a.textContent = m[0];
+        frag.appendChild(a);
+        lastIndex = m.index + m[0].length;
+      }
+      if (lastIndex < text.length) frag.appendChild(document.createTextNode(text.slice(lastIndex)));
+      node.parentNode.replaceChild(frag, node);
+    });
+  };
+
+  // Paste — the one local vector for genuinely foreign markup (an
+  // external site's formatting, or worse), so it's sanitized on the way
+  // in rather than relying solely on the render-time sanitize.
+  textEl.addEventListener("paste", (evt) => {
+    evt.preventDefault();
+    const cd = evt.clipboardData || window.clipboardData;
+    const html = cd.getData("text/html");
+    const clean = html ? sanitizeStickyHtml(html) : esc(cd.getData("text/plain")).replace(/\n/g, "<br>");
+    document.execCommand("insertHTML", false, clean);
+    saveHtml();
+  });
+
+  textEl.addEventListener("keydown", (evt) => {
+    const mod = evt.ctrlKey || evt.metaKey;
+    const k = evt.key.toLowerCase();
+    if (mod && k === "b") { evt.preventDefault(); document.execCommand("bold"); saveHtml(); updateActiveStates(); }
+    else if (mod && k === "i") { evt.preventDefault(); document.execCommand("italic"); saveHtml(); updateActiveStates(); }
+    else if (mod && k === "u") { evt.preventDefault(); document.execCommand("underline"); saveHtml(); updateActiveStates(); }
+    else if (mod && k === "k") { evt.preventDefault(); insertLink(); }
+    else if (evt.key === "Tab") { evt.preventDefault(); document.execCommand(evt.shiftKey ? "outdent" : "indent"); saveHtml(); }
+    // Ctrl+Z / Ctrl+Y are left to the browser's native contenteditable
+    // undo stack — preventDefault-ing those here would break it instead
+    // of improving it.
+  });
+
+  textEl.addEventListener("input", saveHtml);
+  textEl.addEventListener("blur", () => { autoLinkOnBlur(); saveHtml(); });
 
   // Drag — only from the dedicated handle, kept separate from the text
   // area so dragging and editing can never be ambiguous with each other.

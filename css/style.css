@@ -646,8 +646,9 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   border-radius:99px;padding:1px 9px}
 .t-section-chevron{margin-left:auto;color:var(--t-ink2);transition:transform 200ms ease;font-size:12px}
 .t-section.collapsed .t-section-chevron{transform:rotate(-90deg)}
-.t-section-body{overflow:hidden;transition:grid-template-rows 200ms ease}
-.t-section.collapsed .t-section-rows{display:none}
+.t-section-rows{display:grid;grid-template-rows:1fr;transition:grid-template-rows 220ms var(--ease,ease)}
+.t-section-rows-inner{overflow:hidden;min-height:0}
+.t-section.collapsed .t-section-rows{grid-template-rows:0fr}
 
 /* ---- Task rows ---- */
 .t-row{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;
@@ -696,6 +697,43 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .t-row:hover .t-del,.t-row:focus-within .t-del{opacity:1}
 .t-del:hover{color:var(--t-danger)}
 .t-completed-note{font-size:12px;color:#16A34A;background:#EFFCF3;border-radius:6px;padding:3px 9px}
+.t-archive-btn{font-size:12px;color:var(--t-ink2);background:var(--t-bg);border:1px solid var(--t-border);
+  border-radius:6px;padding:3px 9px;cursor:pointer;transition:background 150ms ease,color 150ms ease}
+.t-archive-btn:hover{background:var(--t-accent);color:#fff;border-color:var(--t-accent)}
+
+/* ---- Archived section ---- */
+.t-archived-sort{margin-left:auto;margin-right:8px;border:1px solid var(--t-border);border-radius:7px;
+  background:var(--t-bg);color:var(--t-ink2);font-size:12px;padding:3px 6px;cursor:pointer}
+.t-archived-row{align-items:flex-start;cursor:default}
+.t-archived-check{width:22px;height:22px;border-radius:50%;background:var(--t-accent);color:#fff;
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;margin-top:1px}
+.t-archived-title{font-family:'Inter',sans-serif;font-size:16px;font-weight:500;color:var(--t-ink2);
+  text-decoration:line-through;opacity:.75;word-break:break-word}
+.t-archived-meta{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--t-ink2)}
+.t-archived-meta a{color:var(--t-accent);text-decoration:none}
+.t-archived-meta a:hover{text-decoration:underline}
+.t-archived-flag{color:#B54747}
+.t-archived-actions{display:flex;flex-direction:column;gap:6px;flex-shrink:0}
+.t-archived-actions .btn{padding:5px 10px;font-size:12px;white-space:nowrap}
+.t-archived-delete:hover{background:#FEE2E2;color:var(--t-danger);border-color:var(--t-danger)}
+
+/* Header "Archive Completed" button */
+.t-archive-all-btn:disabled{opacity:.4;cursor:not-allowed}
+.t-archive-all-btn:disabled:hover{background:var(--card)}
+
+/* "Include archived tasks" search toggle */
+.search-archived-toggle{display:flex;align-items:center;gap:7px;padding:8px 18px;font-size:12.5px;
+  color:var(--muted);border-bottom:1px solid var(--glass-line);cursor:pointer;user-select:none}
+.search-archived-toggle input{cursor:pointer}
+
+@media(max-width:767px){
+  .t-archive-all-label{display:none}
+  .t-archive-all-btn::after{content:"🗂"}
+  .t-archive-btn{padding:6px 10px;font-size:13px}
+  .t-archived-actions{flex-direction:row}
+  .t-archived-actions .btn{padding:8px 12px;font-size:13px}
+  .t-archived-sort{font-size:13px;padding:6px 8px}
+}
 
 /* ---- Expandable meta editing (category / due date / link) — the
    existing editing controls, restyled, revealed on row click rather
@@ -1223,8 +1261,9 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   display:none;align-items:center;justify-content:center;padding:0}
 .wb-sticky.selected .wb-sticky-delete{display:flex}
 .wb-sticky-delete:hover{background:var(--danger-bg);color:var(--danger)}
-.wb-sticky-toolbar{position:absolute;bottom:calc(100% + 6px);left:0;display:none;gap:5px;
-  padding:5px;background:#fff;border-radius:9px;box-shadow:0 6px 18px -4px rgba(0,0,0,.2),0 0 0 1px var(--line)}
+.wb-sticky-toolbar{position:absolute;bottom:calc(100% + 42px);left:0;display:none;gap:5px;
+  padding:5px;background:var(--glass-bg-strong);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border-radius:9px;box-shadow:var(--shadow-glass-lift),var(--glass-highlight)}
 .wb-sticky.selected .wb-sticky-toolbar{display:flex}
 .wb-sticky-color{width:16px;height:16px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
 .wb-sticky-color.on{border-color:var(--ink)}
@@ -1380,4 +1419,50 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
      usually one or two cards tall, so the delays just make things
      feel slower to appear for no visible benefit. */
   .page.visible .card:nth-of-type(n){animation-delay:0ms}
+}
+
+/* ================================================================
+   STICKY NOTE RICH TEXT — formatting toolbar + in-note structures
+   (checklists, links, dividers). The core row is what shows by
+   default when a note is selected; the extra row is behind the "⋯"
+   toggle. See whiteboard.js for why toolbar tiering is driven by a
+   manual toggle rather than a per-note fullscreen mode, which doesn't
+   exist elsewhere in the app.
+   ================================================================ */
+.wb-sticky-format-toolbar{position:absolute;bottom:calc(100% + 6px);left:0;right:0;display:none;flex-direction:column;gap:3px;
+  padding:4px;background:var(--glass-bg-strong);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border-radius:10px;box-shadow:var(--shadow-glass-lift),var(--glass-highlight);z-index:5}
+.wb-sticky.selected .wb-sticky-format-toolbar{display:flex}
+.wb-sfmt-row{display:flex;align-items:center;gap:3px;overflow-x:auto;scrollbar-width:none;padding-bottom:1px}
+.wb-sfmt-row::-webkit-scrollbar{display:none}
+.wb-sfmt-extra{display:none}
+.wb-sticky-format-toolbar.expanded .wb-sfmt-extra{display:flex}
+.wb-sfmt-row button{flex-shrink:0;min-width:26px;height:26px;padding:0 6px;border:none;border-radius:7px;background:transparent;
+  color:var(--ink);font-size:12.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .14s var(--ease)}
+.wb-sfmt-row button:hover{background:rgba(91,84,217,.12)}
+.wb-sfmt-row button.on{background:rgba(91,84,217,.22);color:var(--accent-ink)}
+.wb-sfmt-more{font-weight:900;letter-spacing:1px}
+.wb-sfmt-checklist,.wb-sfmt-link{font-size:12px;padding:0 8px}
+.wb-sfmt-color{flex-shrink:0;width:24px;height:26px;padding:0;border:none;border-radius:7px;background:transparent;cursor:pointer}
+.wb-sfmt-size,.wb-sfmt-font{flex-shrink:0;height:26px;border:1px solid var(--glass-line);border-radius:7px;background:rgba(255,255,255,.6);
+  font-size:11.5px;padding:0 4px;color:var(--ink);cursor:pointer}
+.wb-sfmt-font{max-width:88px}
+
+/* Checklist items — a plain, clickable structure rather than a native
+   <input type=checkbox> (keeps them working the same inside
+   contenteditable across desktop/Android/S Pen without the usual
+   checkbox-in-contenteditable quirks around focus and toggling). */
+.wb-check-item{display:flex;align-items:flex-start;gap:6px;line-height:1.4}
+.wb-check-box{cursor:pointer;user-select:none;flex-shrink:0}
+.wb-check-item.done{color:rgba(27,27,26,.5);text-decoration:line-through}
+.wb-sticky-text a{color:#1D4ED8;text-decoration:underline;word-break:break-all}
+.wb-sticky-text hr{border:none;border-top:1px solid rgba(27,27,26,.25);margin:4px 0}
+.wb-sticky-text ul,.wb-sticky-text ol{padding-left:20px}
+
+@media(max-width:767px){
+  .wb-sfmt-row button{min-width:34px;height:34px;font-size:14px}
+  .wb-sfmt-color{width:32px;height:34px}
+  .wb-sfmt-size,.wb-sfmt-font{height:34px;font-size:13px}
+  .wb-sticky-format-toolbar{bottom:calc(100% + 4px)}
 }

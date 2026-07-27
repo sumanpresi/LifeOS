@@ -14,8 +14,9 @@ import { getAllGsiTasksFlat, findProjectTask, editProjectTask, setTaskStatus as 
 
 let taskFilter = "all"; // "all" | "work" | "personal"
 let sortByDate = false;
-let collapsedSections = new Set(); // UI-only display state, not persisted — which of Today/Upcoming/Completed are collapsed
+let collapsedSections = new Set(["archived"]); // UI-only display state, not persisted — which of Today/Upcoming/Completed/Archived are collapsed; Archived starts collapsed
 let expandedTaskId = null; // UI-only — which single row currently has its edit controls open
+let archivedSort = "newest"; // "newest" | "oldest" | "completed" | "alpha" — UI-only, not persisted
 
 function fmtCompletedAt(ts) {
   const d = new Date(ts);
@@ -44,7 +45,11 @@ export function toggleSortByDate() {
 }
 export function toggleTaskSection(name) {
   if (collapsedSections.has(name)) collapsedSections.delete(name); else collapsedSections.add(name);
-  renderTasks();
+  const sectionEl = document.querySelector(`.t-section[data-section="${name}"]`);
+  if (!sectionEl) { renderTasks(); return; } // fallback — shouldn't normally happen, section always exists once its group is non-empty
+  const collapsed = collapsedSections.has(name);
+  sectionEl.classList.toggle("collapsed", collapsed);
+  sectionEl.querySelector(".t-section-head")?.setAttribute("aria-expanded", String(!collapsed));
 }
 export function toggleTaskExpanded(id) {
   expandedTaskId = expandedTaskId === id ? null : id;
@@ -73,6 +78,7 @@ function taskRowHtml(t) {
       <div class="t-right">
         <span class="t-breadcrumb">${breadcrumb}</span>
         ${t.done && t.completedAt ? `<span class="t-completed-note">✓ ${fmtCompletedAt(t.completedAt)}</span>` : ""}
+        ${t.done && !t.isGsi ? `<button class="t-archive-btn" onclick="event.stopPropagation();archiveTask('${t.id}')" title="Archive">🗂 Archive</button>` : ""}
       </div>
     </div>
     <div class="t-meta" onclick="event.stopPropagation()">
@@ -89,13 +95,64 @@ function taskRowHtml(t) {
 function sectionHtml(name, label, tasks) {
   const collapsed = collapsedSections.has(name);
   return `
-    <div class="t-section ${collapsed ? "collapsed" : ""}">
+    <div class="t-section ${collapsed ? "collapsed" : ""}" data-section="${name}">
       <button class="t-section-head" onclick="toggleTaskSection('${name}')" aria-expanded="${!collapsed}">
         <span class="t-section-title">${label}</span>
         <span class="t-section-count">${tasks.length}</span>
         <span class="t-section-chevron">▾</span>
       </button>
-      <div class="t-section-rows">${tasks.map(taskRowHtml).join("")}</div>
+      <div class="t-section-rows"><div class="t-section-rows-inner">${tasks.map(taskRowHtml).join("")}</div></div>
+    </div>`;
+}
+
+function sortArchived(list) {
+  const arr = list.slice();
+  if (archivedSort === "newest") arr.sort((a, b) => (b.archivedAt || 0) - (a.archivedAt || 0));
+  else if (archivedSort === "oldest") arr.sort((a, b) => (a.archivedAt || 0) - (b.archivedAt || 0));
+  else if (archivedSort === "completed") arr.sort((a, b) => (b.completedAt || 0) - (a.completedAt || 0));
+  else if (archivedSort === "alpha") arr.sort((a, b) => a.text.localeCompare(b.text));
+  return arr;
+}
+export function setArchivedSort(v) { archivedSort = v; renderTasks(); }
+
+function archivedTaskRowHtml(t) {
+  const cat = (t.category || "work") === "work" ? "Work" : "Personal";
+  return `
+    <div class="t-row t-archived-row">
+      <span class="t-archived-check" aria-hidden="true">✓</span>
+      <div class="t-main">
+        <div class="t-title-line"><span class="t-archived-title">${esc(t.text)}</span></div>
+        <div class="t-archived-meta">
+          <span>Completed ${t.completedAt ? fmtCompletedAt(t.completedAt) : "—"}</span>
+          <span>Archived ${t.archivedAt ? fmtCompletedAt(t.archivedAt) : "—"}</span>
+          <span>${cat}</span>
+          ${t.flag ? `<span class="t-archived-flag">🚩 Priority</span>` : ""}
+          ${t.link ? `<a href="${esc(t.link.startsWith("http") ? t.link : "https://" + t.link)}" target="_blank" rel="noopener">🔗 Link</a>` : ""}
+        </div>
+      </div>
+      <div class="t-archived-actions">
+        <button class="btn btn-ghost" onclick="restoreArchivedTask('${t.id}')">↺ Restore</button>
+        <button class="btn btn-ghost t-archived-delete" onclick="deleteArchivedTaskPermanently('${t.id}')" title="Move to Recycle Bin">🗑 Delete</button>
+      </div>
+    </div>`;
+}
+function archivedSectionHtml(tasks) {
+  const collapsed = collapsedSections.has("archived");
+  const sorted = sortArchived(tasks);
+  return `
+    <div class="t-section t-archived-section ${collapsed ? "collapsed" : ""}" data-section="archived">
+      <button class="t-section-head" onclick="toggleTaskSection('archived')" aria-expanded="${!collapsed}">
+        <span class="t-section-title">Archived</span>
+        <span class="t-section-count">${tasks.length}</span>
+        <select class="t-archived-sort" onclick="event.stopPropagation()" onchange="event.stopPropagation();setArchivedSort(this.value)" title="Sort archived tasks">
+          <option value="newest" ${archivedSort === "newest" ? "selected" : ""}>Newest archived</option>
+          <option value="oldest" ${archivedSort === "oldest" ? "selected" : ""}>Oldest archived</option>
+          <option value="completed" ${archivedSort === "completed" ? "selected" : ""}>Completed date</option>
+          <option value="alpha" ${archivedSort === "alpha" ? "selected" : ""}>Alphabetical</option>
+        </select>
+        <span class="t-section-chevron">▾</span>
+      </button>
+      <div class="t-section-rows"><div class="t-section-rows-inner">${sorted.map(archivedTaskRowHtml).join("")}</div></div>
     </div>`;
 }
 
@@ -132,12 +189,18 @@ export function renderTasks() {
 
   const todayKeyStr = new Date().toISOString().slice(0, 10);
   const open = visible.filter(t => !t.done);
-  const done = visible.filter(t => t.done).sort(sortByDate ? byDate : () => 0);
+  const done = visible.filter(t => t.done && !t.archived).sort(sortByDate ? byDate : () => 0);
   const todayGroup = open.filter(t => t.dueDate === todayKeyStr).sort(byFlagThenDate);
   const upcomingGroup = open.filter(t => t.dueDate !== todayKeyStr).sort(byFlagThenDate);
+  // Archived is native tasks only — GSI project tasks are a different
+  // schema entirely (a 4-state status, not done/archived) and already
+  // have their own separate archive system in GSI Workspace.
+  const archivedTasks = state.tasks.filter(t => t.archived && (taskFilter === "all" || (t.category || "work") === taskFilter));
 
   const sortBtn = document.getElementById("taskSortBtn");
   if (sortBtn) sortBtn.classList.toggle("on", sortByDate);
+  const archiveAllBtn = document.getElementById("taskArchiveAllBtn");
+  if (archiveAllBtn) archiveAllBtn.disabled = !state.tasks.some(t => t.done && !t.archived);
 
   if (!visible.length) {
     list.innerHTML = state.tasks.length ? `<p class="hint" style="padding:18px">No tasks match this filter.</p>` : `
@@ -152,6 +215,10 @@ export function renderTasks() {
       sectionHtml("upcoming", "Upcoming", upcomingGroup) +
       (done.length ? sectionHtml("completed", "Completed", done) : "");
   }
+  // Archived can be non-empty even when everything else is (e.g. filtered
+  // to a category with nothing open/completed left), so it's appended
+  // independent of the visible.length branch above.
+  if (archivedTasks.length) list.innerHTML += archivedSectionHtml(archivedTasks);
 
   const openCount = state.tasks.filter(t => !t.done).length;
   document.getElementById("taskCount").textContent = state.tasks.length ? `${openCount} open` : "";
@@ -214,4 +281,42 @@ export function delTask(id) {
   if (t) { moveToTrash("task", t); state.tasks = state.tasks.filter(x => x.id !== id); persist(); rerender(); return; }
   const { task: gt } = findProjectTask(id);
   if (gt) delProjectTask(id);
+}
+
+// ---------- Archive Completed ----------
+// Native tasks only (state.tasks) — GSI-merged tasks live in a
+// different schema (a 4-state status, not done/archived) and already
+// have their own separate archive system in GSI Workspace, so they're
+// never eligible here to begin with (they're not in state.tasks at all).
+export function archiveTask(id) {
+  const t = state.tasks.find(x => x.id === id);
+  if (!t || !t.done || t.archived) return;
+  t.archived = true; t.archivedAt = Date.now();
+  persist(); rerender();
+  toast("Task archived");
+}
+export function archiveAllCompleted() {
+  const completed = state.tasks.filter(t => t.done && !t.archived);
+  if (!completed.length) return;
+  if (!confirm("Archive all completed tasks?")) return;
+  const now = Date.now();
+  completed.forEach(t => { t.archived = true; t.archivedAt = now; });
+  persist(); rerender();
+  toast(`Archived ${completed.length} task${completed.length === 1 ? "" : "s"}`);
+}
+export function restoreArchivedTask(id) {
+  const t = state.tasks.find(x => x.id === id);
+  if (!t) return;
+  t.archived = false; t.archivedAt = null;
+  persist(); rerender();
+  toast("Task restored");
+}
+export function deleteArchivedTaskPermanently(id) {
+  const t = state.tasks.find(x => x.id === id);
+  if (!t) return;
+  if (!confirm(`Delete "${t.text}"? It moves to the Recycle Bin, where you can restore it or delete it for good.`)) return;
+  moveToTrash("task", t);
+  state.tasks = state.tasks.filter(x => x.id !== id);
+  persist(); rerender();
+  toast("Moved to Recycle Bin");
 }

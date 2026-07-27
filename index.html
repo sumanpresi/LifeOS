@@ -128,6 +128,8 @@
 
       <div class="card" id="tasksCard">
         <div class="card-head"><h2>Tasks</h2><span class="hint" id="taskCount"></span>
+          <button class="btn btn-ghost t-archive-all-btn" id="taskArchiveAllBtn" onclick="archiveAllCompleted()" title="Archive all completed tasks">
+            <span class="t-archive-all-label">🗂 Archive Completed</span></button>
           <button class="expand-btn" onclick="expandView('tasksCardContent','Tasks')" title="View large">
             <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
           </button>
@@ -896,6 +898,10 @@
       <input class="search-input" id="searchInput" placeholder="Search tasks, notes, journal, links…" autocomplete="off">
       <span class="kbd">Esc</span>
     </div>
+    <label class="search-archived-toggle">
+      <input type="checkbox" id="searchIncludeArchived" onchange="setSearchIncludeArchived(this.checked)">
+      Include archived tasks
+    </label>
     <div class="search-results" id="searchResults"></div>
   </div>
 </div>

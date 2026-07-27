@@ -3,6 +3,7 @@ import { state, esc, SECTION_META } from './state.js';
 import { go, scrollToEl } from './ui.js';
 
 let items = [], results = [], sel = 0;
+let includeArchivedTasks = false; // default OFF, per spec — archived tasks stay out of everyday search unless explicitly opted in
 
 function stripHtml(html) {
   if (!html) return "";
@@ -13,8 +14,11 @@ function buildIndex() {
   const ix = [];
   const push = (type, text, sub, action) => text && ix.push({ type, text, sub, action });
 
-  state.tasks.forEach(t => push("Task", t.text, t.done ? "done" : "open",
-    () => { go("overview"); scrollToEl("tasksCard"); }));
+  state.tasks.forEach(t => {
+    if (t.archived && !includeArchivedTasks) return;
+    push("Task", t.text, (t.archived ? "archived" : t.done ? "done" : "open"),
+      () => { go("overview"); scrollToEl("tasksCard"); });
+  });
   state.goals.forEach(g => push("Goal", g.name, g.pct + "%", () => go("overview")));
   state.habits.forEach(h => push("Habit", h.name, "", () => go("overview")));
   state.links.forEach(l => push("Link", l.title, l.desc || "", () => window.open(l.url, "_blank")));
@@ -102,6 +106,11 @@ export function openSearch() {
   inp.value = ""; runSearch(""); inp.focus();
 }
 export function closeSearch() { document.getElementById("searchBg").classList.remove("open"); }
+export function setSearchIncludeArchived(v) {
+  includeArchivedTasks = v;
+  items = buildIndex();
+  runSearch(document.getElementById("searchInput").value);
+}
 
 function runSearch(q) {
   q = q.trim().toLowerCase();
