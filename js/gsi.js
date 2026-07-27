@@ -126,6 +126,21 @@ export function archiveCompletedTasks() {
   persist(); renderProjects();
   toast(`Archived ${completed.length} task${completed.length===1?"":"s"}`);
 }
+// Archives one specific task from one specific project — by id, not by
+// "the active project," since this is also called from the Overview
+// page's unified task list, where there's no such thing as an active
+// GSI project. archiveCompletedTasks() above only ever handled bulk.
+export function archiveGsiTaskEntry(projectId, taskId) {
+  const p = (state.gsi.projects || []).find(x => x.id === projectId);
+  if (!p) return;
+  const idx = p.tasks.findIndex(t => t.id === taskId);
+  if (idx === -1) return;
+  const [task] = p.tasks.splice(idx, 1);
+  p.archivedTasks = p.archivedTasks || [];
+  p.archivedTasks.unshift(task);
+  persist(); rerender();
+  toast(`Archived "${task.text}"`);
+}
 export function openArchiveView() {
   const modal = document.getElementById("gsiArchiveModalBg");
   if (!modal) return;

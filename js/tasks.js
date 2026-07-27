@@ -78,7 +78,9 @@ function taskRowHtml(t) {
       <div class="t-right">
         <span class="t-breadcrumb">${breadcrumb}</span>
         ${t.done && t.completedAt ? `<span class="t-completed-note">✓ ${fmtCompletedAt(t.completedAt)}</span>` : ""}
-        ${t.done && !t.isGsi ? `<button class="t-archive-btn" onclick="event.stopPropagation();archiveTask('${t.id}')" title="Archive">🗂 Archive</button>` : ""}
+        ${t.done ? (t.isGsi
+          ? `<button class="t-archive-btn" onclick="event.stopPropagation();archiveGsiTaskEntry('${t.projectId}','${t.id}')" title="Archive">🗂 Archive</button>`
+          : `<button class="t-archive-btn" onclick="event.stopPropagation();archiveTask('${t.id}')" title="Archive">🗂 Archive</button>`) : ""}
       </div>
     </div>
     <div class="t-meta" onclick="event.stopPropagation()">
@@ -181,7 +183,7 @@ export function renderTasks() {
     const gsiAsTasks = getAllGsiTasksFlat().map(t => ({
       id: t.id, text: t.text, done: t.status === "done", category: "work",
       flag: !!t.flag, link: t.link || "", dueDate: t.date || "", completedAt: null,
-      isGsi: true, projectName: t.projectName, status: t.status
+      isGsi: true, projectId: t.projectId, projectName: t.projectName, status: t.status
     }));
     visible = visible.concat(gsiAsTasks);
   }
