@@ -1,11 +1,18 @@
 /* Navigation, toasts, header, sync pill. */
-import { state, replaceState, persist, rerender } from './state.js';
+import { state, replaceState, persist, rerender, esc } from './state.js';
 import { resizeWhiteboardIfVisible } from './whiteboard.js';
 
-export function toast(msg) {
+let toastTimer = null;
+export function toast(msg, actionLabel, actionOnclick) {
   const t = document.getElementById("toast");
-  t.textContent = msg; t.classList.add("show");
-  setTimeout(() => t.classList.remove("show"), 2200);
+  if (actionLabel && actionOnclick) {
+    t.innerHTML = `<span>${esc(msg)}</span><button class="toast-action" onclick="${actionOnclick}">${esc(actionLabel)}</button>`;
+  } else {
+    t.textContent = msg;
+  }
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), actionLabel ? 4500 : 2200); // an undo action needs enough time to actually be clicked
 }
 
 /* Makes a textarea grow to fit its content instead of clipping/scrolling —

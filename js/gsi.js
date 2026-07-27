@@ -551,24 +551,85 @@ export function delMeeting(id) {
   persist(); renderMeetings();
 }
 
-/* ---------------- GSI links, personal & work documents ---------------- */
+/* ---------------- GSI links, personal & work documents ----------------
+   All three lists share one small tab component (same one Important
+   Links uses on Overview) instead of each having their own markup —
+   .link-card, which they used before, no longer exists as a CSS class
+   (it was retired when Important Links was redesigned), so all three
+   were quietly rendering unstyled until this. */
+let openDocEditId = null; // shared across all three lists — only one popover open at a time
+function docTabHtml(d, nameField, urlField, editFn, delFn) {
+  const name = d[nameField] || "";
+  const url = d[urlField] || "";
+  const fullUrl = url.startsWith("http") ? url : "https://" + url;
+  return `
+    <div class="link-row" data-doc-id="${d.id}">
+      <a href="${esc(fullUrl)}" target="_blank" rel="noopener" class="link-row-title" onclick="linkClickPulse(this)">${esc(name)}</a>
+      <button class="link-edit-btn" onclick="toggleDocEdit('${d.id}')" title="Edit">✎</button>
+      <button class="del link-del-btn" onclick="${delFn}('${d.id}')" title="Delete">✕</button>
+      <div class="link-edit-panel ${openDocEditId === d.id ? "open" : ""}" id="docEdit-${d.id}">
+        <div class="link-edit-panel-inner">
+          <input type="text" value="${esc(name)}" placeholder="Name" onchange="${editFn}('${d.id}','${nameField}',this.value)">
+          <input type="text" value="${esc(url)}" placeholder="https://…" onchange="${editFn}('${d.id}','${urlField}',this.value)">
+        </div>
+      </div>
+    </div>`;
+}
+export function toggleDocEdit(id) {
+  openDocEditId = openDocEditId === id ? null : id;
+  renderLinksAndDocs();
+  document.querySelectorAll(".card.has-open-popover").forEach(c => c.classList.remove("has-open-popover"));
+  if (openDocEditId) {
+    const panel = document.getElementById(`docEdit-${openDocEditId}`);
+    panel?.closest(".card")?.classList.add("has-open-popover"); // see widgets.js's toggleLinkEdit for why: backdrop-filter gives every .card its own stacking context, so the popover's own z-index can't otherwise escape it
+    panel?.querySelector("input")?.focus();
+  }
+}
+document.addEventListener("pointerdown", evt => {
+  if (!openDocEditId) return;
+  if (evt.target.closest(".link-edit-panel") || evt.target.closest(".link-edit-btn")) return;
+  toggleDocEdit(openDocEditId);
+});
 function renderLinksAndDocs() {
   const g = state.gsi;
-  document.getElementById("gsiLinks").innerHTML = g.links.map(l => `
-    <div class="link-card">
-      <a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.title)}</a>
-      <button class="del" onclick="delGsiLink('${l.id}')">✕</button>
-    </div>`).join("") || `<p class="hint">No links yet.</p>`;
-
-  const docList = (arr, delFn) => arr.map(d => `
-    <div class="link-card">
-      <a href="${esc(d.url.startsWith("http")?d.url:"https://"+d.url)}" target="_blank" rel="noopener">${esc(d.name)}</a>
-      <button class="del" onclick="${delFn}('${d.id}')">✕</button>
-    </div>`).join("") || `<p class="hint">No documents yet.</p>`;
+  const gl = document.getElementById("gsiLinks");
+  if (gl) gl.innerHTML = g.links.map(l => docTabHtml(l, "title", "url", "editGsiLink", "delGsiLink")).join("") || `<p class="hint">No links yet.</p>`;
   const pd = document.getElementById("personalDocs");
-  if (pd) pd.innerHTML = docList(g.personalDocs || [], "delPersonalDoc");
+  if (pd) pd.innerHTML = (g.personalDocs || []).map(d => docTabHtml(d, "name", "url", "editPersonalDoc", "delPersonalDoc")).join("") || `<p class="hint">No documents yet.</p>`;
   const wd = document.getElementById("workDocs");
-  if (wd) wd.innerHTML = docList(g.workDocs || [], "delWorkDoc");
+  if (wd) wd.innerHTML = (g.workDocs || []).map(d => docTabHtml(d, "name", "url", "editWorkDoc", "delWorkDoc")).join("") || `<p class="hint">No documents yet.</p>`;
+}
+// Delete already goes through Trash for all three (see delGsiLink /
+// delPersonalDoc / delWorkDoc below) — this just gives an accidental
+// click a fast way back, same idea as restoreLastDeletedProject above,
+// generalized across the three trash "type" values these deletes use.
+export function undoLastDeleted(type) {
+  const entry = state.trash.find(x => x.type === type); // trash is newest-first (moveToTrash unshifts new entries), so no reverse needed here
+  if (!entry) return;
+  if (type === "gsiLink") state.gsi.links.unshift(entry.payload);
+  else if (type === "personalDoc") { state.gsi.personalDocs = state.gsi.personalDocs || []; state.gsi.personalDocs.unshift(entry.payload); }
+  else if (type === "workDoc") { state.gsi.workDocs = state.gsi.workDocs || []; state.gsi.workDocs.unshift(entry.payload); }
+  else return;
+  state.trash = state.trash.filter(x => x.id !== entry.id);
+  persist(); rerender();
+  toast(`Restored "${entry.payload.title || entry.payload.name}"`);
+}
+function editUrlField(field, value) {
+  if (field !== "url") return value.trim ? value.trim() : value;
+  value = value.trim();
+  return value && !/^https?:\/\//i.test(value) ? "https://" + value : value;
+}
+export function editGsiLink(id, field, value) {
+  const l = state.gsi.links.find(x => x.id === id); if (!l) return;
+  l[field] = editUrlField(field, value); persist(); rerender();
+}
+export function editPersonalDoc(id, field, value) {
+  const d = (state.gsi.personalDocs || []).find(x => x.id === id); if (!d) return;
+  d[field] = editUrlField(field, value); persist(); rerender();
+}
+export function editWorkDoc(id, field, value) {
+  const d = (state.gsi.workDocs || []).find(x => x.id === id); if (!d) return;
+  d[field] = editUrlField(field, value); persist(); rerender();
 }
 export function addGsiLink() {
   const t = document.getElementById("gsiLinkTitle"), u = document.getElementById("gsiLinkUrl");
@@ -580,8 +641,10 @@ export function addGsiLink() {
 }
 export function delGsiLink(id) {
   const l = state.gsi.links.find(x => x.id === id);
-  if (l) moveToTrash("gsiLink", l);
+  if (!l) return;
+  moveToTrash("gsiLink", l);
   state.gsi.links = state.gsi.links.filter(x => x.id !== id); persist(); rerender();
+  toast(`Deleted "${l.title}"`, "Undo", "undoLastDeleted('gsiLink')");
 }
 export function addPersonalDoc() {
   const n = document.getElementById("personalDocName"), u = document.getElementById("personalDocUrl");
@@ -593,9 +656,11 @@ export function addPersonalDoc() {
 }
 export function delPersonalDoc(id) {
   const d = (state.gsi.personalDocs || []).find(x => x.id === id);
-  if (d) moveToTrash("personalDoc", d);
+  if (!d) return;
+  moveToTrash("personalDoc", d);
   state.gsi.personalDocs = (state.gsi.personalDocs || []).filter(x => x.id !== id);
   persist(); rerender();
+  toast(`Deleted "${d.name}"`, "Undo", "undoLastDeleted('personalDoc')");
 }
 export function addWorkDoc() {
   const n = document.getElementById("workDocName"), u = document.getElementById("workDocUrl");
@@ -607,9 +672,11 @@ export function addWorkDoc() {
 }
 export function delWorkDoc(id) {
   const d = (state.gsi.workDocs || []).find(x => x.id === id);
-  if (d) moveToTrash("workDoc", d);
+  if (!d) return;
+  moveToTrash("workDoc", d);
   state.gsi.workDocs = (state.gsi.workDocs || []).filter(x => x.id !== id);
   persist(); rerender();
+  toast(`Deleted "${d.name}"`, "Undo", "undoLastDeleted('workDoc')");
 }
 
 export function renderGsi() {

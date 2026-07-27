@@ -269,8 +269,12 @@ h1,h2,.display{font-family:'Fraunces',serif}
 code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(16px);opacity:0;background:var(--ink);color:#fff;
-  padding:10px 18px;border-radius:12px;font-weight:700;font-size:14px;transition:transform .28s var(--ease),opacity .28s var(--ease);z-index:60}
+  padding:10px 18px;border-radius:12px;font-weight:700;font-size:14px;transition:transform .28s var(--ease),opacity .28s var(--ease);z-index:60;
+  display:flex;align-items:center;gap:12px}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast-action{flex-shrink:0;color:#fff;font-weight:800;font-size:13px;text-decoration:underline;
+  text-underline-offset:2px;padding:2px 0;transition:opacity .15s var(--ease)}
+.toast-action:hover{opacity:.75}
 
 .page{display:none}.page.visible{display:block}
 .mob-toggle{display:none}
