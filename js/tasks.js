@@ -49,7 +49,7 @@ export function toggleTaskSection(name) {
   if (!sectionEl) { renderTasks(); return; } // fallback — shouldn't normally happen, section always exists once its group is non-empty
   const collapsed = collapsedSections.has(name);
   sectionEl.classList.toggle("collapsed", collapsed);
-  sectionEl.querySelector(".t-section-head")?.setAttribute("aria-expanded", String(!collapsed));
+  sectionEl.querySelector("[aria-expanded]")?.setAttribute("aria-expanded", String(!collapsed));
 }
 export function toggleTaskExpanded(id) {
   expandedTaskId = expandedTaskId === id ? null : id;
@@ -141,17 +141,19 @@ function archivedSectionHtml(tasks) {
   const sorted = sortArchived(tasks);
   return `
     <div class="t-section t-archived-section ${collapsed ? "collapsed" : ""}" data-section="archived">
-      <button class="t-section-head" onclick="toggleTaskSection('archived')" aria-expanded="${!collapsed}">
-        <span class="t-section-title">Archived</span>
-        <span class="t-section-count">${tasks.length}</span>
-        <select class="t-archived-sort" onclick="event.stopPropagation()" onchange="event.stopPropagation();setArchivedSort(this.value)" title="Sort archived tasks">
+      <div class="t-section-head">
+        <button class="t-section-toggle" onclick="toggleTaskSection('archived')" aria-expanded="${!collapsed}">
+          <span class="t-section-title">Archived</span>
+          <span class="t-section-count">${tasks.length}</span>
+          <span class="t-section-chevron">▾</span>
+        </button>
+        <select class="t-archived-sort" onchange="setArchivedSort(this.value)" title="Sort archived tasks">
           <option value="newest" ${archivedSort === "newest" ? "selected" : ""}>Newest archived</option>
           <option value="oldest" ${archivedSort === "oldest" ? "selected" : ""}>Oldest archived</option>
           <option value="completed" ${archivedSort === "completed" ? "selected" : ""}>Completed date</option>
           <option value="alpha" ${archivedSort === "alpha" ? "selected" : ""}>Alphabetical</option>
         </select>
-        <span class="t-section-chevron">▾</span>
-      </button>
+      </div>
       <div class="t-section-rows"><div class="t-section-rows-inner">${sorted.map(archivedTaskRowHtml).join("")}</div></div>
     </div>`;
 }

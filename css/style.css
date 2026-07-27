@@ -640,6 +640,16 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .t-section-head{display:flex;align-items:center;gap:10px;padding:14px 18px 8px;
   cursor:pointer;user-select:none;background:transparent;border:none;width:100%;text-align:left}
 .t-section-head:focus-visible{outline:2px solid var(--t-accent);outline-offset:2px;border-radius:8px}
+/* The actual clickable toggle — for Today/Upcoming/Completed this IS
+   .t-section-head (a <button> directly, styled above, unchanged). For
+   Archived, .t-section-head is now a plain row and this is the button
+   inside it, covering title+count+chevron (everything except the sort
+   <select>, which must be a true sibling rather than nested inside a
+   button — a button can't validly contain interactive content, which
+   is what caused inconsistent tap handling on mobile before this). */
+.t-section-toggle{display:flex;align-items:center;gap:10px;flex:1;min-width:0;min-height:44px;
+  border:none;background:none;padding:0;margin:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.t-section-toggle:focus-visible{outline:2px solid var(--t-accent);outline-offset:2px;border-radius:8px}
 .t-section-title{font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--t-ink);
   text-transform:uppercase;letter-spacing:.04em}
 .t-section-count{font-size:13px;font-weight:400;color:var(--t-ink2);background:var(--t-bg);
@@ -702,8 +712,8 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .t-archive-btn:hover{background:var(--t-accent);color:#fff;border-color:var(--t-accent)}
 
 /* ---- Archived section ---- */
-.t-archived-sort{margin-left:auto;margin-right:8px;border:1px solid var(--t-border);border-radius:7px;
-  background:var(--t-bg);color:var(--t-ink2);font-size:12px;padding:3px 6px;cursor:pointer}
+.t-archived-sort{margin-right:8px;border:1px solid var(--t-border);border-radius:7px;
+  background:var(--t-bg);color:var(--t-ink2);font-size:12px;padding:3px 6px;cursor:pointer;min-height:36px}
 .t-archived-row{align-items:flex-start;cursor:default}
 .t-archived-check{width:22px;height:22px;border-radius:50%;background:var(--t-accent);color:#fff;
   flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;margin-top:1px}
@@ -732,7 +742,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   .t-archive-btn{padding:6px 10px;font-size:13px}
   .t-archived-actions{flex-direction:row}
   .t-archived-actions .btn{padding:8px 12px;font-size:13px}
-  .t-archived-sort{font-size:13px;padding:6px 8px}
+  .t-archived-sort{font-size:13px;padding:6px 8px;min-height:40px}
 }
 
 /* ---- Expandable meta editing (category / due date / link) — the
