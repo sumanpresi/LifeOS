@@ -6,13 +6,45 @@ import { isLogged, streak } from './habits.js';
 import { getAllGsiTasksFlat } from './gsi.js';
 
 /* ---------- important links ---------- */
+let openLinkEditId = null; // which single link's inline edit panel is open — UI-only, not persisted
 export function renderLinks() {
   document.getElementById("linksGrid").innerHTML = state.links.map(l => `
-    <div class="link-card">
-      <a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.title)}</a>
-      <div class="desc">${esc(l.desc || l.url)}</div>
-      <button class="del" onclick="delLink('${l.id}')">✕</button>
+    <div class="link-row" data-link-id="${l.id}">
+      <a href="${esc(l.url)}" target="_blank" rel="noopener" class="link-row-title" onclick="linkClickPulse(this)">${esc(l.title)}</a>
+      <button class="link-edit-btn" onclick="toggleLinkEdit('${l.id}')" title="Edit link">✎</button>
+      <button class="del link-del-btn" onclick="delLink('${l.id}')" title="Delete">✕</button>
+      <div class="link-edit-panel ${openLinkEditId === l.id ? "open" : ""}" id="linkEdit-${l.id}">
+        <div class="link-edit-panel-inner">
+          <input type="text" value="${esc(l.title)}" placeholder="Title" onchange="editLink('${l.id}','title',this.value)">
+          <input type="text" value="${esc(l.url)}" placeholder="https://…" onchange="editLink('${l.id}','url',this.value)">
+          <input type="text" value="${esc(l.desc || "")}" placeholder="Description (optional)" onchange="editLink('${l.id}','desc',this.value)">
+        </div>
+      </div>
     </div>`).join("") || `<p class="hint">Save the links you reach for every day.</p>`;
+}
+export function toggleLinkEdit(id) {
+  openLinkEditId = openLinkEditId === id ? null : id;
+  renderLinks();
+  if (openLinkEditId) document.querySelector(`#linkEdit-${id} input`)?.focus();
+}
+export function editLink(id, field, value) {
+  const l = state.links.find(x => x.id === id);
+  if (!l) return;
+  if (field === "url") { value = value.trim(); if (value && !/^https?:\/\//i.test(value)) value = "https://" + value; }
+  l[field] = value.trim ? value.trim() : value;
+  persist(); rerender();
+}
+// A quick, satisfying press animation on the link itself — the click
+// still opens the link normally (this doesn't preventDefault anything),
+// this just gives it some tactile feedback beyond the plain color change
+// a bare <a> gets. Remove-then-reflow-then-add is needed so the
+// animation reliably restarts even if you click the same link twice in
+// a row, rather than silently doing nothing the second time because the
+// class was already present.
+export function linkClickPulse(el) {
+  el.classList.remove("clicked");
+  void el.offsetWidth;
+  el.classList.add("clicked");
 }
 export function addLink() {
   const t = document.getElementById("linkTitle"), u = document.getElementById("linkUrl"), d = document.getElementById("linkDesc");

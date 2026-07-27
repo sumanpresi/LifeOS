@@ -131,7 +131,7 @@ function archivedTaskRowHtml(t) {
         </div>
       </div>
       <div class="t-archived-actions">
-        <button class="btn btn-ghost" onclick="restoreArchivedTask('${t.id}')">↺ Restore</button>
+        <button class="btn btn-ghost" onclick="restoreArchivedTaskEntry('${t.id}')">↺ Restore</button>
         <button class="btn btn-ghost t-archived-delete" onclick="deleteArchivedTaskPermanently('${t.id}')" title="Move to Recycle Bin">🗑 Delete</button>
       </div>
     </div>`;
@@ -321,7 +321,7 @@ export function archiveAllCompleted() {
   persist(); rerender();
   toast(`Archived ${completed.length} task${completed.length === 1 ? "" : "s"}`);
 }
-export function restoreArchivedTask(id) {
+export function restoreArchivedTaskEntry(id) {
   const t = state.tasks.find(x => x.id === id);
   if (!t) return;
   t.archived = false; t.archivedAt = null;

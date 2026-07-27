@@ -126,6 +126,17 @@
         </div>
       </div>
 
+      <div class="section-title">Important links</div>
+      <div class="card"><div class="card-body">
+        <div class="link-grid" id="linksGrid"></div>
+        <div class="add-inline">
+          <input type="text" id="linkTitle" placeholder="Title">
+          <input type="text" id="linkUrl" placeholder="https://…">
+          <input type="text" id="linkDesc" placeholder="Description (optional)">
+          <button class="btn btn-ghost" onclick="addLink()">Add link</button>
+        </div>
+      </div></div>
+
       <div class="card" id="tasksCard">
         <div class="card-head"><h2>Tasks</h2><span class="hint" id="taskCount"></span>
           <button class="btn btn-ghost t-archive-all-btn" id="taskArchiveAllBtn" onclick="archiveAllCompleted()" title="Archive all completed tasks">
@@ -200,17 +211,6 @@
           </div>
         </div>
       </div>
-
-      <div class="section-title">Important links</div>
-      <div class="card"><div class="card-body">
-        <div class="link-grid" id="linksGrid"></div>
-        <div class="add-inline">
-          <input type="text" id="linkTitle" placeholder="Title">
-          <input type="text" id="linkUrl" placeholder="https://…">
-          <input type="text" id="linkDesc" placeholder="Description (optional)">
-          <button class="btn btn-ghost" onclick="addLink()">Add link</button>
-        </div>
-      </div></div>
 
       <div class="grid-2" style="margin-top:16px">
         <div class="card" id="newsCard">

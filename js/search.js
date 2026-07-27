@@ -13,6 +13,15 @@ function stripHtml(html) {
 function buildIndex() {
   const ix = [];
   const push = (type, text, sub, action) => text && ix.push({ type, text, sub, action });
+  // Everything below reaches into nearly every corner of app state.
+  // A single malformed or unexpectedly-shaped field anywhere in that
+  // chain would previously throw here — aborting buildIndex() entirely,
+  // which meant openSearch() never reached the line that actually shows
+  // the modal, and the whole feature looked like it silently did
+  // nothing on tap. Now one broken section just means that section's
+  // items are missing from this session's results — everything else
+  // still gets indexed and search still opens.
+  try {
 
   state.tasks.forEach(t => {
     if (t.archived && !includeArchivedTasks) return;
@@ -91,6 +100,10 @@ function buildIndex() {
     (c.mistakes || []).forEach(m => push("Mistake", m.wrong + " → " + m.right, m.cat || "", () => go("communication")));
     (c.writing || []).forEach(w => push("Writing", (w.text || "").slice(0, 120), w.date || "", () => go("communication")));
   }
+
+  } catch (e) {
+    console.error("[search] buildIndex hit an error partway through — showing what was indexed before the failure:", e);
+  }
   return ix;
 }
 function fmtSearchDate(d) {
@@ -100,10 +113,13 @@ function fmtSearchDate(d) {
 }
 
 export function openSearch() {
-  items = buildIndex();
-  document.getElementById("searchBg").classList.add("open");
+  try { items = buildIndex(); } catch (e) { items = []; console.error("[search] buildIndex threw outside its own try/catch — opening with an empty index:", e); }
+  const bg = document.getElementById("searchBg");
+  if (!bg) { console.error("[search] #searchBg not found in the page — can't open search."); return; }
+  bg.classList.add("open");
   const inp = document.getElementById("searchInput");
-  inp.value = ""; runSearch(""); inp.focus();
+  if (inp) { inp.value = ""; inp.focus(); }
+  runSearch("");
 }
 export function closeSearch() { document.getElementById("searchBg").classList.remove("open"); }
 export function setSearchIncludeArchived(v) {
