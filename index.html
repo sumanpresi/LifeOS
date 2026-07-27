@@ -457,30 +457,6 @@
           </div>
         </div>
       </div>
-      <div class="grid-2" style="margin-top:16px">
-        <div class="card">
-          <div class="card-head"><h2>Personal documents</h2></div>
-          <div class="card-body">
-            <div class="link-grid" id="personalDocs" style="grid-template-columns:1fr"></div>
-            <div class="add-inline">
-              <input type="text" id="personalDocName" placeholder="Document name">
-              <input type="text" id="personalDocUrl" placeholder="https://…">
-              <button class="btn btn-ghost" onclick="addPersonalDoc()">➕ Add</button>
-            </div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-head"><h2>Work documents</h2></div>
-          <div class="card-body">
-            <div class="link-grid" id="workDocs" style="grid-template-columns:1fr"></div>
-            <div class="add-inline">
-              <input type="text" id="workDocName" placeholder="Document name">
-              <input type="text" id="workDocUrl" placeholder="https://…">
-              <button class="btn btn-ghost" onclick="addWorkDoc()">➕ Add</button>
-            </div>
-          </div>
-        </div>
-      </div>
       <div class="card" style="margin-top:16px">
         <div class="card-head"><h2>Notes</h2></div>
         <div class="card-body">
@@ -564,8 +540,30 @@
           </div>
         </div>
       </div>
-      <div class="card-head" style="margin-top:16px"><h2>NGDR Upload Tracker</h2><span class="hint">Daily upload counts, trend chart, core log</span></div>
-      <iframe src="pages/ngdr-tracker.html" class="iframe-page ngdr-tracker-frame" title="NGDR Upload Tracker" style="margin-top:10px"></iframe>
+      <div class="grid-2" style="margin-top:16px">
+        <div class="card">
+          <div class="card-head"><h2>Personal documents</h2></div>
+          <div class="card-body">
+            <div class="link-grid" id="personalDocs" style="grid-template-columns:1fr"></div>
+            <div class="add-inline">
+              <input type="text" id="personalDocName" placeholder="Document name">
+              <input type="text" id="personalDocUrl" placeholder="https://…">
+              <button class="btn btn-ghost" onclick="addPersonalDoc()">➕ Add</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Work documents</h2></div>
+          <div class="card-body">
+            <div class="link-grid" id="workDocs" style="grid-template-columns:1fr"></div>
+            <div class="add-inline">
+              <input type="text" id="workDocName" placeholder="Document name">
+              <input type="text" id="workDocUrl" placeholder="https://…">
+              <button class="btn btn-ghost" onclick="addWorkDoc()">➕ Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ======== PAGE: FINANCE ======== -->
