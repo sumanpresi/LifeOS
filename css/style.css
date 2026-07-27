@@ -191,8 +191,8 @@ h1,h2,.display{font-family:'Fraunces',serif}
 .link-grid{display:flex;flex-direction:row;flex-wrap:wrap;align-items:flex-start;gap:8px}
 .link-row{position:relative;display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;max-width:100%;
   padding:7px 6px 7px 12px;border:1px solid var(--glass-line);border-radius:999px;background:var(--glass-bg-strong)}
-.link-row-title{flex:0 1 auto;min-width:0;max-width:220px;font-weight:700;text-decoration:none;color:var(--ink);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;position:relative;display:inline-block;
+.link-row-title{flex:0 0 auto;min-width:0;max-width:100%;font-weight:700;text-decoration:none;color:var(--ink);
+  white-space:nowrap;position:relative;display:inline-block;
   transition:transform .12s var(--ease),color .15s var(--ease)}
 /* Growing underline on hover instead of the instant default underline
    — a small, cheap bit of polish that reads as more considered. */
