@@ -130,8 +130,26 @@ export function setSearchIncludeArchived(v) {
 
 function runSearch(q) {
   q = q.trim().toLowerCase();
-  results = !q ? items.slice(0, 12) :
-    items.filter(i => (i.text + " " + i.sub + " " + i.type).toLowerCase().includes(q)).slice(0, 30);
+  if (!q) { results = items.slice(0, 12); sel = 0; renderResults(); return; }
+  // Rank by relevance instead of leaving matches in whatever arbitrary
+  // order buildIndex() happened to add them in (tasks, then goals, then
+  // habits, then links...). Without this, "top result" — the one Enter
+  // picks — just meant "first category that happened to contain a
+  // match," not "best match," which is exactly why Enter often landed
+  // somewhere unrelated to what was actually being searched for.
+  const scored = [];
+  items.forEach(i => {
+    const text = i.text.toLowerCase(), sub = (i.sub || "").toLowerCase(), type = i.type.toLowerCase();
+    if (!(text + " " + sub + " " + type).includes(q)) return;
+    let score;
+    if (text === q) score = 0;              // exact match
+    else if (text.startsWith(q)) score = 1;  // starts with the query
+    else if (text.includes(q)) score = 2;    // query appears anywhere in the main text
+    else score = 3;                          // only matched in the category/subtitle
+    scored.push({ item: i, score });
+  });
+  scored.sort((a, b) => a.score - b.score); // stable sort — same-score items keep their relative order
+  results = scored.slice(0, 30).map(s => s.item);
   sel = 0; renderResults();
 }
 function renderResults() {

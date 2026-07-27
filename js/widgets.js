@@ -25,8 +25,22 @@ export function renderLinks() {
 export function toggleLinkEdit(id) {
   openLinkEditId = openLinkEditId === id ? null : id;
   renderLinks();
+  // The popover's own z-index only has authority within its containing
+  // .card's stacking context (backdrop-filter gives every .card its own
+  // one) — it can never paint above a completely separate sibling card
+  // like Tasks below it, no matter how high that number is set. Instead
+  // the containing card itself gets promoted for as long as a popover
+  // inside it is open, which lets its content — the popover included —
+  // paint above the next card in normal document flow.
+  const card = document.getElementById("linksGrid")?.closest(".card");
+  if (card) card.classList.toggle("has-open-popover", !!openLinkEditId);
   if (openLinkEditId) document.querySelector(`#linkEdit-${id} input`)?.focus();
 }
+document.addEventListener("pointerdown", (evt) => {
+  if (!openLinkEditId) return;
+  if (evt.target.closest(".link-edit-panel") || evt.target.closest(".link-edit-btn")) return;
+  toggleLinkEdit(openLinkEditId); // same id toggles it closed
+});
 export function editLink(id, field, value) {
   const l = state.links.find(x => x.id === id);
   if (!l) return;
