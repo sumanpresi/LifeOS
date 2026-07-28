@@ -5,6 +5,22 @@ import { toast, autoGrow } from './ui.js';
 import { moveToTrash } from './trash.js';
 import { checkGrammar } from './text-tools.js';
 import { mountRichEditor, unmountRichEditor, getRichEditor } from './rich-text.js';
+import { syncTaskToGoogle } from './google-calendar.js';
+
+// GSI project tasks use different field names than native Overview
+// tasks (date, not dueDate; status, not done) — this bridges that so
+// the same sync function/endpoint in google-calendar.js is reused
+// rather than duplicated for GSI's shape. syncTaskToGoogle mutates
+// task.googleEventId on the object it's given directly, so that has to
+// be copied back onto the real GSI task afterward — it can't just be
+// handed the real task, since the real task's date field is called
+// "date" and syncTaskToGoogle expects "dueDate".
+function syncGsiTaskToGoogle(t, action) {
+  const shim = { text: t.text, dueDate: t.date, googleEventId: t.googleEventId };
+  syncTaskToGoogle(shim, action).then(() => {
+    if (shim.googleEventId !== t.googleEventId) { t.googleEventId = shim.googleEventId; persist(); }
+  }).catch(() => {});
+}
 
 
 /* Formatting: Quill's own built-in toolbar (see rich-text.js) now handles
@@ -306,22 +322,33 @@ export function delProject() {
 }
 export function addNgdr() {
   const el = document.getElementById("newNgdr"); const v = el.value.trim(); if (!v) return;
-  activeProject().tasks.push({ id: uid(), text: v, status: "todo", date: "", link: "", flag: false }); el.value = "";
+  activeProject().tasks.push({ id: uid(), text: v, status: "todo", date: "", link: "", flag: false, googleEventId: null }); el.value = "";
   persist(); rerender();
 }
 export function editProjectTask(id, field, v) {
   const { task: t } = findProjectTask(id); if (!t) return;
-  t[field] = v; persist(); if (field === "text") return; rerender();
+  t[field] = v; persist(); if (field === "text") { if (t.status !== "done") syncGsiTaskToGoogle(t, t.googleEventId ? "update" : "create"); return; }
+  rerender();
+  if (field === "date" && t.status !== "done") {
+    if (!v && t.googleEventId) syncGsiTaskToGoogle(t, "delete");
+    else if (v) syncGsiTaskToGoogle(t, t.googleEventId ? "update" : "create");
+  }
 }
 export function setTaskStatus(id, v) {
   const { task: t } = findProjectTask(id);
-  if (t) { t.status = v; persist(); rerender(); }
+  if (t) {
+    const wasDone = t.status === "done";
+    t.status = v; persist(); rerender();
+    if (v === "done" && !wasDone) syncGsiTaskToGoogle(t, "delete");
+    else if (v !== "done" && wasDone) syncGsiTaskToGoogle(t, "create");
+  }
 }
 export function delProjectTask(id) {
   const { task: t, project: p } = findProjectTask(id); if (!t) return;
   moveToTrash("gsiProjectTask", t, { projectId: p.id });
   p.tasks = p.tasks.filter(x => x.id !== id);
   persist(); rerender();
+  syncGsiTaskToGoogle(t, "delete");
 }
 export function toggleProjectTaskFlag(id) {
   const { task: t } = findProjectTask(id);

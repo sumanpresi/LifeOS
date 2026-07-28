@@ -66,20 +66,31 @@ module.exports = async (req, res) => {
       const dataRes = await fetch(`${SUPABASE_URL}/rest/v1/lifeos_data?user_id=eq.${row.user_id}&select=data`, { headers: SR_HEADERS });
       const dataRows = dataRes.ok ? await dataRes.json() : [];
       const lifeos = dataRows[0]?.data;
-      if (!lifeos || !Array.isArray(lifeos.tasks)) continue;
+      if (!lifeos) continue;
 
-      const needsSync = lifeos.tasks.filter(t => t.dueDate && !t.done && !t.googleEventId);
+      // Native Overview tasks use dueDate/done; GSI project tasks use
+      // date/status — normalized to one shape here so the sync loop
+      // below doesn't need two near-identical branches. gsiRef lets a
+      // synced GSI task's googleEventId be written back to the right
+      // place (nested inside a specific project), unlike native tasks
+      // which sit directly in the top-level array.
+      const candidates = [
+        ...(Array.isArray(lifeos.tasks) ? lifeos.tasks.map(t => ({ ref: t, text: t.text, date: t.dueDate, done: !!t.done, googleEventId: t.googleEventId })) : []),
+        ...((lifeos.gsi?.projects || []).flatMap(p => (p.tasks || []).map(t =>
+          ({ ref: t, text: t.text, date: t.date, done: t.status === "done", googleEventId: t.googleEventId })))),
+      ];
+      const needsSync = candidates.filter(c => c.date && !c.done && !c.googleEventId);
       if (!needsSync.length) { results.push({ user_id: row.user_id, created: 0 }); continue; }
 
       const accessToken = await getFreshAccessToken(row.refresh_token);
       let created = 0;
-      for (const t of needsSync) {
+      for (const c of needsSync) {
         const r = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
           method: "POST",
           headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ summary: t.text, description: "Synced from LifeOS", start: { date: t.dueDate }, end: { date: t.dueDate } }),
+          body: JSON.stringify({ summary: c.text, description: "Synced from LifeOS", start: { date: c.date }, end: { date: c.date } }),
         });
-        if (r.ok) { const d = await r.json(); t.googleEventId = d.id; created++; }
+        if (r.ok) { const d = await r.json(); c.ref.googleEventId = d.id; created++; }
       }
 
       if (created > 0) {
