@@ -12,5 +12,11 @@
       "source": "/index.html",
       "headers": [{ "key": "Cache-Control", "value": "no-cache, must-revalidate" }]
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/google-calendar-cron",
+      "schedule": "0 3 * * *"
+    }
   ]
 }

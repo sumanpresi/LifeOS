@@ -11,6 +11,11 @@ const GH_SVG = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentCol
 
 let sb = null, rtChannel = null;
 export let user = null;
+export async function getAccessToken() {
+  if (!sb) return null;
+  try { const { data } = await sb.auth.getSession(); return data?.session?.access_token || null; }
+  catch (e) { return null; }
+}
 export const configured = () =>
   SUPABASE_URL.startsWith("https://") && SUPABASE_ANON_KEY.length > 20;
 

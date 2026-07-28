@@ -126,6 +126,19 @@
         </div>
       </div>
 
+      <div class="card" id="gcalCard" style="margin-top:16px">
+        <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 18px">
+          <div>
+            <div style="font-weight:700;font-size:14px">📅 Google Calendar</div>
+            <div class="hint" id="gcalStatus">Tasks with a due date can sync as calendar events</div>
+          </div>
+          <div>
+            <button class="btn btn-primary" id="gcalConnectBtn" onclick="connectGoogleCalendar()">Connect</button>
+            <button class="btn btn-ghost" id="gcalDisconnectBtn" onclick="disconnectGoogleCalendar()" style="display:none">Disconnect</button>
+          </div>
+        </div>
+      </div>
+
       <div class="section-title">Important links</div>
       <div class="card"><div class="card-body">
         <div class="link-grid" id="linksGrid"></div>

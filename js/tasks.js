@@ -9,6 +9,7 @@
 import { state, uid, esc, persist, rerender } from './state.js';
 import { toast, autoGrow } from './ui.js';
 import { moveToTrash } from './trash.js';
+import { syncTaskToGoogle } from './google-calendar.js';
 import { getAllGsiTasksFlat, findProjectTask, editProjectTask, setTaskStatus as setGsiTaskStatus,
   delProjectTask, toggleProjectTaskFlag } from './gsi.js';
 
@@ -259,7 +260,7 @@ export function setTaskFilter(f) { taskFilter = f; renderTasks(); }
 export function addTask() {
   const el = document.getElementById("newTask"); const v = el.value.trim(); if (!v) return;
   const defaultCategory = (taskFilter === "work" || taskFilter === "personal") ? taskFilter : "work";
-  state.tasks.push({ id: uid(), text: v, done: false, category: defaultCategory, flag: false, link: "", dueDate: "" });
+  state.tasks.push({ id: uid(), text: v, done: false, category: defaultCategory, flag: false, link: "", dueDate: "", googleEventId: null });
   el.value = "";
   persist(); rerender();
 }
@@ -269,6 +270,7 @@ export function toggleTask(id) {
     t.done = !t.done;
     t.completedAt = t.done ? Date.now() : null;
     persist(); rerender();
+    syncTaskToGoogle(t, t.done ? "delete" : "create").catch(() => {}); // a completed task has nothing left to remind about; reopening it (with a due date) puts it back
     return;
   }
   const { task: gt } = findProjectTask(id);
@@ -281,13 +283,24 @@ export function toggleFlag(id) {
 }
 export function editTask(id, v) {
   const t = state.tasks.find(x => x.id === id);
-  if (t) { t.text = v; persist(); return; }
+  if (t) {
+    t.text = v; persist();
+    if (!t.done) syncTaskToGoogle(t, t.googleEventId ? "update" : "create").catch(() => {});
+    return;
+  }
   const { task: gt } = findProjectTask(id);
   if (gt) editProjectTask(id, "text", v);
 }
 export function editTaskMeta(id, field, v) {
   const t = state.tasks.find(x => x.id === id);
-  if (t) { t[field] = v; persist(); rerender(); return; }
+  if (t) {
+    t[field] = v; persist(); rerender();
+    if (field === "dueDate" && !t.done) {
+      if (!v && t.googleEventId) syncTaskToGoogle(t, "delete").catch(() => {});
+      else if (v) syncTaskToGoogle(t, t.googleEventId ? "update" : "create").catch(() => {});
+    }
+    return;
+  }
   // GSI tasks don't have a "category" (they're inherently Work) — that
   // control is hidden for them in the template, so this shouldn't fire,
   // but guard anyway. "dueDate" maps to their own "date" field.
@@ -297,7 +310,11 @@ export function editTaskMeta(id, field, v) {
 }
 export function delTask(id) {
   const t = state.tasks.find(x => x.id === id);
-  if (t) { moveToTrash("task", t); state.tasks = state.tasks.filter(x => x.id !== id); persist(); rerender(); return; }
+  if (t) {
+    moveToTrash("task", t); state.tasks = state.tasks.filter(x => x.id !== id); persist(); rerender();
+    syncTaskToGoogle(t, "delete").catch(() => {});
+    return;
+  }
   const { task: gt } = findProjectTask(id);
   if (gt) delProjectTask(id);
 }

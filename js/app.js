@@ -19,6 +19,7 @@ import * as calScribble from './calendar-scribble.js';
 import * as whiteboard from './whiteboard.js';
 import * as search from './search.js';
 import * as cloud from './supabase.js';
+import * as gcal from './google-calendar.js';
 import { initCommunicationBridge } from './communication-bridge.js';
 import { initNgdrTrackerBridge } from './ngdr-tracker-bridge.js';
 
@@ -26,6 +27,7 @@ import { initNgdrTrackerBridge } from './ngdr-tracker-bridge.js';
    that this keeps every module fully decoupled. */
 function renderAll() {
   ui.renderHeader();
+  gcal.renderGoogleCalendarStatus();
   tasks.renderTasks();
   goals.renderGoals();
   habits.renderHabits();
@@ -131,6 +133,7 @@ Object.assign(window,
     searchHover: search.searchHover, searchPick: search.searchPick, setSearchIncludeArchived: search.setSearchIncludeArchived },
   { openGhModal: cloud.openGhModal, closeGhModal: cloud.closeGhModal, ghButton: cloud.ghButton,
     signIn: cloud.signIn, signOut: cloud.signOut, syncNow: cloud.syncNow },
+  { connectGoogleCalendar: gcal.connectGoogleCalendar, disconnectGoogleCalendar: gcal.disconnectGoogleCalendar },
   { exportBackup: ui.exportBackup, importBackup: ui.importBackup, autoGrow: ui.autoGrow });
 
 /* ---- boot ---- */
@@ -147,3 +150,4 @@ search.initSearch();
 initCommunicationBridge();
 initNgdrTrackerBridge();
 cloud.initSupabase();
+gcal.handleGoogleCalendarCallback();
