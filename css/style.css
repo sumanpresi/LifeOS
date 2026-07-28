@@ -1227,9 +1227,9 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .wb-canvas-wrap{position:relative;width:100%}
 
 /* ---------- Brainstorming board tabs ---------- */
-.wb-tabs-row{display:flex;align-items:center;gap:6px;margin-bottom:10px;overflow-x:auto;scrollbar-width:none}
-.wb-tabs-row::-webkit-scrollbar{display:none}
-.wb-tabs{display:flex;gap:4px;flex:1;min-width:0}
+.wb-tabs-row{display:flex;align-items:center;gap:6px;margin-bottom:10px}
+.wb-tabs{display:flex;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+.wb-tabs::-webkit-scrollbar{display:none}
 .wb-tab{position:relative;display:flex;align-items:center;gap:4px;padding:6px 8px 6px 10px;
   border-radius:11px 11px 0 0;background:rgba(255,255,255,.35);border:1px solid var(--glass-line);border-bottom:none;
   cursor:pointer;font-size:13px;white-space:nowrap;flex-shrink:0;max-width:160px;color:var(--ink-soft);
@@ -1240,9 +1240,9 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .wb-tab-name[contenteditable="true"]{overflow:visible;background:#fff;border-radius:4px;padding:0 3px;box-shadow:0 0 0 1px var(--accent)}
 .wb-tab-menu-btn{border:none;background:none;color:var(--muted);cursor:pointer;padding:2px 3px;font-size:14px;line-height:1;border-radius:5px;flex-shrink:0}
 .wb-tab-menu-btn:hover{background:var(--glass-line);color:var(--ink)}
-.wb-tab-add{flex-shrink:0;width:26px;height:26px;border:1px solid var(--glass-line);border-radius:9px;background:var(--glass-bg-strong);
-  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
-  cursor:pointer;color:var(--muted);font-size:16px;display:flex;align-items:center;justify-content:center;line-height:1;
+.wb-tab-add{flex-shrink:0;width:26px;height:26px;border:1.5px solid var(--accent);border-radius:9px;background:var(--glass-bg-strong);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 1px 3px rgba(43,42,36,.1);
+  cursor:pointer;color:var(--accent-ink);font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;
   transition:transform .15s var(--ease),color .15s var(--ease),border-color .15s var(--ease)}
 .wb-tab-add:hover{border-color:var(--accent);color:var(--accent-ink);transform:translateY(-1px)}
 .wb-tabs-archive-btn{flex-shrink:0;border:1px solid var(--glass-line);border-radius:9px;background:var(--glass-bg-strong);
