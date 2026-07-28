@@ -391,17 +391,9 @@
     <!-- ======== PAGE: WORK / GSI ======== -->
     <section class="page" id="page-work">
       <h1 class="display" style="font-size:28px;margin-bottom:14px">GSI Workspace</h1>
-      <div class="ws-dropdown" id="wsDropdown" style="margin-bottom:12px">
-        <button class="ws-dropdown-btn" onclick="toggleWorkspaceDropdown()">
-          <span class="ws-dropdown-label">Workspace</span>
-          <span class="ws-dropdown-value" id="wsDropdownValue">—</span>
-          <span class="ws-dropdown-chevron">▾</span>
-        </button>
-        <div class="ws-dropdown-panel" id="wsDropdownPanel">
-          <input type="text" class="ws-search" id="wsSearchInput" placeholder="Search workspaces…" oninput="filterWorkspaceOptions(this.value)">
-          <div class="ws-options" id="wsOptions"></div>
-          <button class="ws-add-new" onclick="addWorkspaceFromDropdown()">＋ Add New Workspace…</button>
-        </div>
+      <div class="wb-tabs-row" style="margin-bottom:12px">
+        <div class="wb-tabs" id="wsTabsList"></div>
+        <button class="wb-tab-add" onclick="addProject()" title="New workspace">+</button>
       </div>
       <div class="grid-2">
         <div class="card">

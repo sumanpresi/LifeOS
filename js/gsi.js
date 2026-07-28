@@ -24,54 +24,24 @@ function activeProject() {
   return state.gsi.projects.find(p => p.id === state.gsi.activeProject) || state.gsi.projects[0];
 }
 
-/* ---- Workspace dropdown: UI-only wrapper around the existing project
+/* ---- Workspace tabs: UI-only wrapper around the existing project
    switcher. switchProject()/addProject() are unchanged — this only
-   changes how they're presented and triggered. ---- */
-export function toggleWorkspaceDropdown() {
-  const panel = document.getElementById("wsDropdownPanel");
-  const btn = document.querySelector("#wsDropdown .ws-dropdown-btn");
-  if (!panel) return;
-  const opening = !panel.classList.contains("open");
-  panel.classList.toggle("open", opening);
-  if (btn) btn.classList.toggle("open", opening);
-  if (opening) {
-    const search = document.getElementById("wsSearchInput");
-    if (search) { search.value = ""; setTimeout(() => search.focus(), 0); }
-    renderWorkspaceOptions("");
-  }
-}
-export function filterWorkspaceOptions(query) { renderWorkspaceOptions(query); }
-function renderWorkspaceOptions(query) {
-  const box = document.getElementById("wsOptions");
-  if (!box) return;
-  const q = (query || "").trim().toLowerCase();
-  const active = activeProject();
-  const matches = state.gsi.projects.filter(p => !q || p.name.toLowerCase().includes(q));
-  box.innerHTML = matches.map(p => `
-    <button class="ws-option ${p.id === active.id ? "selected" : ""}" onclick="chooseWorkspace('${p.id}')">${esc(p.name)}</button>`
-  ).join("") || `<p class="hint" style="padding:8px 10px">No workspaces match "${esc(query)}".</p>`;
-}
+   changes how they're presented and triggered (was a search+dropdown,
+   now a horizontal tab row — same .wb-tab component the Brainstorming
+   Board's own tabs already use, since it's the identical "switch
+   between named containers" pattern). ---- */
 export function chooseWorkspace(id) {
   switchProject(id); // existing function, unchanged
-  closeWorkspaceDropdown();
 }
-export function addWorkspaceFromDropdown() {
-  addProject(); // existing function, unchanged — creates via the same prompt() flow as before
-  closeWorkspaceDropdown();
+function renderWorkspaceTabs() {
+  const list = document.getElementById("wsTabsList");
+  if (!list) return;
+  const active = activeProject();
+  list.innerHTML = state.gsi.projects.map(p => `
+    <button class="wb-tab ${p.id === active.id ? "active" : ""}" onclick="chooseWorkspace('${p.id}')">
+      <span class="wb-tab-name">${esc(p.name)}</span>
+    </button>`).join("");
 }
-function closeWorkspaceDropdown() {
-  const panel = document.getElementById("wsDropdownPanel");
-  const btn = document.querySelector("#wsDropdown .ws-dropdown-btn");
-  if (panel) panel.classList.remove("open");
-  if (btn) btn.classList.remove("open");
-}
-document.addEventListener("click", (e) => {
-  const dropdown = document.getElementById("wsDropdown");
-  const panel = document.getElementById("wsDropdownPanel");
-  if (dropdown && panel && panel.classList.contains("open") && !dropdown.contains(e.target)) {
-    closeWorkspaceDropdown();
-  }
-});
 /* Finds a project task by id across EVERY project, not just the active
    one — needed because these tasks are now also shown (and editable) from
    Overview's unified task list, where a task could belong to any project. */
@@ -224,9 +194,7 @@ function renderProjects() {
   const active = activeProject();
   if (active && state.gsi.activeProject !== active.id) state.gsi.activeProject = active.id;
 
-  const wsValue = document.getElementById("wsDropdownValue");
-  if (wsValue) wsValue.textContent = active.name;
-  renderWorkspaceOptions("");
+  renderWorkspaceTabs();
   const nameEl = document.getElementById("projectName");
   if (nameEl && document.activeElement !== nameEl) nameEl.value = active.name;
   const delBtn = document.getElementById("projectDelBtn");
