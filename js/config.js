@@ -5,7 +5,9 @@
    ============================================================ */
 export const SUPABASE_URL = "https://hgsqpvvneudwwfemdirc.supabase.co";
    export const SUPABASE_ANON_KEY = "sb_publishable_9t_tXW5K4t2oaljyFA_YUw_XpvO8vm-";
-
+const CONFIG = {
+  GOOGLE_CLIENT_ID: "446350109199-j08bgqrp2d197n6adoaa8vb53mndc9q2.apps.googleusercontent.com",
+};   
 /* Google Calendar sync — get this from Google Cloud Console → APIs &
    Services → Credentials → your OAuth 2.0 Client ID. This value is
    public/safe to expose (it identifies the app, it doesn't authorize
