@@ -242,7 +242,8 @@ export function renderTasks() {
 
   const openCount = state.tasks.filter(t => !t.done).length;
   document.getElementById("taskCount").textContent = state.tasks.length ? `${openCount} open` : "";
-  document.getElementById("catTasksSub").textContent =
+  const catTasksSub = document.getElementById("catTasksSub");
+  if (catTasksSub) catTasksSub.textContent =
     state.tasks.length ? `${openCount} of ${state.tasks.length} still open` : "Plan your day.";
   // Same "measure after render" requirement as GSI Workspace's title
   // fields — see go() in ui.js for the re-run when this page was

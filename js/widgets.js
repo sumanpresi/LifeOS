@@ -142,7 +142,8 @@ export function renderMedStat() {
   const today = state.meditation[todayKey()] || 0;
   document.getElementById("medStat").textContent = today ? `${today} min logged today` : "No session logged today yet";
   document.getElementById("medTodayHint").textContent = today ? `${today} min today` : "";
-  document.getElementById("catMedSub").textContent = today ? `${today} min done today 🌿` : "Breathe for a while.";
+  const catMedSub = document.getElementById("catMedSub");
+  if (catMedSub) catMedSub.textContent = today ? `${today} min done today 🌿` : "Breathe for a while.";
 }
 
 /* ---------- Day Of page ---------- */

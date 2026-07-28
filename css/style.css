@@ -107,17 +107,6 @@ h1,h2,.display{font-family:'Fraunces',serif}
 
 .section-title{font-family:'Fraunces',serif;font-size:22px;font-weight:600;margin:30px 0 12px}
 
-/* category tiles */
-.cat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:14px}
-.cat{border-radius:var(--r);padding:16px;min-height:150px;display:flex;flex-direction:column;gap:8px;position:relative;
-  border:1px solid rgba(34,31,51,.06)}
-.cat h3{font-family:'Fraunces',serif;font-size:17px;font-weight:600}
-.cat .cat-sub{font-size:13px;color:#55506B}
-.cat .go{position:absolute;top:12px;right:12px;width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.75);
-  display:grid;place-items:center}
-.cat .go svg{width:14px;height:14px;stroke:var(--ink);fill:none;stroke-width:2}
-.cat.sand{background:var(--sand)} .cat.sage{background:var(--sage)} .cat.sky{background:var(--sky)} .cat.blush{background:var(--blush)}
-
 /* tasks */
 .task-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line)}
 .task-row:last-child{border-bottom:none}
