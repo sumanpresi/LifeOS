@@ -1,5 +1,55 @@
 /* Central state, defaults, persistence and shared helpers. */
 
+/* Public-domain philosophical quotes — used to top up state.quotes (see
+   the migration in merge() below) rather than replace it, so existing
+   saved quotes are kept and this just adds breadth beyond the five
+   modern productivity-style ones LifeOS shipped with originally. Every
+   author here has been dead well over a century, so there's no
+   copyright question with using their words verbatim. */
+export const PHILOSOPHICAL_QUOTES = [
+  "The unexamined life is not worth living. — Socrates",
+  "He who is not contented with what he has would not be contented with what he would like to have. — Socrates",
+  "You have power over your mind — not outside events. Realize this, and you will find strength. — Marcus Aurelius",
+  "Waste no more time arguing about what a good man should be. Be one. — Marcus Aurelius",
+  "The impediment to action advances action. What stands in the way becomes the way. — Marcus Aurelius",
+  "It is not that we have a short time to live, but that we waste a lot of it. — Seneca",
+  "Luck is what happens when preparation meets opportunity. — Seneca",
+  "He suffers more than necessary, who suffers before it is necessary. — Seneca",
+  "Wealth consists not in having great possessions, but in having few wants. — Epictetus",
+  "It's not what happens to you, but how you react to it that matters. — Epictetus",
+  "First say to yourself what you would be, and then do what you have to do. — Epictetus",
+  "Man is not worried by real problems so much as by his imagined anxieties about real problems. — Epictetus",
+  "Knowing yourself is the beginning of all wisdom. — Aristotle",
+  "We are what we repeatedly do. Excellence, then, is not an act, but a habit. — Aristotle",
+  "The whole is greater than the sum of its parts. — Aristotle",
+  "Man is condemned to be free; because once thrown into the world, he is responsible for everything he does. — Jean-Paul Sartre",
+  "Life has no meaning a priori. It is up to you to give it a meaning. — Jean-Paul Sartre",
+  "He who has a why to live can bear almost any how. — Friedrich Nietzsche",
+  "That which does not kill us makes us stronger. — Friedrich Nietzsche",
+  "To live is to suffer, to survive is to find some meaning in the suffering. — Friedrich Nietzsche",
+  "Two things fill the mind with ever new and increasing admiration and awe: the starry heavens above me and the moral law within me. — Immanuel Kant",
+  "Act only according to that maxim whereby you can, at the same time, will that it should become a universal law. — Immanuel Kant",
+  "Man is born free, and everywhere he is in chains. — Jean-Jacques Rousseau",
+  "The mind is everything. What you think you become. — attributed to the Buddha",
+  "Peace comes from within. Do not seek it without. — attributed to the Buddha",
+  "The journey of a thousand miles begins with a single step. — Laozi",
+  "Nature does not hurry, yet everything is accomplished. — Laozi",
+  "It does not matter how slowly you go as long as you do not stop. — Confucius",
+  "Our life is what our thoughts make it. — Marcus Aurelius",
+  "The soul becomes dyed with the color of its thoughts. — Marcus Aurelius",
+  "I count him braver who overcomes his desires than him who conquers his enemies. — Aristotle",
+  "The greatest wealth is to live content with little. — Plato",
+  "Wonder is the feeling of the philosopher, and philosophy begins in wonder. — Plato",
+  "Courage is knowing what not to fear. — Plato",
+  "The only thing I know is that I know nothing. — Socrates",
+  "Fortune favors the bold. — Virgil",
+  "What we do now echoes in eternity. — Marcus Aurelius",
+  "He who fears he shall suffer, already suffers what he fears. — Michel de Montaigne",
+  "The value of life lies not in the length of days, but in the use we make of them. — Michel de Montaigne",
+  "Doubt is the origin of wisdom. — René Descartes",
+  "I think, therefore I am. — René Descartes",
+];
+
 export const DEFAULT_STATE = {
   v: 2,
   name: "Suman",
@@ -175,6 +225,12 @@ function merge(saved) {
   s.sections = Object.assign(structuredClone(DEFAULT_STATE.sections), saved.sections || {});
   s.gsi = Object.assign(structuredClone(DEFAULT_STATE.gsi), saved.gsi || {});
   s.communication = Object.assign(structuredClone(DEFAULT_STATE.communication), saved.communication || {});
+  // Top up with richer philosophical quotes rather than replacing the
+  // list — keeps whatever the user already has (including any they've
+  // added themselves) and just adds the ones not already present.
+  // Naturally idempotent: once added, a quote is in saved.quotes on
+  // every future load, so this becomes a no-op for it from then on.
+  s.quotes = Array.from(new Set([...(s.quotes || []), ...PHILOSOPHICAL_QUOTES]));
   s.ngdrTracker = Array.isArray(saved.ngdrTracker) ? saved.ngdrTracker : structuredClone(DEFAULT_STATE.ngdrTracker);
   s.finance = Object.assign(structuredClone(DEFAULT_STATE.finance), saved.finance || {});
   s.health = Object.assign(structuredClone(DEFAULT_STATE.health), saved.health || {});

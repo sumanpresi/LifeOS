@@ -103,19 +103,6 @@
 
     <!-- ======== PAGE: OVERVIEW ======== -->
     <section class="page visible" id="page-overview">
-      <div class="card" id="gcalCard" style="margin-top:16px">
-        <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 18px">
-          <div>
-            <div style="font-weight:700;font-size:14px">📅 Google Calendar</div>
-            <div class="hint" id="gcalStatus">Tasks with a due date can sync as calendar events</div>
-          </div>
-          <div>
-            <button class="btn btn-primary" id="gcalConnectBtn" onclick="connectGoogleCalendar()">Connect</button>
-            <button class="btn btn-ghost" id="gcalDisconnectBtn" onclick="disconnectGoogleCalendar()" style="display:none">Disconnect</button>
-          </div>
-        </div>
-      </div>
-
       <div class="section-title">Important links</div>
       <div class="card"><div class="card-body">
         <div class="link-grid" id="linksGrid"></div>
@@ -301,6 +288,19 @@
             <button class="wb-fullscreen-btn" id="wbFullscreenBtn-overview" onclick="toggleWhiteboardFullscreen('overview')" title="Full screen">
               <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
             </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="gcalCard" style="margin-top:16px">
+        <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 18px">
+          <div>
+            <div style="font-weight:700;font-size:14px">📅 Google Calendar</div>
+            <div class="hint" id="gcalStatus">Tasks with a due date can sync as calendar events</div>
+          </div>
+          <div>
+            <button class="btn btn-primary" id="gcalConnectBtn" onclick="connectGoogleCalendar()">Connect</button>
+            <button class="btn btn-ghost" id="gcalDisconnectBtn" onclick="disconnectGoogleCalendar()" style="display:none">Disconnect</button>
           </div>
         </div>
       </div>
