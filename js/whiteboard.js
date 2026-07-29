@@ -95,13 +95,15 @@ function activeBrainstormBoard() {
 function board(boardId) {
   if (boardId === "gsi") {
     const b = activeBrainstormBoard();
-    if (!b) return { strokes: [], objects: [] }; // no tabs at all (shouldn't happen — addBrainstormBoard always leaves one)
+    if (!b) return { strokes: [], objects: [], connectors: [] }; // no tabs at all (shouldn't happen — addBrainstormBoard always leaves one)
     b.objects = b.objects || [];
+    b.connectors = b.connectors || [];
     return b;
   }
   state.whiteboards[boardId] = state.whiteboards[boardId] || { strokes: [], objects: [] };
   const b = state.whiteboards[boardId];
   b.objects = b.objects || []; // additive field — older saved boards predate sticky notes
+  b.connectors = b.connectors || []; // additive field — older saved boards predate connector lines
   return b;
 }
 const id = (boardId, base) => base + "-" + boardId;
@@ -152,7 +154,16 @@ export function mergeBoardData(a, b) {
   newestById.forEach(o => {
     if (!o.deleted || Date.now() - (o.updatedAt || 0) < TOMBSTONE_MAX_AGE_MS) objects.push(o);
   });
-  return { strokes, objects };
+  // Connectors just link two note ids — nothing about an existing one
+  // is ever edited in place, only created or deleted — so a plain
+  // union by id (like strokes) is enough; no updatedAt comparison
+  // needed the way notes require.
+  const connectors = [];
+  const seenConnectors = new Set();
+  [...(a.connectors || []), ...(b.connectors || [])].forEach(c => {
+    if (!seenConnectors.has(c.id)) { seenConnectors.add(c.id); connectors.push(c); }
+  });
+  return { strokes, objects, connectors };
 }
 
 export function initWhiteboard(boardId) {
@@ -196,6 +207,7 @@ function sizeCanvas(boardId) {
   s.ctx.scale(s.dpr, s.dpr);
   redraw(boardId);
   renderObjects(boardId);
+  renderConnectors(boardId);
 }
 
 function redraw(boardId) {
@@ -683,6 +695,112 @@ function renderObjects(boardId) {
   Object.keys(existingEls).forEach(objId => { if (!keepIds.has(objId)) existingEls[objId].remove(); });
 }
 
+// Where a ray from a rectangle's own center toward some other point
+// crosses that rectangle's boundary — the actual "snap to the note's
+// edge" mechanism. Because this is recomputed from each note's current
+// position/size on every render rather than a stored anchor point, a
+// connector automatically stays correctly attached no matter which of
+// a note's four nodes was originally dragged from, and automatically
+// re-clips to a sensible edge as the note moves or resizes.
+function rectEdgePoint(cx, cy, tx, ty, rx, ry, rw, rh) {
+  const dx = tx - cx, dy = ty - cy;
+  if (dx === 0 && dy === 0) return { x: cx, y: cy };
+  const halfW = rw / 2 || 0.0001, halfH = rh / 2 || 0.0001;
+  const scale = Math.min(dx !== 0 ? halfW / Math.abs(dx) : Infinity, dy !== 0 ? halfH / Math.abs(dy) : Infinity);
+  return { x: cx + dx * scale, y: cy + dy * scale };
+}
+function renderConnectors(boardId) {
+  const svg = document.getElementById(id(boardId, "wbConnectorLayer"));
+  const s = inst(boardId);
+  if (!svg || !s.canvas) return;
+  const w = s.canvas.width / s.dpr; // same basis stickyHtml() uses for both x and y
+  svg.setAttribute("viewBox", `0 0 ${w} ${w}`);
+  svg.setAttribute("width", w);
+  svg.setAttribute("height", w);
+
+  const objs = board(boardId).objects.filter(o => !o.deleted);
+  const byId = {};
+  objs.forEach(o => { byId[o.id] = o; });
+  const conns = (board(boardId).connectors || []).filter(c => byId[c.fromId] && byId[c.toId]);
+
+  const defs = `<defs><marker id="wbArrow-${boardId}" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto-start-reverse">
+    <path d="M0,0 L9,4.5 L0,9 z" class="wb-connector-arrowhead"></path></marker></defs>`;
+
+  const lines = conns.map(c => {
+    const a = byId[c.fromId], b = byId[c.toId];
+    const ar = { x: a.x * w, y: a.y * w, w: a.w * w, h: a.h * w };
+    const br = { x: b.x * w, y: b.y * w, w: b.w * w, h: b.h * w };
+    const acx = ar.x + ar.w / 2, acy = ar.y + ar.h / 2;
+    const bcx = br.x + br.w / 2, bcy = br.y + br.h / 2;
+    const p1 = rectEdgePoint(acx, acy, bcx, bcy, ar.x, ar.y, ar.w, ar.h);
+    const p2 = rectEdgePoint(bcx, bcy, acx, acy, br.x, br.y, br.w, br.h);
+    const midX = (p1.x + p2.x) / 2, midY = (p1.y + p2.y) / 2;
+    return `<g class="wb-connector" data-connector-id="${c.id}">
+      <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" class="wb-connector-hit"></line>
+      <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" class="wb-connector-line" marker-end="url(#wbArrow-${boardId})"></line>
+      <circle cx="${midX}" cy="${midY}" r="7" class="wb-connector-del" onclick="deleteConnector('${boardId}','${c.id}')"><title>Delete connector</title></circle>
+    </g>`;
+  }).join("");
+
+  svg.innerHTML = defs + lines;
+}
+function createConnector(boardId, fromId, toId) {
+  const b = board(boardId);
+  const already = b.connectors.some(c => (c.fromId === fromId && c.toId === toId) || (c.fromId === toId && c.toId === fromId));
+  if (already) return;
+  b.connectors.push({ id: uid(), fromId, toId, updatedAt: Date.now() });
+  persist();
+  renderConnectors(boardId);
+}
+export function deleteConnector(boardId, connId) {
+  const b = board(boardId);
+  b.connectors = (b.connectors || []).filter(c => c.id !== connId);
+  persist();
+  renderConnectors(boardId);
+}
+// Removes any connector touching a note that's just been deleted —
+// otherwise a tombstoned note would leave a dangling line pointing at
+// nothing (renderConnectors already filters these defensively too, but
+// cleaning them up here keeps the data itself tidy rather than relying
+// solely on the render-time filter).
+function pruneConnectorsForNote(boardId, noteId) {
+  const b = board(boardId);
+  b.connectors = (b.connectors || []).filter(c => c.fromId !== noteId && c.toId !== noteId);
+}
+function startConnectorDrag(boardId, fromId, evt) {
+  const s = inst(boardId);
+  const svg = document.getElementById(id(boardId, "wbConnectorLayer"));
+  if (!s.canvas || !svg) return;
+  const canvasRect = s.canvas.getBoundingClientRect();
+  const w = s.canvas.width / s.dpr;
+  const toSvgCoords = (clientX, clientY) => ({
+    x: (clientX - canvasRect.left) / canvasRect.width * w,
+    y: (clientY - canvasRect.top) / canvasRect.height * w,
+  });
+  const start = toSvgCoords(evt.clientX, evt.clientY);
+  const preview = document.createElementNS("http://www.w3.org/2000/svg", "line");
+  preview.setAttribute("class", "wb-connector-preview");
+  preview.setAttribute("x1", start.x); preview.setAttribute("y1", start.y);
+  preview.setAttribute("x2", start.x); preview.setAttribute("y2", start.y);
+  svg.appendChild(preview);
+
+  const onMove = (mv) => {
+    mv.preventDefault();
+    const p = toSvgCoords(mv.clientX, mv.clientY);
+    preview.setAttribute("x2", p.x); preview.setAttribute("y2", p.y);
+  };
+  const onUp = (up) => {
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    preview.remove();
+    const targetEl = document.elementFromPoint(up.clientX, up.clientY)?.closest(".wb-sticky");
+    const toId = targetEl?.dataset.objId;
+    if (toId && toId !== fromId) createConnector(boardId, fromId, toId);
+  };
+  window.addEventListener("pointermove", onMove);
+  window.addEventListener("pointerup", onUp);
+}
+
 function stickyHtml(o, w) {
   const px = o.x * w, py = o.y * w, pw = o.w * w, ph = o.h * w;
   const selected = o.id === selectedStickyId;
@@ -728,6 +846,10 @@ function stickyHtml(o, w) {
         </div>
       </div>
       <div class="wb-sticky-resize-handle" title="Drag to resize"></div>
+      <div class="wb-sticky-node wb-sticky-node-n" data-side="n" title="Drag to connect"></div>
+      <div class="wb-sticky-node wb-sticky-node-e" data-side="e" title="Drag to connect"></div>
+      <div class="wb-sticky-node wb-sticky-node-s" data-side="s" title="Drag to connect"></div>
+      <div class="wb-sticky-node wb-sticky-node-w" data-side="w" title="Drag to connect"></div>
     </div>`;
 }
 
@@ -927,6 +1049,7 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
       el.style.left = (nx * canvasWidth) + "px";
       el.style.top = (ny * canvasWidth) + "px";
       o.x = Math.max(0, nx); o.y = Math.max(0, ny);
+      renderConnectors(boardId);
     };
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
@@ -953,6 +1076,7 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
       const nh = Math.min(STICKY_MAX * canvasWidth, Math.max(STICKY_MIN * canvasWidth, startH + (mv.clientY - startY)));
       el.style.width = nw + "px"; el.style.height = nh + "px";
       o.w = nw / canvasWidth; o.h = nh / canvasWidth;
+      renderConnectors(boardId);
     };
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
@@ -991,8 +1115,24 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
     const o = getObj();
     if (o) { o.deleted = true; o.updatedAt = Date.now(); }
     if (selectedStickyId === objId) selectedStickyId = null;
+    pruneConnectorsForNote(boardId, objId);
     persist();
     el.remove();
+    renderConnectors(boardId);
+  });
+
+  // Connector nodes — dragging from one of a note's four small handles
+  // to another note creates a connector between them. The actual line
+  // rendering (renderConnectors above) always clips to each note's
+  // nearest edge automatically, so which of the four nodes was grabbed
+  // only matters for starting the gesture, not for where the line
+  // visually ends up.
+  el.querySelectorAll(".wb-sticky-node").forEach(node => {
+    node.addEventListener("pointerdown", (evt) => {
+      evt.preventDefault(); evt.stopPropagation();
+      selectedStickyId = objId; el.classList.add("selected");
+      startConnectorDrag(boardId, objId, evt);
+    });
   });
 }
 

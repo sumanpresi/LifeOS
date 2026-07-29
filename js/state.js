@@ -284,12 +284,12 @@ function merge(saved) {
     Object.keys(saved.whiteboards).forEach(k => {
       const board = saved.whiteboards[k];
       if (!board) return;
-      s.whiteboards[k] = s.whiteboards[k] || { strokes: [], objects: [] };
+      s.whiteboards[k] = s.whiteboards[k] || { strokes: [], objects: [], connectors: [] };
       if (Array.isArray(board.strokes)) {
-        s.whiteboards[k] = { strokes: board.strokes, objects: board.objects || [] };
+        s.whiteboards[k] = { strokes: board.strokes, objects: board.objects || [], connectors: board.connectors || [] };
       } else if (Array.isArray(board.pages)) {
         const p0 = board.pages[0] || {};
-        s.whiteboards[k] = { strokes: p0.strokes || [], objects: p0.objects || [] };
+        s.whiteboards[k] = { strokes: p0.strokes || [], objects: p0.objects || [], connectors: [] };
       }
     });
   } else if (saved.whiteboard && Array.isArray(saved.whiteboard.strokes)) {

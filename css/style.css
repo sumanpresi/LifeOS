@@ -727,6 +727,10 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .t-due{display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;color:#B54747}
 .t-due.t-overdue{color:var(--t-danger);font-weight:500}
 .t-due.t-future{color:var(--t-ink2)}
+.t-due-icon{font-size:inherit;line-height:1;cursor:pointer;padding:2px;margin:-2px;border-radius:4px;transition:background 120ms ease}
+.t-due-icon:hover{background:rgba(0,0,0,.06)}
+.t-due-hidden-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;border:none;padding:0}
+.t-board-card-date{position:relative;display:inline-flex;align-items:center;gap:3px}
 
 .t-flag{background:none;border:none;font-size:14px;opacity:.35;cursor:pointer;flex-shrink:0;
   filter:grayscale(.7);padding:2px;transition:opacity 150ms ease,transform 150ms ease}
@@ -1346,6 +1350,32 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   .wb-tab-menu-btn{padding:4px}
 }
 .wb-object-layer{position:absolute;inset:0;pointer-events:none}
+.wb-connector-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.wb-connector-line{stroke:var(--accent);stroke-width:2;fill:none}
+.wb-connector-hit{stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke;cursor:pointer}
+.wb-connector-arrowhead{fill:var(--accent)}
+.wb-connector-del{fill:#fff;stroke:var(--accent);stroke-width:1.5;opacity:0;pointer-events:auto;cursor:pointer;transition:opacity 120ms ease}
+.wb-connector:hover .wb-connector-del{opacity:1}
+.wb-connector-del:hover{fill:var(--danger-bg)}
+.wb-connector-preview{stroke:var(--accent);stroke-width:2;stroke-dasharray:6 4;opacity:.7}
+/* Connection nodes — one at the midpoint of each side, only shown
+   (and only interactive) once a note is selected, matching the resize
+   handle's existing show-on-select convention. */
+.wb-sticky-node{position:absolute;width:12px;height:12px;border-radius:50%;background:#fff;
+  border:2px solid var(--accent);display:none;pointer-events:auto;cursor:crosshair;z-index:6}
+.wb-sticky.selected .wb-sticky-node{display:block}
+.wb-sticky-node:hover{background:var(--accent);transform:scale(1.2)}
+.wb-sticky-node-n{top:-6px;left:calc(50% - 6px)}
+.wb-sticky-node-s{bottom:-6px;left:calc(50% - 6px)}
+.wb-sticky-node-e{right:-6px;top:calc(50% - 6px)}
+.wb-sticky-node-w{left:-6px;top:calc(50% - 6px)}
+@media(max-width:767px){
+  .wb-sticky-node{width:18px;height:18px}
+  .wb-sticky-node-n{top:-9px;left:calc(50% - 9px)}
+  .wb-sticky-node-s{bottom:-9px;left:calc(50% - 9px)}
+  .wb-sticky-node-e{right:-9px;top:calc(50% - 9px)}
+  .wb-sticky-node-w{left:-9px;top:calc(50% - 9px)}
+}
 .wb-object-layer.creating{pointer-events:auto;cursor:copy}
 
 .wb-sticky{position:absolute;pointer-events:auto;border-radius:12px;

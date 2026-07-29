@@ -128,6 +128,31 @@ export function toggleTaskExpanded(id) {
   expandedTaskId = expandedTaskId === id ? null : id;
   renderTasks();
 }
+// Opens the native date picker for a task's (hidden) date input,
+// triggered by tapping the calendar icon next to its due-date text.
+// editTaskMeta() already re-renders on change, and the Overdue/Today/
+// Upcoming grouping is recomputed fresh on every render from each
+// task's current dueDate — so picking a new date here already moves
+// the task to the right section automatically, with no extra code
+// needed for that part.
+export function openDueDatePicker(id) {
+  const input = document.getElementById(`dueInput-${id}`);
+  if (!input) return;
+  if (typeof input.showPicker === "function") {
+    try { input.showPicker(); return; } catch (e) { /* falls through to the older fallback below */ }
+  }
+  input.focus();
+  input.click();
+}
+export function openPopupDueDatePicker(id) {
+  const input = document.getElementById(`dueInput-popup-${id}`);
+  if (!input) return;
+  if (typeof input.showPicker === "function") {
+    try { input.showPicker(); return; } catch (e) { /* falls through to the older fallback below */ }
+  }
+  input.focus();
+  input.click();
+}
 
 // ---------- Task detail popup — opened from a calendar chip's title
 // (the chip's own checkbox handles completion directly, without
@@ -169,7 +194,12 @@ function renderTaskPopup(id) {
       <div class="t-popup-title ${done ? "done" : ""}">${esc(t.text)}</div>
       <button class="t-flag ${t.flag ? "on" : ""}" onclick="popupToggleFlag('${id}')" title="${t.flag ? "Unflag" : "Flag as priority"}">🚩</button>
     </div>
-    ${due ? `<div class="t-due ${due.cls === "overdue" ? "t-overdue" : due.cls === "" ? "t-future" : ""}" style="margin:12px 0 0 38px">📅 <span>${due.text}</span></div>` : ""}
+    ${due ? `<div class="t-due ${due.cls === "overdue" ? "t-overdue" : due.cls === "" ? "t-future" : ""}" style="margin:12px 0 0 38px">
+      <button class="t-due-icon" onclick="openPopupDueDatePicker('${id}')" title="Change due date">📅</button>
+      <input type="date" class="t-due-hidden-input" id="dueInput-popup-${id}" value="${isGsi ? (t.date || "") : (t.dueDate || "")}"
+        onchange="popupEditDate('${id}',this.value)">
+      <span>${due.text}</span>
+    </div>` : ""}
     <div style="margin:10px 0 0 38px"><span class="t-board-card-tag">${tag}</span></div>
     ${t.link ? `<a href="${esc(t.link.startsWith("http") ? t.link : "https://" + t.link)}" target="_blank" rel="noopener" class="t-link-go" style="margin:12px 0 0 38px;display:inline-block">🔗 Open link</a>` : ""}
   `;
@@ -180,6 +210,10 @@ export function popupToggleDone(id) {
 }
 export function popupToggleFlag(id) {
   toggleFlag(id); // already routes to GSI internally when needed
+  renderTaskPopup(id);
+}
+export function popupEditDate(id, value) {
+  editTaskMeta(id, "dueDate", value); // already routes to GSI internally and re-sorts sections on change
   renderTaskPopup(id);
 }
 
@@ -201,7 +235,12 @@ function taskRowHtml(t) {
           <button class="t-flag ${t.flag ? "on" : ""}" onclick="event.stopPropagation();toggleFlag('${t.id}')"
             title="${t.flag ? "Unflag" : "Flag as priority"}">🚩</button>
         </div>
-        ${due ? `<div class="t-due ${due.cls==="overdue"?"t-overdue":due.cls===""?"t-future":""}">📅 <span>${due.text}</span></div>` : ""}
+        ${due ? `<div class="t-due ${due.cls==="overdue"?"t-overdue":due.cls===""?"t-future":""}">
+          <button class="t-due-icon" onclick="event.stopPropagation();openDueDatePicker('${t.id}')" title="Change due date">📅</button>
+          <input type="date" class="t-due-hidden-input" id="dueInput-${t.id}" value="${t.dueDate}"
+            onclick="event.stopPropagation()" onchange="event.stopPropagation();editTaskMeta('${t.id}','dueDate',this.value)">
+          <span>${due.text}</span>
+        </div>` : ""}
         ${t.link ? `<a href="${esc(t.link.startsWith("http")?t.link:"https://"+t.link)}" target="_blank" rel="noopener" class="t-link-go" onclick="event.stopPropagation()">🔗 Open link</a>` : ""}
       </div>
       <div class="t-right">
@@ -263,7 +302,11 @@ function boardCardHtml(t) {
         ${t.flag ? `<span class="t-board-card-flag" title="Priority">🚩</span>` : ""}
       </div>
       <div class="t-board-card-meta">
-        ${due ? `<span class="t-board-card-date ${due.cls}">🗓 ${due.text}</span>` : ""}
+        ${due ? `<span class="t-board-card-date ${due.cls}">
+          <button class="t-due-icon" onclick="event.stopPropagation();openDueDatePicker('${t.id}')" title="Change due date">🗓</button>
+          <input type="date" class="t-due-hidden-input" id="dueInput-${t.id}" value="${t.isGsi ? (t.date || "") : (t.dueDate || "")}"
+            onclick="event.stopPropagation()" onchange="event.stopPropagation();editTaskMeta('${t.id}','dueDate',this.value)">
+          ${due.text}</span>` : ""}
         <span class="t-board-card-tag">${tag}</span>
         ${t.done ? (t.isGsi
           ? `<button class="t-archive-btn" onclick="event.stopPropagation();archiveGsiTaskEntry('${t.projectId}','${t.id}')" title="Archive">🗂</button>`
