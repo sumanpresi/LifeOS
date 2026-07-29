@@ -125,6 +125,35 @@ function sectionHtml(name, label, tasks) {
 // each card, so every existing interaction (checkbox, flag, archive
 // button, breadcrumb, GSI vs native routing) works identically without
 // any new code — only the layout differs.
+// Board view needs its own compact card rather than reusing
+// taskRowHtml() directly — that row's layout (a wide title field plus
+// a right-aligned breadcrumb column) assumes real list-row width. Squeezed
+// into a ~230px Kanban column, the title had nowhere to go but wrap
+// extremely narrow, one word (sometimes near one character) per line,
+// making cards enormous and barely readable. This clamps the title to
+// two lines and moves metadata into a small tag row underneath instead.
+function boardCardHtml(t) {
+  const due = fmtDue(t.dueDate);
+  const tag = t.isGsi
+    ? `${esc(t.projectName)} / ${({ todo: "To do", progress: "In progress", done: "Done", blocked: "Blocked" })[t.status] || "To do"}`
+    : `${(t.category || "work") === "work" ? "Work" : "Personal"}`;
+  return `
+    <div class="t-board-card ${t.done ? "done" : ""}" onclick="toggleTaskExpanded('${t.id}')">
+      <div class="t-board-card-top">
+        <button class="t-chk ${t.done ? "on" : ""}" onclick="event.stopPropagation();toggleTask('${t.id}')" aria-label="Toggle task">
+          <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
+        <span class="t-board-card-title">${esc(t.text)}</span>
+        ${t.flag ? `<span class="t-board-card-flag" title="Priority">🚩</span>` : ""}
+      </div>
+      <div class="t-board-card-meta">
+        ${due ? `<span class="t-board-card-date ${due.cls}">🗓 ${due.text}</span>` : ""}
+        <span class="t-board-card-tag">${tag}</span>
+        ${t.done ? (t.isGsi
+          ? `<button class="t-archive-btn" onclick="event.stopPropagation();archiveGsiTaskEntry('${t.projectId}','${t.id}')" title="Archive">🗂</button>`
+          : `<button class="t-archive-btn" onclick="event.stopPropagation();archiveTask('${t.id}')" title="Archive">🗂</button>`) : ""}
+      </div>
+    </div>`;
+}
 function boardColumnHtml(key, label, tasks, accentClass) {
   return `
     <div class="t-board-col" data-board-col="${key}">
@@ -133,7 +162,7 @@ function boardColumnHtml(key, label, tasks, accentClass) {
         <span class="t-section-count">${tasks.length}</span>
       </div>
       <div class="t-board-col-body">
-        ${tasks.length ? tasks.map(taskRowHtml).join("") : `<p class="hint" style="padding:10px 4px">Nothing here.</p>`}
+        ${tasks.length ? tasks.map(boardCardHtml).join("") : `<p class="hint" style="padding:10px 4px">Nothing here.</p>`}
       </div>
     </div>`;
 }
@@ -159,13 +188,12 @@ function renderCalendarView(tasksWithDates) {
   const monthLabel = calendarMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
   const todayStr = new Date().toISOString().slice(0, 10);
 
-  let cells = "";
-  for (let i = 0; i < firstWeekday; i++) cells += `<div class="t-cal-cell t-cal-empty"></div>`;
-  for (let d = 1; d <= daysInMonth; d++) {
+  function dayCellHtml(d) {
+    if (d === null) return `<div class="t-cal-cell t-cal-empty"></div>`;
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     const dayTasks = byDate[dateStr] || [];
     const shown = dayTasks.slice(0, 3);
-    cells += `
+    return `
       <div class="t-cal-cell ${dateStr === todayStr ? "t-cal-today" : ""}">
         <div class="t-cal-daynum">${d}</div>
         <div class="t-cal-tasks">
@@ -175,6 +203,22 @@ function renderCalendarView(tasksWithDates) {
         </div>
       </div>`;
   }
+
+  // Build one flat array — firstWeekday leading nulls (blank padding
+  // cells), then every real day 1..daysInMonth — then chunk it into
+  // week-rows of exactly 7. Each week is rendered as its own flex row
+  // with exactly 7 children, so there's no reliance on a single large
+  // CSS grid correctly auto-wrapping ~34 items at a 7-column boundary.
+  const slots = [];
+  for (let i = 0; i < firstWeekday; i++) slots.push(null);
+  for (let d = 1; d <= daysInMonth; d++) slots.push(d);
+  while (slots.length % 7 !== 0) slots.push(null); // pad the final week out to a full 7
+
+  let weeksHtml = "";
+  for (let w = 0; w < slots.length; w += 7) {
+    weeksHtml += `<div class="t-cal-week">${slots.slice(w, w + 7).map(dayCellHtml).join("")}</div>`;
+  }
+
   return `
     <div class="t-cal">
       <div class="t-cal-head">
@@ -184,7 +228,7 @@ function renderCalendarView(tasksWithDates) {
         <button class="btn btn-ghost" onclick="calendarGoToday()">Today</button>
       </div>
       <div class="t-cal-weekdays"><div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div></div>
-      <div class="t-cal-grid">${cells}</div>
+      <div class="t-cal-grid">${weeksHtml}</div>
     </div>`;
 }
 
