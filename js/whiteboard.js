@@ -712,6 +712,14 @@ function renderConnectors(boardId) {
   if (!svg || !s.canvas) return;
   const w = s.canvas.width / s.dpr; // same basis stickyHtml() uses for both x and y
   svg.setAttribute("viewBox", `0 0 ${w} ${w}`);
+  // Without this, a square viewBox rendered into this canvas's actual
+  // (non-square, 4:3) box gets letterboxed by SVG's default
+  // aspect-ratio-preserving behavior — shrunk and centered rather than
+  // stretched to fill — which silently shifts every coordinate away
+  // from where sticky notes actually are, since those are positioned
+  // with plain CSS pixels and have no equivalent aspect-ratio
+  // correction applied to them at all.
+  svg.setAttribute("preserveAspectRatio", "none");
   svg.setAttribute("width", w);
   svg.setAttribute("height", w);
 
