@@ -789,16 +789,26 @@ function pruneConnectorsForNote(boardId, noteId) {
 // contains-check against every candidate note is immune to all of
 // that; it only cares whether the release point is inside the note's
 // actual bounding box.
-function findStickyAtPoint(boardId, clientX, clientY, excludeId) {
+function findStickyNear(boardId, clientX, clientY, excludeId, maxDist) {
   const layer = document.getElementById(id(boardId, "wbObjLayer"));
-  if (!layer) return null;
-  const notes = layer.querySelectorAll(".wb-sticky");
-  for (const el of notes) {
-    if (el.dataset.objId === excludeId) continue;
+  if (!layer) { console.error("[connector] object layer not found for", boardId); return null; }
+  let bestId = null, bestDist = Infinity;
+  layer.querySelectorAll(".wb-sticky").forEach(el => {
+    if (el.dataset.objId === excludeId) return;
     const r = el.getBoundingClientRect();
-    if (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) return el.dataset.objId;
+    // Distance from the point to the rect's nearest edge — 0 if the
+    // point is already inside it, otherwise how far outside.
+    const dx = Math.max(r.left - clientX, 0, clientX - r.right);
+    const dy = Math.max(r.top - clientY, 0, clientY - r.bottom);
+    const dist = Math.hypot(dx, dy);
+    if (dist < bestDist) { bestDist = dist; bestId = el.dataset.objId; }
+  });
+  const threshold = maxDist ?? 120; // generous — this is meant to be forgiving, not pixel-precise
+  if (bestId && bestDist > threshold) {
+    console.log(`[connector] nearest note was ${Math.round(bestDist)}px away (limit ${threshold}px) — treating as no target`);
+    return null;
   }
-  return null;
+  return bestId;
 }
 function startConnectorDrag(boardId, fromId, evt) {
   const s = inst(boardId);
@@ -824,7 +834,7 @@ function startConnectorDrag(boardId, fromId, evt) {
     // Live hover feedback — highlights whichever note is currently a
     // valid drop target, so it's clear before releasing whether the
     // connection will actually take.
-    const hoverId = findStickyAtPoint(boardId, mv.clientX, mv.clientY, fromId);
+    const hoverId = findStickyNear(boardId, mv.clientX, mv.clientY, fromId);
     document.querySelectorAll(`#${id(boardId, "wbObjLayer")} .wb-sticky.wb-connect-target`).forEach(x => {
       if (x.dataset.objId !== hoverId) x.classList.remove("wb-connect-target");
     });
@@ -837,8 +847,9 @@ function startConnectorDrag(boardId, fromId, evt) {
     preview.remove();
     document.querySelectorAll(`#${id(boardId, "wbObjLayer")} .wb-connect-target`).forEach(x => x.classList.remove("wb-connect-target"));
     if (!upEvt) return; // cancelled — the gesture was interrupted, not a deliberate drop; nothing should be created
-    const toId = findStickyAtPoint(boardId, upEvt.clientX, upEvt.clientY, fromId);
+    const toId = findStickyNear(boardId, upEvt.clientX, upEvt.clientY, fromId);
     if (toId) createConnector(boardId, fromId, toId);
+    else toast("Drag onto another sticky note to connect them");
   };
   const onUp = (up) => finish(up);
   const onCancel = () => finish(null);
@@ -1177,6 +1188,7 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
     node.addEventListener("pointerdown", (evt) => {
       evt.preventDefault(); evt.stopPropagation();
       selectedStickyId = objId; el.classList.add("selected");
+      document.querySelectorAll(".wb-sticky.selected").forEach(other => { if (other !== el) other.classList.remove("selected"); });
       try { node.setPointerCapture(evt.pointerId); } catch (e) { /* rare — harmless to skip */ }
       startConnectorDrag(boardId, objId, evt);
     });
