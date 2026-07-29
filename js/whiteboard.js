@@ -789,16 +789,21 @@ function startConnectorDrag(boardId, fromId, evt) {
     const p = toSvgCoords(mv.clientX, mv.clientY);
     preview.setAttribute("x2", p.x); preview.setAttribute("y2", p.y);
   };
-  const onUp = (up) => {
+  const finish = (upEvt) => {
     window.removeEventListener("pointermove", onMove);
     window.removeEventListener("pointerup", onUp);
+    window.removeEventListener("pointercancel", onCancel);
     preview.remove();
-    const targetEl = document.elementFromPoint(up.clientX, up.clientY)?.closest(".wb-sticky");
+    if (!upEvt) return; // cancelled — the gesture was interrupted, not a deliberate drop; nothing should be created
+    const targetEl = document.elementFromPoint(upEvt.clientX, upEvt.clientY)?.closest(".wb-sticky");
     const toId = targetEl?.dataset.objId;
     if (toId && toId !== fromId) createConnector(boardId, fromId, toId);
   };
+  const onUp = (up) => finish(up);
+  const onCancel = () => finish(null);
   window.addEventListener("pointermove", onMove);
   window.addEventListener("pointerup", onUp);
+  window.addEventListener("pointercancel", onCancel);
 }
 
 function stickyHtml(o, w) {
@@ -1131,6 +1136,7 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
     node.addEventListener("pointerdown", (evt) => {
       evt.preventDefault(); evt.stopPropagation();
       selectedStickyId = objId; el.classList.add("selected");
+      try { node.setPointerCapture(evt.pointerId); } catch (e) { /* rare — harmless to skip */ }
       startConnectorDrag(boardId, objId, evt);
     });
   });

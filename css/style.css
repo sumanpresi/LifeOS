@@ -1362,7 +1362,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
    (and only interactive) once a note is selected, matching the resize
    handle's existing show-on-select convention. */
 .wb-sticky-node{position:absolute;width:12px;height:12px;border-radius:50%;background:#fff;
-  border:2px solid var(--accent);display:none;pointer-events:auto;cursor:crosshair;z-index:6}
+  border:2px solid var(--accent);display:none;pointer-events:auto;cursor:crosshair;z-index:6;touch-action:none}
 .wb-sticky.selected .wb-sticky-node{display:block}
 .wb-sticky-node:hover{background:var(--accent);transform:scale(1.2)}
 .wb-sticky-node-n{top:-6px;left:calc(50% - 6px)}
