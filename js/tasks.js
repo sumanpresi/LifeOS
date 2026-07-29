@@ -15,7 +15,7 @@ import { getAllGsiTasksFlat, findProjectTask, editProjectTask, setTaskStatus as 
 
 let taskFilter = "all"; // "all" | "work" | "personal"
 let sortByDate = false;
-let taskView = "list"; // "list" | "board" | "calendar" — UI-only, not persisted
+let taskView = null; // "list" | "board" | "calendar" — lazily initialized from state.taskViewPref on first render (see renderTasks), then kept in sync with it on every change
 let calendarMonth = (() => { const d = new Date(); d.setDate(1); return d; })(); // first-of-month, tracks which month Calendar view is showing
 let collapsedSections = new Set(); // UI-only display state, not persisted — which of Today/Upcoming/Completed are collapsed
 let expandedTaskId = null; // UI-only — which single row currently has its edit controls open
@@ -101,8 +101,104 @@ function handleTaskDragEnd(evt) {
   renderTasks();
 }
 
+// ---------- Board view drag-and-drop (six columns, cross-column moves) ----------
+let boardSortableInstances = [];
+function destroyBoardSortables() {
+  boardSortableInstances.forEach(s => { try { s.destroy(); } catch (e) { /* already gone with its container */ } });
+  boardSortableInstances = [];
+}
+function initBoardSorting() {
+  destroyBoardSortables();
+  if (taskView !== "board" || sortByDate || typeof Sortable === "undefined") return;
+  document.querySelectorAll("#taskList .t-board-col-body").forEach(container => {
+    boardSortableInstances.push(Sortable.create(container, {
+      group: "task-board", // shared across every column — this is what allows dragging between them, not just within one
+      handle: ".t-board-card-handle",
+      filter: ".t-board-card-handle-spacer", // GSI cards' placeholder — never a real handle
+      draggable: ".t-board-card[data-is-gsi='0']", // only native cards are ever pick-up-able
+      preventOnFilter: false,
+      animation: 200,
+      delay: 300, delayOnTouchOnly: true, touchStartThreshold: 5,
+      ghostClass: "t-row-ghost", dragClass: "t-row-dragging", chosenClass: "t-row-chosen",
+      scroll: true, scrollSensitivity: 90, scrollSpeed: 12,
+      onEnd: handleBoardDragEnd,
+    }));
+  });
+}
+function handleBoardDragEnd(evt) {
+  const draggedId = evt.item.dataset.taskId;
+  const fromCol = evt.from.closest(".t-board-col")?.dataset.boardCol;
+  const toCol = evt.to.closest(".t-board-col")?.dataset.boardCol;
+  if (!draggedId || !toCol) { renderTasks(); return; }
+  if (fromCol === toCol) {
+    // Reordering within one column — identical position math to List
+    // view's own reorder, it doesn't care what shape the container is.
+    handleTaskDragEnd(evt);
+    return;
+  }
+  const ok = moveTaskToColumn(draggedId, toCol);
+  // Always re-render regardless of outcome — this is what makes a
+  // rejected move (e.g. dropping into Overdue without a qualifying
+  // date) visually snap back to wherever the task actually belongs,
+  // since the board is rebuilt fresh from real data rather than
+  // trying to manually undo whatever SortableJS already did to the DOM.
+  renderTasks();
+  if (ok === false) toast("That task can't move there");
+}
+// Every actual mutation here goes through the exact same functions the
+// rest of the app already uses (toggleTask, editTaskMeta, archiveTask,
+// restoreArchivedTaskEntry) — sync, Google Calendar, and persistence
+// are entirely their responsibility, not reimplemented here.
+function moveTaskToColumn(id, targetCol) {
+  const t = state.tasks.find(x => x.id === id);
+  if (!t) return false;
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  if (targetCol === "archived") {
+    if (t.archived) return true;
+    if (!t.done) toggleTask(id); // archiveTask requires a completed task
+    archiveTask(id);
+    return true;
+  }
+  if (targetCol === "completed") {
+    if (t.archived) { restoreArchivedTaskEntry(id); return true; } // "Archived -> Completed" is a restore, not a re-completion
+    if (!t.done) toggleTask(id);
+    return true;
+  }
+  // Every remaining target is date-based — a done or archived task
+  // needs to come back to "open" first before its date means anything.
+  if (t.archived) restoreArchivedTaskEntry(id);
+  if (t.done) toggleTask(id);
+
+  if (targetCol === "today") { editTaskMeta(id, "dueDate", todayStr); return true; }
+  if (targetCol === "nodate") { editTaskMeta(id, "dueDate", ""); return true; }
+  if (targetCol === "upcoming") {
+    if (!t.dueDate) {
+      const v = prompt("Set a due date for this task (YYYY-MM-DD):", "");
+      if (v && v.trim()) {
+        const val = v.trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(val) && val > todayStr) editTaskMeta(id, "dueDate", val);
+        else { toast("Enter a future date (YYYY-MM-DD) after today"); return false; }
+      }
+      return true; // left blank on purpose — task stays undated, lands back in No Date on re-render
+    }
+    if (t.dueDate <= todayStr) { // was Today/Overdue — push forward so it actually qualifies as "upcoming"
+      const d = new Date(); d.setDate(d.getDate() + 1);
+      editTaskMeta(id, "dueDate", d.toISOString().slice(0, 10));
+    }
+    return true;
+  }
+  if (targetCol === "overdue") {
+    if (!t.dueDate || t.dueDate >= todayStr) { toast("Overdue needs a due date before today"); return false; }
+    return true; // already qualifies, nothing to change
+  }
+  return true;
+}
+
 export function setTaskView(v) {
   taskView = v;
+  state.taskViewPref = v;
+  persist(false);
   const switcher = document.getElementById("taskViewSwitch");
   if (switcher) switcher.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.view === v));
   renderTasks();
@@ -294,8 +390,10 @@ function boardCardHtml(t) {
     ? `${esc(t.projectName)} / ${({ todo: "To do", progress: "In progress", done: "Done", blocked: "Blocked" })[t.status] || "To do"}`
     : `${(t.category || "work") === "work" ? "Work" : "Personal"}`;
   return `
-    <div class="t-board-card ${t.done ? "done" : ""}" onclick="toggleTaskExpanded('${t.id}')">
+    <div class="t-board-card ${t.done ? "done" : ""}" data-task-id="${t.id}" data-is-gsi="${t.isGsi ? "1" : "0"}" onclick="toggleTaskExpanded('${t.id}')">
       <div class="t-board-card-top">
+        ${t.isGsi ? `<span class="t-board-card-handle t-board-card-handle-spacer" aria-hidden="true"></span>`
+                  : `<span class="t-board-card-handle" title="Drag to move" onclick="event.stopPropagation()">⠿</span>`}
         <button class="t-chk ${t.done ? "on" : ""}" onclick="event.stopPropagation();toggleTask('${t.id}')" aria-label="Toggle task">
           <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
         <span class="t-board-card-title">${esc(t.text)}</span>
@@ -358,12 +456,14 @@ export function quickAddBoardTask(key) {
   if (dateEl) dateEl.value = "";
   persist(); rerender();
 }
-function renderBoardView(overdueGroup, todayGroup, upcomingGroup, done) {
+function renderBoardView(overdueGroup, todayGroup, upcomingGroup, noDateGroup, done, archivedTasks) {
   return `<div class="t-board">
     ${boardColumnHtml("overdue", "Overdue", overdueGroup, "t-board-overdue")}
     ${boardColumnHtml("today", "Today", todayGroup, "t-board-today")}
     ${boardColumnHtml("upcoming", "Upcoming", upcomingGroup, "")}
+    ${boardColumnHtml("nodate", "No Date", noDateGroup, "")}
     ${boardColumnHtml("completed", "Completed", done, "")}
+    ${boardColumnHtml("archived", "Archived", archivedTasks, "")}
   </div>`;
 }
 
@@ -494,6 +594,11 @@ function renderArchivedTasksModal() {
 }
 
 export function renderTasks() {
+  if (taskView === null) {
+    taskView = state.taskViewPref || "board";
+    const switcher = document.getElementById("taskViewSwitch");
+    if (switcher) switcher.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.view === taskView));
+  }
   const list = document.getElementById("taskList");
   let visible = state.tasks.filter(t => taskFilter === "all" || (t.category || "work") === taskFilter);
 
@@ -537,6 +642,12 @@ export function renderTasks() {
   const todayGroup = open.filter(t => t.dueDate === todayKeyStr).sort(sortByDate ? byFlagThenDate : byPosition);
   const overdueGroup = open.filter(t => t.dueDate && t.dueDate < todayKeyStr).sort(sortByDate ? byFlagThenDate : byPosition);
   const upcomingGroup = open.filter(t => t.dueDate !== todayKeyStr && !(t.dueDate && t.dueDate < todayKeyStr)).sort(sortByDate ? byFlagThenDate : byPosition);
+  // Board view only — splits what List view lumps together as one
+  // "Upcoming" group into two separate columns. List view's own
+  // upcomingGroup above is untouched; filtering an already-sorted
+  // array preserves that order, so no re-sort needed here.
+  const boardUpcomingGroup = upcomingGroup.filter(t => t.dueDate);
+  const noDateGroup = upcomingGroup.filter(t => !t.dueDate);
   // Archived is native tasks only — GSI project tasks are a different
   // schema entirely (a 4-state status, not done/archived) and already
   // have their own separate archive system in GSI Workspace.
@@ -555,7 +666,7 @@ export function renderTasks() {
         <div class="t-empty-sub">Add your first task below to get started.</div>
       </div>`;
   } else if (taskView === "board") {
-    list.innerHTML = renderBoardView(overdueGroup, todayGroup, upcomingGroup, done);
+    list.innerHTML = renderBoardView(overdueGroup, todayGroup, boardUpcomingGroup, noDateGroup, done, archivedTasks);
   } else if (taskView === "calendar") {
     list.innerHTML = renderCalendarView(visible.filter(t => t.dueDate));
   } else {
@@ -588,8 +699,9 @@ export function renderTasks() {
     filterBox.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.filter === taskFilter));
   }
   const dragHint = document.getElementById("taskDragHint");
-  if (dragHint) dragHint.style.display = (sortByDate && taskView === "list") ? "" : "none";
+  if (dragHint) dragHint.style.display = (sortByDate && (taskView === "list" || taskView === "board")) ? "" : "none";
   initTaskSorting();
+  initBoardSorting();
 }
 
 export function setTaskFilter(f) { taskFilter = f; renderTasks(); }

@@ -792,6 +792,14 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .t-board-card:hover{border-color:var(--t-accent);box-shadow:0 2px 8px rgba(43,42,36,.08)}
 .t-board-card.done{opacity:.6}
 .t-board-card-top{display:flex;align-items:flex-start;gap:8px}
+.t-board-card-handle{flex-shrink:0;color:var(--t-ink2);font-size:13px;line-height:1.6;cursor:grab;
+  opacity:.35;transition:opacity 150ms ease;touch-action:none;user-select:none}
+.t-board-card-handle:hover{opacity:1}
+.t-board-card-handle:active{cursor:grabbing}
+.t-board-card-handle-spacer{cursor:default;opacity:0;pointer-events:none}
+@media(max-width:767px){
+  .t-board-card-handle{font-size:17px}
+}
 .t-board-card-title{flex:1;min-width:0;font-family:'Inter',sans-serif;font-size:13.5px;font-weight:500;color:var(--t-ink);
   line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .t-board-card.done .t-board-card-title{text-decoration:line-through;color:var(--t-ink2)}

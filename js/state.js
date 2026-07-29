@@ -52,6 +52,7 @@ export const PHILOSOPHICAL_QUOTES = [
 
 export const DEFAULT_STATE = {
   v: 2,
+  taskViewPref: "board", // "board" | "list" | "calendar" — persisted like any other setting, so it syncs across devices the same way everything else does
   name: "Suman",
   tasks: [
     { id: "t1", text: "Review NGDR upload tracker", done: false, category: "work", flag: false, link: "", dueDate: "" },
