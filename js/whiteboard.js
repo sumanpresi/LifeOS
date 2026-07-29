@@ -734,10 +734,24 @@ function renderConnectors(boardId) {
     const bcx = br.x + br.w / 2, bcy = br.y + br.h / 2;
     const p1 = rectEdgePoint(acx, acy, bcx, bcy, ar.x, ar.y, ar.w, ar.h);
     const p2 = rectEdgePoint(bcx, bcy, acx, acy, br.x, br.y, br.w, br.h);
-    const midX = (p1.x + p2.x) / 2, midY = (p1.y + p2.y) / 2;
+    // A gentle quadratic curve instead of a straight line — control
+    // point offset perpendicular to the p1->p2 line, scaled to the
+    // line's own length so short connectors stay nearly straight and
+    // long ones get a visible, natural-looking arc rather than a
+    // fixed offset that would look exaggerated on a short hop.
+    const dx = p2.x - p1.x, dy = p2.y - p1.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const bow = Math.min(50, len * 0.18);
+    const ctrlX = (p1.x + p2.x) / 2 + (-dy / len) * bow;
+    const ctrlY = (p1.y + p2.y) / 2 + (dx / len) * bow;
+    // Midpoint of the curve itself (De Casteljau at t=0.5), not the
+    // straight-line midpoint, so the delete target sits ON the curve.
+    const midX = 0.25 * p1.x + 0.5 * ctrlX + 0.25 * p2.x;
+    const midY = 0.25 * p1.y + 0.5 * ctrlY + 0.25 * p2.y;
+    const pathD = `M ${p1.x} ${p1.y} Q ${ctrlX} ${ctrlY} ${p2.x} ${p2.y}`;
     return `<g class="wb-connector" data-connector-id="${c.id}">
-      <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" class="wb-connector-hit"></line>
-      <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" class="wb-connector-line" marker-end="url(#wbArrow-${boardId})"></line>
+      <path d="${pathD}" class="wb-connector-hit"></path>
+      <path d="${pathD}" class="wb-connector-line" marker-end="url(#wbArrow-${boardId})"></path>
       <circle cx="${midX}" cy="${midY}" r="7" class="wb-connector-del" onclick="deleteConnector('${boardId}','${c.id}')"><title>Delete connector</title></circle>
     </g>`;
   }).join("");
@@ -767,6 +781,25 @@ function pruneConnectorsForNote(boardId, noteId) {
   const b = board(boardId);
   b.connectors = (b.connectors || []).filter(c => c.fromId !== noteId && c.toId !== noteId);
 }
+// Checked directly against every note's actual on-screen rect rather
+// than document.elementFromPoint() at the exact release pixel —
+// elementFromPoint returns whatever's topmost in paint order at that
+// single point, which a nearby toolbar, color swatch row, or another
+// note's chrome can easily win over the note itself. A geometric
+// contains-check against every candidate note is immune to all of
+// that; it only cares whether the release point is inside the note's
+// actual bounding box.
+function findStickyAtPoint(boardId, clientX, clientY, excludeId) {
+  const layer = document.getElementById(id(boardId, "wbObjLayer"));
+  if (!layer) return null;
+  const notes = layer.querySelectorAll(".wb-sticky");
+  for (const el of notes) {
+    if (el.dataset.objId === excludeId) continue;
+    const r = el.getBoundingClientRect();
+    if (clientX >= r.left && clientX <= r.right && clientY >= r.top && clientY <= r.bottom) return el.dataset.objId;
+  }
+  return null;
+}
 function startConnectorDrag(boardId, fromId, evt) {
   const s = inst(boardId);
   const svg = document.getElementById(id(boardId, "wbConnectorLayer"));
@@ -788,16 +821,24 @@ function startConnectorDrag(boardId, fromId, evt) {
     mv.preventDefault();
     const p = toSvgCoords(mv.clientX, mv.clientY);
     preview.setAttribute("x2", p.x); preview.setAttribute("y2", p.y);
+    // Live hover feedback — highlights whichever note is currently a
+    // valid drop target, so it's clear before releasing whether the
+    // connection will actually take.
+    const hoverId = findStickyAtPoint(boardId, mv.clientX, mv.clientY, fromId);
+    document.querySelectorAll(`#${id(boardId, "wbObjLayer")} .wb-sticky.wb-connect-target`).forEach(x => {
+      if (x.dataset.objId !== hoverId) x.classList.remove("wb-connect-target");
+    });
+    if (hoverId) document.querySelector(`#${id(boardId, "wbObjLayer")} [data-obj-id="${hoverId}"]`)?.classList.add("wb-connect-target");
   };
   const finish = (upEvt) => {
     window.removeEventListener("pointermove", onMove);
     window.removeEventListener("pointerup", onUp);
     window.removeEventListener("pointercancel", onCancel);
     preview.remove();
+    document.querySelectorAll(`#${id(boardId, "wbObjLayer")} .wb-connect-target`).forEach(x => x.classList.remove("wb-connect-target"));
     if (!upEvt) return; // cancelled — the gesture was interrupted, not a deliberate drop; nothing should be created
-    const targetEl = document.elementFromPoint(upEvt.clientX, upEvt.clientY)?.closest(".wb-sticky");
-    const toId = targetEl?.dataset.objId;
-    if (toId && toId !== fromId) createConnector(boardId, fromId, toId);
+    const toId = findStickyAtPoint(boardId, upEvt.clientX, upEvt.clientY, fromId);
+    if (toId) createConnector(boardId, fromId, toId);
   };
   const onUp = (up) => finish(up);
   const onCancel = () => finish(null);
