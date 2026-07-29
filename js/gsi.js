@@ -92,6 +92,7 @@ function fmtGsiDate(d) {
 }
 
 let gsiSortMode = "default";
+let gsiTaskView = null; // "board" | "list" — lazily initialized from state.gsiTaskViewPref on first render, mirrors the same pattern the main Tasks module uses
 export function setGsiSortMode(mode) {
   gsiSortMode = mode;
   renderProjects();
@@ -205,34 +206,9 @@ function sortGsiTasks(open) {
   }
 }
 
-function renderProjects() {
-  const projects = state.gsi.projects;
-  const active = activeProject();
-  if (active && state.gsi.activeProject !== active.id) state.gsi.activeProject = active.id;
-
-  renderWorkspaceTabs();
-  const nameEl = document.getElementById("projectName");
-  if (nameEl && document.activeElement !== nameEl) nameEl.value = active.name;
-  const delBtn = document.getElementById("projectDelBtn");
-  if (delBtn) delBtn.style.display = projects.length > 1 ? "" : "none";
-  const restoreBtn = document.getElementById("projectRestoreBtn");
-  if (restoreBtn) restoreBtn.style.display = hasRecentlyDeletedProject() ? "" : "none";
-  const archiveBtn = document.getElementById("gsiArchiveBtn");
-  if (archiveBtn) {
-    const n = (active.archivedTasks || []).length;
-    archiveBtn.textContent = `📦 Archive${n ? ` (${n})` : ""}`;
-  }
-
-  /* Completed tasks always sink to the bottom, sorted separately from
-     the chosen sort mode (matches Microsoft To Do / Todoist convention:
-     sort controls apply to your active work, not the completed pile). */
-  const open = sortGsiTasks(active.tasks.filter(t => t.status !== "done"));
-  const done = active.tasks.filter(t => t.status === "done");
-  const ordered = [...open, ...done];
-
-  document.getElementById("ngdrList").innerHTML = ordered.map(item => {
-    const due = fmtGsiDate(item.date);
-    return `
+function gsiCardHtml(item) {
+  const due = fmtGsiDate(item.date);
+  return `
     <div class="gsi-card ${item.status === "done" ? "done" : ""}">
       <button class="gsi-chk ${item.status === "done" ? "on" : ""}" onclick="setTaskStatus('${item.id}','${item.status === "done" ? "todo" : "done"}')" aria-label="Toggle done">
         <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
@@ -273,7 +249,121 @@ function renderProjects() {
         </select>
       </div>
     </div>`;
-  }).join("") || `<div class="gsi-empty"><p>No tasks yet in ${esc(active.name)}.</p><p class="hint">Add your first task below.</p></div>`;
+}
+
+// ---------- GSI Board view — columns by status, since that's the
+// dimension GSI tasks already natively track (unlike native Tasks,
+// which don't have a multi-state status at all). Reuses the exact same
+// .t-board-card CSS classes the main Tasks module's Board view uses,
+// for visual consistency, rather than inventing a parallel style.
+function gsiBoardCardHtml(item) {
+  const due = fmtGsiDate(item.date);
+  return `
+    <div class="t-board-card ${item.status === "done" ? "done" : ""}" data-task-id="${item.id}">
+      <div class="t-board-card-top">
+        <span class="t-board-card-handle" title="Drag to move">⠿</span>
+        <button class="t-chk ${item.status === "done" ? "on" : ""}" onclick="event.stopPropagation();setTaskStatus('${item.id}','${item.status === "done" ? "todo" : "done"}')" aria-label="Toggle done">
+          <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
+        <span class="t-board-card-title">${esc(item.text)}</span>
+        ${item.flag ? `<span class="t-board-card-flag" title="Priority">🚩</span>` : ""}
+      </div>
+      <div class="t-board-card-meta">
+        ${due ? `<span class="t-board-card-date ${due.cls === "gsi-overdue" ? "overdue" : ""}">🗓 ${due.text}</span>` : ""}
+        ${item.link ? `<a href="${esc(item.link.startsWith("http")?item.link:"https://"+item.link)}" target="_blank" rel="noopener" class="t-board-card-tag" style="text-decoration:none">🔗 Link</a>` : ""}
+      </div>
+    </div>`;
+}
+function gsiBoardColumnHtml(statusKey, label, tasks) {
+  return `
+    <div class="t-board-col" data-board-col="${statusKey}">
+      <div class="t-board-col-head">
+        <span class="t-board-col-title">${label}</span>
+        <span class="t-section-count">${tasks.length}</span>
+      </div>
+      <div class="t-board-col-body">
+        ${tasks.length ? tasks.map(gsiBoardCardHtml).join("") : `<p class="hint" style="padding:10px 4px">Nothing here.</p>`}
+      </div>
+    </div>`;
+}
+function renderGsiBoardView(tasks) {
+  const byStatus = k => tasks.filter(t => t.status === k);
+  return `<div class="t-board">
+    ${STATUSES.map(([key, label]) => gsiBoardColumnHtml(key, label.replace(/^\S+\s/, ""), byStatus(key))).join("")}
+  </div>`;
+}
+export function setGsiTaskView(v) {
+  gsiTaskView = v;
+  state.gsiTaskViewPref = v;
+  persist(false);
+  const switcher = document.getElementById("gsiTaskViewSwitch");
+  if (switcher) switcher.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.view === v));
+  renderProjects();
+}
+let gsiBoardSortables = [];
+function destroyGsiBoardSortables() {
+  gsiBoardSortables.forEach(s => { try { s.destroy(); } catch (e) { /* already gone with its container */ } });
+  gsiBoardSortables = [];
+}
+function initGsiBoardSorting() {
+  destroyGsiBoardSortables();
+  if (gsiTaskView !== "board" || gsiSortMode !== "default" || typeof Sortable === "undefined") return;
+  document.querySelectorAll("#ngdrList .t-board-col-body").forEach(container => {
+    gsiBoardSortables.push(Sortable.create(container, {
+      group: "gsi-board",
+      handle: ".t-board-card-handle",
+      animation: 200,
+      delay: 300, delayOnTouchOnly: true, touchStartThreshold: 5,
+      ghostClass: "t-row-ghost", dragClass: "t-row-dragging", chosenClass: "t-row-chosen",
+      scroll: true, scrollSensitivity: 90, scrollSpeed: 12,
+      onEnd: (evt) => {
+        const taskId = evt.item.dataset.taskId;
+        const toStatus = evt.to.closest(".t-board-col")?.dataset.boardCol;
+        if (taskId && toStatus) setTaskStatus(taskId, toStatus); // already persists, syncs, and re-renders
+        else renderProjects();
+      },
+    }));
+  });
+}
+
+function renderProjects() {
+  if (gsiTaskView === null) {
+    gsiTaskView = state.gsiTaskViewPref || "board";
+    const switcher = document.getElementById("gsiTaskViewSwitch");
+    if (switcher) switcher.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.view === gsiTaskView));
+  }
+  const projects = state.gsi.projects;
+  const active = activeProject();
+  if (active && state.gsi.activeProject !== active.id) state.gsi.activeProject = active.id;
+
+  renderWorkspaceTabs();
+  const nameEl = document.getElementById("projectName");
+  if (nameEl && document.activeElement !== nameEl) nameEl.value = active.name;
+  const delBtn = document.getElementById("projectDelBtn");
+  if (delBtn) delBtn.style.display = projects.length > 1 ? "" : "none";
+  const restoreBtn = document.getElementById("projectRestoreBtn");
+  if (restoreBtn) restoreBtn.style.display = hasRecentlyDeletedProject() ? "" : "none";
+  const archiveBtn = document.getElementById("gsiArchiveBtn");
+  if (archiveBtn) {
+    const n = (active.archivedTasks || []).length;
+    archiveBtn.textContent = `📦 Archive${n ? ` (${n})` : ""}`;
+  }
+
+  /* Completed tasks always sink to the bottom, sorted separately from
+     the chosen sort mode (matches Microsoft To Do / Todoist convention:
+     sort controls apply to your active work, not the completed pile). */
+  const open = sortGsiTasks(active.tasks.filter(t => t.status !== "done"));
+  const done = active.tasks.filter(t => t.status === "done");
+  const ordered = [...open, ...done];
+
+  const listEl = document.getElementById("ngdrList");
+  if (gsiTaskView === "board") {
+    listEl.innerHTML = renderGsiBoardView(active.tasks);
+  } else {
+    listEl.innerHTML = ordered.map(gsiCardHtml).join("") || `<div class="gsi-empty"><p>No tasks yet in ${esc(active.name)}.</p><p class="hint">Add your first task below.</p></div>`;
+  }
+  const dragHint = document.getElementById("gsiBoardDragHint");
+  if (dragHint) dragHint.style.display = (gsiSortMode !== "default" && gsiTaskView === "board") ? "" : "none";
+  initGsiBoardSorting();
 
   const openCount = active.tasks.filter(i => i.status !== "done").length;
   document.getElementById("ngdrCount").textContent = active.tasks.length ? `${openCount} open` : "";

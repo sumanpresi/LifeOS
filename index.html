@@ -392,6 +392,10 @@
         </div>
         <div id="ngdrCardContent">
         <div class="card-body gsi-toolbar-row" style="padding-bottom:0">
+          <div class="seg" id="gsiTaskViewSwitch">
+            <button data-view="board" onclick="setGsiTaskView('board')">▦ Board</button>
+            <button data-view="list" onclick="setGsiTaskView('list')">☰ List</button>
+          </div>
           <select class="gsi-sort-sel" onchange="setGsiSortMode(this.value)" title="Sort tasks">
             <option value="default">Sort: Default</option>
             <option value="date">Sort: Date</option>
@@ -405,6 +409,7 @@
           <button class="gsi-archive-btn" id="gsiArchiveBtn" onclick="openArchiveView()">📦 Archive</button>
           <button class="gsi-del-completed-btn" onclick="archiveCompletedTasks()">Archive completed</button>
         </div>
+        <p class="hint" id="gsiBoardDragHint" style="display:none;padding:0 18px 8px">↕️ Manual ordering is available only in Default Sort.</p>
         <div class="card-body" id="ngdrList"></div>
         <div class="card-body gsi-add-row" style="padding-top:0">
           <input type="text" id="newNgdr" placeholder="Add a task, e.g. UAT test plan for AI module" onkeydown="if(event.key==='Enter')addNgdr()">
