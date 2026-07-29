@@ -808,7 +808,7 @@ function findStickyNear(boardId, clientX, clientY, excludeId, maxDist) {
     const dist = Math.hypot(dx, dy);
     if (dist < bestDist) { bestDist = dist; bestId = el.dataset.objId; }
   });
-  const threshold = maxDist ?? 280; // raised from 120px after console diagnostics showed real drops consistently landing 170-207px away — that px range came directly from a user's browser console, not a guess
+  const threshold = maxDist ?? 500; // raised again from 280px — short drags now connect correctly (confirming the aspect-ratio fix), but long downward drags still don't, which looks like a distance/gesture issue rather than a rendering one; a generous threshold here is low-risk either way
   if (bestId && bestDist > threshold) {
     console.log(`[connector] nearest note was ${Math.round(bestDist)}px away (limit ${threshold}px) — treating as no target`);
     return null;
