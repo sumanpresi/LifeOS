@@ -833,7 +833,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
    ================================================================ */
 @media(max-width:767px){
   #tasksCard{padding:0}
-  .t-section-rows{display:flex;flex-direction:column;gap:12px;padding:4px 0}
+  .t-section-rows-inner{display:flex;flex-direction:column;gap:12px;padding:4px 0}
   .t-row{
     flex-wrap:wrap;
     width:100%;
