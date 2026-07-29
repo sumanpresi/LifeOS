@@ -1351,13 +1351,13 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 }
 .wb-object-layer{position:absolute;inset:0;pointer-events:none}
 .wb-connector-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
-.wb-connector-line{stroke:var(--accent);stroke-width:2;fill:none}
+.wb-connector-line{stroke:var(--danger);stroke-width:2.5;fill:none}
 .wb-connector-hit{stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke;cursor:pointer}
-.wb-connector-arrowhead{fill:var(--accent)}
-.wb-connector-del{fill:#fff;stroke:var(--accent);stroke-width:1.5;opacity:0;pointer-events:auto;cursor:pointer;transition:opacity 120ms ease}
+.wb-connector-arrowhead{fill:var(--danger)}
+.wb-connector-del{fill:#fff;stroke:var(--danger);stroke-width:1.5;opacity:0;pointer-events:auto;cursor:pointer;transition:opacity 120ms ease}
 .wb-connector:hover .wb-connector-del{opacity:1}
 .wb-connector-del:hover{fill:var(--danger-bg)}
-.wb-connector-preview{stroke:var(--accent);stroke-width:2;stroke-dasharray:6 4;opacity:.7}
+.wb-connector-preview{stroke:var(--danger);stroke-width:2.5;stroke-dasharray:6 4;opacity:.8}
 /* Connection nodes — one at the midpoint of each side, only shown
    (and only interactive) once a note is selected, matching the resize
    handle's existing show-on-select convention. */
