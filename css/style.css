@@ -777,6 +777,12 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .t-board-col-head.t-board-overdue .t-board-col-title{color:var(--warn)}
 .t-board-col-head.t-board-today .t-board-col-title{color:var(--t-accent)}
 .t-board-col-body{padding:10px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.t-board-quickadd{display:flex;gap:6px;padding:8px 10px;border-top:1px solid var(--t-border);flex-shrink:0}
+.t-board-quickadd input[type=text]{flex:1;min-width:0;border:1px solid var(--t-border);border-radius:8px;
+  padding:6px 9px;font-size:12.5px;background:var(--t-card)}
+.t-board-quickadd input[type=date]{flex-shrink:0;width:118px;border:1px solid var(--t-border);border-radius:8px;
+  padding:6px 6px;font-size:11.5px;background:var(--t-card)}
+.t-board-quickadd .btn{padding:6px 10px;font-size:12px;flex-shrink:0}
 .t-board-card{background:var(--t-card);border:1px solid var(--t-border);border-radius:10px;padding:10px;cursor:pointer;
   transition:box-shadow 150ms ease,border-color 150ms ease}
 .t-board-card:hover{border-color:var(--t-accent);box-shadow:0 2px 8px rgba(43,42,36,.08)}
@@ -807,11 +813,15 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .t-cal-grid{display:flex;flex-direction:column;gap:6px}
 .t-cal-week{display:flex;gap:6px}
 .t-cal-cell{flex:1 1 0;min-width:0;min-height:88px;border:1px solid var(--t-border);border-radius:9px;padding:6px;background:var(--t-bg);
-  display:flex;flex-direction:column;gap:3px}
-.t-cal-cell.t-cal-empty{border:none;background:transparent}
+  display:flex;flex-direction:column;gap:3px;cursor:pointer;transition:background 150ms ease,border-color 150ms ease}
+.t-cal-cell:not(.t-cal-empty):hover{background:#fff;border-color:var(--t-accent)}
+.t-cal-cell.t-cal-empty{border:none;background:transparent;cursor:default}
 .t-cal-cell.t-cal-today{border-color:var(--t-accent);box-shadow:0 0 0 1px var(--t-accent)}
+.t-cal-daynum-row{display:flex;align-items:center;justify-content:space-between}
 .t-cal-daynum{font-size:12px;font-weight:700;color:var(--t-ink2)}
 .t-cal-today .t-cal-daynum{color:var(--t-accent)}
+.t-cal-add-hint{font-size:12px;font-weight:800;color:var(--t-accent);opacity:0;transition:opacity 150ms ease}
+.t-cal-cell:hover .t-cal-add-hint{opacity:1}
 .t-cal-tasks{display:flex;flex-direction:column;gap:2px;overflow:hidden}
 .t-cal-chip{display:flex;align-items:center;gap:3px;padding:1px 4px 1px 1px;border-radius:5px;
   background:#fff;border:1px solid var(--t-border)}
@@ -833,6 +843,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 @media(max-width:767px){
   .t-cal-weekdays div:not(:nth-child(1)):not(:nth-child(4)):not(:nth-child(7)){font-size:0} /* keep the grid, thin the labels — Sun/Wed/Sat only, room's too tight for all seven on a phone */
   .t-cal-cell{min-height:52px;padding:4px}
+  .t-cal-add-hint{opacity:.6}
   .t-cal-chip{font-size:9.5px}
 }
 

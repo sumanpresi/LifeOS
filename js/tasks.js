@@ -110,6 +110,12 @@ export function setTaskView(v) {
 export function calendarPrevMonth() { calendarMonth.setMonth(calendarMonth.getMonth() - 1); renderTasks(); }
 export function calendarNextMonth() { calendarMonth.setMonth(calendarMonth.getMonth() + 1); renderTasks(); }
 export function calendarGoToday() { calendarMonth = new Date(); calendarMonth.setDate(1); renderTasks(); }
+export function calendarQuickAdd(dateStr) {
+  const v = prompt(`Add a task for ${dateStr}:`);
+  if (!v || !v.trim()) return;
+  createNativeTask(v.trim(), dateStr);
+  persist(); rerender();
+}
 export function toggleTaskSection(name) {
   if (collapsedSections.has(name)) collapsedSections.delete(name); else collapsedSections.add(name);
   const sectionEl = document.querySelector(`.t-section[data-section="${name}"]`);
@@ -265,6 +271,24 @@ function boardCardHtml(t) {
       </div>
     </div>`;
 }
+function boardQuickAddHtml(key) {
+  if (key === "today") {
+    return `
+      <div class="t-board-quickadd">
+        <input type="text" id="boardQuickAdd-today" placeholder="Add a task…" onkeydown="if(event.key==='Enter')quickAddBoardTask('today')">
+        <button class="btn btn-ghost" onclick="quickAddBoardTask('today')">+ Add</button>
+      </div>`;
+  }
+  if (key === "upcoming") {
+    return `
+      <div class="t-board-quickadd">
+        <input type="text" id="boardQuickAdd-upcoming" placeholder="Add a task…" onkeydown="if(event.key==='Enter')quickAddBoardTask('upcoming')">
+        <input type="date" id="boardQuickAddDate-upcoming" class="t-board-quickadd-date" title="Optional due date">
+        <button class="btn btn-ghost" onclick="quickAddBoardTask('upcoming')">+ Add</button>
+      </div>`;
+  }
+  return "";
+}
 function boardColumnHtml(key, label, tasks, accentClass) {
   return `
     <div class="t-board-col" data-board-col="${key}">
@@ -275,7 +299,21 @@ function boardColumnHtml(key, label, tasks, accentClass) {
       <div class="t-board-col-body">
         ${tasks.length ? tasks.map(boardCardHtml).join("") : `<p class="hint" style="padding:10px 4px">Nothing here.</p>`}
       </div>
+      ${boardQuickAddHtml(key)}
     </div>`;
+}
+export function quickAddBoardTask(key) {
+  const textEl = document.getElementById(`boardQuickAdd-${key}`);
+  if (!textEl) return;
+  const v = textEl.value.trim();
+  if (!v) return;
+  const dueDate = key === "today" ? new Date().toISOString().slice(0, 10)
+    : (document.getElementById("boardQuickAddDate-upcoming")?.value || "");
+  createNativeTask(v, dueDate);
+  textEl.value = "";
+  const dateEl = document.getElementById("boardQuickAddDate-upcoming");
+  if (dateEl) dateEl.value = "";
+  persist(); rerender();
 }
 function renderBoardView(overdueGroup, todayGroup, upcomingGroup, done) {
   return `<div class="t-board">
@@ -305,8 +343,8 @@ function renderCalendarView(tasksWithDates) {
     const dayTasks = byDate[dateStr] || [];
     const shown = dayTasks.slice(0, 3);
     return `
-      <div class="t-cal-cell ${dateStr === todayStr ? "t-cal-today" : ""}">
-        <div class="t-cal-daynum">${d}</div>
+      <div class="t-cal-cell ${dateStr === todayStr ? "t-cal-today" : ""}" onclick="calendarQuickAdd('${dateStr}')" title="Click to add a task on ${dateStr}">
+        <div class="t-cal-daynum-row"><span class="t-cal-daynum">${d}</span><span class="t-cal-add-hint">+</span></div>
         <div class="t-cal-tasks">
           ${shown.map(t => `
             <div class="t-cal-chip ${t.done ? "done" : ""} ${t.dueDate < todayStr && !t.done ? "overdue" : ""}">
@@ -513,11 +551,22 @@ export function renderTasks() {
 
 export function setTaskFilter(f) { taskFilter = f; renderTasks(); }
 
+// Shared by every entry point that creates a native task — the main
+// Add Task input, Board view's per-column quick-add, and Calendar
+// view's click-a-day quick-add — so all three build the same shape
+// instead of three slightly-diverging copies.
+function nextManualPosition() {
+  return state.tasks.reduce((m, t) => Math.min(m, t.position ?? 0), 0) - 1000;
+}
+function createNativeTask(text, dueDate) {
+  const defaultCategory = (taskFilter === "work" || taskFilter === "personal") ? taskFilter : "work";
+  const task = { id: uid(), text, done: false, category: defaultCategory, flag: false, link: "", dueDate: dueDate || "", googleEventId: null, position: nextManualPosition() };
+  state.tasks.push(task);
+  return task;
+}
 export function addTask() {
   const el = document.getElementById("newTask"); const v = el.value.trim(); if (!v) return;
-  const defaultCategory = (taskFilter === "work" || taskFilter === "personal") ? taskFilter : "work";
-  const minPos = state.tasks.reduce((m, t) => Math.min(m, t.position ?? 0), 0);
-  state.tasks.push({ id: uid(), text: v, done: false, category: defaultCategory, flag: false, link: "", dueDate: "", googleEventId: null, position: minPos - 1000 });
+  createNativeTask(v, "");
   el.value = "";
   persist(); rerender();
 }
