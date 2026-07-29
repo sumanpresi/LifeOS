@@ -766,16 +766,30 @@ function renderConnectors(boardId) {
 function createConnector(boardId, fromId, toId) {
   const b = board(boardId);
   const already = b.connectors.some(c => (c.fromId === fromId && c.toId === toId) || (c.fromId === toId && c.toId === fromId));
-  if (already) return;
+  if (already) { console.log("[connector] already connected — skipped"); return; }
   b.connectors.push({ id: uid(), fromId, toId, updatedAt: Date.now() });
   persist();
   renderConnectors(boardId);
+  console.log(`[connector] connected ${fromId} -> ${toId}`);
 }
 export function deleteConnector(boardId, connId) {
   const b = board(boardId);
   b.connectors = (b.connectors || []).filter(c => c.id !== connId);
   persist();
   renderConnectors(boardId);
+}
+// Callable directly from the browser console for quick cleanup after
+// testing — clearBoardConnectors('gsi') for the Brainstorming board (its
+// boardId is always "gsi" regardless of which tab is active), or
+// clearBoardConnectors('overview') for the Whiteboard.
+export function clearBoardConnectors(boardId) {
+  const b = board(boardId);
+  const n = (b.connectors || []).length;
+  b.connectors = [];
+  persist();
+  renderConnectors(boardId);
+  console.log(`[connector] cleared ${n} connector(s) from ${boardId}`);
+  toast(`Cleared ${n} connector${n === 1 ? "" : "s"}`);
 }
 // Removes any connector touching a note that's just been deleted —
 // otherwise a tombstoned note would leave a dangling line pointing at
