@@ -176,6 +176,17 @@ export function initWhiteboard(boardId) {
     attachPointerHandlers(boardId, canvas);
     attachLayerHandlers(boardId, s.layer);
     window.addEventListener("resize", () => sizeCanvas(boardId));
+    // A fixed setTimeout after the fullscreen event (see
+    // onFullscreenChanged) was measuring the container before the
+    // browser had necessarily finished the transition — fullscreen
+    // resize timing isn't guaranteed to land within any fixed delay
+    // across browsers/OS. Watching the wrapper's actual rendered size
+    // directly re-syncs whenever it genuinely changes, regardless of
+    // what caused it or how long the transition took.
+    if (typeof ResizeObserver !== "undefined") {
+      const wrap = document.getElementById(id(boardId, "wbCanvasWrap"));
+      if (wrap) new ResizeObserver(() => sizeCanvas(boardId)).observe(wrap);
+    }
     s.initialized = true;
     if (boardId === "gsi") s.zoomPct = (activeBrainstormBoard() || {}).zoom || 100; // restore the active tab's own zoom on first mount
   }
