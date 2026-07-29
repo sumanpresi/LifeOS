@@ -424,7 +424,10 @@
           </div>
         </div>
         <div class="card">
-          <div class="card-head"><h2>Work documents</h2></div>
+          <div class="card-head">
+            <input type="text" id="workDocsLabel" onchange="renameWorkDocsLabel(this.value)"
+              style="border:none;background:transparent;font-family:'Fraunces',serif;font-size:19px;font-weight:600;flex:1;padding:0">
+          </div>
           <div class="card-body">
             <div class="link-grid" id="workDocs" style="grid-template-columns:1fr"></div>
             <div class="add-inline">

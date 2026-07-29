@@ -312,6 +312,11 @@ export function renameProject(v) {
   p.name = v.trim();
   persist(); renderProjects();
 }
+export function renameWorkDocsLabel(v) {
+  const p = activeProject(); if (!p) return;
+  p.workDocsLabel = v.trim() || "Work documents";
+  persist();
+}
 export function delProject() {
   if (state.gsi.projects.length <= 1) return;
   const p = activeProject();
@@ -588,6 +593,9 @@ document.addEventListener("pointerdown", evt => {
 });
 function renderLinksAndDocs() {
   const g = state.gsi;
+  const p = activeProject();
+  const labelEl = document.getElementById("workDocsLabel");
+  if (labelEl && document.activeElement !== labelEl) labelEl.value = p.workDocsLabel || "Work documents";
   const gl = document.getElementById("gsiLinks");
   if (gl) gl.innerHTML = g.links.map(l => docTabHtml(l, "title", "url", "editGsiLink", "delGsiLink")).join("") || `<p class="hint">No links yet.</p>`;
   const pd = document.getElementById("personalDocs");
