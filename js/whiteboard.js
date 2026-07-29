@@ -208,6 +208,7 @@ function sizeCanvas(boardId) {
   redraw(boardId);
   renderObjects(boardId);
   renderConnectors(boardId);
+  renderStickyArchive(boardId);
 }
 
 function redraw(boardId) {
@@ -886,6 +887,65 @@ function startConnectorDrag(boardId, fromId, evt) {
   window.addEventListener("pointercancel", onCancel);
 }
 
+// ---------- Sticky note archive ----------
+// A "deleted" note is a tombstone (deleted:true), kept in place for
+// sync safety (see the delete handler in attachStickyHandlers) rather
+// than actually removed — this view is what makes that recoverable
+// from the UI. Because the tombstone stays in the SAME board/tab's own
+// objects array it was created in (never moved anywhere), restoring
+// one is just flipping deleted back to false — it's already sitting in
+// the right place, satisfying "restore to wherever it was deleted
+// from" without needing to track that separately.
+function stickyPreviewText(o) {
+  const tmp = document.createElement("div");
+  tmp.innerHTML = sanitizeStickyHtml(getStickyHtml(o));
+  const text = (tmp.textContent || "").trim();
+  return text ? text.slice(0, 140) : "(empty note)";
+}
+export function openStickyArchive(boardId) {
+  const bg = document.getElementById(id(boardId, "wbStickyArchiveModalBg"));
+  if (!bg) return;
+  bg.classList.add("open");
+  renderStickyArchive(boardId);
+}
+export function closeStickyArchive(boardId) {
+  document.getElementById(id(boardId, "wbStickyArchiveModalBg"))?.classList.remove("open");
+}
+function renderStickyArchive(boardId) {
+  const archived = board(boardId).objects.filter(o => o.deleted);
+  const btn = document.getElementById(id(boardId, "wbStickyArchiveBtn"));
+  if (btn) btn.textContent = `🗑 Archived notes (${archived.length})`;
+  const list = document.getElementById(id(boardId, "wbStickyArchiveList"));
+  if (!list) return;
+  list.innerHTML = archived.length ? archived.slice().sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0)).map(o => `
+    <div class="gsi-archive-row">
+      <span class="gsi-archive-text" style="border-left:4px solid ${o.color};padding-left:8px">${esc(stickyPreviewText(o))}</span>
+      <div class="gsi-archive-actions">
+        <button class="btn btn-ghost" onclick="restoreStickyNote('${boardId}','${o.id}')">↺ Restore</button>
+        <button class="icon-btn" onclick="deleteStickyNotePermanently('${boardId}','${o.id}')" title="Delete permanently">✕</button>
+      </div>
+    </div>`).join("") : `<p class="hint" style="padding:12px 0">No archived sticky notes.</p>`;
+}
+export function restoreStickyNote(boardId, objId) {
+  const o = board(boardId).objects.find(x => x.id === objId);
+  if (!o) return;
+  o.deleted = false; o.updatedAt = Date.now();
+  persist();
+  renderObjects(boardId); renderConnectors(boardId);
+  renderStickyArchive(boardId);
+  toast("Note restored");
+}
+export function deleteStickyNotePermanently(boardId, objId) {
+  if (!confirm("Permanently delete this note? This can't be undone.")) return;
+  const b = board(boardId);
+  b.objects = b.objects.filter(x => x.id !== objId);
+  pruneConnectorsForNote(boardId, objId);
+  persist();
+  renderConnectors(boardId);
+  renderStickyArchive(boardId);
+  toast("Deleted permanently");
+}
+
 function stickyHtml(o, w) {
   const px = o.x * w, py = o.y * w, pw = o.w * w, ph = o.h * w;
   const selected = o.id === selectedStickyId;
@@ -1202,10 +1262,10 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
     const o = getObj();
     if (o) { o.deleted = true; o.updatedAt = Date.now(); }
     if (selectedStickyId === objId) selectedStickyId = null;
-    pruneConnectorsForNote(boardId, objId);
     persist();
     el.remove();
-    renderConnectors(boardId);
+    renderConnectors(boardId); // connectors touching this note are filtered out while it's deleted, not pruned — see deleteStickyNotePermanently for the actual prune point
+    renderStickyArchive(boardId);
   });
 
   // Connector nodes — dragging from one of a note's four small handles
