@@ -68,6 +68,60 @@ export function toggleTaskExpanded(id) {
   renderTasks();
 }
 
+// ---------- Task detail popup — opened from a calendar chip's title
+// (the chip's own checkbox handles completion directly, without
+// opening this). Works for native and GSI tasks alike by using the
+// same lookup taskRowHtml() already uses for its breadcrumb, and
+// routes every action through the exact same functions the rest of
+// the app already uses (toggleTask, toggleFlag/toggleProjectTaskFlag,
+// editTask/editProjectTask) — nothing task-related is reimplemented
+// here, only the display around it.
+function findAnyTask(id) {
+  const t = state.tasks.find(x => x.id === id);
+  if (t) return { task: t, isGsi: false };
+  const { task: gt, project } = findProjectTask(id);
+  if (gt) return { task: gt, isGsi: true, project };
+  return null;
+}
+export function openTaskPopup(id) {
+  const bg = document.getElementById("taskPopupModalBg");
+  if (!bg) return;
+  bg.classList.add("open");
+  renderTaskPopup(id);
+}
+export function closeTaskPopup() { document.getElementById("taskPopupModalBg")?.classList.remove("open"); }
+function renderTaskPopup(id) {
+  const box = document.getElementById("taskPopupBody");
+  if (!box) return;
+  const found = findAnyTask(id);
+  if (!found) { box.innerHTML = `<p class="hint">This task no longer exists.</p>`; return; }
+  const { task: t, isGsi, project } = found;
+  const done = isGsi ? t.status === "done" : t.done;
+  const due = fmtDue(isGsi ? t.date : t.dueDate);
+  const tag = isGsi
+    ? `${esc((project && project.name) || t.projectName || "")} / ${({ todo: "To do", progress: "In progress", done: "Done", blocked: "Blocked" })[t.status] || "To do"}`
+    : `${(t.category || "work") === "work" ? "Work" : "Personal"}`;
+  box.innerHTML = `
+    <div class="t-popup-top">
+      <button class="t-chk ${done ? "on" : ""}" onclick="popupToggleDone('${id}')" aria-label="Toggle task">
+        <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
+      <div class="t-popup-title ${done ? "done" : ""}">${esc(t.text)}</div>
+      <button class="t-flag ${t.flag ? "on" : ""}" onclick="popupToggleFlag('${id}')" title="${t.flag ? "Unflag" : "Flag as priority"}">🚩</button>
+    </div>
+    ${due ? `<div class="t-due ${due.cls === "overdue" ? "t-overdue" : due.cls === "" ? "t-future" : ""}" style="margin:12px 0 0 38px">📅 <span>${due.text}</span></div>` : ""}
+    <div style="margin:10px 0 0 38px"><span class="t-board-card-tag">${tag}</span></div>
+    ${t.link ? `<a href="${esc(t.link.startsWith("http") ? t.link : "https://" + t.link)}" target="_blank" rel="noopener" class="t-link-go" style="margin:12px 0 0 38px;display:inline-block">🔗 Open link</a>` : ""}
+  `;
+}
+export function popupToggleDone(id) {
+  toggleTask(id); // native/GSI routing already handled inside toggleTask itself
+  renderTaskPopup(id);
+}
+export function popupToggleFlag(id) {
+  toggleFlag(id); // already routes to GSI internally when needed
+  renderTaskPopup(id);
+}
+
 function taskRowHtml(t) {
   const due = fmtDue(t.dueDate);
   const breadcrumb = t.isGsi
@@ -197,8 +251,11 @@ function renderCalendarView(tasksWithDates) {
       <div class="t-cal-cell ${dateStr === todayStr ? "t-cal-today" : ""}">
         <div class="t-cal-daynum">${d}</div>
         <div class="t-cal-tasks">
-          ${shown.map(t => `<button class="t-cal-chip ${t.done ? "done" : ""} ${t.dueDate < todayStr && !t.done ? "overdue" : ""}"
-              onclick="event.stopPropagation();toggleTask('${t.id}')" title="${esc(t.text)}">${esc(t.text)}</button>`).join("")}
+          ${shown.map(t => `
+            <div class="t-cal-chip ${t.done ? "done" : ""} ${t.dueDate < todayStr && !t.done ? "overdue" : ""}">
+              <button class="t-cal-chip-chk" onclick="event.stopPropagation();toggleTask('${t.id}')" aria-label="Toggle complete"></button>
+              <button class="t-cal-chip-title" onclick="event.stopPropagation();openTaskPopup('${t.id}')" title="${esc(t.text)}">${esc(t.text)}</button>
+            </div>`).join("")}
           ${dayTasks.length > 3 ? `<div class="t-cal-more">+${dayTasks.length - 3} more</div>` : ""}
         </div>
       </div>`;

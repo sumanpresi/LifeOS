@@ -802,11 +802,23 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .t-cal-daynum{font-size:12px;font-weight:700;color:var(--t-ink2)}
 .t-cal-today .t-cal-daynum{color:var(--t-accent)}
 .t-cal-tasks{display:flex;flex-direction:column;gap:2px;overflow:hidden}
-.t-cal-chip{text-align:left;font-size:10.5px;font-weight:600;padding:2px 5px;border-radius:5px;
-  background:#fff;color:var(--t-ink);border:1px solid var(--t-border);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.t-cal-chip.overdue{color:var(--warn);border-color:#F0D9BE}
-.t-cal-chip.done{color:var(--t-ink2);text-decoration:line-through;opacity:.7}
+.t-cal-chip{display:flex;align-items:center;gap:3px;padding:1px 4px 1px 1px;border-radius:5px;
+  background:#fff;border:1px solid var(--t-border)}
+.t-cal-chip.overdue{border-color:#F0D9BE}
+.t-cal-chip-chk{flex-shrink:0;width:11px;height:11px;border-radius:3px;border:1.5px solid var(--t-border);background:#fff;padding:0}
+.t-cal-chip.done .t-cal-chip-chk{background:var(--t-accent);border-color:var(--t-accent)}
+.t-cal-chip.overdue .t-cal-chip-chk{border-color:var(--warn)}
+.t-cal-chip-title{flex:1;min-width:0;text-align:left;font-size:10.5px;font-weight:600;color:var(--t-ink);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.t-cal-chip.overdue .t-cal-chip-title{color:var(--warn)}
+.t-cal-chip.done .t-cal-chip-title{color:var(--t-ink2);text-decoration:line-through;opacity:.7}
 .t-cal-more{font-size:10px;color:var(--t-ink2);padding:1px 5px}
+
+/* ---- Task detail popup (opened from a calendar chip's title) ---- */
+.t-popup-top{display:flex;align-items:flex-start;gap:10px}
+.t-popup-title{flex:1;min-width:0;font-family:'Inter',sans-serif;font-size:15.5px;font-weight:600;
+  color:var(--t-ink);line-height:1.4;word-break:break-word}
+.t-popup-title.done{text-decoration:line-through;color:var(--t-ink2)}
 @media(max-width:767px){
   .t-cal-weekdays div:not(:nth-child(1)):not(:nth-child(4)):not(:nth-child(7)){font-size:0} /* keep the grid, thin the labels — Sun/Wed/Sat only, room's too tight for all seven on a phone */
   .t-cal-cell{min-height:52px;padding:4px}
