@@ -756,6 +756,48 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .t-archived-actions .btn{padding:5px 10px;font-size:12px;white-space:nowrap}
 .t-archived-delete:hover{background:#FEE2E2;color:var(--t-danger);border-color:var(--t-danger)}
 
+/* ---- Board view ---- */
+.t-board{display:flex;gap:14px;overflow-x:auto;padding:14px 18px 18px;align-items:flex-start}
+.t-board-col{flex:1 1 0;min-width:230px;background:var(--t-bg);border-radius:12px;border:1px solid var(--t-border);
+  display:flex;flex-direction:column;max-height:70vh}
+.t-board-col-head{display:flex;align-items:center;gap:8px;padding:12px 12px 10px;border-bottom:1px solid var(--t-border);flex-shrink:0}
+.t-board-col-title{font-family:'Inter',sans-serif;font-size:13px;font-weight:700;color:var(--t-ink);
+  text-transform:uppercase;letter-spacing:.03em}
+.t-board-col-head.t-board-overdue .t-board-col-title{color:var(--warn)}
+.t-board-col-head.t-board-today .t-board-col-title{color:var(--t-accent)}
+.t-board-col-body{padding:10px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.t-board-col-body .t-row{margin:0} /* taskRowHtml()'s cards already carry their own spacing in List view — reset here since the column itself supplies the gap */
+@media(max-width:767px){
+  .t-board{padding:10px 12px 14px}
+  .t-board-col{min-width:78vw}
+}
+
+/* ---- Calendar view ---- */
+.t-cal{padding:14px 18px 18px}
+.t-cal-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.t-cal-month{font-family:'Fraunces',serif;font-size:17px;font-weight:600;flex:1}
+.t-cal-head .btn{padding:6px 12px;font-size:13px}
+.t-cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px;
+  font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--t-ink2);text-align:center}
+.t-cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.t-cal-cell{min-height:88px;border:1px solid var(--t-border);border-radius:9px;padding:6px;background:var(--t-bg);
+  display:flex;flex-direction:column;gap:3px}
+.t-cal-cell.t-cal-empty{border:none;background:transparent}
+.t-cal-cell.t-cal-today{border-color:var(--t-accent);box-shadow:0 0 0 1px var(--t-accent)}
+.t-cal-daynum{font-size:12px;font-weight:700;color:var(--t-ink2)}
+.t-cal-today .t-cal-daynum{color:var(--t-accent)}
+.t-cal-tasks{display:flex;flex-direction:column;gap:2px;overflow:hidden}
+.t-cal-chip{text-align:left;font-size:10.5px;font-weight:600;padding:2px 5px;border-radius:5px;
+  background:#fff;color:var(--t-ink);border:1px solid var(--t-border);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.t-cal-chip.overdue{color:var(--warn);border-color:#F0D9BE}
+.t-cal-chip.done{color:var(--t-ink2);text-decoration:line-through;opacity:.7}
+.t-cal-more{font-size:10px;color:var(--t-ink2);padding:1px 5px}
+@media(max-width:767px){
+  .t-cal-weekdays div:not(:nth-child(1)):not(:nth-child(4)):not(:nth-child(7)){font-size:0} /* keep the grid, thin the labels — Sun/Wed/Sat only, room's too tight for all seven on a phone */
+  .t-cal-cell{min-height:52px;padding:4px}
+  .t-cal-chip{font-size:9.5px}
+}
+
 /* Header "Archive Completed" button */
 .t-archive-all-btn:disabled{opacity:.4;cursor:not-allowed}
 .t-archive-all-btn:disabled:hover{background:var(--card)}

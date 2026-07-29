@@ -132,6 +132,11 @@
             </div>
             <button class="btn btn-ghost" id="taskSortBtn" onclick="toggleSortByDate()" style="padding:6px 12px;font-size:12.5px">📅 Sort by date</button>
           </div>
+          <div class="seg" id="taskViewSwitch" style="margin-top:10px">
+            <button data-view="list" class="on" onclick="setTaskView('list')">☰ List</button>
+            <button data-view="board" onclick="setTaskView('board')">▦ Board</button>
+            <button data-view="calendar" onclick="setTaskView('calendar')">📅 Calendar</button>
+          </div>
         </div>
         <div class="t-add-row">
           <span class="t-add-icon">＋</span>

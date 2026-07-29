@@ -15,6 +15,8 @@ import { getAllGsiTasksFlat, findProjectTask, editProjectTask, setTaskStatus as 
 
 let taskFilter = "all"; // "all" | "work" | "personal"
 let sortByDate = false;
+let taskView = "list"; // "list" | "board" | "calendar" — UI-only, not persisted
+let calendarMonth = (() => { const d = new Date(); d.setDate(1); return d; })(); // first-of-month, tracks which month Calendar view is showing
 let collapsedSections = new Set(); // UI-only display state, not persisted — which of Today/Upcoming/Completed are collapsed
 let expandedTaskId = null; // UI-only — which single row currently has its edit controls open
 let archivedSort = "newest"; // "newest" | "oldest" | "completed" | "alpha" — UI-only, not persisted
@@ -44,6 +46,15 @@ export function toggleSortByDate() {
   sortByDate = !sortByDate;
   renderTasks();
 }
+export function setTaskView(v) {
+  taskView = v;
+  const switcher = document.getElementById("taskViewSwitch");
+  if (switcher) switcher.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.view === v));
+  renderTasks();
+}
+export function calendarPrevMonth() { calendarMonth.setMonth(calendarMonth.getMonth() - 1); renderTasks(); }
+export function calendarNextMonth() { calendarMonth.setMonth(calendarMonth.getMonth() + 1); renderTasks(); }
+export function calendarGoToday() { calendarMonth = new Date(); calendarMonth.setDate(1); renderTasks(); }
 export function toggleTaskSection(name) {
   if (collapsedSections.has(name)) collapsedSections.delete(name); else collapsedSections.add(name);
   const sectionEl = document.querySelector(`.t-section[data-section="${name}"]`);
@@ -107,6 +118,76 @@ function sectionHtml(name, label, tasks) {
       <div class="t-section-rows"><div class="t-section-rows-inner">${tasks.map(taskRowHtml).join("")}</div></div>
     </div>`;
 }
+
+// ---------- Board view — same Overdue/Today/Upcoming/Completed groups
+// List view already computes, laid out as Kanban-style columns instead
+// of stacked collapsible sections. Reuses taskRowHtml() directly for
+// each card, so every existing interaction (checkbox, flag, archive
+// button, breadcrumb, GSI vs native routing) works identically without
+// any new code — only the layout differs.
+function boardColumnHtml(key, label, tasks, accentClass) {
+  return `
+    <div class="t-board-col" data-board-col="${key}">
+      <div class="t-board-col-head ${accentClass}">
+        <span class="t-board-col-title">${label}</span>
+        <span class="t-section-count">${tasks.length}</span>
+      </div>
+      <div class="t-board-col-body">
+        ${tasks.length ? tasks.map(taskRowHtml).join("") : `<p class="hint" style="padding:10px 4px">Nothing here.</p>`}
+      </div>
+    </div>`;
+}
+function renderBoardView(overdueGroup, todayGroup, upcomingGroup, done) {
+  return `<div class="t-board">
+    ${boardColumnHtml("overdue", "Overdue", overdueGroup, "t-board-overdue")}
+    ${boardColumnHtml("today", "Today", todayGroup, "t-board-today")}
+    ${boardColumnHtml("upcoming", "Upcoming", upcomingGroup, "")}
+    ${boardColumnHtml("completed", "Completed", done, "")}
+  </div>`;
+}
+
+// ---------- Calendar view — a plain month grid. Only tasks with a due
+// date can appear here at all (nothing to place on a calendar without
+// one) — that's inherent to the view, not a filter to route around.
+function renderCalendarView(tasksWithDates) {
+  const byDate = {};
+  tasksWithDates.forEach(t => { if (t.dueDate) (byDate[t.dueDate] = byDate[t.dueDate] || []).push(t); });
+
+  const year = calendarMonth.getFullYear(), month = calendarMonth.getMonth();
+  const firstWeekday = new Date(year, month, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const monthLabel = calendarMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+  const todayStr = new Date().toISOString().slice(0, 10);
+
+  let cells = "";
+  for (let i = 0; i < firstWeekday; i++) cells += `<div class="t-cal-cell t-cal-empty"></div>`;
+  for (let d = 1; d <= daysInMonth; d++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const dayTasks = byDate[dateStr] || [];
+    const shown = dayTasks.slice(0, 3);
+    cells += `
+      <div class="t-cal-cell ${dateStr === todayStr ? "t-cal-today" : ""}">
+        <div class="t-cal-daynum">${d}</div>
+        <div class="t-cal-tasks">
+          ${shown.map(t => `<button class="t-cal-chip ${t.done ? "done" : ""} ${t.dueDate < todayStr && !t.done ? "overdue" : ""}"
+              onclick="event.stopPropagation();toggleTask('${t.id}')" title="${esc(t.text)}">${esc(t.text)}</button>`).join("")}
+          ${dayTasks.length > 3 ? `<div class="t-cal-more">+${dayTasks.length - 3} more</div>` : ""}
+        </div>
+      </div>`;
+  }
+  return `
+    <div class="t-cal">
+      <div class="t-cal-head">
+        <button class="btn btn-ghost" onclick="calendarPrevMonth()" aria-label="Previous month">‹</button>
+        <div class="t-cal-month">${monthLabel}</div>
+        <button class="btn btn-ghost" onclick="calendarNextMonth()" aria-label="Next month">›</button>
+        <button class="btn btn-ghost" onclick="calendarGoToday()">Today</button>
+      </div>
+      <div class="t-cal-weekdays"><div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div></div>
+      <div class="t-cal-grid">${cells}</div>
+    </div>`;
+}
+
 
 function sortArchived(list) {
   const arr = list.slice();
@@ -220,13 +301,17 @@ export function renderTasks() {
   const archiveAllBtn = document.getElementById("taskArchiveAllBtn");
   if (archiveAllBtn) archiveAllBtn.disabled = !state.tasks.some(t => t.done && !t.archived);
 
-  if (!visible.length) {
+  if (!visible.length && taskView === "list") {
     list.innerHTML = state.tasks.length ? `<p class="hint" style="padding:18px">No tasks match this filter.</p>` : `
       <div class="t-empty">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M9 11l3 3L22 4M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2h-5l-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
         <div class="t-empty-title">No tasks yet</div>
         <div class="t-empty-sub">Add your first task below to get started.</div>
       </div>`;
+  } else if (taskView === "board") {
+    list.innerHTML = renderBoardView(overdueGroup, todayGroup, upcomingGroup, done);
+  } else if (taskView === "calendar") {
+    list.innerHTML = renderCalendarView(visible.filter(t => t.dueDate));
   } else {
     list.innerHTML =
       (overdueGroup.length ? sectionHtml("overdue", "Overdue", overdueGroup) : "") +
