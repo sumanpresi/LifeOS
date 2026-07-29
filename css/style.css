@@ -690,6 +690,17 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .t-row:last-child{border-bottom:none}
 .t-row:hover{background:#FAFBFD;box-shadow:0 1px 6px rgba(31,41,55,.06)}
 .t-row:focus-within{box-shadow:0 0 0 2px var(--t-accent)}
+.t-drag-handle{flex-shrink:0;width:20px;align-self:center;text-align:center;color:var(--t-ink2);
+  font-size:15px;cursor:grab;opacity:.35;transition:opacity 150ms ease;touch-action:none}
+.t-drag-handle:hover{opacity:1}
+.t-drag-handle:active{cursor:grabbing}
+.t-drag-handle-spacer{cursor:default;opacity:0;pointer-events:none} /* GSI rows — keeps alignment without being a real handle */
+/* SortableJS state classes — "lift, scale up, shadow increases" while
+   actively dragging; the ghost is the drop-target placeholder shown in
+   the list at the position the card would land. */
+.t-row-dragging{transform:scale(1.03);box-shadow:0 10px 28px -8px rgba(31,41,55,.28);z-index:5}
+.t-row-chosen{cursor:grabbing}
+.t-row-ghost{background:var(--lilac);border:2px dashed var(--accent);opacity:.6}
 
 /* Circular checkbox with an animated checkmark */
 .t-chk{width:22px;height:22px;border-radius:50%;border:1.5px solid #C7CCD4;background:#fff;
@@ -918,6 +929,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   }
   .t-row:active{transform:scale(.985);box-shadow:0 1px 2px rgba(31,41,55,.1)}
   .t-chk{width:26px;height:26px} /* larger touch target */
+  .t-drag-handle{width:26px;font-size:19px}
   .t-main{flex:1;min-width:0}
   .t-title{font-size:16px}
   .t-flag{font-size:17px;padding:6px} /* comfortable tap size */

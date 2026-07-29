@@ -46,6 +46,61 @@ export function toggleSortByDate() {
   sortByDate = !sortByDate;
   renderTasks();
 }
+// ---------- Drag-to-reorder (List view, Default sort only) ----------
+let sortableInstances = [];
+function destroySortables() {
+  sortableInstances.forEach(s => { try { s.destroy(); } catch (e) { /* already gone with its container — fine */ } });
+  sortableInstances = [];
+}
+function initTaskSorting() {
+  destroySortables();
+  if (taskView !== "list" || sortByDate || typeof Sortable === "undefined") return;
+  document.querySelectorAll("#taskList .t-section-rows-inner").forEach(container => {
+    sortableInstances.push(Sortable.create(container, {
+      handle: ".t-drag-handle",
+      filter: ".t-drag-handle-spacer", // the GSI-row placeholder isn't a handle at all, so grabbing it (or a GSI row generally) never starts a drag
+      draggable: ".t-row[data-is-gsi='0']", // only native rows are ever pick-up-able
+      preventOnFilter: false, // a tap that misses the (non-existent) handle on a GSI row should still behave as a normal click, not get swallowed
+      animation: 200,
+      delay: 300, delayOnTouchOnly: true, touchStartThreshold: 5, // long-press to start on touch; no delay for mouse
+      ghostClass: "t-row-ghost", dragClass: "t-row-dragging", chosenClass: "t-row-chosen",
+      scroll: true, scrollSensitivity: 90, scrollSpeed: 12,
+      onEnd: handleTaskDragEnd,
+    }));
+  });
+}
+function handleTaskDragEnd(evt) {
+  const draggedId = evt.item.dataset.taskId;
+  const draggedTask = state.tasks.find(t => t.id === draggedId);
+  if (!draggedTask) { renderTasks(); return; } // shouldn't happen — GSI rows can't be dragged — but stay safe rather than silently do nothing
+  const orderedIds = Array.from(evt.to.children).map(el => el.dataset.taskId).filter(Boolean);
+  const idx = orderedIds.indexOf(draggedId);
+  // Walk outward past any interspersed GSI task ids (which have no
+  // position field to compare against) to find the nearest actual
+  // native neighbor on each side.
+  const nativeNeighbor = (dir) => {
+    for (let i = idx + dir; i >= 0 && i < orderedIds.length; i += dir) {
+      const t = state.tasks.find(x => x.id === orderedIds[i]);
+      if (t) return t;
+    }
+    return null;
+  };
+  const before = nativeNeighbor(-1), after = nativeNeighbor(1);
+  const beforePos = before ? (before.position ?? 0) : null;
+  const afterPos = after ? (after.position ?? 0) : null;
+  // Fractional midpoint insertion — this is the entire point of using
+  // a position field instead of array index: only the ONE dragged
+  // task's position ever needs to change, never a renumbering pass
+  // across the whole list.
+  draggedTask.position =
+    beforePos == null && afterPos == null ? 1000 :
+    beforePos == null ? afterPos - 1000 :
+    afterPos == null ? beforePos + 1000 :
+    (beforePos + afterPos) / 2;
+  persist();
+  renderTasks();
+}
+
 export function setTaskView(v) {
   taskView = v;
   const switcher = document.getElementById("taskViewSwitch");
@@ -128,7 +183,9 @@ function taskRowHtml(t) {
     ? `${esc(t.projectName)} / ${({todo:"To do",progress:"In progress",done:"Done",blocked:"Blocked"})[t.status] || "To do"}`
     : `${(t.category||"work")==="work"?"Work":"Personal"}${due ? " / " + due.text : ""}`;
   return `
-    <div class="t-row ${t.done ? "done" : ""} ${expandedTaskId===t.id ? "t-expanded" : ""}" onclick="toggleTaskExpanded('${t.id}')">
+    <div class="t-row ${t.done ? "done" : ""} ${expandedTaskId===t.id ? "t-expanded" : ""}" data-task-id="${t.id}" data-is-gsi="${t.isGsi ? "1" : "0"}" onclick="toggleTaskExpanded('${t.id}')">
+      ${t.isGsi ? `<div class="t-drag-handle t-drag-handle-spacer" aria-hidden="true"></div>`
+                : `<div class="t-drag-handle" title="Drag to reorder" onclick="event.stopPropagation()">⠿</div>`}
       <button class="t-chk ${t.done ? "on" : ""}" onclick="event.stopPropagation();toggleTask('${t.id}')" aria-label="Toggle task">
         <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
       <div class="t-main">
@@ -385,13 +442,20 @@ export function renderTasks() {
     if (!b.dueDate) return -1;
     return a.dueDate.localeCompare(b.dueDate);
   };
+  // Manual drag order — see the position migration in state.js's
+  // merge(). GSI tasks have no position field (dragging isn't
+  // supported for them — see taskRowHtml's placeholder handle), so
+  // they fall back to 0 and cluster together rather than interleaving
+  // meaningfully with natively-ordered tasks; an accepted limitation
+  // of keeping GSI tasks out of this feature's scope.
+  const byPosition = (a, b) => (a.position ?? 0) - (b.position ?? 0);
 
   const todayKeyStr = new Date().toISOString().slice(0, 10);
   const open = visible.filter(t => !t.done);
-  const done = visible.filter(t => t.done && !t.archived).sort(sortByDate ? byDate : () => 0);
-  const todayGroup = open.filter(t => t.dueDate === todayKeyStr).sort(byFlagThenDate);
-  const overdueGroup = open.filter(t => t.dueDate && t.dueDate < todayKeyStr).sort(byFlagThenDate);
-  const upcomingGroup = open.filter(t => t.dueDate !== todayKeyStr && !(t.dueDate && t.dueDate < todayKeyStr)).sort(byFlagThenDate);
+  const done = visible.filter(t => t.done && !t.archived).sort(sortByDate ? byDate : byPosition);
+  const todayGroup = open.filter(t => t.dueDate === todayKeyStr).sort(sortByDate ? byFlagThenDate : byPosition);
+  const overdueGroup = open.filter(t => t.dueDate && t.dueDate < todayKeyStr).sort(sortByDate ? byFlagThenDate : byPosition);
+  const upcomingGroup = open.filter(t => t.dueDate !== todayKeyStr && !(t.dueDate && t.dueDate < todayKeyStr)).sort(sortByDate ? byFlagThenDate : byPosition);
   // Archived is native tasks only — GSI project tasks are a different
   // schema entirely (a 4-state status, not done/archived) and already
   // have their own separate archive system in GSI Workspace.
@@ -442,6 +506,9 @@ export function renderTasks() {
   if (filterBox) {
     filterBox.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.filter === taskFilter));
   }
+  const dragHint = document.getElementById("taskDragHint");
+  if (dragHint) dragHint.style.display = (sortByDate && taskView === "list") ? "" : "none";
+  initTaskSorting();
 }
 
 export function setTaskFilter(f) { taskFilter = f; renderTasks(); }
@@ -449,7 +516,8 @@ export function setTaskFilter(f) { taskFilter = f; renderTasks(); }
 export function addTask() {
   const el = document.getElementById("newTask"); const v = el.value.trim(); if (!v) return;
   const defaultCategory = (taskFilter === "work" || taskFilter === "personal") ? taskFilter : "work";
-  state.tasks.push({ id: uid(), text: v, done: false, category: defaultCategory, flag: false, link: "", dueDate: "", googleEventId: null });
+  const minPos = state.tasks.reduce((m, t) => Math.min(m, t.position ?? 0), 0);
+  state.tasks.push({ id: uid(), text: v, done: false, category: defaultCategory, flag: false, link: "", dueDate: "", googleEventId: null, position: minPos - 1000 });
   el.value = "";
   persist(); rerender();
 }

@@ -231,6 +231,16 @@ function merge(saved) {
   // Naturally idempotent: once added, a quote is in saved.quotes on
   // every future load, so this becomes a no-op for it from then on.
   s.quotes = Array.from(new Set([...(s.quotes || []), ...PHILOSOPHICAL_QUOTES]));
+  if (Array.isArray(s.tasks) && s.tasks.some(t => t.position == null)) {
+    const ranked = s.tasks.slice().sort((a, b) => {
+      if (!!b.flag !== !!a.flag) return b.flag ? 1 : -1; // flagged first, same as the existing default List sort
+      if (!a.dueDate && !b.dueDate) return 0;
+      if (!a.dueDate) return 1;
+      if (!b.dueDate) return -1;
+      return a.dueDate.localeCompare(b.dueDate);
+    });
+    ranked.forEach((t, i) => { if (t.position == null) t.position = (i + 1) * 1000; });
+  }
   s.ngdrTracker = Array.isArray(saved.ngdrTracker) ? saved.ngdrTracker : structuredClone(DEFAULT_STATE.ngdrTracker);
   s.finance = Object.assign(structuredClone(DEFAULT_STATE.finance), saved.finance || {});
   s.health = Object.assign(structuredClone(DEFAULT_STATE.health), saved.health || {});
