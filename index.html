@@ -380,39 +380,39 @@
         <div class="wb-tabs" id="wsTabsList"></div>
         <button class="wb-tab-add" onclick="addProject()" title="New workspace">+</button>
       </div>
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-head">
-            <input type="text" id="projectName" onchange="renameProject(this.value)"
-              style="border:none;background:transparent;font-family:'Fraunces',serif;font-size:19px;font-weight:600;flex:1;padding:0">
-            <button class="icon-btn" id="projectDelBtn" onclick="delProject()" title="Delete this project" style="display:none;margin-left:8px">Delete</button>
-            <button class="icon-btn gsi-restore-project-btn" id="projectRestoreBtn" onclick="restoreLastDeletedProject()" title="Restore the most recently deleted project" style="display:none;margin-left:6px">↺ Restore</button>
-            <button class="expand-btn" onclick="expandView('ngdrCardContent',document.getElementById('projectName').value || 'Project tasks')" title="View large">
-              <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-            </button>
-          </div>
-          <div id="ngdrCardContent">
-          <div class="card-body gsi-toolbar-row" style="padding-bottom:0">
-            <select class="gsi-sort-sel" onchange="setGsiSortMode(this.value)" title="Sort tasks">
-              <option value="default">Sort: Default</option>
-              <option value="date">Sort: Date</option>
-              <option value="priority">Sort: Priority</option>
-              <option value="status">Sort: Status</option>
-              <option value="alphabetical">Sort: Alphabetical</option>
-              <option value="newest">Sort: Newest</option>
-              <option value="oldest">Sort: Oldest</option>
-            </select>
-            <span class="hint" id="ngdrCount"></span>
-            <button class="gsi-archive-btn" id="gsiArchiveBtn" onclick="openArchiveView()">📦 Archive</button>
-            <button class="gsi-del-completed-btn" onclick="archiveCompletedTasks()">Archive completed</button>
-          </div>
-          <div class="card-body" id="ngdrList"></div>
-          <div class="card-body gsi-add-row" style="padding-top:0">
-            <input type="text" id="newNgdr" placeholder="Add a task, e.g. UAT test plan for AI module" onkeydown="if(event.key==='Enter')addNgdr()">
-            <button class="gsi-add-btn" onclick="addNgdr()">Add</button>
-          </div>
-          </div>
+      <div class="card">
+        <div class="card-head">
+          <input type="text" id="projectName" onchange="renameProject(this.value)"
+            style="border:none;background:transparent;font-family:'Fraunces',serif;font-size:19px;font-weight:600;flex:1;padding:0">
+          <button class="icon-btn" id="projectDelBtn" onclick="delProject()" title="Delete this project" style="display:none;margin-left:8px">Delete</button>
+          <button class="icon-btn gsi-restore-project-btn" id="projectRestoreBtn" onclick="restoreLastDeletedProject()" title="Restore the most recently deleted project" style="display:none;margin-left:6px">↺ Restore</button>
+          <button class="expand-btn" onclick="expandView('ngdrCardContent',document.getElementById('projectName').value || 'Project tasks')" title="View large">
+            <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+          </button>
         </div>
+        <div id="ngdrCardContent">
+        <div class="card-body gsi-toolbar-row" style="padding-bottom:0">
+          <select class="gsi-sort-sel" onchange="setGsiSortMode(this.value)" title="Sort tasks">
+            <option value="default">Sort: Default</option>
+            <option value="date">Sort: Date</option>
+            <option value="priority">Sort: Priority</option>
+            <option value="status">Sort: Status</option>
+            <option value="alphabetical">Sort: Alphabetical</option>
+            <option value="newest">Sort: Newest</option>
+            <option value="oldest">Sort: Oldest</option>
+          </select>
+          <span class="hint" id="ngdrCount"></span>
+          <button class="gsi-archive-btn" id="gsiArchiveBtn" onclick="openArchiveView()">📦 Archive</button>
+          <button class="gsi-del-completed-btn" onclick="archiveCompletedTasks()">Archive completed</button>
+        </div>
+        <div class="card-body" id="ngdrList"></div>
+        <div class="card-body gsi-add-row" style="padding-top:0">
+          <input type="text" id="newNgdr" placeholder="Add a task, e.g. UAT test plan for AI module" onkeydown="if(event.key==='Enter')addNgdr()">
+          <button class="gsi-add-btn" onclick="addNgdr()">Add</button>
+        </div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:16px">
         <div class="card">
           <div class="card-head"><h2>Daily work log</h2></div>
           <div class="card-body">
@@ -421,6 +421,17 @@
               <button class="btn btn-ghost" onclick="addLog()">Log</button>
             </div>
             <div id="logList" style="margin-top:8px"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Work documents</h2></div>
+          <div class="card-body">
+            <div class="link-grid" id="workDocs" style="grid-template-columns:1fr"></div>
+            <div class="add-inline">
+              <input type="text" id="workDocName" placeholder="Document name">
+              <input type="text" id="workDocUrl" placeholder="https://…">
+              <button class="btn btn-ghost" onclick="addWorkDoc()">➕ Add</button>
+            </div>
           </div>
         </div>
       </div>
@@ -532,27 +543,14 @@
           </div>
         </div>
       </div>
-      <div class="grid-2" style="margin-top:16px">
-        <div class="card">
-          <div class="card-head"><h2>Personal documents</h2></div>
-          <div class="card-body">
-            <div class="link-grid" id="personalDocs" style="grid-template-columns:1fr"></div>
-            <div class="add-inline">
-              <input type="text" id="personalDocName" placeholder="Document name">
-              <input type="text" id="personalDocUrl" placeholder="https://…">
-              <button class="btn btn-ghost" onclick="addPersonalDoc()">➕ Add</button>
-            </div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-head"><h2>Work documents</h2></div>
-          <div class="card-body">
-            <div class="link-grid" id="workDocs" style="grid-template-columns:1fr"></div>
-            <div class="add-inline">
-              <input type="text" id="workDocName" placeholder="Document name">
-              <input type="text" id="workDocUrl" placeholder="https://…">
-              <button class="btn btn-ghost" onclick="addWorkDoc()">➕ Add</button>
-            </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-head"><h2>Personal documents</h2></div>
+        <div class="card-body">
+          <div class="link-grid" id="personalDocs" style="grid-template-columns:1fr"></div>
+          <div class="add-inline">
+            <input type="text" id="personalDocName" placeholder="Document name">
+            <input type="text" id="personalDocUrl" placeholder="https://…">
+            <button class="btn btn-ghost" onclick="addPersonalDoc()">➕ Add</button>
           </div>
         </div>
       </div>

@@ -297,7 +297,7 @@ export function toggleGsiLinkEdit(evt, id) {
 export function addProject() {
   const name = prompt("Name this project (e.g. NGDR, BISAG-N Integration, Field Survey):");
   if (!name || !name.trim()) return;
-  const p = { id: uid(), name: name.trim(), tasks: [] };
+  const p = { id: uid(), name: name.trim(), tasks: [], workDocs: [] };
   state.gsi.projects.push(p);
   state.gsi.activeProject = p.id;
   persist(); renderProjects();
@@ -305,6 +305,7 @@ export function addProject() {
 export function switchProject(id) {
   state.gsi.activeProject = id;
   persist(false); renderProjects();
+  renderLinksAndDocs();
 }
 export function renameProject(v) {
   const p = activeProject(); if (!p || !v.trim()) return;
@@ -592,7 +593,7 @@ function renderLinksAndDocs() {
   const pd = document.getElementById("personalDocs");
   if (pd) pd.innerHTML = (g.personalDocs || []).map(d => docTabHtml(d, "name", "url", "editPersonalDoc", "delPersonalDoc")).join("") || `<p class="hint">No documents yet.</p>`;
   const wd = document.getElementById("workDocs");
-  if (wd) wd.innerHTML = (g.workDocs || []).map(d => docTabHtml(d, "name", "url", "editWorkDoc", "delWorkDoc")).join("") || `<p class="hint">No documents yet.</p>`;
+  if (wd) wd.innerHTML = (activeProject().workDocs || []).map(d => docTabHtml(d, "name", "url", "editWorkDoc", "delWorkDoc")).join("") || `<p class="hint">No documents yet.</p>`;
 }
 // Delete already goes through Trash for all three (see delGsiLink /
 // delPersonalDoc / delWorkDoc below) — this just gives an accidental
@@ -603,7 +604,11 @@ export function undoLastDeleted(type) {
   if (!entry) return;
   if (type === "gsiLink") state.gsi.links.unshift(entry.payload);
   else if (type === "personalDoc") { state.gsi.personalDocs = state.gsi.personalDocs || []; state.gsi.personalDocs.unshift(entry.payload); }
-  else if (type === "workDoc") { state.gsi.workDocs = state.gsi.workDocs || []; state.gsi.workDocs.unshift(entry.payload); }
+  else if (type === "workDoc") {
+    const p = state.gsi.projects.find(x => x.id === entry.meta?.projectId) || activeProject();
+    p.workDocs = p.workDocs || [];
+    p.workDocs.unshift(entry.payload);
+  }
   else return;
   state.trash = state.trash.filter(x => x.id !== entry.id);
   persist(); rerender();
@@ -623,7 +628,7 @@ export function editPersonalDoc(id, field, value) {
   d[field] = editUrlField(field, value); persist(); rerender();
 }
 export function editWorkDoc(id, field, value) {
-  const d = (state.gsi.workDocs || []).find(x => x.id === id); if (!d) return;
+  const d = (activeProject().workDocs || []).find(x => x.id === id); if (!d) return;
   d[field] = editUrlField(field, value); persist(); rerender();
 }
 export function addGsiLink() {
@@ -660,16 +665,18 @@ export function delPersonalDoc(id) {
 export function addWorkDoc() {
   const n = document.getElementById("workDocName"), u = document.getElementById("workDocUrl");
   if (!n.value.trim() || !u.value.trim()) return toast("Name and link are required");
-  state.gsi.workDocs = state.gsi.workDocs || [];
-  state.gsi.workDocs.push({ id: uid(), name: n.value.trim(), url: u.value.trim() });
+  const p = activeProject();
+  p.workDocs = p.workDocs || [];
+  p.workDocs.push({ id: uid(), name: n.value.trim(), url: u.value.trim() });
   n.value = u.value = "";
   persist(); rerender();
 }
 export function delWorkDoc(id) {
-  const d = (state.gsi.workDocs || []).find(x => x.id === id);
+  const p = activeProject();
+  const d = (p.workDocs || []).find(x => x.id === id);
   if (!d) return;
-  moveToTrash("workDoc", d);
-  state.gsi.workDocs = (state.gsi.workDocs || []).filter(x => x.id !== id);
+  moveToTrash("workDoc", d, { projectId: p.id });
+  p.workDocs = (p.workDocs || []).filter(x => x.id !== id);
   persist(); rerender();
   toast(`Deleted "${d.name}"`, "Undo", "undoLastDeleted('workDoc')");
 }

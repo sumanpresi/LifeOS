@@ -224,6 +224,18 @@ function merge(saved) {
   /* deep-default the containers that older versions may lack */
   s.sections = Object.assign(structuredClone(DEFAULT_STATE.sections), saved.sections || {});
   s.gsi = Object.assign(structuredClone(DEFAULT_STATE.gsi), saved.gsi || {});
+  // Work documents move from one shared list to per-project — each
+  // project now keeps its own workDocs array, so switching workspaces
+  // shows a different set of links. Existing links (from before this
+  // change) land on whichever project is currently active rather than
+  // being lost; this only has something to do once, since s.gsi.workDocs
+  // is emptied out immediately after.
+  if (Array.isArray(s.gsi.workDocs) && s.gsi.workDocs.length && s.gsi.projects.length) {
+    const target = s.gsi.projects.find(p => p.id === s.gsi.activeProject) || s.gsi.projects[0];
+    target.workDocs = [...(target.workDocs || []), ...s.gsi.workDocs];
+    s.gsi.workDocs = [];
+  }
+  s.gsi.projects.forEach(p => { p.workDocs = p.workDocs || []; }); // additive field — older saved projects predate per-project work docs
   s.communication = Object.assign(structuredClone(DEFAULT_STATE.communication), saved.communication || {});
   // Top up with richer philosophical quotes rather than replacing the
   // list — keeps whatever the user already has (including any they've
