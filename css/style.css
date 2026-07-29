@@ -677,6 +677,8 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   border-radius:99px;padding:1px 9px}
 .t-section-chevron{margin-left:auto;color:var(--t-ink2);transition:transform 200ms ease;font-size:12px}
 .t-section.collapsed .t-section-chevron{transform:rotate(-90deg)}
+.t-section[data-section="overdue"] .t-section-title{color:var(--warn)}
+.t-section[data-section="overdue"] .t-section-count{background:#F8ECE6;color:var(--warn)}
 .t-section-rows{display:grid;grid-template-rows:1fr;transition:grid-template-rows 220ms var(--ease,ease)}
 .t-section-rows-inner{overflow:hidden;min-height:0}
 .t-section.collapsed .t-section-rows{grid-template-rows:0fr}

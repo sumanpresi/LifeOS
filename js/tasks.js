@@ -208,7 +208,8 @@ export function renderTasks() {
   const open = visible.filter(t => !t.done);
   const done = visible.filter(t => t.done && !t.archived).sort(sortByDate ? byDate : () => 0);
   const todayGroup = open.filter(t => t.dueDate === todayKeyStr).sort(byFlagThenDate);
-  const upcomingGroup = open.filter(t => t.dueDate !== todayKeyStr).sort(byFlagThenDate);
+  const overdueGroup = open.filter(t => t.dueDate && t.dueDate < todayKeyStr).sort(byFlagThenDate);
+  const upcomingGroup = open.filter(t => t.dueDate !== todayKeyStr && !(t.dueDate && t.dueDate < todayKeyStr)).sort(byFlagThenDate);
   // Archived is native tasks only — GSI project tasks are a different
   // schema entirely (a 4-state status, not done/archived) and already
   // have their own separate archive system in GSI Workspace.
@@ -228,6 +229,7 @@ export function renderTasks() {
       </div>`;
   } else {
     list.innerHTML =
+      (overdueGroup.length ? sectionHtml("overdue", "Overdue", overdueGroup) : "") +
       sectionHtml("today", "Today", todayGroup) +
       sectionHtml("upcoming", "Upcoming", upcomingGroup) +
       (done.length ? sectionHtml("completed", "Completed", done) : "");
