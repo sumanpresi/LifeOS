@@ -88,13 +88,6 @@ function renderIdentity() {
 let hasReconciled = false;      // has this session checked the cloud at least once?
 let pendingSaveAfterReconcile = false;
 
-// TEMPORARY — sticky-note sync debug logging. Remove this helper and
-// its call sites once sync is confirmed reliable across devices.
-function stickyCounts(whiteboards) {
-  const entries = Object.entries(whiteboards || {}).map(([k, b]) => `${k}=${(b?.objects || []).filter(o => !o.deleted).length}`);
-  return entries.length ? entries.join(", ") : "(none)";
-}
-
 // The reconciliation used by both loadRemote() and the realtime
 // subscription below resolves conflicts by comparing one timestamp for
 // the *entire* saved state — whichever side's overall timestamp is
@@ -112,7 +105,6 @@ function mergeIncomingWhiteboards(remote) {
   });
   state.whiteboards = mergedBoards;
   remote.whiteboards = mergedBoards;
-  console.log("[sticky-sync] after merge:", stickyCounts(mergedBoards)); // TEMPORARY
 }
 // Same reasoning as mergeIncomingWhiteboards above, extended to the
 // Brainstorming board's tabs: each tab is merged individually by id,
@@ -158,7 +150,6 @@ export async function loadRemote(preferRemote = false) {
     if (error) throw error;
     if (data && data.data && Object.keys(data.data).length) {
       const remote = data.data;
-      console.log("[sticky-sync] after download:", stickyCounts(remote.whiteboards)); // TEMPORARY
       mergeIncomingWhiteboards(remote);
       mergeIncomingBrainstormBoards(remote);
       // The merge just changed local state (possibly pulling in board
@@ -190,7 +181,6 @@ export async function saveRemote() {
   setSyncPill("busy", "Saving…");
   try {
     const payload = Object.assign({}, state, { _client: CLIENT_ID });
-    console.log("[sticky-sync] before upload:", stickyCounts(payload.whiteboards)); // TEMPORARY
     const { error } = await sb.from("lifeos_data").upsert({
       user_id: user.id, data: payload, updated_at: new Date().toISOString()
     });

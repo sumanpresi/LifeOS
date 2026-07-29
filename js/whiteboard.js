@@ -650,9 +650,6 @@ function renderObjects(boardId) {
   const w = s.canvas.width / s.dpr; // same basis as strokes
   const objs = board(boardId).objects.filter(o => !o.deleted); // tombstones stay in state for sync, never in the DOM
 
-  // TEMPORARY — remove once sync is confirmed reliable across devices.
-  console.log(`[sticky-sync] ${boardId}: rendering ${objs.length} note(s)`);
-
   // Reconcile against the existing DOM instead of the previous
   // `innerHTML = …` full rebuild. That rebuild ran on every render pass
   // — including the one triggered by the window "resize" event that
@@ -803,7 +800,7 @@ function findStickyNear(boardId, clientX, clientY, excludeId, maxDist) {
     const dist = Math.hypot(dx, dy);
     if (dist < bestDist) { bestDist = dist; bestId = el.dataset.objId; }
   });
-  const threshold = maxDist ?? 120; // generous — this is meant to be forgiving, not pixel-precise
+  const threshold = maxDist ?? 280; // raised from 120px after console diagnostics showed real drops consistently landing 170-207px away — that px range came directly from a user's browser console, not a guess
   if (bestId && bestDist > threshold) {
     console.log(`[connector] nearest note was ${Math.round(bestDist)}px away (limit ${threshold}px) — treating as no target`);
     return null;
