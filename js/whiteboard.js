@@ -710,9 +710,18 @@ function renderConnectors(boardId) {
   const svg = document.getElementById(id(boardId, "wbConnectorLayer"));
   const s = inst(boardId);
   if (!svg || !s.canvas) return;
-  const w = s.canvas.width / s.dpr; // same basis stickyHtml() uses for both x and y
-  svg.setAttribute("viewBox", `0 0 ${w} ${w}`);
-  // Without this, a square viewBox rendered into this canvas's actual
+  const w = s.canvas.width / s.dpr;  // width basis — stickyHtml() uses this for BOTH o.x*w and o.y*w
+  const h = s.canvas.height / s.dpr; // the canvas's actual rendered height — NOT equal to w on this 4:3 canvas
+  // stickyHtml() treats o.y*w as a direct pixel offset (not a value
+  // that gets its own height-based rescaling) — so for this SVG to
+  // agree with where notes actually are, one viewBox unit must equal
+  // exactly one real pixel in BOTH directions. That only holds if the
+  // viewBox's own height matches the canvas's true height; reusing w
+  // for height here (as a same-value square) was the remaining bug —
+  // preserveAspectRatio:none was necessary but not sufficient on its
+  // own without this.
+  svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  // Without this, a viewBox rendered into this canvas's actual
   // (non-square, 4:3) box gets letterboxed by SVG's default
   // aspect-ratio-preserving behavior — shrunk and centered rather than
   // stretched to fill — which silently shifts every coordinate away
@@ -721,7 +730,7 @@ function renderConnectors(boardId) {
   // correction applied to them at all.
   svg.setAttribute("preserveAspectRatio", "none");
   svg.setAttribute("width", w);
-  svg.setAttribute("height", w);
+  svg.setAttribute("height", h);
 
   const objs = board(boardId).objects.filter(o => !o.deleted);
   const byId = {};
