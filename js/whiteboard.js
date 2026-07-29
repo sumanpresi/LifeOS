@@ -1141,6 +1141,7 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
       window.removeEventListener("pointerup", onUp);
       const o2 = getObj(); if (o2) o2.updatedAt = Date.now();
       persist();
+      renderConnectors(boardId);
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -1168,6 +1169,7 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
       window.removeEventListener("pointerup", onUp);
       const o2 = getObj(); if (o2) o2.updatedAt = Date.now();
       persist();
+      renderConnectors(boardId);
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
