@@ -1630,13 +1630,13 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .wb-sfmt-color-swatch{width:14px;height:14px;border-radius:4px;border:1px solid rgba(0,0,0,.15)}
 .wb-sfmt-color-pop{display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:30;background:#fff;
   border:1px solid var(--glass-line);border-radius:10px;box-shadow:var(--shadow-glass-lift);
-  padding:6px;gap:4px;grid-template-columns:repeat(4,22px)}
-.wb-sfmt-color-pop.open{display:grid}
-.wb-sfmt-swatch{width:22px;height:22px;border-radius:6px;border:1px solid rgba(0,0,0,.12);cursor:pointer;padding:0;
-  font-size:11px;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+  padding:6px;width:108px;flex-wrap:wrap;gap:4px}
+.wb-sfmt-color-pop.open{display:flex}
+.wb-sfmt-swatch{flex:0 0 22px;width:22px;height:22px;border-radius:6px;border:1px solid rgba(0,0,0,.12);cursor:pointer;padding:0;
+  font-size:11px;display:flex;align-items:center;justify-content:center;color:var(--muted);box-sizing:border-box}
 .wb-sfmt-swatch:hover{transform:scale(1.1)}
 .wb-sfmt-swatch-custom{position:relative;overflow:hidden;background:linear-gradient(135deg,#f00,#0f0,#00f)}
-.wb-sfmt-swatch-custom input[type=color]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.wb-sfmt-swatch-custom input[type=color]{position:absolute;top:-4px;left:-4px;width:30px;height:30px;opacity:0;cursor:pointer;border:none;padding:0}
 .wb-sfmt-size,.wb-sfmt-font{flex-shrink:0;height:26px;border:1px solid var(--glass-line);border-radius:7px;background:rgba(255,255,255,.6);
   font-size:11.5px;padding:0 4px;color:var(--ink);cursor:pointer}
 .wb-sfmt-font{max-width:88px}
@@ -1656,7 +1656,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   .wb-sfmt-row button{min-width:34px;height:34px;font-size:14px}
   .wb-sfmt-color-btn{width:32px;height:34px}
   .wb-sfmt-swatch{width:28px;height:28px}
-  .wb-sfmt-color-pop{grid-template-columns:repeat(4,28px)}
+  .wb-sfmt-color-pop{width:136px}
   .wb-sfmt-size,.wb-sfmt-font{height:34px;font-size:13px}
   .wb-sticky-format-toolbar{bottom:calc(100% + 4px)}
 }

@@ -1143,7 +1143,21 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
     const swatchEl = btn.querySelector(".wb-sfmt-color-swatch");
     const applyColor = (color) => {
       restoreRange();
-      document.execCommand(cmd, false, color);
+      if (color === "transparent") {
+        document.execCommand(cmd, false, "#ffffff"); // closest native equivalent to "remove highlight" — browsers don't accept a literal transparent value reliably here
+      } else {
+        const marker = "#010203"; // a color no real user would pick, used purely to find what execCommand just touched
+        document.execCommand(cmd, false, marker);
+        textEl.querySelectorAll("font, span").forEach(elNode => {
+          const raw = ((elNode.tagName === "FONT" ? elNode.getAttribute("color") : elNode.getAttribute("style")) || "").toLowerCase();
+          if (raw.includes("010203") || raw.includes("1, 2, 3")) {
+            const span = document.createElement("span");
+            span.style[cmd === "foreColor" ? "color" : "backgroundColor"] = color;
+            while (elNode.firstChild) span.appendChild(elNode.firstChild);
+            elNode.replaceWith(span);
+          }
+        });
+      }
       saveHtml();
       if (color !== "transparent") swatchEl.style.background = color;
       pop.classList.remove("open");
