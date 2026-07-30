@@ -567,8 +567,19 @@ function defaultStickySize() {
    Notes now store formatted content as sanitized HTML (o.html) instead
    of plain text (o.text). o.text is read once as a migration source for
    pre-existing notes and never written to again. */
-const STICKY_FONTS = [["Sans-serif","-apple-system,Segoe UI,Roboto,sans-serif"],["Serif","Georgia,'Times New Roman',serif"],["Mono","'Courier New',monospace"],["Fraunces","'Fraunces',serif"]];
-const STICKY_FONT_SIZES = [["S","2"],["M","3"],["L","5"],["XL","6"]]; // legacy execCommand fontSize scale (1-7)
+const STICKY_FONTS = [
+  ["Sans-serif", "-apple-system,Segoe UI,Roboto,sans-serif"],
+  ["Serif", "Georgia,'Times New Roman',serif"],
+  ["Mono", "'Courier New',monospace"],
+  ["Fraunces", "'Fraunces',serif"],
+  ["Arial", "Arial,Helvetica,sans-serif"],
+  ["Calibri", "Calibri,Candara,'Segoe UI',sans-serif"],
+  ["Times New Roman", "'Times New Roman',Times,serif"],
+  ["Verdana", "Verdana,Geneva,sans-serif"],
+  ["Trebuchet MS", "'Trebuchet MS',sans-serif"],
+  ["Garamond", "Garamond,'Times New Roman',serif"],
+];
+const STICKY_FONT_SIZES = [8,9,10,11,12,14,16,18,20,24,28,36,48,72]; // real point sizes, applied as a span style rather than execCommand's legacy 1-7 scale (see applyStickyFontSize)
 
 // Every note's HTML round-trips through Supabase and gets rendered on
 // another device via innerHTML — this is the render-time allowlist that
@@ -976,7 +987,7 @@ function stickyHtml(o, w) {
           <button data-cmd="underline" title="Underline (Ctrl+U)"><u>U</u></button>
           <input type="color" class="wb-sfmt-color" data-cmd="foreColor" title="Text color" value="#1B1B1A">
           <select class="wb-sfmt-size" data-cmd="fontSize" title="Font size">
-            ${STICKY_FONT_SIZES.map(([label, val]) => `<option value="${val}" ${val === "3" ? "selected" : ""}>${label}</option>`).join("")}
+            ${STICKY_FONT_SIZES.map(px => `<option value="${px}" ${px === 11 ? "selected" : ""}>${px}</option>`).join("")}
           </select>
           <button data-cmd="insertUnorderedList" title="Bulleted list">• ≡</button>
           <button class="wb-sfmt-more" title="More formatting">⋯</button>
@@ -1084,9 +1095,35 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
   // Color pickers and the font/size selects genuinely need to take
   // focus to open their native UI, so the selection has to be
   // explicitly restored afterward instead of just never losing it.
-  fmtToolbar.querySelectorAll(".wb-sfmt-color, select[data-cmd]").forEach(ctrl => {
+  // fontSize/fontName both hit the same real bug: execCommand for
+  // either only knows how to produce legacy <font size="X">/<font
+  // face="X"> tags, and <font> was deliberately never added to the
+  // sticky note sanitizer's allowlist — so the change would apply
+  // instantly, then silently vanish the next time the note's HTML got
+  // sanitized (on save or reload). The fix is the standard workaround:
+  // use execCommand as a temporary marker, then immediately replace
+  // whatever <font> it produced with an equivalent <span style="...">,
+  // which the sanitizer does allow (font-size/font-family are both in
+  // STICKY_ALLOWED_STYLE_PROPS).
+  function applyFontStyle(cmd, cssProp, cssValue) {
+    restoreRange();
+    document.execCommand(cmd, false, cmd === "fontSize" ? "7" : "x-sticky-marker");
+    const selector = cmd === "fontSize" ? 'font[size="7"]' : 'font[face="x-sticky-marker"]';
+    textEl.querySelectorAll(selector).forEach(f => {
+      const span = document.createElement("span");
+      span.style[cssProp] = cssValue;
+      while (f.firstChild) span.appendChild(f.firstChild);
+      f.replaceWith(span);
+    });
+    saveHtml();
+  }
+  fmtToolbar.querySelector(".wb-sfmt-size").addEventListener("pointerdown", saveRange);
+  fmtToolbar.querySelector(".wb-sfmt-size").addEventListener("change", (e) => applyFontStyle("fontSize", "fontSize", e.target.value + "px"));
+  fmtToolbar.querySelector(".wb-sfmt-font").addEventListener("pointerdown", saveRange);
+  fmtToolbar.querySelector(".wb-sfmt-font").addEventListener("change", (e) => applyFontStyle("fontName", "fontFamily", e.target.value));
+  fmtToolbar.querySelectorAll(".wb-sfmt-color").forEach(ctrl => {
     ctrl.addEventListener("pointerdown", saveRange);
-    ctrl.addEventListener(ctrl.tagName === "SELECT" ? "change" : "input", () => {
+    ctrl.addEventListener("input", () => {
       restoreRange();
       document.execCommand(ctrl.dataset.cmd, false, ctrl.value);
       saveHtml();
@@ -1108,7 +1145,7 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
     restoreRange();
     const sel = window.getSelection();
     if (!sel.rangeCount || sel.isCollapsed) {
-      document.execCommand("insertHTML", false, `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(url)}</a>`);
+      document.execCommand("insertHTML", false, `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">🔗 Open link</a>`);
     } else {
       document.execCommand("createLink", false, url);
     }
@@ -1152,7 +1189,7 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
       while ((m = urlRe.exec(text))) {
         if (m.index > lastIndex) frag.appendChild(document.createTextNode(text.slice(lastIndex, m.index)));
         const a = document.createElement("a");
-        a.href = m[0]; a.target = "_blank"; a.rel = "noopener noreferrer"; a.textContent = m[0];
+        a.href = m[0]; a.target = "_blank"; a.rel = "noopener noreferrer"; a.textContent = "🔗 Open link";
         frag.appendChild(a);
         lastIndex = m.index + m[0].length;
       }
