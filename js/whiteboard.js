@@ -1143,6 +1143,19 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
     const swatchEl = btn.querySelector(".wb-sfmt-color-swatch");
     const applyColor = (color) => {
       restoreRange();
+      // A collapsed selection (just a blinking cursor, nothing
+      // highlighted) means execCommand has nothing to actually wrap —
+      // it silently does nothing rather than erroring, which is why
+      // clicking a swatch with no text selected looked like it wasn't
+      // working at all. Falling back to "select everything" makes a
+      // color always visibly apply to something.
+      const sel = window.getSelection();
+      if (!sel.rangeCount || sel.isCollapsed) {
+        const range = document.createRange();
+        range.selectNodeContents(textEl);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
       if (color === "transparent") {
         document.execCommand(cmd, false, "#ffffff"); // closest native equivalent to "remove highlight" — browsers don't accept a literal transparent value reliably here
       } else {
