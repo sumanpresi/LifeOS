@@ -1142,36 +1142,45 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
     const pop = wrap.querySelector(".wb-sfmt-color-pop");
     const swatchEl = btn.querySelector(".wb-sfmt-color-swatch");
     const applyColor = (color) => {
+      console.log(`[sticky-color] applyColor called: cmd=${cmd} color=${color}`);
       restoreRange();
       const sel = window.getSelection();
+      console.log(`[sticky-color] selection after restoreRange: rangeCount=${sel.rangeCount} isCollapsed=${sel.isCollapsed} anchorNode=`, sel.anchorNode);
       // A collapsed selection (just a blinking cursor, nothing
       // highlighted) has no range worth wrapping — fall back to
       // "select everything" so a color always visibly applies to
       // something rather than silently doing nothing.
       if (!sel.rangeCount || sel.isCollapsed) {
+        console.log("[sticky-color] selection was empty/collapsed — selecting entire note as fallback");
         const r = document.createRange();
         r.selectNodeContents(textEl);
         sel.removeAllRanges();
         sel.addRange(r);
       }
-      const range = sel.getRangeAt(0);
-      const cssProp = cmd === "foreColor" ? "color" : "backgroundColor";
-      const span = document.createElement("span");
-      span.style[cssProp] = color === "transparent" ? "transparent" : color;
-      // extractContents+insertNode instead of range.surroundContents —
-      // surroundContents throws if the range partially crosses an
-      // existing element's boundary (e.g. a selection starting inside
-      // a <b> tag and ending outside it), which is routine in rich
-      // text that already has other formatting applied. This approach
-      // works for any selection shape.
-      const frag = range.extractContents();
-      span.appendChild(frag);
-      range.insertNode(span);
-      sel.removeAllRanges();
-      const after = document.createRange();
-      after.selectNodeContents(span);
-      sel.addRange(after);
-      saveHtml();
+      try {
+        const range = sel.getRangeAt(0);
+        console.log("[sticky-color] range to wrap:", range.toString());
+        const cssProp = cmd === "foreColor" ? "color" : "backgroundColor";
+        const span = document.createElement("span");
+        span.style[cssProp] = color === "transparent" ? "transparent" : color;
+        // extractContents+insertNode instead of range.surroundContents —
+        // surroundContents throws if the range partially crosses an
+        // existing element's boundary (e.g. a selection starting inside
+        // a <b> tag and ending outside it), which is routine in rich
+        // text that already has other formatting applied. This approach
+        // works for any selection shape.
+        const frag = range.extractContents();
+        span.appendChild(frag);
+        range.insertNode(span);
+        sel.removeAllRanges();
+        const after = document.createRange();
+        after.selectNodeContents(span);
+        sel.addRange(after);
+        saveHtml();
+        console.log("[sticky-color] applied successfully, span now in DOM:", span.outerHTML);
+      } catch (err) {
+        console.error("[sticky-color] threw an error while applying:", err);
+      }
       if (color !== "transparent") swatchEl.style.background = color;
       pop.classList.remove("open");
     };
@@ -1182,7 +1191,7 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
     });
     wrap.querySelectorAll(".wb-sfmt-swatch[data-color]").forEach(sw => {
       sw.addEventListener("pointerdown", (evt) => evt.preventDefault());
-      sw.addEventListener("click", () => applyColor(sw.dataset.color));
+      sw.addEventListener("click", () => { console.log(`[sticky-color] swatch clicked: ${sw.dataset.color}`); applyColor(sw.dataset.color); });
     });
     const customInput = wrap.querySelector(".wb-sfmt-color-custom");
     customInput.addEventListener("pointerdown", (evt) => { evt.stopPropagation(); saveRange(); });
