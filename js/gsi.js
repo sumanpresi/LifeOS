@@ -268,8 +268,16 @@ function gsiBoardCardHtml(item) {
         ${item.flag ? `<span class="t-board-card-flag" title="Priority">🚩</span>` : ""}
       </div>
       <div class="t-board-card-meta">
-        ${due ? `<span class="t-board-card-date ${due.cls === "gsi-overdue" ? "overdue" : ""}">🗓 ${due.text}</span>` : ""}
-        ${item.link ? `<a href="${esc(item.link.startsWith("http")?item.link:"https://"+item.link)}" target="_blank" rel="noopener" class="t-board-card-tag" style="text-decoration:none">🔗 Link</a>` : ""}
+        <span class="t-board-card-date ${due && due.cls === "gsi-overdue" ? "overdue" : ""}">
+          <button class="${due ? "t-due-icon" : "t-add-date-btn"}" onclick="event.stopPropagation();openGsiDatePicker('${item.id}')" title="Change due date">🗓${due ? "" : " Add date"}</button>
+          <input type="date" class="t-due-hidden-input" id="gsi-board-date-${item.id}" value="${esc(item.date||"")}"
+            onclick="event.stopPropagation()" onchange="event.stopPropagation();editProjectTask('${item.id}','date',this.value)">
+          ${due ? due.text : ""}</span>
+        ${item.link
+          ? `<a href="${esc(item.link.startsWith("http")?item.link:"https://"+item.link)}" target="_blank" rel="noopener" class="t-board-card-tag" style="text-decoration:none" onclick="event.stopPropagation()">🔗 Link</a>`
+          : `<button class="t-add-link-btn" onclick="toggleGsiLinkEdit(event,'${item.id}')">+ Link</button>`}
+        <input type="text" class="t-link-input" id="gsi-link-edit-${item.id}" placeholder="Paste a link…" value="${esc(item.link||"")}"
+          onclick="event.stopPropagation()" onchange="editProjectTask('${item.id}','link',this.value)" onblur="this.style.display='none'" style="display:none">
       </div>
     </div>`;
 }
@@ -375,6 +383,15 @@ function renderProjects() {
   // boot, before navigating here), this measurement will be wrong —
   // go() in ui.js re-runs this once the page actually becomes visible.
   document.querySelectorAll(".gsi-title").forEach(autoGrow);
+}
+export function openGsiDatePicker(id) {
+  const input = document.getElementById(`gsi-board-date-${id}`);
+  if (!input) return;
+  if (typeof input.showPicker === "function") {
+    try { input.showPicker(); return; } catch (e) { /* falls through to the older fallback below */ }
+  }
+  input.focus();
+  input.click();
 }
 export function toggleGsiLinkEdit(evt, id) {
   evt.stopPropagation();

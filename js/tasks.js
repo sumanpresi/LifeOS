@@ -231,6 +231,13 @@ export function toggleTaskExpanded(id) {
 // task's current dueDate — so picking a new date here already moves
 // the task to the right section automatically, with no extra code
 // needed for that part.
+export function toggleTaskLinkEdit(evt, id) {
+  evt.stopPropagation();
+  const input = document.getElementById("task-link-edit-" + id);
+  if (!input) return;
+  input.style.display = "inline-block";
+  input.focus();
+}
 export function openDueDatePicker(id) {
   const input = document.getElementById(`dueInput-${id}`);
   if (!input) return;
@@ -336,8 +343,15 @@ function taskRowHtml(t) {
           <input type="date" class="t-due-hidden-input" id="dueInput-${t.id}" value="${t.dueDate}"
             onclick="event.stopPropagation()" onchange="event.stopPropagation();editTaskMeta('${t.id}','dueDate',this.value)">
           <span>${due.text}</span>
-        </div>` : ""}
-        ${t.link ? `<a href="${esc(t.link.startsWith("http")?t.link:"https://"+t.link)}" target="_blank" rel="noopener" class="t-link-go" onclick="event.stopPropagation()">🔗 Open link</a>` : ""}
+        </div>` : `<div class="t-due t-due-empty">
+          <button class="t-add-date-btn" onclick="event.stopPropagation();openDueDatePicker('${t.id}')">📅 Add date</button>
+          <input type="date" class="t-due-hidden-input" id="dueInput-${t.id}" value=""
+            onclick="event.stopPropagation()" onchange="event.stopPropagation();editTaskMeta('${t.id}','dueDate',this.value)">
+        </div>`}
+        ${t.link ? `<a href="${esc(t.link.startsWith("http")?t.link:"https://"+t.link)}" target="_blank" rel="noopener" class="t-link-go" onclick="event.stopPropagation()">🔗 Open link</a>`
+          : `<button class="t-add-link-btn" onclick="toggleTaskLinkEdit(event,'${t.id}')">+ Add link</button>`}
+        <input type="text" class="t-link-input" id="task-link-edit-${t.id}" placeholder="Paste a link…" value="${esc(t.link||"")}"
+          onclick="event.stopPropagation()" onchange="editTaskMeta('${t.id}','link',this.value)" onblur="this.style.display='none'" style="display:none">
       </div>
       <div class="t-right">
         <span class="t-breadcrumb">${breadcrumb}</span>
@@ -404,7 +418,16 @@ function boardCardHtml(t) {
           <button class="t-due-icon" onclick="event.stopPropagation();openDueDatePicker('${t.id}')" title="Change due date">🗓</button>
           <input type="date" class="t-due-hidden-input" id="dueInput-${t.id}" value="${t.isGsi ? (t.date || "") : (t.dueDate || "")}"
             onclick="event.stopPropagation()" onchange="event.stopPropagation();editTaskMeta('${t.id}','dueDate',this.value)">
-          ${due.text}</span>` : ""}
+          ${due.text}</span>` : `<span class="t-board-card-date">
+          <button class="t-add-date-btn" onclick="event.stopPropagation();openDueDatePicker('${t.id}')">🗓 Add date</button>
+          <input type="date" class="t-due-hidden-input" id="dueInput-${t.id}" value=""
+            onclick="event.stopPropagation()" onchange="event.stopPropagation();editTaskMeta('${t.id}','dueDate',this.value)">
+          </span>`}
+        ${t.link
+          ? `<a href="${esc(t.link.startsWith("http")?t.link:"https://"+t.link)}" target="_blank" rel="noopener" class="t-board-card-tag" style="text-decoration:none" onclick="event.stopPropagation()">🔗 Link</a>`
+          : `<button class="t-add-link-btn" onclick="event.stopPropagation();toggleTaskLinkEdit(event,'${t.id}')">+ Link</button>`}
+        <input type="text" class="t-link-input" id="task-link-edit-${t.id}" placeholder="Paste a link…" value="${esc(t.link||"")}"
+          onclick="event.stopPropagation()" onchange="editTaskMeta('${t.id}','link',this.value)" onblur="this.style.display='none'" style="display:none">
         <span class="t-board-card-tag">${tag}</span>
         ${t.done ? (t.isGsi
           ? `<button class="t-archive-btn" onclick="event.stopPropagation();archiveGsiTaskEntry('${t.projectId}','${t.id}')" title="Archive">🗂</button>`
@@ -456,14 +479,13 @@ export function quickAddBoardTask(key) {
   if (dateEl) dateEl.value = "";
   persist(); rerender();
 }
-function renderBoardView(overdueGroup, todayGroup, upcomingGroup, noDateGroup, done, archivedTasks) {
+function renderBoardView(overdueGroup, todayGroup, upcomingGroup, noDateGroup, done) {
   return `<div class="t-board">
     ${boardColumnHtml("overdue", "Overdue", overdueGroup, "t-board-overdue")}
     ${boardColumnHtml("today", "Today", todayGroup, "t-board-today")}
     ${boardColumnHtml("upcoming", "Upcoming", upcomingGroup, "")}
     ${boardColumnHtml("nodate", "No Date", noDateGroup, "")}
     ${boardColumnHtml("completed", "Completed", done, "")}
-    ${boardColumnHtml("archived", "Archived", archivedTasks, "")}
   </div>`;
 }
 
@@ -666,7 +688,7 @@ export function renderTasks() {
         <div class="t-empty-sub">Add your first task below to get started.</div>
       </div>`;
   } else if (taskView === "board") {
-    list.innerHTML = renderBoardView(overdueGroup, todayGroup, boardUpcomingGroup, noDateGroup, done, archivedTasks);
+    list.innerHTML = renderBoardView(overdueGroup, todayGroup, boardUpcomingGroup, noDateGroup, done);
   } else if (taskView === "calendar") {
     list.innerHTML = renderCalendarView(visible.filter(t => t.dueDate));
   } else {

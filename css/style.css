@@ -1076,6 +1076,16 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .gsi-add-date{color:var(--muted)}
 .gsi-add-date:hover{color:var(--accent-ink)}
 .gsi-date-row.gsi-overdue .gsi-date-display{color:var(--danger);font-weight:600}
+
+/* Native task / board "add date" and "add link" affordances — same
+   visual language as GSI's own .gsi-add-date/.gsi-add-link above. */
+.t-add-date-btn,.t-add-link-btn{border:none;background:none;color:var(--muted);font-size:13px;cursor:pointer;padding:0;
+  text-decoration:underline;text-decoration-style:dotted;font-family:inherit;display:inline-flex;align-items:center;gap:4px}
+.t-add-date-btn:hover,.t-add-link-btn:hover{color:var(--accent-ink)}
+.t-link-input{border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:12.5px;
+  font-family:inherit;background:var(--paper);width:220px;max-width:100%}
+.t-board-card .t-add-date-btn,.t-board-card .t-add-link-btn{font-size:11px}
+.t-board-card .t-link-input{width:150px;font-size:11px}
 .gsi-date-row.gsi-today .gsi-date-display{color:#2563EB;font-weight:600}
 .gsi-date-row.gsi-future .gsi-date-display{color:var(--muted)}
 .gsi-date-hidden-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
