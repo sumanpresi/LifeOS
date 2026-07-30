@@ -1143,34 +1143,34 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
     const swatchEl = btn.querySelector(".wb-sfmt-color-swatch");
     const applyColor = (color) => {
       restoreRange();
-      // A collapsed selection (just a blinking cursor, nothing
-      // highlighted) means execCommand has nothing to actually wrap —
-      // it silently does nothing rather than erroring, which is why
-      // clicking a swatch with no text selected looked like it wasn't
-      // working at all. Falling back to "select everything" makes a
-      // color always visibly apply to something.
       const sel = window.getSelection();
+      // A collapsed selection (just a blinking cursor, nothing
+      // highlighted) has no range worth wrapping — fall back to
+      // "select everything" so a color always visibly applies to
+      // something rather than silently doing nothing.
       if (!sel.rangeCount || sel.isCollapsed) {
-        const range = document.createRange();
-        range.selectNodeContents(textEl);
+        const r = document.createRange();
+        r.selectNodeContents(textEl);
         sel.removeAllRanges();
-        sel.addRange(range);
+        sel.addRange(r);
       }
-      if (color === "transparent") {
-        document.execCommand(cmd, false, "#ffffff"); // closest native equivalent to "remove highlight" — browsers don't accept a literal transparent value reliably here
-      } else {
-        const marker = "#010203"; // a color no real user would pick, used purely to find what execCommand just touched
-        document.execCommand(cmd, false, marker);
-        textEl.querySelectorAll("font, span").forEach(elNode => {
-          const raw = ((elNode.tagName === "FONT" ? elNode.getAttribute("color") : elNode.getAttribute("style")) || "").toLowerCase();
-          if (raw.includes("010203") || raw.includes("1, 2, 3")) {
-            const span = document.createElement("span");
-            span.style[cmd === "foreColor" ? "color" : "backgroundColor"] = color;
-            while (elNode.firstChild) span.appendChild(elNode.firstChild);
-            elNode.replaceWith(span);
-          }
-        });
-      }
+      const range = sel.getRangeAt(0);
+      const cssProp = cmd === "foreColor" ? "color" : "backgroundColor";
+      const span = document.createElement("span");
+      span.style[cssProp] = color === "transparent" ? "transparent" : color;
+      // extractContents+insertNode instead of range.surroundContents —
+      // surroundContents throws if the range partially crosses an
+      // existing element's boundary (e.g. a selection starting inside
+      // a <b> tag and ending outside it), which is routine in rich
+      // text that already has other formatting applied. This approach
+      // works for any selection shape.
+      const frag = range.extractContents();
+      span.appendChild(frag);
+      range.insertNode(span);
+      sel.removeAllRanges();
+      const after = document.createRange();
+      after.selectNodeContents(span);
+      sel.addRange(after);
       saveHtml();
       if (color !== "transparent") swatchEl.style.background = color;
       pop.classList.remove("open");
