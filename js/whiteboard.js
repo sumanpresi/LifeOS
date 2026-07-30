@@ -1194,8 +1194,13 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
         // escapes normal document flow, not an ancestor's own
         // overflow boundary.
         const r = btn.getBoundingClientRect();
+        console.log("[sticky-color] button rect:", { top: r.top, left: r.left, bottom: r.bottom, right: r.right });
         pop.style.top = (r.bottom + 4) + "px";
         pop.style.left = r.left + "px";
+        requestAnimationFrame(() => {
+          const finalRect = pop.getBoundingClientRect();
+          console.log("[sticky-color] popover's actual final position:", { top: finalRect.top, left: finalRect.left });
+        });
       }
     });
     wrap.querySelectorAll(".wb-sfmt-swatch[data-color]").forEach(sw => {
