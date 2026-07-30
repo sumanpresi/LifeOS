@@ -375,6 +375,17 @@
 
     <!-- ======== PAGE: WORK / GSI ======== -->
     <section class="page" id="page-work">
+      <div class="card" style="margin-bottom:16px">
+        <div class="card-head"><h2>GSI links</h2></div>
+        <div class="card-body">
+          <div class="link-grid" id="gsiLinks" style="grid-template-columns:1fr"></div>
+          <div class="add-inline">
+            <input type="text" id="gsiLinkTitle" placeholder="Title">
+            <input type="text" id="gsiLinkUrl" placeholder="https://…">
+            <button class="btn btn-ghost" onclick="addGsiLink()">Add</button>
+          </div>
+        </div>
+      </div>
       <h1 class="display" style="font-size:28px;margin-bottom:14px">GSI Workspace</h1>
       <div class="wb-tabs-row" style="margin-bottom:12px">
         <div class="wb-tabs" id="wsTabsList"></div>
@@ -417,52 +428,17 @@
         </div>
         </div>
       </div>
-      <div class="grid-2" style="margin-top:16px">
-        <div class="card">
-          <div class="card-head"><h2>Daily work log</h2></div>
-          <div class="card-body">
-            <div class="add-inline" style="margin-top:0">
-              <input type="text" id="newLog" placeholder="What did you work on today?" onkeydown="if(event.key==='Enter')addLog()">
-              <button class="btn btn-ghost" onclick="addLog()">Log</button>
-            </div>
-            <div id="logList" style="margin-top:8px"></div>
-          </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-head">
+          <input type="text" id="workDocsLabel" onchange="renameWorkDocsLabel(this.value)"
+            style="border:none;background:transparent;font-family:'Fraunces',serif;font-size:19px;font-weight:600;flex:1;padding:0">
         </div>
-        <div class="card">
-          <div class="card-head">
-            <input type="text" id="workDocsLabel" onchange="renameWorkDocsLabel(this.value)"
-              style="border:none;background:transparent;font-family:'Fraunces',serif;font-size:19px;font-weight:600;flex:1;padding:0">
-          </div>
-          <div class="card-body">
-            <div class="link-grid" id="workDocs" style="grid-template-columns:1fr"></div>
-            <div class="add-inline">
-              <input type="text" id="workDocName" placeholder="Document name">
-              <input type="text" id="workDocUrl" placeholder="https://…">
-              <button class="btn btn-ghost" onclick="addWorkDoc()">➕ Add</button>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="grid-2" style="margin-top:16px">
-        <div class="card">
-          <div class="card-head"><h2>Meeting notes</h2></div>
-          <div class="card-body">
-            <div class="add-inline" style="margin-top:0">
-              <input type="text" id="newMeeting" placeholder="Meeting title, e.g. BISAG-N weekly review" onkeydown="if(event.key==='Enter')addMeeting()">
-              <button class="btn btn-ghost" onclick="addMeeting()">Add</button>
-            </div>
-            <div id="meetingList" style="margin-top:12px"></div>
-          </div>
-        </div>
-        <div class="card">
-          <div class="card-head"><h2>GSI links</h2></div>
-          <div class="card-body">
-            <div class="link-grid" id="gsiLinks" style="grid-template-columns:1fr"></div>
-            <div class="add-inline">
-              <input type="text" id="gsiLinkTitle" placeholder="Title">
-              <input type="text" id="gsiLinkUrl" placeholder="https://…">
-              <button class="btn btn-ghost" onclick="addGsiLink()">Add</button>
-            </div>
+        <div class="card-body">
+          <div class="link-grid" id="workDocs" style="grid-template-columns:1fr"></div>
+          <div class="add-inline">
+            <input type="text" id="workDocName" placeholder="Document name">
+            <input type="text" id="workDocUrl" placeholder="https://…">
+            <button class="btn btn-ghost" onclick="addWorkDoc()">➕ Add</button>
           </div>
         </div>
       </div>
@@ -559,6 +535,28 @@
             <input type="text" id="personalDocName" placeholder="Document name">
             <input type="text" id="personalDocUrl" placeholder="https://…">
             <button class="btn btn-ghost" onclick="addPersonalDoc()">➕ Add</button>
+          </div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:16px">
+        <div class="card">
+          <div class="card-head"><h2>Daily work log</h2></div>
+          <div class="card-body">
+            <div class="add-inline" style="margin-top:0">
+              <input type="text" id="newLog" placeholder="What did you work on today?" onkeydown="if(event.key==='Enter')addLog()">
+              <button class="btn btn-ghost" onclick="addLog()">Log</button>
+            </div>
+            <div id="logList" style="margin-top:8px"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Meeting notes</h2></div>
+          <div class="card-body">
+            <div class="add-inline" style="margin-top:0">
+              <input type="text" id="newMeeting" placeholder="Meeting title, e.g. BISAG-N weekly review" onkeydown="if(event.key==='Enter')addMeeting()">
+              <button class="btn btn-ghost" onclick="addMeeting()">Add</button>
+            </div>
+            <div id="meetingList" style="margin-top:12px"></div>
           </div>
         </div>
       </div>

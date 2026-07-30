@@ -67,7 +67,7 @@ h1,h2,.display{font-family:'Fraunces',serif}
 .gh-chip .gh-name{font-weight:700;font-size:13px}
 .gh-chip .gh-sub{font-size:11.5px;color:var(--muted)}
 
-.main{flex:1;min-width:0;padding:26px 34px 60px;max-width:1440px}
+.main{flex:1;min-width:0;padding:26px 34px 60px}
 
 /* ---------- header ---------- */
 .top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap;
