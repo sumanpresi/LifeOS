@@ -1,0 +1,1620 @@
+:root{
+  --paper:#F3EEE4; --card:#FFFDF9; --ink:#2B2A24; --muted:#8C8574;
+  --line:#E7E0D0; --lilac:#EAE6DA; --lilac-deep:#D8D0BC;
+  --accent:#4B5C42; --accent-ink:#37452F;
+  --sand:#EFE4D0; --sage:#DCE3D3; --blush:#F2E1D6; --sky:#E4E7DC;
+  --ok:#4F7A5C; --warn:#C08A3E; --danger:#B5533F; --danger-bg:#F3E2DC; --secondary:#8A5A3B;
+  --accent2:#B9714A; /* warm terracotta — secondary accent, used sparingly, matching how restrained the source site's own accent use is */
+  --r:20px; --shadow:0 1px 2px rgba(43,42,36,.05),0 10px 26px -14px rgba(43,42,36,.16);
+  /* Reused across cards, sidebar, top bar, buttons, inputs, modals,
+     dropdowns, and the whiteboard's floating controls — same variable
+     names/roles as before, but the ClearPath look is warm and mostly
+     flat/matte rather than frosted, so blur is pulled way back and
+     only really shows on dialogs sitting over content, not as the
+     dominant surface treatment everywhere the way it was before. */
+  --glass-bg:rgba(255,253,249,.94);
+  --glass-bg-strong:rgba(255,253,249,.99);
+  --glass-border:rgba(255,253,249,.7);
+  --glass-line:rgba(139,124,92,.18);
+  --glass-blur:blur(6px);
+  --glass-blur-strong:blur(10px);
+  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.5);
+  --shadow-glass:0 1px 2px rgba(43,42,36,.05),0 10px 26px -14px rgba(43,42,36,.16);
+  --shadow-glass-lift:0 4px 10px rgba(43,42,36,.06),0 20px 40px -18px rgba(43,42,36,.22);
+  --ease:cubic-bezier(.22,1,.36,1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{font-family:'Karla',sans-serif;color:var(--ink);font-size:15px;line-height:1.5;min-height:100vh;
+  background:
+    radial-gradient(1000px 560px at 8% -10%,rgba(75,92,66,.06),transparent 60%),
+    radial-gradient(900px 600px at 100% 0%,rgba(185,113,74,.05),transparent 55%),
+    linear-gradient(180deg,#F7F3E9 0%,#F1EAD9 100%);
+  background-attachment:fixed}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,textarea,select{font-family:inherit;font-size:inherit;color:inherit}
+input,textarea,select{transition:border-color .18s var(--ease),box-shadow .18s var(--ease),background-color .18s var(--ease)}
+input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(75,92,66,.15)}
+input::placeholder,textarea::placeholder{color:var(--muted);opacity:.8}
+a{color:var(--accent-ink)}
+::selection{background:var(--lilac-deep)}
+h1,h2,.display{font-family:'Fraunces',serif}
+
+/* ---------- shell ---------- */
+.shell{display:flex;min-height:100vh}
+.sidebar{width:232px;flex-shrink:0;
+  background:var(--glass-bg);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-line);border-radius:22px;
+  box-shadow:var(--shadow-glass),var(--glass-highlight);
+  margin:16px 0 16px 16px;
+  padding:20px 14px;display:flex;flex-direction:column;gap:4px;position:sticky;top:16px;height:calc(100vh - 32px);overflow-y:auto}
+.brand{display:flex;align-items:center;gap:10px;padding:6px 8px 18px;border-bottom:1px solid var(--glass-line);margin-bottom:14px}
+.brand-mark{width:34px;height:34px;border-radius:11px;background:var(--accent2);color:#fff;display:grid;place-items:center;
+  font-family:'Fraunces',serif;font-weight:700;font-size:19px;transform:rotate(-4deg);box-shadow:0 6px 14px -4px rgba(185,113,74,.45)}
+.brand-name{font-family:'Fraunces',serif;font-weight:700;font-size:20px;letter-spacing:.2px}
+.nav-label{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:10px 8px 4px}
+.nav-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:8px 10px;border-radius:12px;
+  font-weight:600;font-size:14px;color:#5C5748;transition:background .18s var(--ease),color .18s var(--ease),transform .18s var(--ease)}
+.nav-item svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;flex-shrink:0}
+.nav-item:hover{background:rgba(255,255,255,.6);transform:translateX(2px)}
+.nav-item.active{background:linear-gradient(135deg,rgba(75,92,66,.16),rgba(75,92,66,.07));color:var(--accent-ink);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 1px 4px rgba(75,92,66,.15)}
+.sidebar-foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--glass-line)}
+.gh-chip{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:14px;background:rgba(255,255,255,.5);width:100%;text-align:left;
+  border:1px solid var(--glass-line);transition:background .18s var(--ease),transform .18s var(--ease)}
+.gh-chip:hover{background:rgba(255,255,255,.75);transform:translateY(-1px)}
+.gh-chip img{width:26px;height:26px;border-radius:50%}
+.gh-chip .gh-name{font-weight:700;font-size:13px}
+.gh-chip .gh-sub{font-size:11.5px;color:var(--muted)}
+
+.main{flex:1;min-width:0;padding:26px 34px 60px;max-width:1440px}
+
+/* ---------- header ---------- */
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap;
+  background:var(--glass-bg);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-line);border-radius:20px;padding:16px 20px;box-shadow:var(--shadow-glass),var(--glass-highlight)}
+.greet h1{font-size:32px;font-weight:600;letter-spacing:-.01em;font-family:'Fraunces',serif}
+.greet .date{color:var(--muted);font-weight:600;margin-top:2px}
+.top-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pill{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:999px;font-weight:700;font-size:13px;
+  border:1px solid var(--glass-line);background:rgba(255,255,255,.6);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+  transition:transform .18s var(--ease),box-shadow .18s var(--ease),background .18s var(--ease)}
+.pill:hover{transform:translateY(-1px);box-shadow:var(--shadow-glass);background:rgba(255,255,255,.9)}
+.pill.dot::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--muted)}
+.pill.dot.ok::before{background:var(--ok)}
+.pill.dot.busy::before{background:var(--accent)}
+.pill.dot.err::before{background:var(--warn)}
+/* Pill-shaped buttons, solid deep-sage primary — matches the source
+   site's own CTA convention ("Start your journey" etc.) far more than
+   the previous gradient/glow treatment did. */
+.btn{display:inline-flex;align-items:center;gap:8px;padding:9px 18px;border-radius:999px;font-weight:700;font-size:14px;
+  transition:transform .18s var(--ease),box-shadow .18s var(--ease),background .18s var(--ease)}
+.btn-primary{background:var(--accent);color:#FBF8F1;box-shadow:0 8px 18px -8px rgba(75,92,66,.5)}
+.btn-primary:hover{background:var(--accent-ink);transform:translateY(-1px);box-shadow:0 12px 24px -10px rgba(75,92,66,.55)}
+.btn-ghost{border:1px solid var(--glass-line);background:rgba(255,255,255,.55);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
+.btn-ghost:hover{background:rgba(255,255,255,.9);transform:translateY(-1px);box-shadow:var(--shadow-glass)}
+.btn svg{width:16px;height:16px}
+
+/* ---------- cards ---------- */
+.card{background:var(--glass-bg);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-line);border-radius:var(--r);box-shadow:var(--shadow-glass),var(--glass-highlight);
+  container-type:inline-size;transition:box-shadow .22s var(--ease),transform .22s var(--ease)}
+.card:hover{box-shadow:var(--shadow-glass-lift),var(--glass-highlight);transform:translateY(-2px)}
+.card-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px 0}
+.card-head h2{font-size:19px;font-weight:600}
+.card-body{padding:14px 18px 18px}
+.hint{color:var(--muted);font-size:13px}
+
+.section-title{font-family:'Fraunces',serif;font-size:22px;font-weight:600;margin:30px 0 12px}
+
+/* tasks */
+.task-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line)}
+.task-row:last-child{border-bottom:none}
+.task-row textarea{flex:1;min-width:0;border:none;background:transparent;font-weight:600;outline:none;
+  padding:2px;resize:none;overflow:hidden;white-space:pre-wrap;word-break:break-word;line-height:1.35;
+  font-family:inherit;font-size:inherit;color:inherit;box-sizing:border-box;display:block}
+.task-row .del{opacity:.35}
+.task-row .del:hover{opacity:1;color:var(--warn)}
+.task-num{width:22px;height:22px;border-radius:50%;background:var(--lilac);color:var(--accent-ink);font-size:12px;font-weight:800;
+  display:grid;place-items:center;flex-shrink:0}
+.task-row.done input[type=text]{text-decoration:line-through;color:var(--muted)}
+
+/* hand-inked checkbox — signature element */
+.chk{width:26px;height:26px;flex-shrink:0;border:2px solid #4A63C8;border-radius:6px;background:#fff;display:grid;place-items:center;
+  transform:rotate(-2deg);transition:transform .12s ease,background .12s ease;position:relative}
+.chk:nth-child(even){transform:rotate(2deg)}
+.chk:hover{transform:rotate(0) scale(1.06)}
+.chk svg{width:18px;height:18px;stroke:#3350B8;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;
+  stroke-dasharray:24;stroke-dashoffset:24;transition:stroke-dashoffset .18s ease}
+.chk.on{background:#EAF0FF}
+.chk.on svg{stroke-dashoffset:0}
+.chk.mini{width:18px;height:18px;border-width:1.6px;border-radius:5px}
+.chk.mini svg{width:12px;height:12px;stroke-width:3.4}
+.chk:disabled{opacity:.45;cursor:default}
+
+/* habit tracker */
+.habit-table{width:100%;border-collapse:collapse}
+.habit-table th{font-size:11.5px;font-weight:800;letter-spacing:.08em;color:var(--muted);padding:6px 4px;text-align:center}
+.habit-table th:first-child{text-align:left}
+.habit-table td{padding:7px 4px;text-align:center;border-top:1px dashed var(--line)}
+.habit-table td:first-child{text-align:left;font-weight:600}
+.habit-name{display:flex;align-items:center;gap:8px}
+.habit-name .del{opacity:.3}
+.habit-name .del:hover{opacity:1;color:var(--warn)}
+.today-col{background:var(--lilac);border-radius:8px}
+.streak{font-size:12px;color:var(--muted);font-weight:700;white-space:nowrap}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg button{padding:6px 13px;font-weight:700;font-size:13px;background:var(--card)}
+.seg button.on{background:var(--accent);color:#fff}
+.week-nav{display:flex;align-items:center;gap:8px}
+.week-nav button{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);display:grid;place-items:center}
+.week-nav svg{width:14px;height:14px;stroke:var(--ink);fill:none;stroke-width:2}
+.week-label{font-weight:700;font-size:13px;color:var(--muted)}
+
+/* donut */
+.donut-wrap{display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.donut{width:130px;height:130px}
+.donut .track{stroke:var(--line)}
+.donut .val{stroke:var(--accent);stroke-linecap:round;transition:stroke-dasharray .4s ease}
+.donut-center{font-family:'Fraunces',serif;font-size:26px;font-weight:700;fill:var(--ink)}
+.legend{display:flex;flex-direction:column;gap:6px;font-size:13.5px;font-weight:600}
+.legend .row{display:flex;align-items:center;gap:8px}
+.legend .swatch{width:10px;height:10px;border-radius:3px}
+
+/* goals */
+.goal{padding:10px 0;border-bottom:1px dashed var(--line)}
+.goal:last-child{border-bottom:none}
+.goal-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.goal-top input[type=text]{flex:1;min-width:0;border:none;background:transparent;font-weight:700;outline:none}
+.goal-top .pct{font-family:'Fraunces',serif;font-weight:700;font-size:17px;color:var(--accent-ink);min-width:44px;text-align:right}
+.bar{height:8px;border-radius:99px;background:var(--lilac);margin-top:8px;overflow:hidden}
+.bar > span{display:block;height:100%;border-radius:99px;background:var(--accent);transition:width .3s ease}
+.goal input[type=range]{width:100%;accent-color:var(--accent);margin-top:6px}
+.goal .del{opacity:.3;font-size:12px}
+.goal .del:hover{opacity:1;color:var(--warn)}
+
+/* links — horizontal auto-width tabs, side by side, wrapping onto new
+   lines as needed. Each tab sizes to its own title length (no fixed
+   width) — the URL stays hidden until the pencil icon opens the popover
+   below that specific tab. */
+.link-grid{display:flex;flex-direction:row;flex-wrap:wrap;align-items:flex-start;gap:8px}
+.link-row{position:relative;display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;max-width:100%;
+  padding:7px 6px 7px 12px;border:1px solid var(--glass-line);border-radius:999px;background:var(--glass-bg-strong)}
+.link-row-title{flex:0 0 auto;min-width:0;max-width:100%;font-weight:700;text-decoration:none;color:var(--ink);
+  white-space:nowrap;position:relative;display:inline-block;
+  transition:transform .12s var(--ease),color .15s var(--ease)}
+/* Growing underline on hover instead of the instant default underline
+   — a small, cheap bit of polish that reads as more considered. */
+.link-row-title::after{content:"";position:absolute;left:0;bottom:-2px;height:1.5px;width:0;
+  background:var(--accent);transition:width .22s var(--ease)}
+.link-row-title:hover{color:var(--accent-ink)}
+.link-row-title:hover::after{width:100%}
+@keyframes linkClickPulse{0%{transform:scale(1)}40%{transform:scale(.94)}100%{transform:scale(1)}}
+.link-row-title.clicked{animation:linkClickPulse .32s var(--ease)}
+.link-edit-btn,.link-del-btn{flex-shrink:0;width:24px;height:24px;border-radius:8px;color:var(--muted);
+  font-size:11px;display:flex;align-items:center;justify-content:center;opacity:.45;
+  transition:opacity .15s var(--ease),background .15s var(--ease),color .15s var(--ease)}
+.link-row:hover .link-edit-btn,.link-row:hover .link-del-btn,.link-row:focus-within .link-edit-btn,.link-row:focus-within .link-del-btn{opacity:1}
+.link-edit-btn:hover{background:rgba(75,92,66,.12);color:var(--accent-ink)}
+.link-del-btn:hover{background:var(--danger-bg);color:var(--danger)}
+/* Edit panel — a small popover anchored under its own tab, not an
+   inline block, so opening it can't push neighboring tabs around the
+   way it would if it expanded within the flex row. Height still
+   animates via the same grid-template-rows technique used elsewhere;
+   opacity fades alongside it so it doesn't just snap into view. */
+.link-edit-panel{position:absolute;top:calc(100% + 6px);left:0;z-index:25;min-width:230px;
+  background:var(--glass-bg-strong);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border:1px solid var(--glass-line);border-radius:12px;box-shadow:var(--shadow-glass-lift);
+  display:grid;grid-template-rows:0fr;opacity:0;pointer-events:none;
+  transition:grid-template-rows .2s var(--ease),opacity .2s var(--ease)}
+.link-edit-panel.open{grid-template-rows:1fr;opacity:1;pointer-events:auto}
+.link-edit-panel-inner{overflow:hidden;min-height:0;display:flex;flex-direction:column;gap:6px;padding:10px}
+.link-edit-panel-inner input{border:1px solid var(--glass-line);border-radius:8px;padding:7px 10px;font-size:13px;background:#fff}
+.card.has-open-popover{position:relative;z-index:15}
+.link-edit-panel-inner input:focus{outline:none;border-color:var(--accent)}
+.add-inline{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.add-inline input{flex:1;min-width:130px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--paper);outline:none}
+.add-inline input:focus{border-color:var(--accent)}
+
+/* quote */
+.quote-box{font-family:'Fraunces',serif;font-size:19px;line-height:1.45;font-weight:600}
+.quote-box .mark{color:var(--accent);font-size:30px;line-height:0;vertical-align:-8px;margin-right:4px}
+
+/* news */
+.news-list{display:flex;flex-direction:column;gap:8px}
+.news-list a{display:flex;align-items:center;gap:10px;padding:9px 12px;border:1px solid var(--line);border-radius:11px;
+  text-decoration:none;font-weight:700;background:var(--card)}
+.news-list a:hover{background:var(--paper)}
+.news-list .fav{width:26px;height:26px;border-radius:8px;background:var(--lilac);display:grid;place-items:center;
+  font-family:'Fraunces',serif;font-weight:700;color:var(--accent-ink);font-size:13px}
+
+/* meditation */
+.med-time{font-family:'Fraunces',serif;font-size:44px;font-weight:700;letter-spacing:.02em;text-align:center}
+.med-controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:10px}
+.med-stat{text-align:center;color:var(--muted);font-weight:700;font-size:13px;margin-top:10px}
+
+/* section pages */
+.notes-area{width:100%;min-height:220px;border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--card);
+  resize:vertical;outline:none;line-height:1.6}
+.notes-area:focus{border-color:var(--accent)}
+
+/* grid layout on overview */
+.grid-2{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;align-items:start}
+@media(max-width:900px){.grid-2{grid-template-columns:1fr}}
+
+/* modal */
+.modal-bg{position:fixed;inset:0;background:rgba(34,31,51,.45);display:none;align-items:center;justify-content:center;padding:18px;z-index:50}
+.modal-bg.open{display:flex}
+.modal{background:var(--card);border-radius:18px;max-width:480px;width:100%;padding:24px;box-shadow:0 24px 60px -20px rgba(0,0,0,.4);
+  max-height:90vh;overflow-y:auto}
+.modal h2{font-size:22px;margin-bottom:6px}
+.modal .steps{margin:12px 0 14px;padding-left:18px;color:#4A4660;font-size:14px}
+.modal .steps li{margin-bottom:7px}
+.modal input[type=password],.modal input[type=text]{width:100%;border:1px solid var(--line);border-radius:10px;padding:10px 12px;
+  background:var(--paper);outline:none;margin-top:8px}
+.modal input:focus{border-color:var(--accent)}
+.modal .row{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+.modal .err{color:var(--warn);font-weight:700;font-size:13px;margin-top:8px;display:none}
+code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
+
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(16px);opacity:0;background:var(--ink);color:#fff;
+  padding:10px 18px;border-radius:12px;font-weight:700;font-size:14px;transition:transform .28s var(--ease),opacity .28s var(--ease);z-index:60;
+  display:flex;align-items:center;gap:12px}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+.toast-action{flex-shrink:0;color:#fff;font-weight:800;font-size:13px;text-decoration:underline;
+  text-underline-offset:2px;padding:2px 0;transition:opacity .15s var(--ease)}
+.toast-action:hover{opacity:.75}
+
+.page{display:none}.page.visible{display:block}
+.mob-toggle{display:none}
+@media(max-width:767px){
+  .sidebar{position:fixed;z-index:40;left:0;top:0;margin:0;height:100vh;border-radius:0 22px 22px 0;
+    transform:translateX(-100%);transition:transform .22s var(--ease);box-shadow:var(--shadow-glass-lift)}
+  .sidebar.open{transform:translateX(0)}
+  .main{padding:18px 16px 60px}
+  .mob-toggle{display:inline-flex}
+  .greet h1{font-size:26px}
+}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---------- v0.3: universal search (Ctrl/Cmd+K) ---------- */
+.search-bg{position:fixed;inset:0;background:rgba(34,31,51,.45);display:none;align-items:flex-start;justify-content:center;
+  padding:10vh 18px 18px;z-index:70}
+.search-bg.open{display:flex}
+.search-panel{background:var(--card);border-radius:16px;max-width:580px;width:100%;box-shadow:0 24px 60px -20px rgba(0,0,0,.4);overflow:hidden}
+.search-input-row{display:flex;align-items:center;gap:10px;padding:6px 16px;border-bottom:1px solid var(--line)}
+.search-input-row svg{width:18px;height:18px;stroke:var(--muted);fill:none;stroke-width:2;flex-shrink:0}
+.search-input{flex:1;min-width:0;border:none;outline:none;background:transparent;font-size:16px;padding:12px 0;font-weight:600}
+.search-results{max-height:52vh;overflow-y:auto;padding:8px}
+.search-item{display:flex;gap:10px;align-items:center;padding:9px 10px;border-radius:10px;cursor:pointer;width:100%;text-align:left}
+.search-item.sel{background:var(--lilac)}
+.search-badge{font-size:10.5px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;background:var(--paper);
+  border:1px solid var(--line);border-radius:6px;padding:2px 6px;color:var(--muted);flex-shrink:0;min-width:58px;text-align:center}
+.search-text{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.search-sub{font-size:12px;color:var(--muted);flex-shrink:0}
+.search-empty{padding:22px;text-align:center;color:var(--muted);font-weight:600}
+.kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:1px 6px;font-size:11.5px;font-weight:700;
+  background:var(--paper);color:var(--muted)}
+
+/* ---------- v0.3: GSI workspace ---------- */
+.status-sel{border:1px solid var(--line);border-radius:16px;padding:5px 12px;font-weight:700;font-size:12.5px;
+  background:var(--paper);flex-shrink:0;box-shadow:0 1px 3px rgba(34,31,51,.06);transition:box-shadow 150ms ease}
+.status-sel:hover{box-shadow:0 2px 6px rgba(34,31,51,.1)}
+.status-sel.s-todo{color:var(--muted)}
+.status-sel.s-progress{color:var(--accent-ink);border-color:var(--lilac-deep);background:var(--lilac)}
+.status-sel.s-done{color:var(--ok);background:#EAF3EC;border-color:#CDE3D3}
+.status-sel.s-blocked{color:var(--warn);background:#F8ECE6;border-color:#EBD3C6}
+.log-entry{padding:10px 0;border-bottom:1px dashed var(--line)}
+.log-entry:last-child{border-bottom:none}
+.log-date{font-size:12px;font-weight:800;color:var(--muted);letter-spacing:.04em;display:flex;justify-content:space-between;align-items:center}
+.log-text{margin-top:3px;white-space:pre-wrap;word-break:break-word}
+.meeting{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+.meeting-top{display:flex;align-items:center;gap:8px}
+.meeting-top input[type=text]{flex:1;min-width:0;border:none;background:transparent;font-weight:700;outline:none;font-size:15px}
+.meeting textarea{width:100%;border:none;background:var(--paper);border-radius:8px;padding:9px 11px;margin-top:8px;
+  outline:none;resize:vertical;min-height:64px;line-height:1.5}
+
+/* ---------- v0.3: embedded Communication page ---------- */
+.iframe-page{
+  width:100%;
+  height:calc(100vh - 150px);
+  min-height:720px;
+  border:1px solid var(--line);
+  border-radius:var(--r);
+  background:#fff;
+  box-shadow:var(--shadow);
+}
+@media(max-width:767px){
+  .iframe-page{height:calc(100vh - 120px);min-height:600px;border-radius:12px}
+}
+
+/* ---------- NGDR Upload Tracker iframe (sits below other Work·GSI cards) ---------- */
+.ngdr-tracker-frame{
+  height:1500px;
+  min-height:1200px;
+}
+@media(max-width:767px){
+  .ngdr-tracker-frame{height:1900px}
+}
+
+/* ---------- Task extras: flag, due date, link, category (Overview) ---------- */
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:900px){.grid-3{grid-template-columns:1fr}}
+.task-row{position:relative}
+.flag-btn{background:none;border:none;font-size:16px;opacity:.55;cursor:pointer;flex-shrink:0;filter:grayscale(.6)}
+.flag-btn:hover{opacity:.9;filter:grayscale(0)}
+.flag-btn.on{opacity:1;filter:none;transform:scale(1.08)}
+.task-meta-row{display:flex;align-items:center;gap:6px;padding:0 0 9px 60px;flex-wrap:wrap;border-bottom:1px dashed var(--line)}
+.task-row.done + .task-meta-row{opacity:.5}
+.task-meta-row:last-child{border-bottom:none}
+.task-cat-sel{border:1px solid var(--line);border-radius:7px;padding:3px 6px;font-size:11.5px;font-weight:700;background:var(--paper);color:var(--muted)}
+.task-due-input{border:1px solid var(--line);border-radius:7px;padding:3px 6px;font-size:11.5px;background:var(--paper);width:118px}
+.due-pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--lilac);color:var(--accent-ink);flex-shrink:0;white-space:nowrap}
+.task-source-badge{font-size:10.5px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--paper);
+  color:var(--muted);border:1px solid var(--line);flex-shrink:0;white-space:nowrap}
+.due-pill.duetoday{background:#FBF0DA;color:#96631A}
+.due-pill.overdue{background:#F8ECE6;color:var(--warn)}
+.task-link-input{border:1px solid var(--line);border-radius:7px;padding:3px 6px;font-size:11.5px;background:var(--paper);flex:1;min-width:70px}
+.task-link-go{font-size:13px;flex-shrink:0}
+.task-row textarea.task-text-linked{color:var(--accent-ink);text-decoration:underline;text-decoration-color:var(--lilac-deep)}
+.task-link-go-inline{font-size:13px;flex-shrink:0;text-decoration:none;padding:2px 4px;border-radius:6px}
+.task-link-go-inline:hover{background:var(--lilac)}
+
+/* ---------- Meeting link row (Work·GSI) ---------- */
+.meeting-link-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+.meeting-link-row input{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:6px 10px;background:var(--paper);font-size:12.5px}
+
+/* ---------- Finance / Health list items ---------- */
+.fin-item{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.fin-item:last-child{border-bottom:none}
+.fin-item-name-edit{flex:1.4;min-width:0;border:1px solid transparent;border-radius:7px;padding:5px 7px;background:transparent;font-weight:600}
+.fin-item-name-edit:hover,.fin-item-name-edit:focus{border-color:var(--line);background:var(--paper)}
+.fin-item-date-edit{flex:1;min-width:0;border:1px solid transparent;border-radius:7px;padding:5px 6px;background:transparent;font-size:12px}
+.fin-item-date-edit:hover,.fin-item-date-edit:focus{border-color:var(--line);background:var(--paper)}
+.fin-item-link-edit{flex:1;min-width:0;border:1px solid transparent;border-radius:7px;padding:5px 7px;background:transparent;font-size:12px}
+.fin-item-link-edit:hover,.fin-item-link-edit:focus{border-color:var(--line);background:var(--paper)}
+.fin-add{display:grid;grid-template-columns:1.3fr 1fr 1fr auto;gap:8px;margin-top:12px;min-width:0}
+.fin-add input{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--paper);font-size:13px;min-width:0}
+@container (max-width:340px){.fin-add{grid-template-columns:1fr 1fr}}
+
+/* ---------- Health: medicine week tracker ---------- */
+.dose-cell{display:flex;gap:3px;justify-content:center}
+.dose-btn{width:22px;height:22px;border-radius:6px;border:1.5px solid var(--line);background:#fff;font-size:10px;font-weight:800;
+  color:var(--muted);cursor:pointer;transition:.12s}
+.dose-btn:hover{border-color:var(--accent)}
+.dose-btn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.dose-btn:disabled{opacity:.35;cursor:default}
+
+/* ---------- Travel Plan ---------- */
+.tab-add{font-weight:800;padding:9px 14px}
+.travel-stop{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px;background:var(--card)}
+.travel-stop-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.travel-stop-row input{flex:1;min-width:120px;border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:var(--paper);font-size:13px}
+.travel-map{width:100%;height:280px;border:1px solid var(--line);border-radius:10px;margin-top:10px}
+
+/* ---------- Day Of: journal history list ---------- */
+.journal-list-item{display:flex;flex-direction:column;gap:2px;width:100%;text-align:left;padding:10px 12px;
+  border-radius:10px;border:1px solid transparent;cursor:pointer}
+.journal-list-item:hover{background:var(--paper)}
+.journal-list-item.active{background:var(--lilac);border-color:var(--lilac-deep)}
+.jd-date{font-weight:700;font-size:12.5px}
+.jd-snip{font-size:12px;color:var(--muted);white-space:pre-wrap;word-break:break-word}
+
+/* ---------- Sort button (Overview tasks) ---------- */
+#taskSortBtn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ---------- Meeting minutes (structured, click to expand) ---------- */
+.mm-card{border:1px solid var(--line);border-radius:12px;margin-bottom:10px;overflow:hidden;background:var(--card)}
+.mm-head{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:11px 14px;background:transparent}
+.mm-head:hover{background:var(--paper)}
+.mm-title{font-weight:700;font-size:14px;flex:1;min-width:0}
+.mm-arw{color:var(--muted);font-size:11px}
+.mm-body{padding:0 14px 14px}
+.mm-summary{width:100%;border-collapse:collapse;margin-bottom:14px}
+.mm-summary td{padding:6px 4px;border-top:1px dashed var(--line);font-size:12.5px;vertical-align:top}
+.mm-summary td:first-child{font-weight:700;color:var(--muted);width:110px;padding-top:11px}
+.mm-summary tr:first-child td{border-top:none}
+.mm-summary input{border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:var(--paper);font-size:12.5px;margin:2px 4px 2px 0}
+.mm-summary input[type=date]{width:140px}
+.mm-summary input[type=text]{width:calc(100% - 150px);min-width:120px}
+.mm-section{margin-bottom:12px}
+.mm-section label{display:block;font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+.mm-section textarea{width:100%;min-height:70px;border:1px solid var(--line);border-radius:10px;padding:9px 11px;
+  background:var(--paper);font-family:inherit;font-size:13px;resize:vertical;overflow-y:hidden}
+.mm-section textarea:focus{border-color:var(--accent);background:#fff;outline:none}
+
+/* ---------- Small icon/text buttons (project & plan delete, etc.) ---------- */
+.icon-btn{border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:12.5px;font-weight:600;
+  background:var(--card);color:var(--warn);flex-shrink:0}
+.icon-btn:hover{border-color:var(--warn);background:#F8ECE6}
+
+/* ---------- Travel: Itinerary / Route map sub-views ---------- */
+.travel-view{display:none}
+.travel-view.active{display:block}
+.travel-route-map{height:420px}
+
+/* ---------- Leaflet drawing map (Travel Plan per-stop) ---------- */
+.leaflet-map-container{width:100%;height:340px;border:1px solid var(--line);border-radius:10px;margin-top:4px;
+  background:#EFF3F7;position:relative;z-index:0}
+/* Leaflet's own toolbar icons render fine with defaults; just keep our
+   rounded-corner language consistent on the outer container. */
+.leaflet-map-container .leaflet-container{border-radius:10px;font-family:inherit}
+
+/* ---------- Travel stop: locate button ---------- */
+.tsf-wrap{display:flex;align-items:center;gap:4px;flex:1;min-width:120px}
+.tsf-wrap input{flex:1;min-width:0}
+.locate-btn{flex-shrink:0;background:var(--paper);border:1px solid var(--line);border-radius:8px;
+  width:30px;height:30px;font-size:13px;cursor:pointer}
+.locate-btn:hover{border-color:var(--accent);background:var(--lilac)}
+
+/* ---------- Habit tracking: calendar month view ---------- */
+.cal-toolbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+.cal-toolbar select{border:1px solid var(--line);border-radius:9px;padding:7px 10px;background:var(--paper);font-weight:600;font-size:13px}
+.cal-scribble-toggle{margin-left:auto;border:1px solid var(--line);border-radius:9px;padding:7px 12px;
+  background:#fff;font-weight:600;font-size:12.5px;color:var(--ink-soft);cursor:pointer}
+.cal-scribble-toggle.on{background:var(--lilac);border-color:var(--lilac-deep);color:var(--accent-ink)}
+.cal-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px}
+.cal-dow div{text-align:center;font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.05em}
+.cal-days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.cal-cell-wrap{aspect-ratio:1;position:relative}
+.cal-cell-wrap.empty{cursor:default}
+.cal-cell-wrap.today .cal-cell{box-shadow:0 0 0 2px var(--lilac-deep)}
+.cal-cell{width:100%;height:100%;border:1.5px solid var(--line);border-radius:9px;background:#fff;font-weight:700;font-size:13px;
+  color:var(--ink-soft,var(--ink));cursor:pointer;transition:.12s;display:flex;align-items:center;justify-content:center;box-sizing:border-box}
+.cal-cell:hover{border-color:var(--accent)}
+.cal-cell.done{background:var(--accent);border-color:var(--accent);color:#fff}
+.cal-cell.cal-future{opacity:.35;cursor:default}
+.cal-cell.cal-scribble-armed{border-style:dashed;border-color:var(--accent-ink);background:#FBF9FF}
+/* Task badge — a small numbered circle in the corner; opens the day's
+   task list on click without triggering the cell's own habit-toggle
+   click (handled via stopPropagation in the onclick attribute). */
+.cal-task-badge{position:absolute;top:-5px;right:-5px;width:18px;height:18px;border-radius:50%;
+  background:#EF4444;color:#fff;border:2px solid var(--card);font-size:10px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;line-height:1}
+.cal-scribble-dot{position:absolute;bottom:-3px;left:-3px;font-size:11px;pointer-events:none}
+.cal-day-popover{position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);z-index:40;
+  background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px -10px rgba(0,0,0,.25);
+  padding:8px;min-width:200px;max-width:260px}
+.cal-day-popover-head{font-size:11px;font-weight:800;color:var(--muted);padding:2px 6px 6px;letter-spacing:.03em}
+.cal-day-task{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;
+  border:none;background:none;text-align:left;padding:7px 6px;border-radius:8px;cursor:pointer;font-size:12.5px}
+.cal-day-task:hover{background:var(--paper)}
+.cal-day-task.done .cal-day-task-text{text-decoration:line-through;color:var(--muted)}
+.cal-day-task-text{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cal-day-task-source{flex-shrink:0;font-size:10.5px;color:var(--muted);background:var(--paper);
+  border-radius:6px;padding:2px 6px}
+
+/* ---------- Calendar scribble drawing modal ---------- */
+.scribble-modal-bg{display:none;position:fixed;inset:0;background:rgba(27,27,26,.45);z-index:220;
+  align-items:center;justify-content:center;padding:6vh 5vw}
+.scribble-modal-bg.open{display:flex}
+.scribble-modal{width:100%;max-width:520px;background:var(--card);border-radius:18px;
+  box-shadow:0 30px 80px -20px rgba(0,0,0,.4);display:flex;flex-direction:column;overflow:hidden}
+.scribble-canvas{width:100%;height:340px;touch-action:none;background:#fff;cursor:crosshair;display:block}
+.scribble-modal-foot{display:flex;align-items:center;gap:12px;padding:12px 18px;border-top:1px solid var(--line)}
+
+@media(max-width:767px){
+  .cal-scribble-toggle{min-height:40px}
+  .cal-task-badge{width:22px;height:22px;font-size:11px;top:-6px;right:-6px}
+  .scribble-modal-bg{padding:0}
+  .scribble-modal{max-width:none;height:100vh;border-radius:0}
+  .scribble-canvas{flex:1;height:auto}
+}
+
+/* ---------- Sketch tools (freehand draw + eraser) on maps ---------- */
+.freehand-toolbar{background:#fff}
+.freehand-btn{display:flex;align-items:center;justify-content:center;width:26px;height:26px;
+  font-size:15px;text-decoration:none;cursor:pointer}
+.freehand-btn.on{background:var(--accent);box-shadow:0 0 0 3px var(--lilac-deep),0 2px 8px rgba(75,92,66,.5);
+  transform:scale(1.12);border-radius:5px;position:relative;z-index:1}
+.eraser-btn.on{background:var(--warn);box-shadow:0 0 0 3px #FBD9C9,0 2px 8px rgba(211,120,60,.5);
+  transform:scale(1.12);border-radius:5px;position:relative;z-index:1}
+.leaflet-container.freehand-active{cursor:crosshair}
+.leaflet-container.eraser-active{cursor:cell}
+/* Disable the browser's native touch gestures (scroll/pinch) on the map
+   while sketching or erasing, so a finger or stylus stroke acts on the
+   map instead of panning it. */
+.leaflet-container.freehand-active,.leaflet-container.eraser-active{touch-action:none}
+
+/* ---------- Trash ---------- */
+.trash-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+.trash-row:last-child{border-bottom:none}
+.trash-type{flex-shrink:0;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+  background:var(--paper);color:var(--muted);padding:3px 9px;border-radius:999px;white-space:nowrap}
+.trash-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.trash-time{flex-shrink:0;color:var(--muted);font-size:12px;white-space:nowrap}
+
+/* ---------- Distance & route panel (World Map, Travel Plan) ---------- */
+.route-panel{margin-top:14px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--paper)}
+.route-panel-title{font-weight:700;font-size:13.5px;margin-bottom:10px}
+.route-inputs{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.route-inputs input{border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#fff;font-size:13px;min-width:140px}
+.route-inputs .tsf-wrap{flex:1;min-width:160px}
+.route-result{margin:10px 0 0;font-size:14px}
+.route-result:empty{margin:0}
+
+/* ---------- Travel stop: map toolbar (My location) ---------- */
+.stop-map-toolbar{margin:6px 0}
+
+/* ---------- Map click coordinates popup ---------- */
+.coord-popup{display:flex;align-items:center;gap:8px;font-family:'JetBrains Mono',monospace;font-size:12.5px}
+.coord-popup button{flex-shrink:0;border:1px solid var(--line);border-radius:6px;padding:3px 9px;
+  background:var(--paper);font-size:11.5px;font-weight:700;cursor:pointer;color:var(--accent-ink)}
+.coord-popup button:hover{border-color:var(--accent)}
+
+/* ---------- Meeting minutes: rich text editor (Quill) + grammar check ---------- */
+.mm-rich-editor{background:#fff}
+.mm-rich-editor .ql-toolbar.ql-snow{border:1px solid var(--line);border-radius:10px 10px 0 0;background:var(--paper)}
+.mm-rich-editor .ql-container.ql-snow{border:1px solid var(--line);border-top:none;border-radius:0 0 10px 10px;
+  font-family:inherit;font-size:13px;min-height:110px}
+.mm-rich-editor .ql-editor{min-height:110px}
+.mm-grammar-row{display:flex;justify-content:flex-end;margin-top:6px}
+.mm-grammar-btn{border:1px solid var(--line);border-radius:7px;padding:4px 10px;background:var(--paper);
+  font-size:12px;font-weight:700;color:var(--ink);cursor:pointer}
+.mm-grammar-btn:hover{border-color:var(--accent);background:#fff}
+.grammar-results{margin-top:8px}
+.grammar-list{display:flex;flex-direction:column;gap:8px}
+.grammar-item{border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#fff;font-size:12.5px}
+.grammar-msg{display:block;margin-bottom:6px;color:var(--ink)}
+.grammar-fix-btn{border:1px solid var(--accent);border-radius:6px;padding:3px 9px;margin:0 6px 0 0;
+  background:var(--lilac);color:var(--accent-ink);font-size:12px;font-weight:700;cursor:pointer}
+.grammar-fix-btn:hover{background:var(--accent);color:#fff}
+
+/* ---------- Rich text editor: font list + line spacing control ---------- */
+.ql-font-arial{font-family:Arial,Helvetica,sans-serif}
+.ql-font-times-new-roman{font-family:"Times New Roman",Times,serif}
+.ql-font-georgia{font-family:Georgia,serif}
+.ql-font-verdana{font-family:Verdana,sans-serif}
+.ql-font-courier-new{font-family:"Courier New",Courier,monospace}
+.ql-font-trebuchet-ms{font-family:"Trebuchet MS",sans-serif}
+.ql-font-comic-sans-ms{font-family:"Comic Sans MS",cursive}
+.ql-font-impact{font-family:Impact,sans-serif}
+.ql-picker.ql-font .ql-picker-label[data-value="arial"]::before,.ql-picker.ql-font .ql-picker-item[data-value="arial"]::before{content:"Arial";font-family:Arial,sans-serif}
+.ql-picker.ql-font .ql-picker-label[data-value="times-new-roman"]::before,.ql-picker.ql-font .ql-picker-item[data-value="times-new-roman"]::before{content:"Times New Roman";font-family:"Times New Roman",serif}
+.ql-picker.ql-font .ql-picker-label[data-value="georgia"]::before,.ql-picker.ql-font .ql-picker-item[data-value="georgia"]::before{content:"Georgia";font-family:Georgia,serif}
+.ql-picker.ql-font .ql-picker-label[data-value="verdana"]::before,.ql-picker.ql-font .ql-picker-item[data-value="verdana"]::before{content:"Verdana";font-family:Verdana,sans-serif}
+.ql-picker.ql-font .ql-picker-label[data-value="courier-new"]::before,.ql-picker.ql-font .ql-picker-item[data-value="courier-new"]::before{content:"Courier New";font-family:"Courier New",monospace}
+.ql-picker.ql-font .ql-picker-label[data-value="trebuchet-ms"]::before,.ql-picker.ql-font .ql-picker-item[data-value="trebuchet-ms"]::before{content:"Trebuchet MS";font-family:"Trebuchet MS",sans-serif}
+.ql-picker.ql-font .ql-picker-label[data-value="comic-sans-ms"]::before,.ql-picker.ql-font .ql-picker-item[data-value="comic-sans-ms"]::before{content:"Comic Sans MS";font-family:"Comic Sans MS",cursive}
+.ql-picker.ql-font .ql-picker-label[data-value="impact"]::before,.ql-picker.ql-font .ql-picker-item[data-value="impact"]::before{content:"Impact";font-family:Impact,sans-serif}
+.ql-lineheight-select{border:1px solid #ccc;border-radius:3px;background:#fff;font-size:12px;padding:2px 4px;height:24px;cursor:pointer}
+
+/* ---------- Tabs (Travel Plan / Reference / Work·GSI project switchers) ---------- */
+/* These had no dedicated styling at all before — rendering as unstyled
+   buttons made it genuinely hard to tell which one was selected. */
+.tabs{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:14px;
+  padding-bottom:8px;border-bottom:1.5px solid var(--line)}
+.tab{border:none;background:transparent;padding:7px 14px;border-radius:999px;
+  font-size:13.5px;font-weight:700;color:var(--muted);cursor:pointer;transition:.12s}
+.tab:hover{background:var(--paper);color:var(--ink)}
+.tab.active{background:var(--accent);color:#fff}
+.tab-add{color:var(--accent-ink);background:var(--lilac)}
+.tab-add:hover{background:var(--accent);color:#fff}
+
+/* ---------- "View large" expand modal ---------- */
+.expand-modal-bg{display:none;position:fixed;inset:0;background:rgba(20,18,35,.45);z-index:200;
+  align-items:flex-start;justify-content:center;padding:4vh 20px;overflow-y:auto}
+.expand-modal-bg.open{display:flex}
+.expand-modal{background:var(--card);border-radius:18px;width:100%;max-width:920px;
+  box-shadow:0 30px 70px -20px rgba(0,0,0,.45);display:flex;flex-direction:column;max-height:92vh}
+.expand-modal-head{display:flex;align-items:center;justify-content:space-between;
+  padding:18px 22px;border-bottom:1px solid var(--line);flex-shrink:0}
+.expand-modal-head h2{font-size:18px;margin:0}
+.expand-modal-body{padding:20px 22px;overflow-y:auto}
+.expand-btn{border:1px solid var(--line);border-radius:8px;width:28px;height:28px;
+  display:inline-flex;align-items:center;justify-content:center;background:var(--paper);
+  color:var(--muted);cursor:pointer;flex-shrink:0}
+.expand-btn:hover{border-color:var(--accent);color:var(--accent-ink);background:#fff}
+.expand-btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2}
+
+/* Expand button embedded inline within a section label (meeting minutes) */
+.mm-section label{display:flex;align-items:center;justify-content:space-between}
+.mm-expand-btn{width:22px;height:22px}
+
+/* ---------- Journal date-range filter ---------- */
+.journal-filter-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.journal-filter-row input[type="date"]{border:1px solid var(--line);border-radius:8px;padding:6px 8px;
+  background:var(--paper);font-size:12.5px}
+
+/* Completion timestamp pill (shown once a task is checked off) */
+.completed-pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;
+  background:#E4F1E8;color:var(--ok)}
+
+/* ---------- Travel: packing list (checkbox items, matching task-list style) ---------- */
+.pack-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line)}
+.pack-item:last-child{border-bottom:none}
+.pack-item-text{flex:1;min-width:0;font-weight:600}
+.pack-item.done .pack-item-text{text-decoration:line-through;color:var(--muted)}
+
+/* When Past Entries is reparented into the expand modal, let it use the
+   modal's own (much larger) scroll area instead of its normal compact
+   340px height — avoids an awkward scrollbar-within-a-scrollbar. */
+.expand-modal-body #journalList{max-height:none}
+
+/* ---------- Map fullscreen toggle ---------- */
+.map-fullscreen-btn{position:absolute;bottom:10px;right:10px;z-index:1000;
+  width:32px;height:32px;border:1px solid var(--line);border-radius:8px;background:#fff;
+  font-size:16px;line-height:1;cursor:pointer;box-shadow:0 2px 6px rgba(0,0,0,.15);color:var(--ink)}
+.map-fullscreen-btn:hover{border-color:var(--accent);color:var(--accent-ink)}
+.map-fullscreen-btn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+/* Give the map real breathing room while genuinely fullscreen. */
+.leaflet-map-container:fullscreen,.leaflet-map-container:-webkit-full-screen{height:100vh!important;width:100vw!important}
+
+/* Project tag badge — shown on GSI project tasks merged into Overview's
+   unified Work/All task view, so it's clear where each one came from. */
+.task-project-tag{font-size:10.5px;font-weight:800;letter-spacing:.02em;padding:2px 7px;
+  border-radius:99px;background:var(--sand,#F3E7D3);color:#8a5a20;flex-shrink:0;text-transform:uppercase}
+
+/* ---------- Map Pen Annotation toolbar (stylus-only, separate from the
+   finger/mouse/stylus freehand scribble toolbar) ---------- */
+.pen-annotation-btn.on{background:#2A6FB0;box-shadow:0 0 0 3px #C7DDEF,0 2px 8px rgba(42,111,176,.5);
+  transform:scale(1.12);border-radius:5px;position:relative;z-index:1}
+.pen-eraser-btn.on{background:var(--warn);box-shadow:0 0 0 3px #FBD9C9,0 2px 8px rgba(211,120,60,.5);
+  transform:scale(1.12);border-radius:5px;position:relative;z-index:1}
+
+/* ================================================================
+   TASKS PAGE REDESIGN — scoped entirely to #tasksCard. Deliberately
+   does NOT touch the shared .task-row/.chk/.flag-btn classes used by
+   Day Of's "Today's focus" or Work·GSI's own task list — this redesign
+   was requested specifically for the Tasks page, so those stay exactly
+   as they were rather than changing pages that weren't asked for.
+   ================================================================ */
+#tasksCard{--t-bg:#F7F8FA;--t-card:#FFFFFF;--t-ink:#1F2937;--t-ink2:#6B7280;
+  --t-accent:#2563EB;--t-danger:#EF4444;--t-border:#E5E7EB;
+  background:var(--t-bg);font-family:'Inter',sans-serif;border-color:var(--t-border)}
+#tasksCard .card-head{background:var(--t-card);border-bottom:1px solid var(--t-border)}
+#tasksCard .card-head h2{font-family:'Inter',sans-serif;font-size:20px;font-weight:600;color:var(--t-ink)}
+
+/* ---- Section headers (Today / Upcoming / Completed) ---- */
+.t-section{margin-bottom:4px}
+.t-section-head{display:flex;align-items:center;gap:10px;padding:14px 18px 8px;
+  cursor:pointer;user-select:none;background:transparent;border:none;width:100%;text-align:left}
+.t-section-head:focus-visible{outline:2px solid var(--t-accent);outline-offset:2px;border-radius:8px}
+.t-section-title{font-family:'Inter',sans-serif;font-size:14px;font-weight:600;color:var(--t-ink);
+  text-transform:uppercase;letter-spacing:.04em}
+.t-section-count{font-size:13px;font-weight:400;color:var(--t-ink2);background:var(--t-bg);
+  border-radius:99px;padding:1px 9px}
+.t-section-chevron{margin-left:auto;color:var(--t-ink2);transition:transform 200ms ease;font-size:12px}
+.t-section.collapsed .t-section-chevron{transform:rotate(-90deg)}
+.t-section[data-section="overdue"] .t-section-title{color:var(--warn)}
+.t-section[data-section="overdue"] .t-section-count{background:#F8ECE6;color:var(--warn)}
+.t-section-rows{display:grid;grid-template-rows:1fr;transition:grid-template-rows 220ms var(--ease,ease)}
+.t-section-rows-inner{overflow:hidden;min-height:0}
+.t-section.collapsed .t-section-rows{grid-template-rows:0fr}
+
+/* ---- Task rows ---- */
+.t-row{display:flex;align-items:flex-start;gap:12px;padding:14px 18px;
+  border-bottom:1px solid var(--t-border);background:var(--t-card);cursor:pointer;
+  border-radius:10px;margin:0 8px;transition:background 200ms ease,box-shadow 200ms ease}
+.t-row:last-child{border-bottom:none}
+.t-row:hover{background:#FAFBFD;box-shadow:0 1px 6px rgba(31,41,55,.06)}
+.t-row:focus-within{box-shadow:0 0 0 2px var(--t-accent)}
+.t-drag-handle{flex-shrink:0;width:20px;align-self:center;text-align:center;color:var(--t-ink2);
+  font-size:15px;cursor:grab;opacity:.35;transition:opacity 150ms ease;touch-action:none}
+.t-drag-handle:hover{opacity:1}
+.t-drag-handle:active{cursor:grabbing}
+.t-drag-handle-spacer{cursor:default;opacity:0;pointer-events:none} /* GSI rows — keeps alignment without being a real handle */
+/* SortableJS state classes — "lift, scale up, shadow increases" while
+   actively dragging; the ghost is the drop-target placeholder shown in
+   the list at the position the card would land. */
+.t-row-dragging{transform:scale(1.03);box-shadow:0 10px 28px -8px rgba(31,41,55,.28);z-index:5}
+.t-row-chosen{cursor:grabbing}
+.t-row-ghost{background:var(--lilac);border:2px dashed var(--accent);opacity:.6}
+
+/* Circular checkbox with an animated checkmark */
+.t-chk{width:22px;height:22px;border-radius:50%;border:1.5px solid #C7CCD4;background:#fff;
+  flex-shrink:0;margin-top:1px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:border-color 200ms ease,background 200ms ease}
+.t-chk:hover{border-color:var(--t-accent)}
+.t-chk svg{width:13px;height:13px;stroke:#fff;stroke-width:3;fill:none;stroke-dasharray:20;
+  stroke-dashoffset:20;transition:stroke-dashoffset 220ms ease}
+.t-chk.on{background:var(--t-accent);border-color:var(--t-accent)}
+.t-chk.on svg{stroke-dashoffset:0}
+
+.t-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.t-title-line{display:flex;align-items:center;gap:8px}
+.t-title{border:none;background:transparent;font-family:'Inter',sans-serif;font-size:16px;
+  font-weight:500;color:var(--t-ink);padding:0;flex:1;min-width:0;resize:none;overflow:hidden;
+  white-space:pre-wrap;word-break:break-word;line-height:1.35;display:block;box-sizing:border-box}
+.t-title:focus{outline:none;text-decoration:underline;text-decoration-color:var(--t-border)}
+.t-row.done .t-title{color:var(--t-ink2);text-decoration:line-through;opacity:.65}
+.t-title.t-linked{color:var(--t-accent);text-decoration:underline;text-decoration-color:#BFD3F8}
+.t-link-go{font-size:12.5px;color:var(--t-accent);text-decoration:none;display:inline-flex;
+  align-items:center;gap:4px;width:fit-content}
+.t-link-go:hover{text-decoration:underline}
+
+.t-due{display:flex;align-items:center;gap:5px;font-size:13px;font-weight:400;color:#B54747}
+.t-due.t-overdue{color:var(--t-danger);font-weight:500}
+.t-due.t-future{color:var(--t-ink2)}
+.t-due-icon{font-size:inherit;line-height:1;cursor:pointer;padding:2px;margin:-2px;border-radius:4px;transition:background 120ms ease}
+.t-due-icon:hover{background:rgba(0,0,0,.06)}
+.t-due-hidden-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;border:none;padding:0}
+.t-board-card-date{position:relative;display:inline-flex;align-items:center;gap:3px}
+
+.t-flag{background:none;border:none;font-size:14px;opacity:.35;cursor:pointer;flex-shrink:0;
+  filter:grayscale(.7);padding:2px;transition:opacity 150ms ease,transform 150ms ease}
+.t-flag:hover{opacity:.8}
+.t-flag.on{opacity:1;filter:none;transform:scale(1.1)}
+
+.t-right{display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex-shrink:0;padding-top:1px}
+.t-breadcrumb{font-size:12px;font-weight:400;color:var(--t-ink2);background:var(--t-bg);
+  border-radius:6px;padding:3px 9px;white-space:nowrap}
+.t-del{background:none;border:none;color:var(--t-ink2);font-size:13px;cursor:pointer;padding:3px;
+  opacity:0;transition:opacity 150ms ease}
+.t-row:hover .t-del,.t-row:focus-within .t-del{opacity:1}
+.t-del:hover{color:var(--t-danger)}
+.t-completed-note{font-size:12px;color:#16A34A;background:#EFFCF3;border-radius:6px;padding:3px 9px}
+.t-archive-btn{font-size:12px;color:var(--t-ink2);background:var(--t-bg);border:1px solid var(--t-border);
+  border-radius:6px;padding:3px 9px;cursor:pointer;transition:background 150ms ease,color 150ms ease}
+.t-archive-btn:hover{background:var(--t-accent);color:#fff;border-color:var(--t-accent)}
+
+/* ---- Archived section ---- */
+.t-archived-sort{border:1px solid var(--t-border);border-radius:8px;
+  background:var(--t-bg);color:var(--t-ink2);font-size:13px;padding:6px 10px;cursor:pointer;min-height:36px}
+.t-archived-row{align-items:flex-start;cursor:default}
+.t-archived-trigger-row{padding:10px 18px 16px}
+.t-archived-trigger{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--t-border);
+  background:var(--t-bg);color:var(--t-ink2);font-family:'Inter',sans-serif;font-size:13px;font-weight:600;
+  border-radius:9px;padding:9px 14px;cursor:pointer;min-height:44px;transition:background 150ms ease,border-color 150ms ease}
+.t-archived-trigger:hover{background:#fff;border-color:var(--t-accent);color:var(--t-ink)}
+.t-archived-trigger .t-section-count{background:#fff}
+.t-archived-check{width:22px;height:22px;border-radius:50%;background:var(--t-accent);color:#fff;
+  flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;margin-top:1px}
+.t-archived-title{font-family:'Inter',sans-serif;font-size:16px;font-weight:500;color:var(--t-ink2);
+  text-decoration:line-through;opacity:.75;word-break:break-word}
+.t-archived-meta{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--t-ink2)}
+.t-archived-meta a{color:var(--t-accent);text-decoration:none}
+.t-archived-meta a:hover{text-decoration:underline}
+.t-archived-flag{color:#B54747}
+.t-archived-actions{display:flex;flex-direction:column;gap:6px;flex-shrink:0}
+.t-archived-actions .btn{padding:5px 10px;font-size:12px;white-space:nowrap}
+.t-archived-delete:hover{background:#FEE2E2;color:var(--t-danger);border-color:var(--t-danger)}
+
+/* ---- Board view ---- */
+.t-board{display:flex;gap:14px;overflow-x:auto;padding:14px 18px 18px;align-items:flex-start}
+.t-board-col{flex:1 1 0;min-width:230px;background:var(--t-bg);border-radius:12px;border:1px solid var(--t-border);
+  display:flex;flex-direction:column;max-height:70vh}
+.t-board-col-head{display:flex;align-items:center;gap:8px;padding:12px 12px 10px;border-bottom:1px solid var(--t-border);flex-shrink:0}
+.t-board-col-title{font-family:'Inter',sans-serif;font-size:13px;font-weight:700;color:var(--t-ink);
+  text-transform:uppercase;letter-spacing:.03em}
+.t-board-col-head.t-board-overdue .t-board-col-title{color:var(--warn)}
+.t-board-col-head.t-board-today .t-board-col-title{color:var(--t-accent)}
+.t-board-col-body{padding:10px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
+.t-board-quickadd{display:flex;gap:6px;padding:8px 10px;border-top:1px solid var(--t-border);flex-shrink:0}
+.t-board-quickadd input[type=text]{flex:1;min-width:0;border:1px solid var(--t-border);border-radius:8px;
+  padding:6px 9px;font-size:12.5px;background:var(--t-card)}
+.t-board-quickadd input[type=date]{flex-shrink:0;width:118px;border:1px solid var(--t-border);border-radius:8px;
+  padding:6px 6px;font-size:11.5px;background:var(--t-card)}
+.t-board-quickadd .btn{padding:6px 10px;font-size:12px;flex-shrink:0}
+.t-board-card{background:var(--t-card);border:1px solid var(--t-border);border-radius:10px;padding:10px;cursor:pointer;
+  transition:box-shadow 150ms ease,border-color 150ms ease}
+.t-board-card:hover{border-color:var(--t-accent);box-shadow:0 2px 8px rgba(43,42,36,.08)}
+.t-board-card.done{opacity:.6}
+.t-board-card-top{display:flex;align-items:flex-start;gap:8px}
+.t-board-card-handle{flex-shrink:0;color:var(--t-ink2);font-size:13px;line-height:1.6;cursor:grab;
+  opacity:.35;transition:opacity 150ms ease;touch-action:none;user-select:none}
+.t-board-card-handle:hover{opacity:1}
+.t-board-card-handle:active{cursor:grabbing}
+.t-board-card-handle-spacer{cursor:default;opacity:0;pointer-events:none}
+@media(max-width:767px){
+  .t-board-card-handle{font-size:17px}
+}
+.t-board-card-title{flex:1;min-width:0;font-family:'Inter',sans-serif;font-size:13.5px;font-weight:500;color:var(--t-ink);
+  line-height:1.35;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.t-board-card.done .t-board-card-title{text-decoration:line-through;color:var(--t-ink2)}
+.t-board-card-flag{flex-shrink:0;font-size:12px;opacity:.7}
+.t-board-card-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px;margin-left:30px}
+.t-board-card-date{font-size:11px;font-weight:600;color:var(--t-ink2)}
+.t-board-card-date.overdue{color:var(--warn)}
+.t-board-card-tag{font-size:10.5px;font-weight:600;color:var(--t-ink2);background:var(--t-bg);
+  border-radius:99px;padding:2px 8px}
+.t-board-card-meta .t-archive-btn{margin-left:auto;padding:2px 6px;font-size:11px}
+@media(max-width:767px){
+  .t-board{padding:10px 12px 14px}
+  .t-board-col{min-width:78vw}
+}
+
+/* ---- Calendar view ---- */
+.t-cal{padding:14px 18px 18px}
+.t-cal-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.t-cal-month{font-family:'Fraunces',serif;font-size:17px;font-weight:600;flex:1}
+.t-cal-head .btn{padding:6px 12px;font-size:13px}
+.t-cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px;
+  font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--t-ink2);text-align:center}
+.t-cal-grid{display:flex;flex-direction:column;gap:6px}
+.t-cal-week{display:flex;gap:6px}
+.t-cal-cell{flex:1 1 0;min-width:0;min-height:88px;border:1px solid var(--t-border);border-radius:9px;padding:6px;background:var(--t-bg);
+  display:flex;flex-direction:column;gap:3px;cursor:pointer;transition:background 150ms ease,border-color 150ms ease}
+.t-cal-cell:not(.t-cal-empty):hover{background:#fff;border-color:var(--t-accent)}
+.t-cal-cell.t-cal-empty{border:none;background:transparent;cursor:default}
+.t-cal-cell.t-cal-today{border-color:var(--t-accent);box-shadow:0 0 0 1px var(--t-accent)}
+.t-cal-daynum-row{display:flex;align-items:center;justify-content:space-between}
+.t-cal-daynum{font-size:12px;font-weight:700;color:var(--t-ink2)}
+.t-cal-today .t-cal-daynum{color:var(--t-accent)}
+.t-cal-add-hint{font-size:12px;font-weight:800;color:var(--t-accent);opacity:0;transition:opacity 150ms ease}
+.t-cal-cell:hover .t-cal-add-hint{opacity:1}
+.t-cal-tasks{display:flex;flex-direction:column;gap:2px;overflow:hidden}
+.t-cal-chip{display:flex;align-items:center;gap:3px;padding:1px 4px 1px 1px;border-radius:5px;
+  background:#fff;border:1px solid var(--t-border)}
+.t-cal-chip.overdue{border-color:#F0D9BE}
+.t-cal-chip-chk{flex-shrink:0;width:11px;height:11px;border-radius:3px;border:1.5px solid var(--t-border);background:#fff;padding:0}
+.t-cal-chip.done .t-cal-chip-chk{background:var(--t-accent);border-color:var(--t-accent)}
+.t-cal-chip.overdue .t-cal-chip-chk{border-color:var(--warn)}
+.t-cal-chip-title{flex:1;min-width:0;text-align:left;font-size:10.5px;font-weight:600;color:var(--t-ink);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.t-cal-chip.overdue .t-cal-chip-title{color:var(--warn)}
+.t-cal-chip.done .t-cal-chip-title{color:var(--t-ink2);text-decoration:line-through;opacity:.7}
+.t-cal-more{font-size:10px;color:var(--t-ink2);padding:1px 5px}
+
+/* ---- Task detail popup (opened from a calendar chip's title) ---- */
+.t-popup-top{display:flex;align-items:flex-start;gap:10px}
+.t-popup-title{flex:1;min-width:0;font-family:'Inter',sans-serif;font-size:15.5px;font-weight:600;
+  color:var(--t-ink);line-height:1.4;word-break:break-word}
+.t-popup-title.done{text-decoration:line-through;color:var(--t-ink2)}
+@media(max-width:767px){
+  .t-cal-weekdays div:not(:nth-child(1)):not(:nth-child(4)):not(:nth-child(7)){font-size:0} /* keep the grid, thin the labels — Sun/Wed/Sat only, room's too tight for all seven on a phone */
+  .t-cal-cell{min-height:52px;padding:4px}
+  .t-cal-add-hint{opacity:.6}
+  .t-cal-chip{font-size:9.5px}
+}
+
+/* Header "Archive Completed" button */
+.t-archive-all-btn:disabled{opacity:.4;cursor:not-allowed}
+.t-archive-all-btn:disabled:hover{background:var(--card)}
+
+/* "Include archived tasks" search toggle */
+.search-archived-toggle{display:flex;align-items:center;gap:7px;padding:8px 18px;font-size:12.5px;
+  color:var(--muted);border-bottom:1px solid var(--glass-line);cursor:pointer;user-select:none}
+.search-archived-toggle input{cursor:pointer}
+
+@media(max-width:767px){
+  .t-archive-all-label{display:none}
+  .t-archive-all-btn::after{content:"🗂"}
+  .t-archive-btn{padding:6px 10px;font-size:13px}
+  .t-archived-actions{flex-direction:row}
+  .t-archived-actions .btn{padding:8px 12px;font-size:13px}
+  .t-archived-sort{font-size:13px;padding:6px 8px;min-height:40px}
+}
+
+/* ---- Expandable meta editing (category / due date / link) — the
+   existing editing controls, restyled, revealed on row click rather
+   than always visible, matching "entire row clickable" while keeping
+   the title input directly editable rather than also toggling this. ---- */
+.t-meta{display:none;gap:10px;align-items:center;flex-wrap:wrap;padding:10px 18px 14px 52px;
+  background:var(--t-card);margin:0 8px 8px}
+.t-row.t-expanded + .t-meta{display:flex}
+.t-meta select,.t-meta input[type=date],.t-meta input[type=text]{border:1px solid var(--t-border);
+  border-radius:8px;padding:6px 10px;font-family:'Inter',sans-serif;font-size:13px;color:var(--t-ink);
+  background:var(--t-bg)}
+.t-meta input[type=text]{flex:1;min-width:120px}
+
+/* ---- Empty state ---- */
+.t-empty{padding:56px 24px;text-align:center;color:var(--t-ink2)}
+.t-empty svg{width:64px;height:64px;margin:0 auto 14px;opacity:.5}
+.t-empty-title{font-family:'Inter',sans-serif;font-size:16px;font-weight:600;color:var(--t-ink);margin-bottom:4px}
+.t-empty-sub{font-size:13.5px}
+
+/* ---- Add task, styled like Microsoft To Do's inline add row ---- */
+.t-add-row{display:flex;align-items:center;gap:10px;padding:14px 18px;background:var(--t-card)}
+.t-add-icon{width:22px;height:22px;border-radius:50%;border:1.5px dashed #C7CCD4;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;color:var(--t-accent);font-size:14px}
+.t-add-row input{flex:1;min-width:0;border:none;background:transparent;font-family:'Inter',sans-serif;
+  font-size:15px;color:var(--t-ink);padding:6px 0}
+.t-add-row input::placeholder{color:var(--t-ink2)}
+.t-add-row input:focus{outline:none}
+.t-add-btn{border:none;background:var(--t-accent);color:#fff;font-family:'Inter',sans-serif;
+  font-weight:600;font-size:13px;padding:8px 16px;border-radius:8px;cursor:pointer;
+  transition:background 150ms ease}
+.t-add-btn:hover{background:#1D4ED8}
+
+@media (max-width:640px){
+  .t-row{padding:12px 14px;margin:0 4px}
+  .t-right{align-items:flex-start}
+  .t-meta{padding-left:14px}
+}
+
+/* ---------- Due-date quick shortcuts popover ---------- */
+.date-popover-wrap{position:relative;display:flex;align-items:center;gap:2px;flex-shrink:0}
+.date-popover-btn{border:1px solid var(--line);border-radius:8px;background:var(--paper);
+  font-size:12px;padding:4px 6px;cursor:pointer;line-height:1}
+.date-popover-btn:hover{border-color:var(--accent)}
+.date-popover{display:none;position:absolute;top:calc(100% + 5px);right:0;z-index:50;
+  background:#fff;border:1px solid var(--line);border-radius:14px;
+  box-shadow:0 12px 28px -8px rgba(34,31,51,.22);padding:6px;min-width:130px;
+  opacity:0;transform:translateY(-4px);transition:opacity 140ms ease,transform 140ms ease}
+.date-popover.open{display:flex;flex-direction:column;gap:1px;opacity:1;transform:translateY(0)}
+.date-popover button{text-align:left;border:none;background:transparent;border-radius:8px;
+  padding:7px 10px;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer}
+.date-popover button:hover{background:var(--paper)}
+
+/* ================================================================
+   MOBILE TASK CARDS — scoped to <768px only, exactly matching the
+   brief's own breakpoint. Desktop's .t-row layout (flex row: checkbox |
+   main | breadcrumb | delete) is completely untouched above 768px.
+   This achieves the mobile card layout purely through CSS re-flow —
+   flex-wrap and order — with zero HTML or JS changes, since the same
+   DOM elements just need to visually rearrange, not restructure.
+   ================================================================ */
+@media(max-width:767px){
+  #tasksCard{padding:0}
+  .t-section-rows-inner{display:flex;flex-direction:column;gap:12px;padding:4px 0}
+  .t-row{
+    flex-wrap:wrap;
+    width:100%;
+    padding:16px;
+    border-radius:18px;
+    margin:0;
+    box-shadow:0 1px 3px rgba(31,41,55,.08),0 1px 2px rgba(31,41,55,.06);
+    border-bottom:none;
+    position:relative;
+    transition:transform 120ms ease,box-shadow 120ms ease;
+  }
+  .t-row:active{transform:scale(.985);box-shadow:0 1px 2px rgba(31,41,55,.1)}
+  .t-chk{width:26px;height:26px} /* larger touch target */
+  .t-drag-handle{width:26px;font-size:19px}
+  .t-main{flex:1;min-width:0}
+  .t-title{font-size:16px}
+  .t-flag{font-size:17px;padding:6px} /* comfortable tap size */
+  /* Metadata (breadcrumb, status) moves below the title, full width,
+     instead of sitting in a right-hand column — this is the "everything
+     below the title" layout the brief describes. */
+  .t-right{
+    order:5;
+    flex-basis:100%;
+    flex-direction:row;
+    flex-wrap:wrap;
+    align-items:center;
+    justify-content:flex-start;
+    padding-left:38px; /* align under the title text, past the checkbox */
+    gap:8px;
+  }
+  .t-completed-note{order:0}
+  .t-meta{margin:0;border-radius:0 0 18px 18px;padding:12px 16px 16px 54px}
+  .t-row.t-expanded{border-bottom-left-radius:0;border-bottom-right-radius:0}
+
+  /* Section headers get a bit more breathing room and a bigger tap area */
+  .t-section-head{padding:16px 4px 10px}
+  .t-section-title{font-size:15px}
+
+  /* Filter tabs (All / Work / Personal) become horizontally scrollable
+     chips instead of wrapping or overflowing. */
+  #taskFilterBar{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;
+    scrollbar-width:none;padding-bottom:2px}
+  #taskFilterBar::-webkit-scrollbar{display:none}
+  #taskFilterBar button{flex-shrink:0;white-space:nowrap}
+
+  .t-add-row{padding:16px}
+  .t-add-icon,.t-add-btn{min-height:44px} /* comfortable tap target */
+  .t-add-btn{padding:8px 14px;font-size:12.5px;flex-shrink:0}
+
+  /* Existing mobile nav (a slide-in sidebar, not a bottom bar — see note
+     in the delivery message) gets larger touch targets, matching the
+     spirit of "26px icons, comfortable tap area" even though the actual
+     nav pattern here is different from what the brief assumed exists. */
+  .nav-item{min-height:44px;padding:11px 12px;font-size:14.5px}
+  .nav-item svg{width:20px;height:20px}
+
+  /* ================================================================
+     GSI WORKSPACE TASK ROWS — the previous layout crammed a status
+     dropdown, title input, date field, and delete button into one
+     horizontal row with no mobile handling at all: measured or narrow
+     phones, the title input was squeezed to 4px wide and the delete
+     button sat off past the edge of the card. Stacked vertically here
+     instead, matching the order the brief asked for: status, title,
+     date, link (from the row below), delete.
+     ================================================================ */
+  #ngdrList .task-row{
+    flex-direction:column;align-items:stretch;gap:10px;
+    padding:50px 14px 14px; /* top padding clears the flag+delete icon row with a clean gap */
+    border:1px solid var(--line);border-radius:16px;margin:0 0 10px;
+    border-bottom:none;box-shadow:0 1px 3px rgba(31,41,55,.07);position:relative;
+  }
+  #ngdrList .flag-btn{position:absolute;top:2px;left:2px;font-size:17px;
+    width:44px;height:44px;display:flex;align-items:center;justify-content:center;box-sizing:border-box}
+  #ngdrList .del{
+    position:absolute;top:2px;right:2px;width:44px;height:44px;
+    display:flex;align-items:center;justify-content:center;border-radius:50%;
+    background:var(--paper);opacity:1;font-size:14px;box-sizing:border-box;
+  }
+  #ngdrList .status-sel{width:auto;align-self:flex-start;min-height:36px;padding:8px 14px;font-size:13.5px}
+  #ngdrList .task-row input[type=text]{font-size:16px;padding:8px 2px;min-height:24px;line-height:1.4}
+  #ngdrList .date-popover-wrap{width:100%}
+  #ngdrList .task-due-input{width:100%;min-height:40px;font-size:14px;box-sizing:border-box}
+  #ngdrList .date-popover-btn{min-width:40px;min-height:40px}
+  #ngdrList .task-meta-row{padding:0 14px 14px;margin:-4px 0 10px;border-bottom:none}
+  #ngdrList .task-meta-row input[type=text]{min-height:40px;font-size:14px;box-sizing:border-box}
+}
+
+/* ================================================================
+   GSI WORKSPACE TASK CARDS — Microsoft To Do / Todoist-style redesign.
+   Scoped entirely to .gsi-* classes and #ngdrList, so nothing else in
+   LifeOS (including Day Of's shared .task-row) is affected.
+   ================================================================ */
+#ngdrList{display:flex;flex-direction:column;gap:10px}
+.gsi-card{
+  display:flex;align-items:flex-start;gap:12px;
+  background:#fff;border:1px solid var(--line);border-radius:14px;
+  padding:16px;min-height:90px;box-shadow:0 1px 2px rgba(34,31,51,.05);
+  transition:box-shadow 200ms ease,transform 150ms ease,opacity 250ms ease;
+}
+.gsi-card:hover{box-shadow:0 6px 18px -6px rgba(34,31,51,.18);transform:translateY(-1px)}
+.gsi-card.done{opacity:.62}
+.gsi-card.done .gsi-title{color:var(--muted);text-decoration:line-through}
+
+/* Checkbox — quick done/not-done toggle, distinct from (but consistent
+   with) the fuller status dropdown on the right */
+.gsi-chk{width:24px;height:24px;border-radius:50%;border:1.5px solid #C7CCD4;background:#fff;
+  flex-shrink:0;margin-top:2px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:border-color 200ms ease,background 200ms ease}
+.gsi-chk:hover{border-color:var(--accent)}
+.gsi-chk svg{width:13px;height:13px;stroke:#fff;stroke-width:3;fill:none;stroke-dasharray:20;
+  stroke-dashoffset:20;transition:stroke-dashoffset 220ms ease}
+.gsi-chk.on{background:#2E9E5B;border-color:#2E9E5B}
+.gsi-chk.on svg{stroke-dashoffset:0}
+
+.gsi-card-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px}
+.gsi-title{border:none;background:transparent;font-family:inherit;font-size:16px;font-weight:700;
+  color:var(--ink);padding:0;width:100%;resize:none;overflow:hidden;white-space:pre-wrap;
+  word-break:break-word;line-height:1.35;display:block;box-sizing:border-box}
+.gsi-title:focus{outline:none}
+
+.gsi-link-row{display:flex;align-items:center;gap:6px;min-height:20px}
+.gsi-link-display{color:#2563EB;text-decoration:underline;font-size:13px;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:260px}
+.gsi-link-edit-btn{border:none;background:none;font-size:11px;color:var(--muted);cursor:pointer;padding:2px 4px;opacity:0}
+.gsi-card:hover .gsi-link-edit-btn{opacity:1}
+.gsi-add-link{border:none;background:none;color:var(--muted);font-size:13px;cursor:pointer;padding:0;
+  text-decoration:underline;text-decoration-style:dotted}
+.gsi-add-link:hover{color:var(--accent-ink)}
+.gsi-link-input{border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:12.5px;
+  font-family:inherit;background:var(--paper);width:220px;max-width:100%}
+
+.gsi-date-row{font-size:13px}
+.gsi-date-display,.gsi-add-date{border:none;background:none;cursor:pointer;font-size:13px;
+  font-family:inherit;padding:0;display:inline-flex;align-items:center;gap:4px}
+.gsi-add-date{color:var(--muted)}
+.gsi-add-date:hover{color:var(--accent-ink)}
+.gsi-date-row.gsi-overdue .gsi-date-display{color:var(--danger);font-weight:600}
+
+/* Native task / board "add date" and "add link" affordances — same
+   visual language as GSI's own .gsi-add-date/.gsi-add-link above. */
+.t-add-date-btn,.t-add-link-btn{border:none;background:none;color:var(--muted);font-size:13px;cursor:pointer;padding:0;
+  text-decoration:underline;text-decoration-style:dotted;font-family:inherit;display:inline-flex;align-items:center;gap:4px}
+.t-add-date-btn:hover,.t-add-link-btn:hover{color:var(--accent-ink)}
+.t-link-input{border:1px solid var(--line);border-radius:8px;padding:4px 8px;font-size:12.5px;
+  font-family:inherit;background:var(--paper);width:220px;max-width:100%}
+.t-board-card .t-add-date-btn,.t-board-card .t-add-link-btn{font-size:11px}
+.t-board-card .t-link-input{width:150px;font-size:11px}
+.gsi-date-row.gsi-today .gsi-date-display{color:#2563EB;font-weight:600}
+.gsi-date-row.gsi-future .gsi-date-display{color:var(--muted)}
+.gsi-date-hidden-input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+
+.gsi-card-right{display:flex;align-items:center;gap:8px;flex-shrink:0;padding-top:1px}
+.gsi-flag{background:none;border:none;font-size:16px;opacity:.3;cursor:pointer;filter:grayscale(1);
+  transition:opacity 150ms ease,transform 150ms ease,filter 150ms ease}
+.gsi-flag:hover{opacity:.7}
+.gsi-flag.on{opacity:1;filter:none;transform:scale(1.12)}
+
+.gsi-status-sel{border:1px solid var(--line);border-radius:99px;padding:6px 12px;font-size:12px;
+  font-weight:700;cursor:pointer;transition:background 200ms ease,color 200ms ease,border-color 200ms ease}
+.gsi-status-sel.s-todo{background:#F1F2F4;color:#6B7280;border-color:#E5E7EB}
+.gsi-status-sel.s-progress{background:#DBEAFE;color:#1D4ED8;border-color:#BFDBFE}
+.gsi-status-sel.s-blocked{background:#FFEDD5;color:#C2410C;border-color:#FED7AA}
+.gsi-status-sel.s-done{background:#DCFCE7;color:#15803D;border-color:#BBF7D0}
+
+.gsi-del{background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:4px;
+  border-radius:6px;opacity:0;transition:opacity 150ms ease,background 150ms ease,color 150ms ease}
+.gsi-card:hover .gsi-del,.gsi-card:focus-within .gsi-del{opacity:1}
+.gsi-del:hover{background:var(--danger-bg);color:var(--danger)}
+
+.gsi-empty{padding:32px 16px;text-align:center;color:var(--muted)}
+
+/* Header toolbar: sort dropdown, open count, delete-completed */
+.gsi-toolbar-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.gsi-sort-sel{border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:12.5px;
+  font-weight:600;background:#fff;color:var(--ink-soft);cursor:pointer}
+.gsi-del-completed-btn{margin-left:auto;border:none;background:none;color:var(--muted);font-size:12.5px;
+  font-weight:600;cursor:pointer;padding:4px 6px;text-decoration:underline;text-decoration-style:dotted}
+.gsi-del-completed-btn:hover{color:var(--danger)}
+
+/* Add-task row: large rounded input, solid dark button */
+.gsi-add-row{display:flex;gap:10px;align-items:center}
+.gsi-add-row input{flex:1;min-width:0;border:1px solid var(--line);border-radius:14px;
+  padding:12px 16px;font-size:14.5px;font-family:inherit;background:#fff;
+  transition:border-color 150ms ease,box-shadow 150ms ease}
+.gsi-add-row input:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 3px rgba(27,27,26,.08)}
+.gsi-add-btn{border:none;background:var(--ink);color:#fff;font-weight:700;font-size:14px;
+  padding:12px 22px;border-radius:14px;cursor:pointer;transition:background 150ms ease,transform 100ms ease;
+  flex-shrink:0}
+.gsi-add-btn:hover{background:#000}
+.gsi-add-btn:active{transform:scale(.97)}
+
+@media(max-width:767px){
+  .gsi-card{padding:14px;min-height:auto;flex-wrap:wrap}
+  .gsi-card-main{flex-basis:0;min-width:0}
+  .gsi-card-right{
+    flex-basis:100%;flex-direction:row;align-items:center;justify-content:flex-start;
+    gap:10px;margin-top:2px;padding-left:36px; /* aligns under the title, past the checkbox */
+  }
+  .gsi-title{font-size:15.5px} /* the real fix is width, from .gsi-card-right now wrapping below — this input still can't multi-line wrap */
+  .gsi-flag,.gsi-del{opacity:1;width:36px;height:36px;display:flex;align-items:center;justify-content:center}
+  .gsi-status-sel{padding:8px 12px;min-height:36px}
+  .gsi-toolbar-row{gap:8px}
+  .gsi-sort-sel{min-height:40px}
+  .gsi-del-completed-btn{min-height:40px}
+  .gsi-add-row input,.gsi-add-btn{min-height:46px}
+}
+
+/* ---------- GSI Archive & project-restore ---------- */
+.gsi-restore-project-btn{background:var(--lilac);color:var(--accent-ink);border-color:var(--lilac-deep)}
+.gsi-archive-btn{border:1px solid var(--line);border-radius:10px;padding:6px 12px;font-size:12.5px;
+  font-weight:600;background:#fff;color:var(--ink-soft);cursor:pointer}
+.gsi-archive-btn:hover{border-color:var(--accent);color:var(--accent-ink)}
+
+.gsi-archive-modal-bg{display:none;position:fixed;inset:0;background:rgba(27,27,26,.45);z-index:210;
+  align-items:center;justify-content:center;padding:6vh 5vw}
+.gsi-archive-modal-bg.open{display:flex}
+.gsi-archive-modal{width:100%;max-width:600px;max-height:80vh;background:var(--card);border-radius:18px;
+  box-shadow:0 30px 80px -20px rgba(0,0,0,.4);display:flex;flex-direction:column;overflow:hidden}
+.gsi-archive-modal-body{flex:1;overflow-y:auto;padding:12px 20px 20px}
+.gsi-archive-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:10px 0;border-bottom:1px dashed var(--line)}
+.gsi-archive-row:last-child{border-bottom:none}
+.gsi-archive-text{font-size:14px;color:var(--ink);flex:1;min-width:0}
+.gsi-archive-actions{display:flex;gap:6px;flex-shrink:0}
+.gsi-archive-restore{border:1px solid var(--lilac-deep);background:var(--lilac);color:var(--accent-ink);
+  border-radius:8px;padding:5px 10px;font-size:12px;font-weight:700;cursor:pointer}
+.gsi-archive-restore:hover{background:var(--accent);color:#fff}
+.gsi-archive-remove{border:none;background:none;color:var(--muted);font-size:13px;cursor:pointer;padding:5px 6px}
+.gsi-archive-remove:hover{color:var(--danger)}
+
+@media(max-width:767px){
+  .gsi-restore-project-btn,.gsi-archive-btn{min-height:40px}
+  .gsi-archive-modal-bg{padding:0}
+  .gsi-archive-modal{max-width:none;max-height:100vh;border-radius:0;height:100vh}
+  .gsi-archive-restore,.gsi-archive-remove{min-height:36px}
+}
+
+/* ================================================================
+   FINANCE — Expense & EMI Tracker table
+   ================================================================ */
+.emi-table-scroll{overflow-x:auto;border:1px solid var(--glass-line);border-radius:16px;
+  background:var(--glass-bg);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);box-shadow:var(--shadow-glass)}
+.emi-table{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap}
+.emi-table th{background:rgba(255,255,255,.85);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);text-align:left;padding:10px 10px;font-size:11px;
+  font-weight:800;color:var(--muted);letter-spacing:.03em;border-bottom:1px solid var(--glass-line);position:sticky;top:0;z-index:1}
+.emi-table td{padding:5px 6px;border-bottom:1px solid var(--glass-line)}
+.emi-table tbody tr:nth-child(even){background:rgba(148,142,200,.045)}
+.emi-table tbody tr{transition:background .15s var(--ease)}
+.emi-table tbody tr:hover{background:rgba(75,92,66,.08)}
+.emi-table input,.emi-table select{border:1px solid transparent;background:transparent;font-family:inherit;
+  font-size:13px;padding:6px 7px;border-radius:8px;width:100%;box-sizing:border-box;color:var(--ink)}
+.emi-table input:hover,.emi-table select:hover{border-color:var(--glass-line)}
+.emi-table input:focus,.emi-table select:focus{outline:none;border-color:var(--accent);background:#fff;
+  box-shadow:0 0 0 3px rgba(99,102,241,.12)}
+.emi-table input[type=number]{text-align:right}
+.emi-table input[type=date]{min-width:120px}
+.emi-srno{text-align:center;color:var(--muted);font-weight:700;padding:4px 10px}
+.emi-formula-cell{color:var(--ink-soft,var(--ink));font-weight:600;padding:6px 10px;text-align:right;
+  background:linear-gradient(0deg,rgba(99,102,241,.04),rgba(99,102,241,.04))} /* subtle tint marks these as computed, not typed */
+.emi-table .del{opacity:0;background:none;border:none;color:var(--muted);cursor:pointer;padding:4px;border-radius:6px}
+.emi-table tbody tr:hover .del{opacity:1}
+.emi-table .del:hover{color:var(--danger);background:var(--danger-bg)}
+.emi-totals-row td{font-weight:800;background:rgba(255,255,255,.7);border-top:2px solid var(--glass-line);border-bottom:none;padding:9px 10px}
+.emi-totals-row td:nth-child(3),.emi-totals-row td:nth-child(6){text-align:right}
+
+/* ---------- Manage dropdown options modal ---------- */
+.emi-dd-modal-bg{display:none;position:fixed;inset:0;background:rgba(27,27,26,.45);z-index:230;
+  align-items:center;justify-content:center;padding:6vh 5vw}
+.emi-dd-modal-bg.open{display:flex}
+.emi-dd-modal{width:100%;max-width:480px;max-height:80vh;background:var(--card);border-radius:18px;
+  box-shadow:0 30px 80px -20px rgba(0,0,0,.4);display:flex;flex-direction:column;overflow:hidden}
+.emi-dd-modal-body{flex:1;overflow-y:auto;padding:6px 20px 20px}
+.emi-dd-group{padding:14px 0;border-bottom:1px solid var(--line)}
+.emi-dd-group:last-child{border-bottom:none}
+.emi-dd-group h4{margin:0 0 8px;font-size:13px;font-weight:800;color:var(--muted);letter-spacing:.03em}
+.emi-dd-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.emi-dd-row input{flex:1;border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:13px;font-family:inherit}
+.emi-dd-row button{border:none;background:none;color:var(--muted);cursor:pointer;padding:4px 6px;border-radius:6px}
+.emi-dd-row button:hover{color:var(--danger);background:var(--danger-bg)}
+.emi-dd-add{border:1px dashed var(--line);background:none;border-radius:8px;padding:7px 10px;
+  font-size:12.5px;font-weight:600;color:var(--accent-ink);cursor:pointer;width:100%;text-align:left;margin-top:4px}
+.emi-dd-add:hover{border-color:var(--accent);background:var(--lilac)}
+
+@media(max-width:767px){
+  .emi-dd-modal-bg{padding:0}
+  .emi-dd-modal{max-width:none;border-radius:0;height:100vh;max-height:100vh}
+  .emi-table input,.emi-table select{min-height:36px}
+}
+
+/* ---------- Monthly Expenses month tabs ---------- */
+.fin-month-tabbar{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.fin-month-tabs{display:flex;gap:6px;overflow-x:auto;flex:1;padding-bottom:2px}
+.fin-month-tab{flex-shrink:0;border:1px solid var(--line);background:#fff;border-radius:9px;
+  padding:7px 13px;font-size:12.5px;font-weight:700;color:var(--ink-soft);cursor:pointer;white-space:nowrap}
+.fin-month-tab:hover{border-color:var(--accent)}
+.fin-month-tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.fin-month-nav{flex-shrink:0;border:1px solid var(--line);background:#fff;border-radius:9px;
+  padding:7px 10px;font-size:12px;font-weight:700;color:var(--muted);cursor:pointer}
+.fin-month-nav:hover{border-color:var(--accent);color:var(--accent-ink)}
+
+@media(max-width:767px){
+  .fin-month-tab,.fin-month-nav{min-height:38px}
+}
+
+/* ================================================================
+   WHITEBOARD — 10 vertically-scrollable pages on Overview.
+   Floating toolbar, Miro-style: a vertical icon rail pinned to the
+   left edge of the canvas area on desktop, switching to a horizontal
+   bar pinned to the bottom on mobile (media query below). Positioned
+   `absolute` within .wb-canvas-area rather than viewport-`fixed` —
+   this board is one card on a longer page, not a full-screen app, so
+   the toolbar should stay pinned while scrolling through its own 10
+   pages, but shouldn't keep floating on screen after scrolling away
+   from the whiteboard entirely. */
+.wb-canvas-area{position:relative}
+
+.wb-float-toolbar{position:absolute;left:12px;top:50%;transform:translateY(-50%);z-index:20;
+  display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px;
+  background:var(--glass-bg-strong);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border-radius:18px;box-shadow:var(--shadow-glass-lift),var(--glass-highlight)}
+.wb-float-tool-wrap{position:relative}
+.wb-toolbar-divider{width:26px;height:1px;background:var(--line);margin:4px 0}
+
+.wb-icon-tool{width:40px;height:40px;border:none;background:transparent;border-radius:10px;
+  cursor:pointer;color:var(--ink-soft);display:flex;align-items:center;justify-content:center;transition:.16s var(--ease)}
+.wb-icon-tool svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.wb-icon-tool:hover{background:var(--paper)}
+/* Selecting a tool is made deliberately prominent (filled, scaled up) —
+   nothing else on the board indicates whether you can draw at all, so
+   an unselected toolbar with no visual state was the original complaint. */
+.wb-icon-tool.on{background:var(--ink);color:#fff;transform:scale(1.08);box-shadow:0 0 0 3px var(--lilac)}
+
+/* Flyouts — Miro shows a tool's sub-options only once that tool is
+   selected, appearing beside the rail rather than permanently taking
+   up toolbar space. */
+.wb-flyout{position:absolute;left:calc(100% + 8px);top:0;z-index:21;display:none;
+  align-items:center;gap:8px;padding:8px 10px;background:var(--glass-bg-strong);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);border-radius:14px;
+  box-shadow:var(--shadow-glass-lift),var(--glass-highlight)}
+@keyframes wbFlyoutIn{from{opacity:0;transform:translateX(-4px) scale(.96)}to{opacity:1;transform:translateX(0) scale(1)}}
+.wb-flyout.open{display:flex;animation:wbFlyoutIn .16s var(--ease) both}
+.wb-flyout-divider{width:1px;align-self:stretch;background:var(--line)}
+
+.wb-colors{display:flex;gap:6px}
+.wb-color-swatch{width:22px;height:22px;border-radius:50%;border:2px solid transparent;cursor:pointer;
+  padding:0;box-shadow:0 0 0 1px var(--line) inset;transition:.12s;flex-shrink:0}
+.wb-color-swatch.on{border-color:var(--ink);transform:scale(1.25);box-shadow:0 0 0 3px var(--lilac),0 0 0 1px var(--line) inset}
+.wb-widths{display:flex;gap:2px;align-items:center}
+.wb-width-btn{border:none;background:none;cursor:pointer;color:var(--muted);padding:4px;border-radius:6px;line-height:1;transition:.12s}
+.wb-width-btn[data-width="thin"]{font-size:8px}
+.wb-width-btn[data-width="medium"]{font-size:13px}
+.wb-width-btn[data-width="thick"]{font-size:19px}
+.wb-width-btn.on{color:var(--accent-ink);background:var(--lilac);transform:scale(1.15);box-shadow:0 0 0 2px var(--lilac-deep)}
+
+.wb-eraser-size-btn{border:1.5px solid var(--line);background:#fff;border-radius:8px;padding:6px 11px;
+  font-size:12px;font-weight:600;color:var(--ink-soft);cursor:pointer;white-space:nowrap}
+.wb-eraser-size-btn.on{background:var(--lilac);border-color:var(--lilac-deep);color:var(--accent-ink);
+  transform:scale(1.06);box-shadow:0 0 0 2px var(--lilac-deep)}
+
+.wb-zoom-float{position:absolute;bottom:12px;right:12px;z-index:20;display:flex;align-items:center;gap:2px;
+  padding:4px;background:var(--glass-bg-strong);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border-radius:14px;box-shadow:var(--shadow-glass-lift),var(--glass-highlight)}
+.wb-zoom-float button{width:28px;height:28px;border:none;background:none;border-radius:8px;
+  cursor:pointer;font-size:15px;font-weight:700;color:var(--ink-soft)}
+.wb-zoom-float button:hover{background:var(--paper)}
+.wb-zoom-level{font-size:11.5px;font-weight:700;color:var(--ink-soft);min-width:36px;text-align:center}
+.wb-zoom-reset{font-size:10.5px !important;font-weight:600 !important;color:var(--muted) !important}
+
+.wb-fullscreen-btn{position:absolute;top:12px;right:12px;z-index:20;
+  width:32px;height:32px;border:1px solid var(--glass-line);border-radius:10px;background:var(--glass-bg-strong);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  cursor:pointer;box-shadow:var(--shadow-glass);color:var(--ink-soft);transition:transform .15s var(--ease),box-shadow .15s var(--ease);
+  display:flex;align-items:center;justify-content:center}
+.wb-fullscreen-btn:hover{border-color:var(--accent);color:var(--accent-ink);transform:translateY(-1px);box-shadow:var(--shadow-glass-lift)}
+.wb-fullscreen-btn svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.wb-fullscreen-btn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+/* Native :fullscreen gives the canvas area real breathing room automatically.
+   The fallback class does the same job via plain CSS for browsers without
+   Fullscreen API support, so the toggle still works everywhere. */
+.wb-canvas-area:fullscreen,.wb-canvas-area.wb-fallback-fullscreen{
+  background:var(--card);padding:16px;display:flex;flex-direction:column;justify-content:center}
+.wb-canvas-area.wb-fallback-fullscreen{position:fixed;inset:0;z-index:500}
+
+/* No scrollable wrapper here on purpose — a nested scrollable region
+   between the canvas and the page it lives on was the actual root
+   cause of real scroll-during-drawing conflicts on touchscreen
+   hardware (confirmed specifically on a Galaxy S26 Ultra with S Pen).
+   A single canvas that fits naturally within its card removes the
+   region entirely rather than needing to out-maneuver it. */
+.wb-canvas-area{padding-left:68px}
+.wb-canvas-wrap{position:relative;width:100%}
+
+/* ---------- Brainstorming board tabs ---------- */
+.wb-tabs-row{display:flex;align-items:center;gap:6px;margin-bottom:10px}
+.wb-tabs{display:flex;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
+.wb-tabs::-webkit-scrollbar{display:none}
+.wb-tab{position:relative;display:flex;align-items:center;gap:4px;padding:6px 8px 6px 10px;
+  border-radius:11px 11px 0 0;background:rgba(255,255,255,.35);border:1px solid var(--glass-line);border-bottom:none;
+  cursor:pointer;font-size:13px;white-space:nowrap;flex-shrink:0;max-width:160px;color:var(--ink-soft);
+  transition:background .18s var(--ease),color .18s var(--ease)}
+.wb-tab.active{background:var(--glass-bg-strong);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  color:var(--ink);font-weight:600;border-color:var(--accent);box-shadow:var(--glass-highlight)}
+.wb-tab-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:110px;outline:none}
+.wb-tab-name[contenteditable="true"]{overflow:visible;background:#fff;border-radius:4px;padding:0 3px;box-shadow:0 0 0 1px var(--accent)}
+.wb-tab-menu-btn{border:none;background:none;color:var(--muted);cursor:pointer;padding:2px 3px;font-size:14px;line-height:1;border-radius:5px;flex-shrink:0}
+.wb-tab-menu-btn:hover{background:var(--glass-line);color:var(--ink)}
+.wb-tab-add{flex-shrink:0;width:26px;height:26px;border:1.5px solid var(--accent);border-radius:9px;background:var(--glass-bg-strong);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:0 1px 3px rgba(43,42,36,.1);
+  cursor:pointer;color:var(--accent-ink);font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;
+  transition:transform .15s var(--ease),color .15s var(--ease),border-color .15s var(--ease)}
+.wb-tab-add:hover{border-color:var(--accent);color:var(--accent-ink);transform:translateY(-1px)}
+.wb-tabs-archive-btn{flex-shrink:0;border:1px solid var(--glass-line);border-radius:9px;background:var(--glass-bg-strong);
+  -webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);
+  padding:0 10px;height:26px;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap;
+  transition:transform .15s var(--ease),color .15s var(--ease),border-color .15s var(--ease)}
+.wb-tabs-archive-btn:hover{border-color:var(--accent);color:var(--accent-ink);transform:translateY(-1px)}
+.wb-tab-menu{position:absolute;top:calc(100% + 4px);right:0;min-width:140px;background:var(--glass-bg-strong);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);border-radius:12px;
+  box-shadow:var(--shadow-glass-lift),var(--glass-highlight);z-index:60;display:none;flex-direction:column;padding:4px}
+.wb-tab-menu.open{display:flex;animation:wbFlyoutIn .16s var(--ease) both}
+.wb-tab-menu button{text-align:left;border:none;background:none;padding:7px 10px;border-radius:7px;
+  font-size:13px;cursor:pointer;color:var(--ink)}
+.wb-tab-menu button:hover{background:var(--paper)}
+.wb-tab-menu button.danger:hover{background:var(--danger-bg);color:var(--danger)}
+@media(max-width:767px){
+  .wb-tab{padding:9px 8px 9px 10px;max-width:130px}
+  .wb-tab-menu-btn{padding:4px}
+}
+.wb-object-layer{position:absolute;inset:0;pointer-events:none}
+.wb-connector-layer{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;overflow:visible}
+.wb-connector-line{stroke:var(--danger);stroke-width:2.5;fill:none}
+.wb-connector-hit{stroke:transparent;stroke-width:16;fill:none;pointer-events:stroke;cursor:pointer}
+.wb-connector-arrowhead{fill:var(--danger)}
+.wb-connector-del{fill:#fff;stroke:var(--danger);stroke-width:1.5;opacity:0;pointer-events:auto;cursor:pointer;transition:opacity 120ms ease}
+.wb-connector:hover .wb-connector-del{opacity:1}
+.wb-connector-del:hover{fill:var(--danger-bg)}
+.wb-connector-preview{stroke:var(--danger);stroke-width:2.5;stroke-dasharray:6 4;opacity:.8}
+/* Connection nodes — one at the midpoint of each side, only shown
+   (and only interactive) once a note is selected, matching the resize
+   handle's existing show-on-select convention. */
+.wb-sticky-node{position:absolute;width:12px;height:12px;border-radius:50%;background:#fff;
+  border:2px solid var(--accent);display:none;pointer-events:auto;cursor:crosshair;z-index:6;touch-action:none}
+.wb-sticky.selected .wb-sticky-node{display:block}
+.wb-sticky-node:hover{background:var(--accent);transform:scale(1.2)}
+.wb-sticky-node-n{top:-6px;left:calc(50% - 6px)}
+.wb-sticky-node-s{bottom:-6px;left:calc(50% - 6px)}
+.wb-sticky-node-e{right:-6px;top:calc(50% - 6px)}
+.wb-sticky-node-w{left:-6px;top:calc(50% - 6px)}
+@media(max-width:767px){
+  .wb-sticky-node{width:18px;height:18px}
+  .wb-sticky-node-n{top:-9px;left:calc(50% - 9px)}
+  .wb-sticky-node-s{bottom:-9px;left:calc(50% - 9px)}
+  .wb-sticky-node-e{right:-9px;top:calc(50% - 9px)}
+  .wb-sticky-node-w{left:-9px;top:calc(50% - 9px)}
+}
+.wb-object-layer.creating{pointer-events:auto;cursor:copy}
+
+.wb-sticky{position:absolute;pointer-events:auto;border-radius:12px;
+  box-shadow:0 2px 6px rgba(34,31,51,.08),0 10px 24px -10px rgba(34,31,51,.22);display:flex;flex-direction:column;
+  min-width:60px;min-height:60px;box-sizing:border-box;border:1px solid rgba(255,255,255,.5);
+  background-blend-mode:normal;filter:saturate(1.05);transition:box-shadow .18s var(--ease)}
+.wb-sticky.selected{outline:2px solid var(--accent);outline-offset:2px;box-shadow:0 4px 10px rgba(34,31,51,.1),0 16px 32px -12px rgba(75,92,66,.3)}
+.wb-sticky.wb-connect-target{outline:3px solid var(--accent);outline-offset:3px;box-shadow:0 0 0 6px rgba(75,92,66,.15)}
+.wb-sticky-drag-handle{height:14px;flex-shrink:0;cursor:grab;border-radius:11px 11px 0 0;touch-action:none;background:rgba(255,255,255,.25)}
+.wb-sticky-drag-handle:active{cursor:grabbing}
+.wb-sticky-text{flex:1;padding:4px 9px 9px;font-size:13px;line-height:1.45;color:#1B1B1A;letter-spacing:.1px;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;outline:none;word-break:break-word;cursor:text;overscroll-behavior:contain}
+.wb-sticky-text:empty::before{content:attr(data-placeholder);color:rgba(27,27,26,.4)}
+.wb-sticky-delete{position:absolute;top:-9px;right:-9px;width:20px;height:20px;border-radius:50%;
+  border:1px solid var(--glass-line);background:var(--glass-bg-strong);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
+  color:var(--muted);font-size:10px;cursor:pointer;box-shadow:var(--shadow-glass);
+  display:none;align-items:center;justify-content:center;padding:0}
+.wb-sticky.selected .wb-sticky-delete{display:flex}
+.wb-sticky-delete:hover{background:var(--danger-bg);color:var(--danger)}
+.wb-sticky-toolbar{position:absolute;bottom:calc(100% + 42px);left:0;display:none;gap:5px;
+  padding:5px;background:var(--glass-bg-strong);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border-radius:9px;box-shadow:var(--shadow-glass-lift),var(--glass-highlight)}
+.wb-sticky.selected .wb-sticky-toolbar{display:flex}
+.wb-sticky-color{width:16px;height:16px;border-radius:50%;border:2px solid transparent;cursor:pointer;padding:0}
+.wb-sticky-color.on{border-color:var(--ink)}
+.wb-sticky-resize-handle{position:absolute;bottom:0;right:0;width:14px;height:14px;cursor:nwse-resize;touch-action:none;
+  display:none;background:linear-gradient(135deg,transparent 50%,rgba(0,0,0,.25) 50%);border-radius:0 0 11px 0}
+.wb-sticky.selected .wb-sticky-resize-handle{display:block}
+.whiteboard-canvas{width:100%;aspect-ratio:4/3;touch-action:none;cursor:not-allowed;
+  display:block;border:1px solid var(--line);border-radius:12px;background:#fff}
+
+@media(max-width:767px){
+  /* The rail rotates into a bottom bar — same elements, same JS, just a
+     different flex direction and edge to pin to, matching how Miro's
+     own mobile app relocates its toolbar to the bottom of the screen. */
+  .wb-float-toolbar{left:8px;right:8px;top:auto;bottom:8px;transform:none;
+    flex-direction:row;justify-content:center;width:auto}
+  .wb-toolbar-divider{width:1px;height:26px;margin:0 4px}
+  .wb-icon-tool{width:44px;height:44px}
+  .wb-flyout{left:50%;top:auto;bottom:calc(100% + 8px);transform:translateX(-50%);
+    flex-wrap:wrap;max-width:min(90vw,320px)}
+  .wb-color-swatch{width:28px;height:28px}
+  .wb-eraser-size-btn{min-height:38px}
+  .wb-zoom-float{bottom:64px;right:8px}
+  .wb-canvas-area{padding-left:0;padding-bottom:64px}
+  .wb-sticky-resize-handle{width:30px;height:30px}
+}
+
+/* ================================================================
+   GLASSMORPHISM — shared dialog/overlay treatment
+   Applied once here rather than per modal class, since every dialog
+   in the app (.modal, .search-panel, .scribble-modal, .expand-modal,
+   .gsi-archive-modal, .emi-dd-modal) already shares the same
+   background/border-radius/box-shadow shape — this just upgrades that
+   shared shape to glass and adds a shared open animation, instead of
+   duplicating the same rule six times.
+   ================================================================ */
+.modal,.search-panel,.scribble-modal,.expand-modal,.gsi-archive-modal,.emi-dd-modal{
+  background:var(--glass-bg-strong);
+  -webkit-backdrop-filter:var(--glass-blur-strong);backdrop-filter:var(--glass-blur-strong);
+  border:1px solid var(--glass-border);
+  box-shadow:var(--shadow-glass-lift),var(--glass-highlight);
+}
+/* The dimmed backdrop itself gets a mild blur too, so the page content
+   behind a dialog reads as frosted rather than a flat dark scrim —
+   kept modest (6px) since it's blurring live app content, not a
+   self-contained panel. */
+.modal-bg,.search-bg,.scribble-modal-bg,.expand-modal-bg,.gsi-archive-modal-bg,.emi-dd-modal-bg{
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+}
+@keyframes glassBgIn{from{opacity:0}to{opacity:1}}
+@keyframes glassPanelIn{from{opacity:0;transform:scale(.96) translateY(8px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal-bg.open,.search-bg.open,.scribble-modal-bg.open,.expand-modal-bg.open,.gsi-archive-modal-bg.open,.emi-dd-modal-bg.open{
+  animation:glassBgIn .16s var(--ease) both;
+}
+.modal-bg.open .modal,
+.search-bg.open .search-panel,
+.scribble-modal-bg.open .scribble-modal,
+.expand-modal-bg.open .expand-modal,
+.gsi-archive-modal-bg.open .gsi-archive-modal,
+.emi-dd-modal-bg.open .emi-dd-modal{
+  animation:glassPanelIn .2s var(--ease) both;
+}
+
+/* Performance: blur is the most expensive part of this theme, and it's
+   applied to several stacked/overlapping surfaces at once on a modal
+   (dimmed backdrop + glass panel) or on the whiteboard (canvas card +
+   floating toolbar + zoom controls + tab bar, all at once). Halving
+   blur radii on narrow/lower-powered devices keeps compositing cheap
+   without visibly changing the design language — still frosted, just
+   less expensively so. */
+@media(max-width:767px){
+  :root{--glass-blur:blur(10px);--glass-blur-strong:blur(14px)}
+  .modal-bg,.search-bg,.scribble-modal-bg,.expand-modal-bg,.gsi-archive-modal-bg,.emi-dd-modal-bg{
+    -webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);
+  }
+}
+
+/* ================================================================
+   MOTION DESIGN — page/card entrances, press feedback, list/search
+   stagger, sticky-note entrance. Everything here uses `animation`
+   with fill-mode:backwards (not `both`/`forwards`) wherever the
+   target already has its own hover/active transitions (.card,
+   .btn, .pill) — `both` would let the entrance animation's final
+   keyframe permanently outrank those later, since a still-filling
+   animation has higher cascade priority than an ordinary :hover
+   transition on the same property. `backwards` only fills before
+   the animation starts, so once it's done here it steps aside and
+   normal hover/press transitions work exactly as before.
+   The global reduced-motion rule near the top of this file
+   (`@media(prefers-reduced-motion:reduce)`) already disables every
+   animation and transition defined here — nothing further needed.
+   ================================================================ */
+
+/* ---- Page transitions (200-300ms) ---- */
+@keyframes pageEnter{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.page.visible{animation:pageEnter .24s var(--ease) backwards}
+
+/* ---- Card entrance — fades/lifts in once per page visit, then gets
+   out of the way so the existing hover-lift (.card:hover) still works. ---- */
+@keyframes cardEnter{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+.page.visible .card{animation:cardEnter .3s var(--ease) backwards}
+.page.visible .card:nth-of-type(1){animation-delay:0ms}
+.page.visible .card:nth-of-type(2){animation-delay:40ms}
+.page.visible .card:nth-of-type(3){animation-delay:80ms}
+.page.visible .card:nth-of-type(4){animation-delay:120ms}
+/* Desktop hover already exists (.card:hover) — this just brightens the
+   glass slightly on top of the existing lift+shadow, per "brighten the
+   glass panel" on hover. Desktop-only: coarse-pointer/touch devices
+   don't get a hover state that can get "stuck" after a tap. */
+@media(hover:hover) and (pointer:fine){
+  .card:hover{background:var(--glass-bg-strong)}
+}
+
+/* ---- Press feedback — buttons, pills, nav items ---- */
+.btn,.pill,.nav-item,.wb-tab-add,.wb-tabs-archive-btn{transition:transform .16s var(--ease),box-shadow .16s var(--ease),background .16s var(--ease),color .16s var(--ease)}
+.btn:active,.pill:active{transform:scale(.97)}
+.nav-item:active{transform:scale(.98)}
+
+/* ---- Search results — fade in with a slight stagger ---- */
+@keyframes searchItemIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.search-item{animation:searchItemIn .18s var(--ease) backwards}
+.search-item:nth-child(1){animation-delay:0ms}
+.search-item:nth-child(2){animation-delay:18ms}
+.search-item:nth-child(3){animation-delay:36ms}
+.search-item:nth-child(4){animation-delay:54ms}
+.search-item:nth-child(5){animation-delay:72ms}
+.search-item:nth-child(6){animation-delay:90ms}
+.search-item{transition:background .12s var(--ease)}
+
+/* ---- Sticky notes ----
+   Creation: a brand-new .wb-sticky element starts this animation the
+   moment it's inserted (renderObjects in whiteboard.js only ever
+   inserts fresh DOM for a genuinely new note — existing notes are
+   updated in place, not recreated — so this plays exactly once per
+   note, never on an unrelated re-render).
+   "Opening" (entering edit mode) is handled with :focus-within, a
+   plain CSS reactive state — no JS needed to know when the note's
+   text is focused.
+   "Deleting" and "minimizing" are NOT included here: deletion
+   currently calls el.remove() synchronously in JS, and a CSS
+   animation cannot delay or intercept that removal — the node is
+   gone from the DOM the instant JS removes it, regardless of any
+   transition in flight. Minimizing isn't a feature that exists today.
+   Doing either would need a small, explicit JS change (holding the
+   element for one animation frame before removing it) rather than
+   something achievable from this stylesheet alone. */
+@keyframes stickyEnter{from{opacity:0;transform:scale(.9)}to{opacity:1;transform:scale(1)}}
+.wb-sticky{animation:stickyEnter .18s var(--ease) backwards}
+.wb-sticky:focus-within{box-shadow:0 4px 10px rgba(34,31,51,.1),0 18px 34px -12px rgba(75,92,66,.32);
+  transition:box-shadow .18s var(--ease)}
+
+@media(max-width:767px){
+  /* Card stagger is a desktop-scale nicety; on a phone, one page is
+     usually one or two cards tall, so the delays just make things
+     feel slower to appear for no visible benefit. */
+  .page.visible .card:nth-of-type(n){animation-delay:0ms}
+}
+
+/* ================================================================
+   STICKY NOTE RICH TEXT — formatting toolbar + in-note structures
+   (checklists, links, dividers). The core row is what shows by
+   default when a note is selected; the extra row is behind the "⋯"
+   toggle. See whiteboard.js for why toolbar tiering is driven by a
+   manual toggle rather than a per-note fullscreen mode, which doesn't
+   exist elsewhere in the app.
+   ================================================================ */
+.wb-sticky-format-toolbar{position:absolute;bottom:calc(100% + 6px);left:0;right:0;display:none;flex-direction:column;gap:3px;
+  padding:4px;background:var(--glass-bg-strong);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border-radius:10px;box-shadow:var(--shadow-glass-lift),var(--glass-highlight);z-index:5}
+.wb-sticky.selected .wb-sticky-format-toolbar{display:flex}
+.wb-sfmt-row{display:flex;align-items:center;gap:3px;overflow-x:auto;scrollbar-width:none;padding-bottom:1px}
+.wb-sfmt-row::-webkit-scrollbar{display:none}
+.wb-sfmt-extra{display:none}
+.wb-sticky-format-toolbar.expanded .wb-sfmt-extra{display:flex}
+.wb-sfmt-row button{flex-shrink:0;min-width:26px;height:26px;padding:0 6px;border:none;border-radius:7px;background:transparent;
+  color:var(--ink);font-size:12.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .14s var(--ease)}
+.wb-sfmt-row button:hover{background:rgba(75,92,66,.12)}
+.wb-sfmt-row button.on{background:rgba(75,92,66,.22);color:var(--accent-ink)}
+.wb-sfmt-more{font-weight:900;letter-spacing:1px}
+.wb-sfmt-checklist,.wb-sfmt-link{font-size:12px;padding:0 8px}
+.wb-sfmt-color{flex-shrink:0;width:24px;height:26px;padding:0;border:none;border-radius:7px;background:transparent;cursor:pointer}
+.wb-sfmt-size,.wb-sfmt-font{flex-shrink:0;height:26px;border:1px solid var(--glass-line);border-radius:7px;background:rgba(255,255,255,.6);
+  font-size:11.5px;padding:0 4px;color:var(--ink);cursor:pointer}
+.wb-sfmt-font{max-width:88px}
+
+/* Checklist items — a plain, clickable structure rather than a native
+   <input type=checkbox> (keeps them working the same inside
+   contenteditable across desktop/Android/S Pen without the usual
+   checkbox-in-contenteditable quirks around focus and toggling). */
+.wb-check-item{display:flex;align-items:flex-start;gap:6px;line-height:1.4}
+.wb-check-box{cursor:pointer;user-select:none;flex-shrink:0}
+.wb-check-item.done{color:rgba(27,27,26,.5);text-decoration:line-through}
+.wb-sticky-text a{color:#1D4ED8;text-decoration:underline;word-break:break-all}
+.wb-sticky-text hr{border:none;border-top:1px solid rgba(27,27,26,.25);margin:4px 0}
+.wb-sticky-text ul,.wb-sticky-text ol{padding-left:20px}
+
+@media(max-width:767px){
+  .wb-sfmt-row button{min-width:34px;height:34px;font-size:14px}
+  .wb-sfmt-color{width:32px;height:34px}
+  .wb-sfmt-size,.wb-sfmt-font{height:34px;font-size:13px}
+  .wb-sticky-format-toolbar{bottom:calc(100% + 4px)}
+}

@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LifeOS</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css">
+<script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<link href="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@5/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet/leaflet-maplibre-gl.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1/Sortable.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Karla:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="shell">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand"><div class="brand-mark">L</div><span class="brand-name">LifeOS</span></div>
+    <p class="nav-label">Account</p>
+    <button class="nav-item active" data-page="overview" onclick="go('overview')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/></svg>
+      Overview</button>
+    <button class="nav-item" data-page="dayof" onclick="go('dayof')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+      Day Of</button>
+    <button class="nav-item" data-page="trash" onclick="go('trash')">
+      <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>
+      Trash<span class="hint" id="trashNavCount" style="margin-left:auto"></span></button>
+    <p class="nav-label">Spaces</p>
+    <button class="nav-item" data-page="communication" onclick="go('communication')">
+      <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/></svg>
+      Communication</button>
+    <button class="nav-item" data-page="finance" onclick="go('finance')">
+      <svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
+      Finance</button>
+    <button class="nav-item" data-page="health" onclick="go('health')">
+      <svg viewBox="0 0 24 24"><path d="M12 21s-8-4.9-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 6.1-8 11-8 11z"/></svg>
+      Health</button>
+    <button class="nav-item" data-page="travel" onclick="go('travel')">
+      <svg viewBox="0 0 24 24"><path d="M2 16l20-7-9 11-2-6-6-2z"/></svg>
+      Travel Plan</button>
+    <button class="nav-item" data-page="reference" onclick="go('reference')">
+      <svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2zm0 0a2 2 0 0 1 2-2h13"/></svg>
+      Reference</button>
+    <button class="nav-item" data-page="work" onclick="go('work')">
+      <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      Work · GSI</button>
+    <div class="sidebar-foot">
+      <button class="gh-chip" onclick="openGhModal()" id="ghChip">
+        <svg id="ghChipIcon" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.54-3.87-1.54-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.26.72-1.55-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12v3.14c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>
+        <span>
+          <span class="gh-name" id="ghName">Connect GitHub</span><br>
+          <span class="gh-sub" id="ghSub">Sync across devices</span>
+        </span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+    <div class="top">
+      <div class="greet" style="display:flex;gap:12px;align-items:flex-start">
+        <button class="btn btn-ghost mob-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </button>
+        <div>
+          <h1 id="greeting">Hello</h1>
+          <div class="date" id="todayDate"></div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="pill" onclick="openSearch()" title="Search everything">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          Search <span class="kbd">Ctrl K</span>
+        </button>
+        <span class="pill dot" id="syncPill">Local only</span>
+        <button class="btn btn-ghost" onclick="syncNow()" id="syncBtn" title="Sync with GitHub">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6"/></svg>
+          Sync
+        </button>
+        <button class="btn btn-ghost" onclick="exportBackup()" id="backupBtn" title="Download a full backup of all your LifeOS data">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"/></svg>
+          Backup
+        </button>
+        <button class="btn btn-ghost" onclick="document.getElementById('backupFile').click()" title="Restore from a backup file">
+          Restore
+        </button>
+        <input type="file" id="backupFile" accept="application/json" style="display:none" onchange="importBackup(event)">
+        <button class="btn btn-primary" onclick="ghButton()" id="ghBtn">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.54-3.87-1.54-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.26.72-1.55-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12v3.14c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>
+          <span id="ghBtnText">GitHub Login</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ======== PAGE: OVERVIEW ======== -->
+    <section class="page visible" id="page-overview">
+      <div class="section-title">Important links</div>
+      <div class="card"><div class="card-body">
+        <div class="link-grid" id="linksGrid"></div>
+        <div class="add-inline">
+          <input type="text" id="linkTitle" placeholder="Title">
+          <input type="text" id="linkUrl" placeholder="https://…">
+          <input type="text" id="linkDesc" placeholder="Description (optional)">
+          <button class="btn btn-ghost" onclick="addLink()">Add link</button>
+        </div>
+      </div></div>
+
+      <div class="card" id="tasksCard">
+        <div class="card-head"><h2>Tasks</h2><span class="hint" id="taskCount"></span>
+          <button class="btn btn-ghost t-archive-all-btn" id="taskArchiveAllBtn" onclick="archiveAllCompleted()" title="Archive all completed tasks">
+            <span class="t-archive-all-label">🗂 Archive Completed</span></button>
+          <button class="expand-btn" onclick="expandView('tasksCardContent','Tasks')" title="View large">
+            <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+          </button>
+        </div>
+        <div id="tasksCardContent">
+        <div class="card-body" style="padding-bottom:0">
+          <div class="row" style="justify-content:space-between">
+            <div class="seg" id="taskFilterBar">
+              <button data-filter="all" class="on" onclick="setTaskFilter('all')">All</button>
+              <button data-filter="work" onclick="setTaskFilter('work')">Work</button>
+              <button data-filter="personal" onclick="setTaskFilter('personal')">Personal</button>
+            </div>
+            <button class="btn btn-ghost" id="taskSortBtn" onclick="toggleSortByDate()" style="padding:6px 12px;font-size:12.5px">📅 Sort by date</button>
+          </div>
+          <div class="seg" id="taskViewSwitch" style="margin-top:10px">
+            <button data-view="board" onclick="setTaskView('board')">▦ Board</button>
+            <button data-view="list" onclick="setTaskView('list')">☰ List</button>
+            <button data-view="calendar" onclick="setTaskView('calendar')">📅 Calendar</button>
+          </div>
+          <p class="hint" id="taskDragHint" style="display:none;margin-top:8px">↕️ Manual ordering is available only in Default Sort.</p>
+        </div>
+        <div class="t-add-row">
+          <span class="t-add-icon">＋</span>
+          <input type="text" id="newTask" placeholder="Add a task" onkeydown="if(event.key==='Enter')addTask()">
+          <button class="t-add-btn" onclick="addTask()">Add task</button>
+        </div>
+        <div class="card-body" id="taskList"></div>
+        </div>
+      </div>
+
+      <div class="section-title">Habit tracking</div>
+      <div class="card">
+        <div class="card-head">
+          <h2 style="display:flex;align-items:center;gap:12px">Overview
+            <span class="week-nav">
+              <button onclick="shiftWeek(-1)" aria-label="Previous week"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+              <span class="week-label" id="weekLabel"></span>
+              <button onclick="shiftWeek(1)" aria-label="Next week"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+            </span>
+          </h2>
+          <div class="seg">
+            <button class="on" id="segWeek" onclick="setHabitView('week')">Week</button>
+            <button id="segCalendar" onclick="setHabitView('calendar')">📅 Month</button>
+            <button id="segTrend" onclick="setHabitView('trend')">6-Week Trend</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div id="habitWeekWrap" style="overflow-x:auto"><table class="habit-table" id="habitTable"></table></div>
+          <div id="habitCalendarWrap" style="display:none">
+            <div class="cal-toolbar">
+              <select id="calHabitSelect" onchange="setCalendarHabit(this.value)"></select>
+              <span class="week-nav">
+                <button onclick="shiftCalendarMonth(-1)" aria-label="Previous month"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+                <span class="week-label" id="calMonthLabel"></span>
+                <button onclick="shiftCalendarMonth(1)" aria-label="Next month"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+              </span>
+              <span class="hint" id="calSummary"></span>
+              <button class="cal-scribble-toggle" id="calScribbleBtn" onclick="toggleScribbleMode()" title="Toggle scribble mode: tap a date to write a note on it">✏️ Scribble</button>
+            </div>
+            <div id="calGrid"></div>
+          </div>
+          <div id="habitMonthWrap" style="display:none;overflow-x:auto"><table class="habit-table" id="habitMonthTable"></table></div>
+          <div class="add-inline">
+            <input type="text" id="newHabit" placeholder="Add a habit, e.g. 10 min speak in English" onkeydown="if(event.key==='Enter')addHabit()">
+            <button class="btn btn-ghost" onclick="addHabit()">Add</button>
+          </div>
+          <div style="margin-top:20px" class="donut-wrap">
+            <svg class="donut" viewBox="0 0 120 120" id="donutSvg">
+              <circle class="track" cx="60" cy="60" r="50" fill="none" stroke-width="12"/>
+              <circle class="val" cx="60" cy="60" r="50" fill="none" stroke-width="12" transform="rotate(-90 60 60)" id="donutVal"/>
+              <text x="60" y="68" text-anchor="middle" class="donut-center" id="donutPct">0%</text>
+            </svg>
+            <div class="legend" id="donutLegend"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-top:16px">
+        <div class="card" id="newsCard">
+          <div class="card-head"><h2>News · RSS feed</h2></div>
+          <div class="card-body">
+            <div class="news-list" id="newsList"></div>
+            <div class="add-inline">
+              <input type="text" id="feedName" placeholder="Feed name">
+              <input type="text" id="feedUrl" placeholder="https://…">
+              <button class="btn btn-ghost" onclick="addFeed()">Add</button>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="card" id="quoteCard">
+            <div class="card-head"><h2>Quote of the day</h2>
+              <button class="btn btn-ghost" style="padding:6px 12px" onclick="nextQuote()">Next</button></div>
+            <div class="card-body"><div class="quote-box" id="quoteBox"></div></div>
+          </div>
+          <div class="card" id="medCard" style="margin-top:16px">
+            <div class="card-head"><h2>Meditation</h2><span class="hint" id="medTodayHint"></span></div>
+            <div class="card-body">
+              <div class="med-time" id="medClock">10:00</div>
+              <div class="med-controls">
+                <button class="btn btn-ghost" onclick="setMed(5)">5 min</button>
+                <button class="btn btn-ghost" onclick="setMed(10)">10 min</button>
+                <button class="btn btn-ghost" onclick="setMed(15)">15 min</button>
+                <button class="btn btn-primary" id="medStartBtn" onclick="toggleMed()">Start</button>
+              </div>
+              <div class="med-stat" id="medStat"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="whiteboardCard-overview" style="margin-top:16px">
+        <div class="card-head"><h2>Whiteboard</h2></div>
+        <div class="card-body" style="padding-top:0">
+          <p class="hint" id="wbHint-overview" style="margin-bottom:8px">Select Pen or Eraser to start drawing with S Pen or Apple Pencil — finger scrolls, saves automatically.</p>
+          <div class="wb-canvas-area" id="wbCanvasArea-overview">
+            <div class="wb-canvas-wrap" id="wbCanvasWrap-overview">
+              <canvas class="whiteboard-canvas" id="whiteboardCanvas-overview"></canvas>
+              <svg class="wb-connector-layer" id="wbConnectorLayer-overview"></svg>
+              <div class="wb-object-layer" id="wbObjLayer-overview"></div>
+            </div>
+
+            <!-- Floating tool rail — vertical on desktop, bottom bar on mobile (CSS handles the switch) -->
+            <div class="wb-float-toolbar" id="wbFloatToolbar-overview">
+              <div class="wb-float-tool-wrap">
+                <button class="wb-icon-tool" id="wbPenBtn-overview" onclick="selectPenTool('overview')" title="Pen">
+                  <svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                </button>
+                <div class="wb-flyout" id="wbPenFlyout-overview">
+                  <div class="wb-colors">
+                    <button class="wb-color-swatch" data-color="#1B1B1A" style="background:#1B1B1A" onclick="setWhiteboardColor('overview','#1B1B1A')" title="Black"></button>
+                    <button class="wb-color-swatch" data-color="#DC2626" style="background:#DC2626" onclick="setWhiteboardColor('overview','#DC2626')" title="Red"></button>
+                    <button class="wb-color-swatch" data-color="#2563EB" style="background:#2563EB" onclick="setWhiteboardColor('overview','#2563EB')" title="Blue"></button>
+                    <button class="wb-color-swatch" data-color="#16A34A" style="background:#16A34A" onclick="setWhiteboardColor('overview','#16A34A')" title="Green"></button>
+                    <button class="wb-color-swatch" data-color="#F59E0B" style="background:#F59E0B" onclick="setWhiteboardColor('overview','#F59E0B')" title="Orange"></button>
+                    <button class="wb-color-swatch" data-color="#7C3AED" style="background:#7C3AED" onclick="setWhiteboardColor('overview','#7C3AED')" title="Purple"></button>
+                  </div>
+                  <div class="wb-flyout-divider"></div>
+                  <div class="wb-widths">
+                    <button class="wb-width-btn" data-width="thin" onclick="setWhiteboardWidth('overview','thin')" title="Thin">●</button>
+                    <button class="wb-width-btn" data-width="medium" onclick="setWhiteboardWidth('overview','medium')" title="Medium">●</button>
+                    <button class="wb-width-btn" data-width="thick" onclick="setWhiteboardWidth('overview','thick')" title="Thick">●</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="wb-float-tool-wrap">
+                <button class="wb-icon-tool" id="wbEraseBtn-overview" onclick="selectEraserTool('overview')" title="Eraser">
+                  <svg viewBox="0 0 24 24"><path d="M20 20H8L3 15a1.5 1.5 0 0 1 0-2.1L13 3l8 8-8 8"/><path d="M8 20l6-6"/></svg>
+                </button>
+                <div class="wb-flyout" id="wbEraserSizes-overview">
+                  <button class="wb-eraser-size-btn" data-size="small" onclick="setEraserSize('overview','small')" title="Small eraser">Small</button>
+                  <button class="wb-eraser-size-btn" data-size="large" onclick="setEraserSize('overview','large')" title="Large eraser — erase quickly">Large</button>
+                </div>
+              </div>
+
+              <div class="wb-toolbar-divider"></div>
+
+              <button class="wb-icon-tool" onclick="undoWhiteboardStroke('overview')" title="Undo last stroke on the page you're viewing">
+                <svg viewBox="0 0 24 24"><path d="M3 10h10a5 5 0 0 1 0 10H8"/><path d="M3 10l5-5M3 10l5 5"/></svg>
+              </button>
+              <button class="wb-icon-tool" onclick="clearWhiteboardPage('overview')" title="Clear the page you're currently viewing">
+                <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V6h12z"/></svg>
+              </button>
+            </div>
+
+            <!-- Zoom — a separate small floating control, bottom-right corner -->
+            <div class="wb-zoom-float" id="wbZoomFloat-overview">
+              <button onclick="zoomWhiteboardOut('overview')" title="Zoom out">−</button>
+              <span class="wb-zoom-level" id="wbZoomLevel-overview">100%</span>
+              <button onclick="zoomWhiteboardIn('overview')" title="Zoom in">+</button>
+              <button class="wb-zoom-reset" onclick="resetWhiteboardZoom('overview')" title="Reset zoom">100%</button>
+            </div>
+
+            <button class="wb-fullscreen-btn" id="wbFullscreenBtn-overview" onclick="toggleWhiteboardFullscreen('overview')" title="Full screen">
+              <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="gcalCard" style="margin-top:16px">
+        <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 18px">
+          <div>
+            <div style="font-weight:700;font-size:14px">📅 Google Calendar</div>
+            <div class="hint" id="gcalStatus">Tasks with a due date can sync as calendar events</div>
+          </div>
+          <div>
+            <button class="btn btn-primary" id="gcalConnectBtn" onclick="connectGoogleCalendar()">Connect</button>
+            <button class="btn btn-ghost" id="gcalDisconnectBtn" onclick="disconnectGoogleCalendar()" style="display:none">Disconnect</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== PAGE: DAY OF ======== -->
+    <section class="page" id="page-dayof">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><h2>Today's focus</h2>
+            <button class="expand-btn" onclick="expandView('dayTasksContent','Today\'s focus')" title="View large">
+              <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            </button>
+          </div>
+          <div id="dayTasksContent"><div class="card-body" id="dayTasks"></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Today's habits</h2></div>
+          <div class="card-body" id="dayHabits"></div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:16px;align-items:start">
+        <div class="card">
+          <div class="card-head">
+            <h2>Journal — <span id="journalEditingLabel"></span></h2>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input type="date" id="journalDatePicker" onchange="selectJournalDate(this.value)" title="Jump to a date">
+              <button class="btn btn-ghost" id="journalTodayBtn" onclick="journalGoToday()" style="display:none">Today</button>
+              <button class="expand-btn" onclick="expandView('journalEditorContent','Journal')" title="View large">
+                <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+              </button>
+            </div>
+          </div>
+          <div id="journalEditorContent"><div class="card-body">
+            <textarea class="notes-area" id="dayJournal" placeholder="How did that day go?" oninput="saveJournal(this.value)" style="min-height:280px"></textarea>
+          </div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Past entries</h2><span class="hint">Most recent first</span>
+            <button class="expand-btn" onclick="expandView('journalListContent','Past entries')" title="View large">
+              <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            </button>
+          </div>
+          <div id="journalListContent">
+          <div class="card-body" style="padding-bottom:0">
+            <div class="journal-filter-row">
+              <input type="date" id="journalFilterFrom" onchange="applyJournalFilter()" title="From date">
+              <span style="color:var(--muted);font-weight:700">–</span>
+              <input type="date" id="journalFilterTo" onchange="applyJournalFilter()" title="To date">
+              <button class="btn btn-ghost" id="journalFilterClearBtn" onclick="clearJournalFilter()" style="display:none">✕ Clear</button>
+            </div>
+          </div>
+          <div class="card-body" id="journalList" style="max-height:340px;overflow-y:auto"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ======== PAGE: COMMUNICATION ======== -->
+    <section class="page" id="page-communication">
+      <iframe src="pages/communication.html" class="iframe-page" title="Communication — daily English training"></iframe>
+    </section>
+
+    <!-- ======== PAGE: WORK / GSI ======== -->
+    <section class="page" id="page-work">
+      <h1 class="display" style="font-size:28px;margin-bottom:14px">GSI Workspace</h1>
+      <div class="wb-tabs-row" style="margin-bottom:12px">
+        <div class="wb-tabs" id="wsTabsList"></div>
+        <button class="wb-tab-add" onclick="addProject()" title="New workspace">+</button>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <input type="text" id="projectName" onchange="renameProject(this.value)"
+            style="border:none;background:transparent;font-family:'Fraunces',serif;font-size:19px;font-weight:600;flex:1;padding:0">
+          <button class="icon-btn" id="projectDelBtn" onclick="delProject()" title="Delete this project" style="display:none;margin-left:8px">Delete</button>
+          <button class="icon-btn gsi-restore-project-btn" id="projectRestoreBtn" onclick="restoreLastDeletedProject()" title="Restore the most recently deleted project" style="display:none;margin-left:6px">↺ Restore</button>
+          <button class="expand-btn" onclick="expandView('ngdrCardContent',document.getElementById('projectName').value || 'Project tasks')" title="View large">
+            <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+          </button>
+        </div>
+        <div id="ngdrCardContent">
+        <div class="card-body gsi-toolbar-row" style="padding-bottom:0">
+          <div class="seg" id="gsiTaskViewSwitch">
+            <button data-view="board" onclick="setGsiTaskView('board')">▦ Board</button>
+            <button data-view="list" onclick="setGsiTaskView('list')">☰ List</button>
+          </div>
+          <select class="gsi-sort-sel" onchange="setGsiSortMode(this.value)" title="Sort tasks">
+            <option value="default">Sort: Default</option>
+            <option value="date">Sort: Date</option>
+            <option value="priority">Sort: Priority</option>
+            <option value="status">Sort: Status</option>
+            <option value="alphabetical">Sort: Alphabetical</option>
+            <option value="newest">Sort: Newest</option>
+            <option value="oldest">Sort: Oldest</option>
+          </select>
+          <span class="hint" id="ngdrCount"></span>
+          <button class="gsi-archive-btn" id="gsiArchiveBtn" onclick="openArchiveView()">📦 Archive</button>
+          <button class="gsi-del-completed-btn" onclick="archiveCompletedTasks()">Archive completed</button>
+        </div>
+        <p class="hint" id="gsiBoardDragHint" style="display:none;padding:0 18px 8px">↕️ Manual ordering is available only in Default Sort.</p>
+        <div class="card-body" id="ngdrList"></div>
+        <div class="card-body gsi-add-row" style="padding-top:0">
+          <input type="text" id="newNgdr" placeholder="Add a task, e.g. UAT test plan for AI module" onkeydown="if(event.key==='Enter')addNgdr()">
+          <button class="gsi-add-btn" onclick="addNgdr()">Add</button>
+        </div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:16px">
+        <div class="card">
+          <div class="card-head"><h2>Daily work log</h2></div>
+          <div class="card-body">
+            <div class="add-inline" style="margin-top:0">
+              <input type="text" id="newLog" placeholder="What did you work on today?" onkeydown="if(event.key==='Enter')addLog()">
+              <button class="btn btn-ghost" onclick="addLog()">Log</button>
+            </div>
+            <div id="logList" style="margin-top:8px"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <input type="text" id="workDocsLabel" onchange="renameWorkDocsLabel(this.value)"
+              style="border:none;background:transparent;font-family:'Fraunces',serif;font-size:19px;font-weight:600;flex:1;padding:0">
+          </div>
+          <div class="card-body">
+            <div class="link-grid" id="workDocs" style="grid-template-columns:1fr"></div>
+            <div class="add-inline">
+              <input type="text" id="workDocName" placeholder="Document name">
+              <input type="text" id="workDocUrl" placeholder="https://…">
+              <button class="btn btn-ghost" onclick="addWorkDoc()">➕ Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:16px">
+        <div class="card">
+          <div class="card-head"><h2>Meeting notes</h2></div>
+          <div class="card-body">
+            <div class="add-inline" style="margin-top:0">
+              <input type="text" id="newMeeting" placeholder="Meeting title, e.g. BISAG-N weekly review" onkeydown="if(event.key==='Enter')addMeeting()">
+              <button class="btn btn-ghost" onclick="addMeeting()">Add</button>
+            </div>
+            <div id="meetingList" style="margin-top:12px"></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>GSI links</h2></div>
+          <div class="card-body">
+            <div class="link-grid" id="gsiLinks" style="grid-template-columns:1fr"></div>
+            <div class="add-inline">
+              <input type="text" id="gsiLinkTitle" placeholder="Title">
+              <input type="text" id="gsiLinkUrl" placeholder="https://…">
+              <button class="btn btn-ghost" onclick="addGsiLink()">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-head"><h2>Notes</h2></div>
+        <div class="card-body">
+          <textarea class="notes-area" id="notes-work" placeholder="Reference notes, circular summaries, anything work…" oninput="saveSectionNotes('work',this.value)"></textarea>
+        </div>
+      </div>
+      <div class="card" id="whiteboardCard-gsi" style="margin-top:16px">
+        <div class="card-head"><h2>Brainstorming board</h2></div>
+        <div class="card-body" style="padding-top:0">
+          <div class="wb-tabs-row">
+            <div class="wb-tabs" id="wbTabsList"></div>
+            <button class="wb-tab-add" onclick="addBrainstormBoard()" title="New tab">+</button>
+            <button class="wb-tabs-archive-btn" id="wbTabsArchiveBtn" onclick="openBrainstormArchive()" title="Archived boards">🗄 Archived</button>
+          </div>
+          <p class="hint" id="wbHint-gsi" style="margin-bottom:8px">A quick space for scribbling ideas alongside your GSI Workspace tasks — Pen or Eraser to start, S Pen or Apple Pencil to draw.</p>
+          <div class="wb-canvas-area" id="wbCanvasArea-gsi">
+            <div class="wb-canvas-wrap" id="wbCanvasWrap-gsi">
+              <canvas class="whiteboard-canvas" id="whiteboardCanvas-gsi"></canvas>
+              <svg class="wb-connector-layer" id="wbConnectorLayer-gsi"></svg>
+              <div class="wb-object-layer" id="wbObjLayer-gsi"></div>
+            </div>
+
+            <!-- Floating tool rail — vertical on desktop, bottom bar on mobile (CSS handles the switch) -->
+            <div class="wb-float-toolbar" id="wbFloatToolbar-gsi">
+              <div class="wb-float-tool-wrap">
+                <button class="wb-icon-tool" id="wbPenBtn-gsi" onclick="selectPenTool('gsi')" title="Pen">
+                  <svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                </button>
+                <div class="wb-flyout" id="wbPenFlyout-gsi">
+                  <div class="wb-colors">
+                    <button class="wb-color-swatch" data-color="#1B1B1A" style="background:#1B1B1A" onclick="setWhiteboardColor('gsi','#1B1B1A')" title="Black"></button>
+                    <button class="wb-color-swatch" data-color="#DC2626" style="background:#DC2626" onclick="setWhiteboardColor('gsi','#DC2626')" title="Red"></button>
+                    <button class="wb-color-swatch" data-color="#2563EB" style="background:#2563EB" onclick="setWhiteboardColor('gsi','#2563EB')" title="Blue"></button>
+                    <button class="wb-color-swatch" data-color="#16A34A" style="background:#16A34A" onclick="setWhiteboardColor('gsi','#16A34A')" title="Green"></button>
+                    <button class="wb-color-swatch" data-color="#F59E0B" style="background:#F59E0B" onclick="setWhiteboardColor('gsi','#F59E0B')" title="Orange"></button>
+                    <button class="wb-color-swatch" data-color="#7C3AED" style="background:#7C3AED" onclick="setWhiteboardColor('gsi','#7C3AED')" title="Purple"></button>
+                  </div>
+                  <div class="wb-flyout-divider"></div>
+                  <div class="wb-widths">
+                    <button class="wb-width-btn" data-width="thin" onclick="setWhiteboardWidth('gsi','thin')" title="Thin">●</button>
+                    <button class="wb-width-btn" data-width="medium" onclick="setWhiteboardWidth('gsi','medium')" title="Medium">●</button>
+                    <button class="wb-width-btn" data-width="thick" onclick="setWhiteboardWidth('gsi','thick')" title="Thick">●</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="wb-float-tool-wrap">
+                <button class="wb-icon-tool" id="wbEraseBtn-gsi" onclick="selectEraserTool('gsi')" title="Eraser">
+                  <svg viewBox="0 0 24 24"><path d="M20 20H8L3 15a1.5 1.5 0 0 1 0-2.1L13 3l8 8-8 8"/><path d="M8 20l6-6"/></svg>
+                </button>
+                <div class="wb-flyout" id="wbEraserSizes-gsi">
+                  <button class="wb-eraser-size-btn" data-size="small" onclick="setEraserSize('gsi','small')" title="Small eraser">Small</button>
+                  <button class="wb-eraser-size-btn" data-size="large" onclick="setEraserSize('gsi','large')" title="Large eraser — erase quickly">Large</button>
+                </div>
+              </div>
+
+              <button class="wb-icon-tool" id="wbStickyBtn-gsi" onclick="selectStickyTool('gsi')" title="Sticky note — click the board to place one">
+                <svg viewBox="0 0 24 24"><path d="M4 4h13l3 3v13H4V4z"/><path d="M17 4v6h6"/></svg>
+              </button>
+              <button class="wb-icon-tool" id="wbStickyArchiveBtn-gsi" onclick="openStickyArchive('gsi')" title="Archived sticky notes">🗑</button>
+
+              <div class="wb-toolbar-divider"></div>
+
+              <button class="wb-icon-tool" onclick="undoWhiteboardStroke('gsi')" title="Undo last stroke on the page you're viewing">
+                <svg viewBox="0 0 24 24"><path d="M3 10h10a5 5 0 0 1 0 10H8"/><path d="M3 10l5-5M3 10l5 5"/></svg>
+              </button>
+              <button class="wb-icon-tool" onclick="clearWhiteboardPage('gsi')" title="Clear the page you're currently viewing">
+                <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V6h12z"/></svg>
+              </button>
+            </div>
+
+            <!-- Zoom — a separate small floating control, bottom-right corner -->
+            <div class="wb-zoom-float" id="wbZoomFloat-gsi">
+              <button onclick="zoomWhiteboardOut('gsi')" title="Zoom out">−</button>
+              <span class="wb-zoom-level" id="wbZoomLevel-gsi">100%</span>
+              <button onclick="zoomWhiteboardIn('gsi')" title="Zoom in">+</button>
+              <button class="wb-zoom-reset" onclick="resetWhiteboardZoom('gsi')" title="Reset zoom">100%</button>
+            </div>
+
+            <button class="wb-fullscreen-btn" id="wbFullscreenBtn-gsi" onclick="toggleWhiteboardFullscreen('gsi')" title="Full screen">
+              <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-head"><h2>Personal documents</h2></div>
+        <div class="card-body">
+          <div class="link-grid" id="personalDocs" style="grid-template-columns:1fr"></div>
+          <div class="add-inline">
+            <input type="text" id="personalDocName" placeholder="Document name">
+            <input type="text" id="personalDocUrl" placeholder="https://…">
+            <button class="btn btn-ghost" onclick="addPersonalDoc()">➕ Add</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== PAGE: FINANCE ======== -->
+    <section class="page" id="page-finance">
+      <h1 class="display" style="font-size:28px;margin-bottom:14px">Finance</h1>
+      <div class="grid-2">
+        <div class="card"><div class="card-head"><h2>Notes</h2></div>
+          <div class="card-body">
+            <textarea class="notes-area" id="notes-finance" placeholder="Everything about finance lives here…" oninput="saveFinanceNotes(this.value)"></textarea>
+          </div>
+        </div>
+        <div class="card"><div class="card-head"><h2>Links</h2></div>
+          <div class="card-body">
+            <div class="link-grid" id="secLinks-finance" style="grid-template-columns:1fr"></div>
+            <div class="add-inline">
+              <input type="text" id="finLinkTitle" placeholder="Title">
+              <input type="text" id="finLinkUrl" placeholder="https://…">
+              <button class="btn btn-ghost" onclick="addFinanceLink()">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="grid-3" style="margin-top:16px">
+        <div class="card">
+          <div class="card-head"><h2>Grocery list</h2></div>
+          <div class="card-body">
+            <div id="fin-grocery-list"></div>
+            <div class="fin-add">
+              <input type="text" id="fin-grocery-name" placeholder="Item">
+              <input type="date" id="fin-grocery-date">
+              <input type="text" id="fin-grocery-link" placeholder="Link (optional)">
+              <button class="btn btn-ghost" onclick="addFinanceItem('grocery')">Add</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Shopping list</h2></div>
+          <div class="card-body">
+            <div id="fin-shopping-list"></div>
+            <div class="fin-add">
+              <input type="text" id="fin-shopping-name" placeholder="Item">
+              <input type="date" id="fin-shopping-date">
+              <input type="text" id="fin-shopping-link" placeholder="Link (optional)">
+              <button class="btn btn-ghost" onclick="addFinanceItem('shopping')">Add</button>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Wish list</h2></div>
+          <div class="card-body">
+            <div id="fin-wishlist-list"></div>
+            <div class="fin-add">
+              <input type="text" id="fin-wishlist-name" placeholder="Item">
+              <input type="date" id="fin-wishlist-date">
+              <input type="text" id="fin-wishlist-link" placeholder="Link (optional)">
+              <button class="btn btn-ghost" onclick="addFinanceItem('wishlist')">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title">Expense &amp; EMI Tracker</div>
+      <div class="card">
+        <div class="card-head">
+          <h2>Expense &amp; EMI Tracker</h2>
+          <button class="icon-btn" onclick="openEmiDropdownManager()">⚙️ Manage dropdowns</button>
+        </div>
+        <div class="card-body">
+          <div class="emi-table-scroll">
+            <table class="emi-table">
+              <thead>
+                <tr>
+                  <th>Sr No</th><th>Expense</th><th>Monthly Amount</th><th>EMI Start Date</th>
+                  <th>EMI End Date</th><th>Remaining Amount</th><th>Months Remaining</th>
+                  <th>Bank</th><th>Term</th><th>Status</th><th>Notes</th><th></th>
+                </tr>
+              </thead>
+              <tbody id="emiTableBody"></tbody>
+              <tfoot><tr id="emiTotalsRow" class="emi-totals-row"></tr></tfoot>
+            </table>
+          </div>
+          <button class="btn btn-ghost" style="margin-top:12px" onclick="addEmiRow()">+ Add row</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Monthly Expenses</h2></div>
+        <div class="card-body">
+          <div class="fin-month-tabbar">
+            <button class="fin-month-nav" onclick="addExpenseMonthBefore()" title="Add an earlier month">◀ +</button>
+            <div class="fin-month-tabs" id="finMonthTabs"></div>
+            <button class="fin-month-nav" onclick="addExpenseMonthAfter()" title="Add a later month">+ ▶</button>
+          </div>
+          <div class="emi-table-scroll">
+            <table class="emi-table">
+              <thead>
+                <tr><th>Date</th><th>Category</th><th>Description</th><th>Amount</th><th>Payment</th><th>Notes</th><th></th></tr>
+              </thead>
+              <tbody id="finMonthlyTableBody"></tbody>
+              <tfoot><tr id="finMonthlyTotalsRow" class="emi-totals-row"></tr></tfoot>
+            </table>
+          </div>
+          <button class="btn btn-ghost" style="margin-top:12px" onclick="addExpenseRow()">+ Add row</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>📊 Full spreadsheet (Google Sheets)</h2></div>
+        <div class="card-body">
+          <p class="hint" style="margin-bottom:10px">Opens in Google Sheets using your own sign-in — this is a link, not an embedded copy, so edits there won't sync back into LifeOS.</p>
+          <div class="fin-add">
+            <input type="text" id="finExternalSheetUrl" placeholder="https://docs.google.com/spreadsheets/…"
+              onchange="saveExternalSheetUrl(this.value)" style="flex:1">
+            <a id="finExternalSheetOpenBtn" class="btn btn-ghost" href="#" target="_blank" rel="noopener">Open ↗</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== PAGE: HEALTH ======== -->
+    <section class="page" id="page-health">
+      <h1 class="display" style="font-size:28px;margin-bottom:14px">Health</h1>
+      <div class="grid-2">
+        <div class="card"><div class="card-head"><h2>Notes</h2></div>
+          <div class="card-body">
+            <textarea class="notes-area" id="notes-health" placeholder="Everything about health lives here…" oninput="saveHealthNotes(this.value)"></textarea>
+          </div>
+        </div>
+        <div class="card"><div class="card-head"><h2>Links</h2></div>
+          <div class="card-body">
+            <div class="link-grid" id="secLinks-health" style="grid-template-columns:1fr"></div>
+            <div class="add-inline">
+              <input type="text" id="healthLinkTitle" placeholder="Title">
+              <input type="text" id="healthLinkUrl" placeholder="https://…">
+              <button class="btn btn-ghost" onclick="addHealthLink()">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title">Medicine tracker</div>
+      <div class="card">
+        <div class="card-head">
+          <h2 style="display:flex;align-items:center;gap:12px">Week
+            <span class="week-nav">
+              <button onclick="shiftMedWeek(-1)" aria-label="Previous week"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+              <span class="week-label" id="medWeekLabel"></span>
+              <button onclick="shiftMedWeek(1)" aria-label="Next week"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+            </span>
+          </h2>
+          <span class="hint">M / A / N = Morning · Afternoon · Night</span>
+        </div>
+        <div class="card-body">
+          <div style="overflow-x:auto"><table class="habit-table" id="medWeekTable"></table></div>
+          <div class="add-inline">
+            <input type="text" id="newMedicine" placeholder="Add a medicine, e.g. Vitamin D" onkeydown="if(event.key==='Enter')addMedicine()">
+            <button class="btn btn-ghost" onclick="addMedicine()">Add</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-top:16px">
+        <div class="card">
+          <div class="card-head"><h2>Dose log</h2>
+            <select id="medLogFilter" onchange="setMedLogFilter(this.value)" class="status-sel" style="flex-shrink:0"></select>
+          </div>
+          <div class="card-body" id="medLogList" style="max-height:320px;overflow-y:auto"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Prescriptions</h2></div>
+          <div class="card-body">
+            <div id="prescriptionList"></div>
+            <div class="fin-add">
+              <input type="text" id="presName" placeholder="Prescribed for / doctor">
+              <input type="date" id="presDate" title="Date of visit">
+              <input type="text" id="presUrl" placeholder="Link (optional)">
+              <button class="btn btn-ghost" onclick="addPrescription()">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== PAGE: TRAVEL PLAN ======== -->
+    <section class="page" id="page-travel">
+      <h1 class="display" style="font-size:28px;margin-bottom:14px">Travel Plan</h1>
+      <div class="tabs" id="travelPlanTabs"></div>
+      <div class="card">
+        <div class="card-head">
+          <input type="text" id="travelPlanName" onchange="renameTravelPlan(this.value)"
+            style="border:none;background:transparent;font-family:'Fraunces',serif;font-size:19px;font-weight:600;flex:1;padding:0">
+          <button class="icon-btn" id="travelPlanDelBtn" onclick="delTravelPlan()" title="Delete this plan" style="display:none">Delete plan</button>
+        </div>
+        <div class="card-body" style="padding-top:0">
+          <div class="seg" id="travelViewTabs">
+            <button class="on" data-tview="itinerary" onclick="switchTravelView('itinerary')">Itinerary</button>
+            <button data-tview="route" onclick="switchTravelView('route')">🗺️ Route map</button>
+          </div>
+        </div>
+        <div class="card-body travel-view active" data-tview="itinerary">
+          <div id="travelStops"></div>
+          <button class="btn btn-ghost" style="margin-top:10px" onclick="addStop()">➕ Add a stop</button>
+        </div>
+        <div class="card-body travel-view" data-tview="route">
+          <div id="travelRouteMap"></div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-head"><h2>Packing list</h2></div>
+        <div class="card-body" id="travelPackingList"></div>
+        <div class="card-body" style="padding-top:0">
+          <div class="add-inline">
+            <input type="text" id="newPackingItem" placeholder="Passport, chargers, warm jacket…" onkeydown="if(event.key==='Enter')addPackingItem()">
+            <button class="btn btn-ghost" onclick="addPackingItem()">Add</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== PAGE: REFERENCE ======== -->
+    <section class="page" id="page-reference">
+      <h1 class="display" style="font-size:28px;margin-bottom:14px">Reference</h1>
+      <div class="tabs" id="refPageTabs"></div>
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head">
+            <input type="text" id="refPageName" onchange="renameRefPage(this.value)"
+              style="border:none;background:transparent;font-family:'Fraunces',serif;font-size:19px;font-weight:600;flex:1;padding:0">
+            <button class="icon-btn" id="refPageDelBtn" onclick="delRefPage()" title="Delete this page" style="display:none">Delete</button>
+          </div>
+          <div class="card-body">
+            <textarea class="notes-area" id="notes-reference" placeholder="Everything about this reference page lives here…" oninput="saveReferenceNotes(this.value)"></textarea>
+          </div>
+        </div>
+        <div class="card"><div class="card-head"><h2>Links</h2></div>
+          <div class="card-body">
+            <div class="link-grid" id="secLinks-reference" style="grid-template-columns:1fr"></div>
+            <div class="add-inline">
+              <input type="text" id="refLinkTitle" placeholder="Title">
+              <input type="text" id="refLinkUrl" placeholder="https://…">
+              <button class="btn btn-ghost" onclick="addRefLink()">Add</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card" style="margin-top:16px">
+        <div class="card-head"><h2>World map</h2><span class="hint">Mark places, sketch or write with a finger, mouse, or stylus — Apple Pencil, S Pen</span></div>
+        <div class="card-body">
+          <div class="add-inline" style="margin-bottom:10px">
+            <input type="text" id="worldMapSearch" placeholder="Search for a place, e.g. Kyoto, Japan" onkeydown="if(event.key==='Enter')searchWorldMap()">
+            <button class="btn btn-ghost" onclick="searchWorldMap()">🔍 Go</button>
+            <button class="btn btn-ghost" id="worldMapLocateBtn" onclick="locateMeOnWorldMap()">🎯 My location</button>
+          </div>
+          <div class="leaflet-map-container" id="worldMap" style="height:480px"></div>
+
+          <div class="route-panel">
+            <div class="route-panel-title">📏 Distance &amp; route by road</div>
+            <div class="route-inputs">
+              <span class="tsf-wrap">
+                <input type="text" id="routeFrom" placeholder="From — place name" oninput="clearRouteFromLocation()">
+                <button class="locate-btn" id="routeFromLocateBtn" onclick="useMyLocationForRouteFrom()" title="Use my current location">🎯</button>
+              </span>
+              <span style="color:var(--muted);font-weight:700">→</span>
+              <input type="text" id="routeTo" placeholder="To — place name" style="flex:1">
+              <button class="btn btn-primary" id="routeCalcBtn" onclick="calculateWorldMapRoute()">Get route</button>
+              <button class="btn btn-ghost" id="routeResetBtn" onclick="resetWorldMapRoute()" style="display:none">✕ Reset</button>
+            </div>
+            <p class="route-result" id="routeResult"></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== PAGE: TRASH ======== -->
+    <section class="page" id="page-trash">
+      <h1 class="display" style="font-size:28px;margin-bottom:14px">Trash</h1>
+      <div class="card">
+        <div class="card-head"><h2>Deleted items</h2><span class="hint" id="trashCount"></span></div>
+        <div class="card-body">
+          <p class="hint" style="margin-top:0">Anything deleted anywhere in LifeOS lands here first. Restore it any time within 30 days, or delete it for good.</p>
+          <div id="trashList"></div>
+        </div>
+      </div>
+    </section>
+    <div id="sectionPages"></div>
+  </main>
+</div>
+
+<!-- ============ ACCOUNT / SIGN-IN MODAL ============ -->
+<div class="modal-bg" id="taskPopupModalBg">
+  <div class="modal" style="max-width:420px">
+    <div class="expand-modal-head" style="margin-bottom:14px">
+      <h2>Task</h2>
+      <button class="btn btn-ghost" onclick="closeTaskPopup()">✕ Close</button>
+    </div>
+    <div id="taskPopupBody"></div>
+  </div>
+</div>
+
+<div class="modal-bg" id="ghModal">
+  <div class="modal">
+    <div id="ghModalSetup" style="display:none">
+      <h2 class="display">One-time setup</h2>
+      <p class="hint">This copy of LifeOS isn't linked to a Supabase project yet. It takes about ten minutes, once, and everything is free:</p>
+      <ol class="steps">
+        <li>Create a free project at <a href="https://supabase.com" target="_blank" rel="noopener">supabase.com</a>.</li>
+        <li>In the project's <b>SQL Editor</b>, run the contents of <code>supabase-setup.sql</code> (shipped alongside this file).</li>
+        <li>Create a GitHub OAuth app at <a href="https://github.com/settings/developers" target="_blank" rel="noopener">github.com/settings/developers</a>. Set the callback URL to <code>https://YOUR-PROJECT-REF.supabase.co/auth/v1/callback</code>.</li>
+        <li>In Supabase → <b>Authentication → Providers → GitHub</b>, paste the OAuth app's Client ID and Secret.</li>
+        <li>In Supabase → <b>Authentication → URL Configuration</b>, set your site's address (e.g. your GitHub Pages URL) as the Site URL.</li>
+        <li>Open <code>js/config.js</code> in a text editor and fill in <code>SUPABASE_URL</code> and <code>SUPABASE_ANON_KEY</code>.</li>
+      </ol>
+      <p class="hint"><b>Note:</b> GitHub sign-in only works from a hosted address (GitHub Pages, Vercel, or a local server) — not from a file opened directly off the disk. Until then, LifeOS keeps working in local-only mode.</p>
+    </div>
+    <div id="ghModalSignin" style="display:none">
+      <h2 class="display">Sign in</h2>
+      <p class="hint">Sign in with GitHub to sync LifeOS to your own private database and use it from any device — phone, tablet, office PC. Changes save automatically.</p>
+    </div>
+    <div id="ghModalAccount" style="display:none">
+      <h2 class="display">Account</h2>
+      <p class="hint" id="accountInfo"></p>
+      <p class="hint" style="margin-top:8px">Your data lives in your Supabase database and syncs live between devices.</p>
+    </div>
+    <div class="err" id="ghErr"></div>
+    <div class="row">
+      <button class="btn btn-ghost" id="signOutBtn" style="margin-right:auto;display:none" onclick="signOut()">Sign out</button>
+      <button class="btn btn-ghost" onclick="closeGhModal()">Close</button>
+      <button class="btn btn-primary" id="signInBtn" style="display:none" onclick="signIn()">
+        <svg viewBox="0 0 24 24" fill="currentColor" width="16" height="16"><path d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.54-3.87-1.54-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.26.72-1.55-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12v3.14c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>
+        Sign in with GitHub</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ UNIVERSAL SEARCH ============ -->
+<div class="search-bg" id="searchBg">
+  <div class="search-panel">
+    <div class="search-input-row">
+      <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      <input class="search-input" id="searchInput" placeholder="Search tasks, notes, journal, links…" autocomplete="off">
+      <span class="kbd">Esc</span>
+    </div>
+    <label class="search-archived-toggle">
+      <input type="checkbox" id="searchIncludeArchived" onchange="setSearchIncludeArchived(this.checked)">
+      Include archived tasks
+    </label>
+    <div class="search-results" id="searchResults"></div>
+  </div>
+</div>
+
+<div class="expand-modal-bg" id="expandModalBg">
+  <div class="expand-modal">
+    <div class="expand-modal-head">
+      <h2 id="expandModalTitle"></h2>
+      <button class="btn btn-ghost" onclick="closeExpandView()">✕ Close</button>
+    </div>
+    <div class="expand-modal-body" id="expandModalContent"></div>
+  </div>
+</div>
+
+<div class="gsi-archive-modal-bg" id="wbStickyArchiveModalBg-gsi">
+  <div class="gsi-archive-modal">
+    <div class="expand-modal-head">
+      <h2>Archived sticky notes</h2>
+      <button class="btn btn-ghost" onclick="closeStickyArchive('gsi')">✕ Close</button>
+    </div>
+    <div class="gsi-archive-modal-body" id="wbStickyArchiveList-gsi"></div>
+  </div>
+</div>
+
+<div class="gsi-archive-modal-bg" id="gsiArchiveModalBg">
+  <div class="gsi-archive-modal">
+    <div class="expand-modal-head">
+      <h2>Archived tasks</h2>
+      <button class="btn btn-ghost" onclick="closeArchiveView()">✕ Close</button>
+    </div>
+    <div class="gsi-archive-modal-body" id="gsiArchiveList"></div>
+  </div>
+</div>
+
+<div class="gsi-archive-modal-bg" id="wbArchiveModalBg">
+  <div class="gsi-archive-modal">
+    <div class="expand-modal-head">
+      <h2>Archived boards</h2>
+      <button class="btn btn-ghost" onclick="closeBrainstormArchive()">✕ Close</button>
+    </div>
+    <div class="gsi-archive-modal-body" id="wbArchiveList"></div>
+  </div>
+</div>
+
+<div class="gsi-archive-modal-bg" id="taskArchiveModalBg">
+  <div class="gsi-archive-modal">
+    <div class="expand-modal-head">
+      <h2>Archived tasks (<span id="taskArchiveModalCount">0</span>)</h2>
+      <button class="btn btn-ghost" onclick="closeArchivedTasksModal()">✕ Close</button>
+    </div>
+    <div class="row" style="padding:12px 20px 0">
+      <select id="taskArchiveModalSort" class="t-archived-sort" onchange="setArchivedSort(this.value)" title="Sort archived tasks">
+        <option value="newest">Newest archived</option>
+        <option value="oldest">Oldest archived</option>
+        <option value="completed">Completed date</option>
+        <option value="alpha">Alphabetical</option>
+      </select>
+    </div>
+    <div class="gsi-archive-modal-body" id="taskArchiveModalList"></div>
+  </div>
+</div>
+
+<div class="scribble-modal-bg" id="scribbleModalBg">
+  <div class="scribble-modal">
+    <div class="expand-modal-head">
+      <h2 id="scribbleModalTitle">Note</h2>
+      <button class="btn btn-ghost" onclick="closeScribbleModal()">✕ Done</button>
+    </div>
+    <canvas id="scribbleCanvas" class="scribble-canvas"></canvas>
+    <div class="scribble-modal-foot">
+      <button class="btn btn-ghost" onclick="clearScribble()">Clear</button>
+      <span class="hint">Draw with mouse, finger, or stylus — saves automatically</span>
+    </div>
+  </div>
+</div>
+
+<div class="emi-dd-modal-bg" id="emiDropdownModalBg">
+  <div class="emi-dd-modal">
+    <div class="expand-modal-head">
+      <h2>Manage dropdown options</h2>
+      <button class="btn btn-ghost" onclick="closeEmiDropdownManager()">✕ Close</button>
+    </div>
+    <div class="emi-dd-modal-body" id="emiDropdownManagerBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
