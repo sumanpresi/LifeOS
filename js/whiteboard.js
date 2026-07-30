@@ -1035,6 +1035,17 @@ function stickyHtml(o, w) {
     </div>`;
 }
 
+// Color popovers get temporarily reparented to <body> while open (see
+// the color button handler below for why), so closing one has to both
+// hide it and return it to the note it belongs to — otherwise it would
+// be left stranded in <body>, detached from its own note.
+function closeAllStickyColorPops() {
+  document.querySelectorAll(".wb-sfmt-color-pop.open").forEach(p => {
+    p.classList.remove("open");
+    if (p._ownerWrap) p._ownerWrap.appendChild(p);
+  });
+}
+
 function attachStickyHandlers(boardId, objId, canvasWidth) {
   const el = document.querySelector(`#${id(boardId, "wbObjLayer")} [data-obj-id="${objId}"]`);
   if (!el) return;
@@ -1140,6 +1151,7 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
     const cmd = wrap.dataset.cmd;
     const btn = wrap.querySelector(".wb-sfmt-color-btn");
     const pop = wrap.querySelector(".wb-sfmt-color-pop");
+    pop._ownerWrap = wrap; // so closeAllStickyColorPops() can put it back where it came from
     const swatchEl = btn.querySelector(".wb-sfmt-color-swatch");
     const applyColor = (color) => {
       restoreRange();
@@ -1177,31 +1189,31 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
         console.error("[sticky-color] threw an error while applying:", err);
       }
       if (color !== "transparent") swatchEl.style.background = color;
-      pop.classList.remove("open");
+      closeAllStickyColorPops();
     };
     btn.addEventListener("pointerdown", (evt) => {
       evt.preventDefault();
       saveRange();
-      fmtToolbar.querySelectorAll(".wb-sfmt-color-pop.open").forEach(p => { if (p !== pop) p.classList.remove("open"); });
-      const opening = !pop.classList.contains("open");
-      pop.classList.toggle("open");
-      if (opening) {
-        // position:fixed, computed from the button's real screen
-        // position — this is what actually escapes .wb-sfmt-row's
-        // overflow-x:auto clipping. A position:absolute popover was
-        // being silently clipped by that ancestor despite the .open
-        // class toggling correctly, since absolute positioning only
-        // escapes normal document flow, not an ancestor's own
-        // overflow boundary.
-        const r = btn.getBoundingClientRect();
-        console.log("[sticky-color] button rect:", { top: r.top, left: r.left, bottom: r.bottom, right: r.right });
-        pop.style.top = (r.bottom + 4) + "px";
-        pop.style.left = r.left + "px";
-        requestAnimationFrame(() => {
-          const finalRect = pop.getBoundingClientRect();
-          console.log("[sticky-color] popover's actual final position:", { top: finalRect.top, left: finalRect.left });
-        });
-      }
+      const wasOpen = pop.classList.contains("open");
+      closeAllStickyColorPops();
+      if (wasOpen) return; // it was already open — that click just closes it
+      // Reparented to <body> before positioning, and this is the whole
+      // point: .wb-sticky has a CSS `filter` and the format toolbar has
+      // `backdrop-filter`, and EITHER of those makes that element the
+      // containing block for a position:fixed descendant. So the
+      // popover's "fixed" coordinates were being measured from the
+      // note's own top-left corner instead of the viewport's, landing
+      // it far away from its own button. Moving it out from under both
+      // ancestors makes position:fixed behave normally again.
+      document.body.appendChild(pop);
+      pop.classList.add("open");
+      const r = btn.getBoundingClientRect();
+      const popW = pop.offsetWidth || 108, popH = pop.offsetHeight || 90;
+      // Flip to stay on screen if the button is near an edge.
+      const left = Math.min(r.left, window.innerWidth - popW - 8);
+      const top = (r.bottom + 4 + popH > window.innerHeight) ? (r.top - popH - 4) : (r.bottom + 4);
+      pop.style.left = Math.max(8, left) + "px";
+      pop.style.top = Math.max(8, top) + "px";
     });
     wrap.querySelectorAll(".wb-sfmt-swatch[data-color]").forEach(sw => {
       sw.addEventListener("pointerdown", (evt) => evt.preventDefault());
@@ -1212,7 +1224,7 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
     customInput.addEventListener("input", () => applyColor(customInput.value));
   });
   document.addEventListener("pointerdown", (evt) => {
-    if (!evt.target.closest(".wb-sfmt-color-wrap")) fmtToolbar.querySelectorAll(".wb-sfmt-color-pop.open").forEach(p => p.classList.remove("open"));
+    if (!evt.target.closest(".wb-sfmt-color-wrap") && !evt.target.closest(".wb-sfmt-color-pop")) closeAllStickyColorPops();
   });
   // Checkbox list — not a native execCommand; inserts a custom block
   // whose checkbox is contenteditable="false" (so clicking it toggles
@@ -1400,6 +1412,7 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
   // already filters deleted:true notes out of what's drawn.
   el.querySelector(".wb-sticky-delete").addEventListener("pointerdown", (evt) => evt.stopPropagation());
   el.querySelector(".wb-sticky-delete").addEventListener("click", () => {
+    closeAllStickyColorPops(); // this button stops propagation, so the usual outside-click close never runs
     const o = getObj();
     if (o) { o.deleted = true; o.updatedAt = Date.now(); }
     if (selectedStickyId === objId) selectedStickyId = null;
