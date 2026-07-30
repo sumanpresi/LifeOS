@@ -1318,6 +1318,7 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
   dragHandle.addEventListener("pointerdown", (evt) => {
     evt.preventDefault(); evt.stopPropagation();
     selectedStickyId = objId; el.classList.add("selected");
+    document.querySelectorAll(".wb-sticky.selected").forEach(other => { if (other !== el) other.classList.remove("selected"); });
     try { dragHandle.setPointerCapture(evt.pointerId); } catch (e) { /* rare — harmless to skip */ }
     const startX = evt.clientX, startY = evt.clientY;
     const o = getObj(); const startLeft = o.x * canvasWidth, startTop = o.y * canvasWidth;
@@ -1347,6 +1348,7 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
   resizeHandle.addEventListener("pointerdown", (evt) => {
     evt.preventDefault(); evt.stopPropagation();
     selectedStickyId = objId; el.classList.add("selected");
+    document.querySelectorAll(".wb-sticky.selected").forEach(other => { if (other !== el) other.classList.remove("selected"); });
     try { resizeHandle.setPointerCapture(evt.pointerId); } catch (e) { /* rare — harmless to skip */ }
     const startX = evt.clientX, startY = evt.clientY;
     const o = getObj(); const startW = o.w * canvasWidth, startH = o.h * canvasWidth;
