@@ -1115,6 +1115,9 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .gsi-status-sel.s-blocked{background:#FFEDD5;color:#C2410C;border-color:#FED7AA}
 .gsi-status-sel.s-done{background:#DCFCE7;color:#15803D;border-color:#BBF7D0}
 
+.gsi-project-sel{border:1px solid var(--line);border-radius:99px;padding:6px 12px;font-size:12px;
+  font-weight:600;cursor:pointer;background:#fff;color:var(--muted);max-width:96px}
+
 .gsi-del{background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:4px;
   border-radius:6px;opacity:0;transition:opacity 150ms ease,background 150ms ease,color 150ms ease}
 .gsi-card:hover .gsi-del,.gsi-card:focus-within .gsi-del{opacity:1}
@@ -1152,6 +1155,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   .gsi-title{font-size:15.5px} /* the real fix is width, from .gsi-card-right now wrapping below — this input still can't multi-line wrap */
   .gsi-flag,.gsi-del{opacity:1;width:36px;height:36px;display:flex;align-items:center;justify-content:center}
   .gsi-status-sel{padding:8px 12px;min-height:36px}
+  .gsi-project-sel{padding:8px 12px;min-height:36px;max-width:110px}
   .gsi-toolbar-row{gap:8px}
   .gsi-sort-sel{min-height:40px}
   .gsi-del-completed-btn{min-height:40px}

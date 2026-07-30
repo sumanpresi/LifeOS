@@ -247,8 +247,22 @@ function gsiCardHtml(item) {
         <select class="gsi-status-sel s-${item.status}" onchange="setTaskStatus('${item.id}',this.value)">
           ${STATUSES.map(([v, l]) => `<option value="${v}" ${item.status === v ? "selected" : ""}>${l}</option>`).join("")}
         </select>
+        ${projectSelectorHtml(item.id)}
       </div>
     </div>`;
+}
+// Shared by List and Board card templates below — lets a task move to a
+// different GSI project, or back to a plain native task ("No project"),
+// right from wherever it's already sitting. Routes through
+// changeTaskProject (tasks.js, exposed globally via app.js) rather than
+// touching state.gsi.projects here, since that function already knows
+// how to remap a task's shape across native<->GSI and between projects.
+function projectSelectorHtml(taskId) {
+  const currentId = state.gsi.activeProject;
+  return `<select class="gsi-project-sel" title="Move to project" onchange="changeTaskProject('${taskId}',this.value)">
+    <option value="">No project</option>
+    ${state.gsi.projects.map(p => `<option value="${p.id}" ${p.id === currentId ? "selected" : ""}>${esc(p.name)}</option>`).join("")}
+  </select>`;
 }
 
 // ---------- GSI Board view — columns by status, since that's the
@@ -279,6 +293,7 @@ function gsiBoardCardHtml(item) {
           : `<button class="t-add-link-btn" onclick="toggleGsiLinkEdit(event,'${item.id}')">+ Link</button>`}
         <input type="text" class="t-link-input" id="gsi-link-edit-${item.id}" placeholder="Paste a link…" value="${esc(item.link||"")}"
           onclick="event.stopPropagation()" onchange="editProjectTask('${item.id}','link',this.value)" onblur="this.style.display='none'" style="display:none">
+        <span onclick="event.stopPropagation()">${projectSelectorHtml(item.id)}</span>
       </div>
     </div>`;
 }
