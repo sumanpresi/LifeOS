@@ -11,7 +11,7 @@ import { toast, autoGrow } from './ui.js';
 import { moveToTrash } from './trash.js';
 import { syncTaskToGoogle } from './google-calendar.js';
 import { getAllGsiTasksFlat, findProjectTask, editProjectTask, setTaskStatus as setGsiTaskStatus,
-  delProjectTask, toggleProjectTaskFlag } from './gsi.js';
+  delProjectTask, toggleProjectTaskFlag, archiveGsiTaskEntry } from './gsi.js';
 
 let taskFilter = "all"; // "all" | "work" | "personal"
 let sortByDate = false;
@@ -114,8 +114,7 @@ function initBoardSorting() {
     boardSortableInstances.push(Sortable.create(container, {
       group: "task-board", // shared across every column — this is what allows dragging between them, not just within one
       handle: ".t-board-card-handle",
-      filter: ".t-board-card-handle-spacer", // GSI cards' placeholder — never a real handle
-      draggable: ".t-board-card[data-is-gsi='0']", // only native cards are ever pick-up-able
+      draggable: ".t-board-card", // GSI cards are pick-up-able here too — moveTaskToColumn routes them through setGsiTaskStatus/editProjectTask/archiveGsiTaskEntry instead of the native task functions
       preventOnFilter: false,
       animation: 200,
       delay: 300, delayOnTouchOnly: true, touchStartThreshold: 5,
@@ -133,6 +132,10 @@ function handleBoardDragEnd(evt) {
   if (fromCol === toCol) {
     // Reordering within one column — identical position math to List
     // view's own reorder, it doesn't care what shape the container is.
+    // GSI cards have no position field to reorder by, so handleTaskDragEnd's
+    // own state.tasks lookup misses, it just re-renders, and the card
+    // visually snaps back — cross-column moves (below) are what GSI
+    // cards actually support.
     handleTaskDragEnd(evt);
     return;
   }
@@ -147,33 +150,56 @@ function handleBoardDragEnd(evt) {
 }
 // Every actual mutation here goes through the exact same functions the
 // rest of the app already uses (toggleTask, editTaskMeta, archiveTask,
-// restoreArchivedTaskEntry) — sync, Google Calendar, and persistence
-// are entirely their responsibility, not reimplemented here.
+// restoreArchivedTaskEntry, and their GSI counterparts setGsiTaskStatus/
+// archiveGsiTaskEntry) — sync, Google Calendar, and persistence are
+// entirely their responsibility, not reimplemented here. GSI tasks are
+// looked up via findAnyTask (same helper the popup/toggle/flag/edit
+// paths already share) so a card's status/date live-updates in its
+// actual GSI project, not in a copy.
 function moveTaskToColumn(id, targetCol) {
-  const t = state.tasks.find(x => x.id === id);
-  if (!t) return false;
+  const found = findAnyTask(id);
+  if (!found) return false;
+  const { task: t, isGsi, project } = found;
   const todayStr = new Date().toISOString().slice(0, 10);
+  const curDate = isGsi ? t.date : t.dueDate;
+  const done = isGsi ? t.status === "done" : t.done;
 
   if (targetCol === "archived") {
+    if (isGsi) {
+      if (done) { archiveGsiTaskEntry(project.id, id); return true; }
+      setGsiTaskStatus(id, "done"); // GSI archive is for finished tasks, same intent as native's requirement below
+      archiveGsiTaskEntry(project.id, id);
+      return true;
+    }
     if (t.archived) return true;
     if (!t.done) toggleTask(id); // archiveTask requires a completed task
     archiveTask(id);
     return true;
   }
   if (targetCol === "completed") {
+    if (isGsi) {
+      if (t.status !== "done") setGsiTaskStatus(id, "done");
+      return true;
+    }
     if (t.archived) { restoreArchivedTaskEntry(id); return true; } // "Archived -> Completed" is a restore, not a re-completion
     if (!t.done) toggleTask(id);
     return true;
   }
-  // Every remaining target is date-based — a done or archived task
-  // needs to come back to "open" first before its date means anything.
-  if (t.archived) restoreArchivedTaskEntry(id);
-  if (t.done) toggleTask(id);
+  // Every remaining target is date-based — a done/archived task needs
+  // to come back to "open" first before its date means anything. GSI
+  // has no boolean "done" to just flip back — it's reopened to "todo",
+  // since which of todo/progress/blocked it was before "done" isn't tracked.
+  if (isGsi) {
+    if (t.status === "done") setGsiTaskStatus(id, "todo");
+  } else {
+    if (t.archived) restoreArchivedTaskEntry(id);
+    if (t.done) toggleTask(id);
+  }
 
   if (targetCol === "today") { editTaskMeta(id, "dueDate", todayStr); return true; }
   if (targetCol === "nodate") { editTaskMeta(id, "dueDate", ""); return true; }
   if (targetCol === "upcoming") {
-    if (!t.dueDate) {
+    if (!curDate) {
       const v = prompt("Set a due date for this task (YYYY-MM-DD):", "");
       if (v && v.trim()) {
         const val = v.trim();
@@ -182,14 +208,14 @@ function moveTaskToColumn(id, targetCol) {
       }
       return true; // left blank on purpose — task stays undated, lands back in No Date on re-render
     }
-    if (t.dueDate <= todayStr) { // was Today/Overdue — push forward so it actually qualifies as "upcoming"
+    if (curDate <= todayStr) { // was Today/Overdue — push forward so it actually qualifies as "upcoming"
       const d = new Date(); d.setDate(d.getDate() + 1);
       editTaskMeta(id, "dueDate", d.toISOString().slice(0, 10));
     }
     return true;
   }
   if (targetCol === "overdue") {
-    if (!t.dueDate || t.dueDate >= todayStr) { toast("Overdue needs a due date before today"); return false; }
+    if (!curDate || curDate >= todayStr) { toast("Overdue needs a due date before today"); return false; }
     return true; // already qualifies, nothing to change
   }
   return true;
@@ -406,8 +432,7 @@ function boardCardHtml(t) {
   return `
     <div class="t-board-card ${t.done ? "done" : ""}" data-task-id="${t.id}" data-is-gsi="${t.isGsi ? "1" : "0"}" onclick="toggleTaskExpanded('${t.id}')">
       <div class="t-board-card-top">
-        ${t.isGsi ? `<span class="t-board-card-handle t-board-card-handle-spacer" aria-hidden="true"></span>`
-                  : `<span class="t-board-card-handle" title="Drag to move" onclick="event.stopPropagation()">⠿</span>`}
+        <span class="t-board-card-handle" title="Drag to move" onclick="event.stopPropagation()">⠿</span>
         <button class="t-chk ${t.done ? "on" : ""}" onclick="event.stopPropagation();toggleTask('${t.id}')" aria-label="Toggle task">
           <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
         <span class="t-board-card-title">${esc(t.text)}</span>
@@ -651,11 +676,12 @@ export function renderTasks() {
     return a.dueDate.localeCompare(b.dueDate);
   };
   // Manual drag order — see the position migration in state.js's
-  // merge(). GSI tasks have no position field (dragging isn't
-  // supported for them — see taskRowHtml's placeholder handle), so
-  // they fall back to 0 and cluster together rather than interleaving
-  // meaningfully with natively-ordered tasks; an accepted limitation
-  // of keeping GSI tasks out of this feature's scope.
+  // merge(). GSI tasks have no position field, so they fall back to 0
+  // and cluster together rather than interleaving meaningfully with
+  // natively-ordered tasks. List view's row drag (taskRowHtml's
+  // placeholder handle) stays native-only for this reason — but Board
+  // view doesn't reorder by position at all, it moves cards between
+  // columns by status/date, which GSI tasks do have (see moveTaskToColumn).
   const byPosition = (a, b) => (a.position ?? 0) - (b.position ?? 0);
 
   const todayKeyStr = new Date().toISOString().slice(0, 10);
