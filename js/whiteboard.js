@@ -1225,6 +1225,10 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
 
   textEl.addEventListener("input", saveHtml);
   textEl.addEventListener("blur", () => { autoLinkOnBlur(); saveHtml(); });
+  textEl.addEventListener("click", (evt) => {
+    const a = evt.target.closest("a");
+    if (a && a.href) { evt.preventDefault(); window.open(a.href, "_blank", "noopener,noreferrer"); }
+  });
 
   // Drag — only from the dedicated handle, kept separate from the text
   // area so dragging and editing can never be ambiguous with each other.
