@@ -1669,3 +1669,29 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   .wb-sfmt-size,.wb-sfmt-font{height:34px;font-size:13px}
   .wb-sticky-format-toolbar{bottom:calc(100% + 4px)}
 }
+
+/* ---- Widget move/resize — long-press a card's header to drag it
+   anywhere on the page, drag its corner handle to resize it. Cards
+   stay in normal, fully-responsive document flow until the first time
+   they're actually moved or resized (.wl-positioned is added then,
+   switching that one card to an explicit px position/size) — every
+   untouched card looks and behaves exactly as before. Desktop-only:
+   an absolute px layout doesn't survive a viewport-width change the
+   way normal flow does, so phones always keep the standard stacked
+   layout regardless of any saved customization (see the max-width
+   override below). ---- */
+.page{position:relative}
+.card.wl-positioned{position:absolute;margin:0;overflow:auto;z-index:2}
+.card-head{cursor:grab;touch-action:manipulation}
+.card.wl-dragging{opacity:.92;box-shadow:0 14px 34px rgba(27,27,26,.22);z-index:50;cursor:grabbing;transition:none}
+.card.wl-resizing{transition:none;z-index:50}
+.wl-resize-handle{position:absolute;right:3px;bottom:3px;width:18px;height:18px;cursor:nwse-resize;
+  color:var(--t-ink2,#9aa1ab);opacity:.4;touch-action:none;z-index:21}
+.wl-resize-handle:hover{opacity:1}
+.wl-resize-handle svg{width:100%;height:100%}
+@media(max-width:900px){
+  .card.wl-positioned{position:static!important;left:auto!important;top:auto!important;
+    width:auto!important;height:auto!important;overflow:visible!important}
+  .wl-resize-handle{display:none}
+  .card-head{cursor:default}
+}

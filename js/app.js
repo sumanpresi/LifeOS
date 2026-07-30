@@ -7,6 +7,8 @@ import * as habits from './habits.js';
 import * as widgets from './widgets.js';
 import * as sections from './sections.js';
 import * as gsi from './gsi.js';
+import * as personal from './personal.js';
+import * as widgetLayout from './widget-layout.js';
 import * as finance from './finance.js';
 import * as health from './health.js';
 import * as travel from './travel.js';
@@ -38,6 +40,7 @@ function renderAll() {
   widgets.renderDayOf();
   sections.renderSections();
   gsi.renderGsi();
+  personal.renderPersonalWorkspace();
   finance.renderFinance();
   health.renderHealth();
   travel.renderTravel();
@@ -45,6 +48,7 @@ function renderAll() {
   trash.renderTrash();
   whiteboard.initWhiteboard("overview");
   whiteboard.initWhiteboard("gsi");
+  whiteboard.initWhiteboard("personal"); // plain single-board instance (no tab-switching) — see personal.js's file header for why
 }
 
 /* The markup uses plain onclick="…" handlers; expose them globally. */
@@ -95,6 +99,24 @@ Object.assign(window,
     addPersonalDoc: gsi.addPersonalDoc, delPersonalDoc: gsi.delPersonalDoc,
     addWorkDoc: gsi.addWorkDoc, delWorkDoc: gsi.delWorkDoc,
     runGrammarCheck: gsi.runGrammarCheck, applyGrammarFix: gsi.applyGrammarFix },
+  { addPwTask: personal.addPwTask, quickAddPwTask: personal.quickAddPwTask, editPwProjectTask: personal.editPwProjectTask,
+    setPwTaskStatus: personal.setPwTaskStatus, delPwProjectTask: personal.delPwProjectTask,
+    togglePwProjectTaskFlag: personal.togglePwProjectTaskFlag, setPwSortMode: personal.setPwSortMode,
+    archivePwCompletedTasks: personal.archivePwCompletedTasks, archivePwTaskEntry: personal.archivePwTaskEntry,
+    togglePwTaskLinkEdit: personal.togglePwTaskLinkEdit, openPwDatePicker: personal.openPwDatePicker,
+    openPwArchiveView: personal.openPwArchiveView, closePwArchiveView: personal.closePwArchiveView,
+    restorePwArchivedTask: personal.restorePwArchivedTask, removePwFromArchive: personal.removePwFromArchive,
+    restorePwLastDeletedProject: personal.restorePwLastDeletedProject,
+    addPwProject: personal.addPwProject, switchPwProject: personal.switchPwProject,
+    renamePwProject: personal.renamePwProject, delPwProject: personal.delPwProject,
+    setPwTaskView: personal.setPwTaskView,
+    renamePwProjectDocsLabel: personal.renamePwProjectDocsLabel,
+    choosePersonalWorkspace: personal.choosePersonalWorkspace,
+    addPwLink: personal.addPwLink, delPwLink: personal.delPwLink, editPwLink: personal.editPwLink,
+    togglePwDocEdit: personal.togglePwDocEdit, undoPwLastDeleted: personal.undoPwLastDeleted,
+    editPwDoc: personal.editPwDoc, editPwProjectDoc: personal.editPwProjectDoc,
+    addPwDoc: personal.addPwDoc, delPwDoc: personal.delPwDoc,
+    addPwProjectDoc: personal.addPwProjectDoc, delPwProjectDoc: personal.delPwProjectDoc },
   { saveFinanceNotes: finance.saveFinanceNotes, addFinanceLink: finance.addFinanceLink, delFinanceLink: finance.delFinanceLink,
     addFinanceItem: finance.addFinanceItem, delFinanceItem: finance.delFinanceItem, editFinanceItem: finance.editFinanceItem,
     addEmiRow: finance.addEmiRow, editEmiRow: finance.editEmiRow, delEmiRow: finance.delEmiRow,
@@ -121,6 +143,7 @@ Object.assign(window,
     clearRouteFromLocation: reference.clearRouteFromLocation, calculateWorldMapRoute: reference.calculateWorldMapRoute,
     resetWorldMapRoute: reference.resetWorldMapRoute },
   { restoreFromTrash: trash.restoreFromTrash, permanentlyDeleteFromTrash: trash.permanentlyDeleteFromTrash },
+  { resetPageLayout: widgetLayout.resetPageLayout },
   { toggleDatePopover: dateShortcuts.toggleDatePopover, setQuickDate: dateShortcuts.setQuickDate },
   { expandView: expandView.expandView, closeExpandView: expandView.closeExpandView },
   { copyCoordsToClipboard: mapCoords.copyCoordsToClipboard },
@@ -154,7 +177,8 @@ renderAll();
 try {
   const lastPage = localStorage.getItem("lifeos-last-page");
   if (lastPage && document.getElementById("page-" + lastPage)) ui.go(lastPage);
-} catch (e) { /* private browsing etc. — just stays on the default page */ }
+  else widgetLayout.initPageLayout("overview"); // go() wasn't called — this is the page still marked visible in the static markup
+} catch (e) { widgetLayout.initPageLayout("overview"); }
 ui.setSyncPill("", "Local only");
 search.initSearch();
 initCommunicationBridge();
