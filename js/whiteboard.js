@@ -580,6 +580,8 @@ const STICKY_FONTS = [
   ["Garamond", "Garamond,'Times New Roman',serif"],
 ];
 const STICKY_FONT_SIZES = [8,9,10,11,12,14,16,18,20,24,28,36,48,72]; // real point sizes, applied as a span style rather than execCommand's legacy 1-7 scale (see applyStickyFontSize)
+const STICKY_TEXT_COLORS = ["#1B1B1A","#DC2626","#EA580C","#CA8A04","#16A34A","#2563EB","#7C3AED","#DB2777"];
+const STICKY_HILITE_COLORS = ["#FEF08A","#FCA5A5","#93C5FD","#86EFAC","#D8B4FE","#FDBA74","#F9A8D4"];
 
 // Every note's HTML round-trips through Supabase and gets rendered on
 // another device via innerHTML — this is the render-time allowlist that
@@ -985,7 +987,13 @@ function stickyHtml(o, w) {
           <button data-cmd="bold" title="Bold (Ctrl+B)"><b>B</b></button>
           <button data-cmd="italic" title="Italic (Ctrl+I)"><i>I</i></button>
           <button data-cmd="underline" title="Underline (Ctrl+U)"><u>U</u></button>
-          <input type="color" class="wb-sfmt-color" data-cmd="foreColor" title="Text color" value="#1B1B1A">
+          <div class="wb-sfmt-color-wrap" data-cmd="foreColor">
+            <button class="wb-sfmt-color-btn" title="Text color"><span class="wb-sfmt-color-swatch" style="background:#1B1B1A"></span></button>
+            <div class="wb-sfmt-color-pop">
+              ${STICKY_TEXT_COLORS.map(c => `<button class="wb-sfmt-swatch" data-color="${c}" style="background:${c}" title="${c}"></button>`).join("")}
+              <label class="wb-sfmt-swatch wb-sfmt-swatch-custom" title="Custom color">🎨<input type="color" class="wb-sfmt-color-custom"></label>
+            </div>
+          </div>
           <select class="wb-sfmt-size" data-cmd="fontSize" title="Font size">
             ${STICKY_FONT_SIZES.map(px => `<option value="${px}" ${px === 11 ? "selected" : ""}>${px}</option>`).join("")}
           </select>
@@ -996,7 +1004,14 @@ function stickyHtml(o, w) {
           <button data-cmd="undo" title="Undo (Ctrl+Z)">↺</button>
           <button data-cmd="redo" title="Redo (Ctrl+Y)">↻</button>
           <button data-cmd="strikeThrough" title="Strikethrough"><s>S</s></button>
-          <input type="color" class="wb-sfmt-color" data-cmd="hiliteColor" title="Highlight color" value="#FEF08A">
+          <div class="wb-sfmt-color-wrap" data-cmd="hiliteColor">
+            <button class="wb-sfmt-color-btn" title="Highlight color"><span class="wb-sfmt-color-swatch" style="background:#FEF08A"></span></button>
+            <div class="wb-sfmt-color-pop">
+              <button class="wb-sfmt-swatch" data-color="transparent" style="background:#fff" title="No highlight">✕</button>
+              ${STICKY_HILITE_COLORS.map(c => `<button class="wb-sfmt-swatch" data-color="${c}" style="background:${c}" title="${c}"></button>`).join("")}
+              <label class="wb-sfmt-swatch wb-sfmt-swatch-custom" title="Custom color">🎨<input type="color" class="wb-sfmt-color-custom"></label>
+            </div>
+          </div>
           <select class="wb-sfmt-font" data-cmd="fontName" title="Font family">
             ${STICKY_FONTS.map(([label, val]) => `<option value="${val}">${label}</option>`).join("")}
           </select>
@@ -1121,13 +1136,33 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
   fmtToolbar.querySelector(".wb-sfmt-size").addEventListener("change", (e) => applyFontStyle("fontSize", "fontSize", e.target.value + "px"));
   fmtToolbar.querySelector(".wb-sfmt-font").addEventListener("pointerdown", saveRange);
   fmtToolbar.querySelector(".wb-sfmt-font").addEventListener("change", (e) => applyFontStyle("fontName", "fontFamily", e.target.value));
-  fmtToolbar.querySelectorAll(".wb-sfmt-color").forEach(ctrl => {
-    ctrl.addEventListener("pointerdown", saveRange);
-    ctrl.addEventListener("input", () => {
+  fmtToolbar.querySelectorAll(".wb-sfmt-color-wrap").forEach(wrap => {
+    const cmd = wrap.dataset.cmd;
+    const btn = wrap.querySelector(".wb-sfmt-color-btn");
+    const pop = wrap.querySelector(".wb-sfmt-color-pop");
+    const swatchEl = btn.querySelector(".wb-sfmt-color-swatch");
+    const applyColor = (color) => {
       restoreRange();
-      document.execCommand(ctrl.dataset.cmd, false, ctrl.value);
+      document.execCommand(cmd, false, color);
       saveHtml();
+      if (color !== "transparent") swatchEl.style.background = color;
+      pop.classList.remove("open");
+    };
+    btn.addEventListener("pointerdown", (evt) => { evt.preventDefault(); saveRange(); });
+    btn.addEventListener("click", () => {
+      fmtToolbar.querySelectorAll(".wb-sfmt-color-pop.open").forEach(p => { if (p !== pop) p.classList.remove("open"); });
+      pop.classList.toggle("open");
     });
+    wrap.querySelectorAll(".wb-sfmt-swatch[data-color]").forEach(sw => {
+      sw.addEventListener("pointerdown", (evt) => evt.preventDefault());
+      sw.addEventListener("click", () => applyColor(sw.dataset.color));
+    });
+    const customInput = wrap.querySelector(".wb-sfmt-color-custom");
+    customInput.addEventListener("pointerdown", (evt) => { evt.stopPropagation(); saveRange(); });
+    customInput.addEventListener("input", () => applyColor(customInput.value));
+  });
+  document.addEventListener("pointerdown", (evt) => {
+    if (!evt.target.closest(".wb-sfmt-color-wrap")) fmtToolbar.querySelectorAll(".wb-sfmt-color-pop.open").forEach(p => p.classList.remove("open"));
   });
   // Checkbox list — not a native execCommand; inserts a custom block
   // whose checkbox is contenteditable="false" (so clicking it toggles
