@@ -1184,10 +1184,13 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
       if (color !== "transparent") swatchEl.style.background = color;
       pop.classList.remove("open");
     };
-    btn.addEventListener("pointerdown", (evt) => { evt.preventDefault(); saveRange(); });
-    btn.addEventListener("click", () => {
+    btn.addEventListener("pointerdown", (evt) => {
+      evt.preventDefault();
+      console.log(`[sticky-color] color button pressed, cmd=${cmd}, popover currently open=${pop.classList.contains("open")}`);
+      saveRange();
       fmtToolbar.querySelectorAll(".wb-sfmt-color-pop.open").forEach(p => { if (p !== pop) p.classList.remove("open"); });
       pop.classList.toggle("open");
+      console.log(`[sticky-color] popover open now=${pop.classList.contains("open")}`);
     });
     wrap.querySelectorAll(".wb-sfmt-swatch[data-color]").forEach(sw => {
       sw.addEventListener("pointerdown", (evt) => evt.preventDefault());
