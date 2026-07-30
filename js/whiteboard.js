@@ -1142,16 +1142,13 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
     const pop = wrap.querySelector(".wb-sfmt-color-pop");
     const swatchEl = btn.querySelector(".wb-sfmt-color-swatch");
     const applyColor = (color) => {
-      console.log(`[sticky-color] applyColor called: cmd=${cmd} color=${color}`);
       restoreRange();
       const sel = window.getSelection();
-      console.log(`[sticky-color] selection after restoreRange: rangeCount=${sel.rangeCount} isCollapsed=${sel.isCollapsed} anchorNode=`, sel.anchorNode);
       // A collapsed selection (just a blinking cursor, nothing
       // highlighted) has no range worth wrapping — fall back to
       // "select everything" so a color always visibly applies to
       // something rather than silently doing nothing.
       if (!sel.rangeCount || sel.isCollapsed) {
-        console.log("[sticky-color] selection was empty/collapsed — selecting entire note as fallback");
         const r = document.createRange();
         r.selectNodeContents(textEl);
         sel.removeAllRanges();
@@ -1159,7 +1156,6 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
       }
       try {
         const range = sel.getRangeAt(0);
-        console.log("[sticky-color] range to wrap:", range.toString());
         const cssProp = cmd === "foreColor" ? "color" : "backgroundColor";
         const span = document.createElement("span");
         span.style[cssProp] = color === "transparent" ? "transparent" : color;
@@ -1177,7 +1173,6 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
         after.selectNodeContents(span);
         sel.addRange(after);
         saveHtml();
-        console.log("[sticky-color] applied successfully, span now in DOM:", span.outerHTML);
       } catch (err) {
         console.error("[sticky-color] threw an error while applying:", err);
       }
@@ -1186,15 +1181,26 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
     };
     btn.addEventListener("pointerdown", (evt) => {
       evt.preventDefault();
-      console.log(`[sticky-color] color button pressed, cmd=${cmd}, popover currently open=${pop.classList.contains("open")}`);
       saveRange();
       fmtToolbar.querySelectorAll(".wb-sfmt-color-pop.open").forEach(p => { if (p !== pop) p.classList.remove("open"); });
+      const opening = !pop.classList.contains("open");
       pop.classList.toggle("open");
-      console.log(`[sticky-color] popover open now=${pop.classList.contains("open")}`);
+      if (opening) {
+        // position:fixed, computed from the button's real screen
+        // position — this is what actually escapes .wb-sfmt-row's
+        // overflow-x:auto clipping. A position:absolute popover was
+        // being silently clipped by that ancestor despite the .open
+        // class toggling correctly, since absolute positioning only
+        // escapes normal document flow, not an ancestor's own
+        // overflow boundary.
+        const r = btn.getBoundingClientRect();
+        pop.style.top = (r.bottom + 4) + "px";
+        pop.style.left = r.left + "px";
+      }
     });
     wrap.querySelectorAll(".wb-sfmt-swatch[data-color]").forEach(sw => {
       sw.addEventListener("pointerdown", (evt) => evt.preventDefault());
-      sw.addEventListener("click", () => { console.log(`[sticky-color] swatch clicked: ${sw.dataset.color}`); applyColor(sw.dataset.color); });
+      sw.addEventListener("click", () => applyColor(sw.dataset.color));
     });
     const customInput = wrap.querySelector(".wb-sfmt-color-custom");
     customInput.addEventListener("pointerdown", (evt) => { evt.stopPropagation(); saveRange(); });

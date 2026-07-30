@@ -1628,7 +1628,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .wb-sfmt-color-btn{width:24px;height:26px;padding:0;border:1px solid var(--glass-line);border-radius:7px;
   background:rgba(255,255,255,.6);cursor:pointer;display:flex;align-items:center;justify-content:center}
 .wb-sfmt-color-swatch{width:14px;height:14px;border-radius:4px;border:1px solid rgba(0,0,0,.15)}
-.wb-sfmt-color-pop{display:none;position:absolute;top:calc(100% + 4px);left:0;z-index:30;background:#fff;
+.wb-sfmt-color-pop{display:none;position:fixed;z-index:600;background:#fff;
   border:1px solid var(--glass-line);border-radius:10px;box-shadow:var(--shadow-glass-lift);
   padding:6px;width:108px;flex-wrap:wrap;gap:4px}
 .wb-sfmt-color-pop.open{display:flex}
