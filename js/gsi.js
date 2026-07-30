@@ -289,7 +289,7 @@ function gsiBoardColumnHtml(statusKey, label, tasks) {
         <span class="t-section-count">${tasks.length}</span>
       </div>
       <div class="t-board-col-body">
-        ${tasks.length ? tasks.map(gsiBoardCardHtml).join("") : `<p class="hint" style="padding:10px 4px">Nothing here.</p>`}
+        ${tasks.length ? tasks.map(gsiBoardCardHtml).join("") : `<p class="hint gsi-board-empty-add" onclick="quickAddGsiTask('${statusKey}')" style="padding:10px 4px;cursor:pointer" title="Click to add a task here">+ Nothing here — click to add</p>`}
       </div>
     </div>`;
 }
@@ -436,6 +436,12 @@ export function delProject() {
 export function addNgdr() {
   const el = document.getElementById("newNgdr"); const v = el.value.trim(); if (!v) return;
   activeProject().tasks.push({ id: uid(), text: v, status: "todo", date: "", link: "", flag: false, googleEventId: null }); el.value = "";
+  persist(); rerender();
+}
+export function quickAddGsiTask(statusKey) {
+  const v = prompt("Add a task:");
+  if (!v || !v.trim()) return;
+  activeProject().tasks.push({ id: uid(), text: v.trim(), status: statusKey, date: "", link: "", flag: false, googleEventId: null });
   persist(); rerender();
 }
 export function editProjectTask(id, field, v) {
