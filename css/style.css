@@ -1428,7 +1428,12 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .wb-sticky-drag-handle{height:14px;flex-shrink:0;cursor:grab;border-radius:11px 11px 0 0;touch-action:none;background:rgba(255,255,255,.25)}
 .wb-sticky-drag-handle:active{cursor:grabbing}
 .wb-sticky-text{flex:1;padding:4px 9px 9px;font-size:13px;line-height:1.45;color:#1B1B1A;letter-spacing:.1px;
-  overflow-y:auto;-webkit-overflow-scrolling:touch;outline:none;word-break:break-word;cursor:text;overscroll-behavior:contain}
+  overflow-y:auto;-webkit-overflow-scrolling:touch;outline:none;word-break:break-word;cursor:text;overscroll-behavior:contain;
+  scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.28) transparent}
+.wb-sticky-text::-webkit-scrollbar{width:7px}
+.wb-sticky-text::-webkit-scrollbar-track{background:transparent}
+.wb-sticky-text::-webkit-scrollbar-thumb{background:rgba(0,0,0,.28);border-radius:99px}
+.wb-sticky-text::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.42)}
 .wb-sticky-text:empty::before{content:attr(data-placeholder);color:rgba(27,27,26,.4)}
 .wb-sticky-delete{position:absolute;top:-9px;right:-9px;width:20px;height:20px;border-radius:50%;
   border:1px solid var(--glass-line);background:var(--glass-bg-strong);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
