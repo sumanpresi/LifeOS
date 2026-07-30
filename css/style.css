@@ -1321,6 +1321,20 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .wb-canvas-area:fullscreen,.wb-canvas-area.wb-fallback-fullscreen{
   background:var(--card);padding:16px;display:flex;flex-direction:column;justify-content:center}
 .wb-canvas-area.wb-fallback-fullscreen{position:fixed;inset:0;z-index:500}
+/* A fixed-aspect-ratio canvas at width:100% can compute taller than
+   the fullscreen container's actual available height on a wide
+   monitor (e.g. 16:9) — since the container centers rather than
+   scrolls its content, that excess height overflows and gets clipped
+   symmetrically top and bottom, not just at the bottom. Capping both
+   max-width and max-height here (with width/height left free to
+   shrink) makes the browser pick the largest size that fits both
+   constraints while keeping the aspect ratio, the same way object-fit:
+   contain works for images — so the whole board is always visible
+   regardless of the monitor's own aspect ratio.  */
+.wb-canvas-area:fullscreen .wb-canvas-wrap,.wb-fallback-fullscreen .wb-canvas-wrap{
+  width:auto;max-width:100%;height:auto;max-height:calc(100vh - 32px);margin:0 auto}
+.wb-canvas-area:fullscreen .whiteboard-canvas,.wb-fallback-fullscreen .whiteboard-canvas{
+  width:auto;max-width:100%;max-height:calc(100vh - 32px)}
 
 /* No scrollable wrapper here on purpose — a nested scrollable region
    between the canvas and the page it lives on was the actual root
