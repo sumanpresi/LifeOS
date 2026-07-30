@@ -818,6 +818,8 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .t-board-card-date.overdue{color:var(--warn)}
 .t-board-card-tag{font-size:10.5px;font-weight:600;color:var(--t-ink2);background:var(--t-bg);
   border-radius:99px;padding:2px 8px}
+.t-board-project-sel{font-size:10.5px;font-weight:600;color:var(--t-ink2);background:var(--t-bg);
+  border:1px solid var(--t-border);border-radius:99px;padding:2px 6px;max-width:88px;cursor:pointer}
 .t-board-card-meta .t-archive-btn{margin-left:auto;padding:2px 6px;font-size:11px}
 @media(max-width:767px){
   .t-board{padding:10px 12px 14px}

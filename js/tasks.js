@@ -503,6 +503,10 @@ function boardCardHtml(t) {
         <input type="text" class="t-link-input" id="task-link-edit-${t.id}" placeholder="Paste a link…" value="${esc(t.link||"")}"
           onclick="event.stopPropagation()" onchange="editTaskMeta('${t.id}','link',this.value)" onblur="this.style.display='none'" style="display:none">
         <span class="t-board-card-tag">${tag}</span>
+        <select class="t-board-project-sel" title="Move to project" onclick="event.stopPropagation()" onchange="event.stopPropagation();changeTaskProject('${t.id}',this.value)">
+          <option value="">No project</option>
+          ${projectOptionsHtml(t.isGsi ? t.projectId : "")}
+        </select>
         ${t.done ? (t.isGsi
           ? `<button class="t-archive-btn" onclick="event.stopPropagation();archiveGsiTaskEntry('${t.projectId}','${t.id}')" title="Archive">🗂</button>`
           : `<button class="t-archive-btn" onclick="event.stopPropagation();archiveTask('${t.id}')" title="Archive">🗂</button>`) : ""}
