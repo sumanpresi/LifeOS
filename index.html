@@ -143,6 +143,9 @@
         <div class="t-add-row">
           <span class="t-add-icon">＋</span>
           <input type="text" id="newTask" placeholder="Add a task" onkeydown="if(event.key==='Enter')addTask()">
+          <select id="newTaskProject" class="t-add-project" title="Add to a GSI project (optional)">
+            <option value="">No project</option>
+          </select>
           <button class="t-add-btn" onclick="addTask()">Add task</button>
         </div>
         <div class="card-body" id="taskList"></div>

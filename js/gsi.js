@@ -476,6 +476,46 @@ export function toggleProjectTaskFlag(id) {
   const { task: t } = findProjectTask(id);
   if (t) { t.flag = !t.flag; persist(); rerender(); }
 }
+// Every GSI project's id + name — used to build "which project?"
+// selectors elsewhere (currently just Overview's task-project picker,
+// see changeTaskProject/addTask in tasks.js). Keeps state.gsi.projects
+// itself private to this file, same as everything else here.
+export function getProjectList() {
+  return state.gsi.projects.map(p => ({ id: p.id, name: p.name }));
+}
+// Adds an already-built task object straight into one project's list —
+// used when Overview creates a new task with a project chosen, or when
+// a native task is converted into a GSI task (see changeTaskProject in
+// tasks.js). Returns false and does nothing if the project no longer
+// exists, so the caller can decide not to lose the task.
+export function addProjectTaskRaw(projectId, task) {
+  const p = state.gsi.projects.find(x => x.id === projectId);
+  if (!p) return false;
+  p.tasks.push(task);
+  persist(); rerender();
+  return true;
+}
+// Moves an existing task from its current project into a different one.
+export function moveProjectTask(taskId, targetProjectId) {
+  const { task: t, project: from } = findProjectTask(taskId);
+  if (!t || !from) return false;
+  const to = state.gsi.projects.find(x => x.id === targetProjectId);
+  if (!to || to.id === from.id) return false;
+  from.tasks = from.tasks.filter(x => x.id !== taskId);
+  to.tasks.push(t);
+  persist(); rerender();
+  return true;
+}
+// Removes a task from its project WITHOUT persisting/re-rendering —
+// used only mid-conversion by changeTaskProject in tasks.js, which
+// pushes the same task into state.tasks right after and persists once
+// for the whole operation rather than twice.
+export function pluckProjectTask(taskId) {
+  const { task: t, project: p } = findProjectTask(taskId);
+  if (!t || !p) return null;
+  p.tasks = p.tasks.filter(x => x.id !== taskId);
+  return t;
+}
 
 /* ---------------- Daily work log ---------------- */
 function renderLog() {

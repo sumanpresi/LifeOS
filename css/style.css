@@ -912,6 +912,8 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   font-size:15px;color:var(--t-ink);padding:6px 0}
 .t-add-row input::placeholder{color:var(--t-ink2)}
 .t-add-row input:focus{outline:none}
+.t-add-project{flex-shrink:0;max-width:120px;border:1px solid var(--t-border);background:var(--t-bg);
+  color:var(--t-ink2);font-family:'Inter',sans-serif;font-size:12.5px;padding:6px 8px;border-radius:8px;cursor:pointer}
 .t-add-btn{border:none;background:var(--t-accent);color:#fff;font-family:'Inter',sans-serif;
   font-weight:600;font-size:13px;padding:8px 16px;border-radius:8px;cursor:pointer;
   transition:background 150ms ease}
@@ -994,7 +996,8 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   #taskFilterBar button{flex-shrink:0;white-space:nowrap}
 
   .t-add-row{padding:16px}
-  .t-add-icon,.t-add-btn{min-height:44px} /* comfortable tap target */
+  .t-add-icon,.t-add-btn,.t-add-project{min-height:44px} /* comfortable tap target */
+  .t-add-project{max-width:88px}
   .t-add-btn{padding:8px 14px;font-size:12.5px;flex-shrink:0}
 
   /* Existing mobile nav (a slide-in sidebar, not a bottom bar — see note

@@ -11,7 +11,8 @@ import { toast, autoGrow } from './ui.js';
 import { moveToTrash } from './trash.js';
 import { syncTaskToGoogle } from './google-calendar.js';
 import { getAllGsiTasksFlat, findProjectTask, editProjectTask, setTaskStatus as setGsiTaskStatus,
-  delProjectTask, toggleProjectTaskFlag, archiveGsiTaskEntry } from './gsi.js';
+  delProjectTask, toggleProjectTaskFlag, archiveGsiTaskEntry,
+  getProjectList, addProjectTaskRaw, moveProjectTask, pluckProjectTask } from './gsi.js';
 
 let taskFilter = "all"; // "all" | "work" | "personal"
 let sortByDate = false;
@@ -298,6 +299,50 @@ function findAnyTask(id) {
   if (gt) return { task: gt, isGsi: true, project };
   return null;
 }
+// Shared by the "Add a task" project picker and each task's own .t-meta
+// project select — "No project" is always added separately by the caller,
+// this only builds the actual GSI project options.
+function projectOptionsHtml(selectedId) {
+  return getProjectList().map(p => `<option value="${p.id}" ${p.id === selectedId ? "selected" : ""}>${esc(p.name)}</option>`).join("");
+}
+// Moves a task between "no project" (native) and a GSI project, or
+// between two GSI projects. Native<->GSI conversions remap the task's
+// shape the same way createNativeTask/quickAddGsiTask build one from
+// scratch (done<->status, dueDate<->date), and drop any existing
+// googleEventId so it re-syncs cleanly under whichever system now owns
+// it rather than carrying over an event created by the other one. The
+// task keeps its id either way, so an open .t-meta panel for it stays
+// open and pointed at the same row across the conversion.
+export function changeTaskProject(id, projectId) {
+  const found = findAnyTask(id);
+  if (!found) return;
+  const { task: t, isGsi } = found;
+
+  if (!isGsi) {
+    if (!projectId) return; // already native, nothing to do
+    const ok = addProjectTaskRaw(projectId, {
+      id: t.id, text: t.text, status: t.done ? "done" : "todo",
+      date: t.dueDate || "", link: t.link || "", flag: !!t.flag, googleEventId: null
+    });
+    if (!ok) return; // project vanished (e.g. deleted mid-edit) — leave the native task alone
+    state.tasks = state.tasks.filter(x => x.id !== id);
+    persist(); rerender();
+    return;
+  }
+  if (!projectId) {
+    const plucked = pluckProjectTask(id);
+    if (!plucked) return;
+    state.tasks.push({
+      id: plucked.id, text: plucked.text, done: plucked.status === "done",
+      category: "work", flag: !!plucked.flag, link: plucked.link || "",
+      dueDate: plucked.date || "", completedAt: plucked.status === "done" ? Date.now() : null,
+      googleEventId: null, position: nextManualPosition()
+    });
+    persist(); rerender();
+    return;
+  }
+  moveProjectTask(id, projectId); // GSI -> a different GSI project
+}
 export function openTaskPopup(id) {
   const bg = document.getElementById("taskPopupModalBg");
   if (!bg) return;
@@ -393,6 +438,10 @@ function taskRowHtml(t) {
         <option value="work" ${(t.category||"work")==="work"?"selected":""}>Work</option>
         <option value="personal" ${t.category==="personal"?"selected":""}>Personal</option>
       </select>`}
+      <select onchange="changeTaskProject('${t.id}',this.value)" title="GSI project">
+        <option value="">No project</option>
+        ${projectOptionsHtml(t.isGsi ? t.projectId : "")}
+      </select>
       <input type="date" value="${esc(t.dueDate||"")}" onchange="editTaskMeta('${t.id}','dueDate',this.value)" title="Due date">
       <input type="text" placeholder="link" value="${esc(t.link||"")}" onchange="editTaskMeta('${t.id}','link',this.value)">
     </div>`;
@@ -748,6 +797,11 @@ export function renderTasks() {
   }
   const dragHint = document.getElementById("taskDragHint");
   if (dragHint) dragHint.style.display = (sortByDate && (taskView === "list" || taskView === "board")) ? "" : "none";
+  const projSel = document.getElementById("newTaskProject");
+  if (projSel) {
+    const current = projSel.value;
+    projSel.innerHTML = `<option value="">No project</option>${projectOptionsHtml(current)}`;
+  }
   initTaskSorting();
   initBoardSorting();
 }
@@ -769,9 +823,15 @@ function createNativeTask(text, dueDate) {
 }
 export function addTask() {
   const el = document.getElementById("newTask"); const v = el.value.trim(); if (!v) return;
-  createNativeTask(v, "");
+  const projSel = document.getElementById("newTaskProject");
+  const projectId = projSel ? projSel.value : "";
+  if (projectId) {
+    addProjectTaskRaw(projectId, { id: uid(), text: v, status: "todo", date: "", link: "", flag: false, googleEventId: null });
+  } else {
+    createNativeTask(v, "");
+    persist(); rerender();
+  }
   el.value = "";
-  persist(); rerender();
 }
 export function toggleTask(id) {
   const t = state.tasks.find(x => x.id === id);
