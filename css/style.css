@@ -772,7 +772,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .t-archived-delete:hover{background:#FEE2E2;color:var(--t-danger);border-color:var(--t-danger)}
 
 /* ---- Board view ---- */
-.t-board{display:flex;gap:14px;overflow-x:auto;padding:14px 18px 18px;align-items:flex-start}
+.t-board{display:flex;gap:14px;overflow-x:auto;padding:14px 18px 18px;align-items:flex-start;width:100%;box-sizing:border-box}
 .t-board-col{flex:1 1 0;min-width:230px;background:var(--t-bg);border-radius:12px;border:1px solid var(--t-border);
   display:flex;flex-direction:column;max-height:70vh}
 .t-board-col-head{display:flex;align-items:center;gap:8px;padding:12px 12px 10px;border-bottom:1px solid var(--t-border);flex-shrink:0}
