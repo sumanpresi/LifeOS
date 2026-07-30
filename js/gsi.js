@@ -264,7 +264,8 @@ function gsiBoardCardHtml(item) {
         <span class="t-board-card-handle" title="Drag to move">⠿</span>
         <button class="t-chk ${item.status === "done" ? "on" : ""}" onclick="event.stopPropagation();setTaskStatus('${item.id}','${item.status === "done" ? "todo" : "done"}')" aria-label="Toggle done">
           <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
-        <span class="t-board-card-title">${esc(item.text)}</span>
+        <textarea class="gsi-board-card-title" rows="1" onclick="event.stopPropagation()"
+          onchange="editProjectTask('${item.id}','text',this.value)" oninput="autoGrow(this)">${esc(item.text)}</textarea>
         ${item.flag ? `<span class="t-board-card-flag" title="Priority">🚩</span>` : ""}
       </div>
       <div class="t-board-card-meta">
@@ -289,8 +290,9 @@ function gsiBoardColumnHtml(statusKey, label, tasks) {
         <span class="t-section-count">${tasks.length}</span>
       </div>
       <div class="t-board-col-body">
-        ${tasks.length ? tasks.map(gsiBoardCardHtml).join("") : `<p class="hint gsi-board-empty-add" onclick="quickAddGsiTask('${statusKey}')" style="padding:10px 4px;cursor:pointer" title="Click to add a task here">+ Nothing here — click to add</p>`}
+        ${tasks.length ? tasks.map(gsiBoardCardHtml).join("") : `<p class="hint" style="padding:10px 4px">Nothing here.</p>`}
       </div>
+      <button class="t-board-col-add" onclick="quickAddGsiTask('${statusKey}')" title="Add a task to ${esc(label)}">+ Add task</button>
     </div>`;
 }
 function renderGsiBoardView(tasks) {
@@ -383,6 +385,7 @@ function renderProjects() {
   // boot, before navigating here), this measurement will be wrong —
   // go() in ui.js re-runs this once the page actually becomes visible.
   document.querySelectorAll(".gsi-title").forEach(autoGrow);
+  document.querySelectorAll(".gsi-board-card-title").forEach(autoGrow);
 }
 export function openGsiDatePicker(id) {
   const input = document.getElementById(`gsi-board-date-${id}`);
