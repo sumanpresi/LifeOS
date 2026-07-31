@@ -26,7 +26,8 @@
    card has been resized. Not solved here; flagged for awareness. */
 import { state, persist, rerender } from './state.js';
 
-const LONG_PRESS_MS = 450;
+const LONG_PRESS_MS = 450;     // touch/pen — needs to be long enough to not steal a scroll gesture
+const MOUSE_PRESS_MS = 150;    // mouse — no scroll-gesture ambiguity to protect against, so this can be snappy
 const JITTER_PX = 8;
 const MIN_W = 220, MIN_H = 120;
 const DESKTOP_BREAKPOINT = 900;
@@ -104,27 +105,12 @@ function wireDrag(card, page, pageId, key) {
   if (!head || head.dataset.wlWired) return;
   head.dataset.wlWired = "1";
 
-  let pressTimer = null, armed = false, moved = false;
+  let pressTimer = null, armed = false, moved = false, activePointerId = null;
   let startX = 0, startY = 0, originLeft = 0, originTop = 0;
-  const cancelPress = () => { clearTimeout(pressTimer); pressTimer = null; };
+  const cancelPress = () => { clearTimeout(pressTimer); pressTimer = null; card.classList.remove("wl-pressing"); };
 
-  head.addEventListener("pointerdown", (evt) => {
-    if (window.innerWidth <= DESKTOP_BREAKPOINT) return;
-    if (isInteractive(evt.target)) return; // let normal clicks/typing through untouched
-    if (evt.button !== undefined && evt.button !== 0) return; // left click / primary touch only
-    startX = evt.clientX; startY = evt.clientY; moved = false;
-    pressTimer = setTimeout(() => {
-      armed = true;
-      freezeInPlace(card, page, pageId);
-      originLeft = parseFloat(card.style.left) || 0;
-      originTop = parseFloat(card.style.top) || 0;
-      card.classList.add("wl-dragging");
-      try { head.setPointerCapture(evt.pointerId); } catch (e) {}
-    }, LONG_PRESS_MS);
-  });
-  head.addEventListener("contextmenu", (evt) => { if (armed || pressTimer) evt.preventDefault(); }); // mobile's long-press-for-menu would otherwise fire at the same moment as ours
-  head.addEventListener("pointermove", (evt) => {
-    if (!pressTimer && !armed) return;
+  const onMove = (evt) => {
+    if (activePointerId !== null && evt.pointerId !== activePointerId) return;
     const dx = evt.clientX - startX, dy = evt.clientY - startY;
     if (!armed) {
       // Real scroll/drag intent showed up before the hold fired — this
@@ -136,18 +122,44 @@ function wireDrag(card, page, pageId, key) {
     moved = true;
     card.style.left = (originLeft + dx) + "px";
     card.style.top = (originTop + dy) + "px";
-  });
-  const finish = (evt) => {
+  };
+  const onUp = (evt) => {
+    if (activePointerId !== null && evt.pointerId !== activePointerId) return;
     cancelPress();
     if (armed) {
       card.classList.remove("wl-dragging");
-      try { head.releasePointerCapture(evt.pointerId); } catch (e) {}
       if (moved) saveLayout(card, pageId, key);
     }
-    armed = false; moved = false;
+    armed = false; moved = false; activePointerId = null;
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    window.removeEventListener("pointercancel", onUp);
   };
-  head.addEventListener("pointerup", finish);
-  head.addEventListener("pointercancel", finish);
+
+  head.addEventListener("pointerdown", (evt) => {
+    if (window.innerWidth <= DESKTOP_BREAKPOINT) return;
+    if (isInteractive(evt.target)) return; // let normal clicks/typing through untouched
+    if (evt.button !== undefined && evt.button !== 0) return; // left click / primary touch only
+    startX = evt.clientX; startY = evt.clientY; moved = false;
+    activePointerId = evt.pointerId;
+    card.classList.add("wl-pressing"); // immediate feedback that the press registered, even before the hold threshold elapses
+    // Tracked on window rather than just this header from here on, so
+    // a fast drag that immediately leaves the header's small bounding
+    // box still keeps receiving move/up events reliably.
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    const delay = evt.pointerType === "mouse" ? MOUSE_PRESS_MS : LONG_PRESS_MS;
+    pressTimer = setTimeout(() => {
+      armed = true;
+      card.classList.remove("wl-pressing");
+      freezeInPlace(card, page, pageId);
+      originLeft = parseFloat(card.style.left) || 0;
+      originTop = parseFloat(card.style.top) || 0;
+      card.classList.add("wl-dragging");
+    }, delay);
+  });
+  head.addEventListener("contextmenu", (evt) => { if (armed || pressTimer) evt.preventDefault(); }); // mobile's long-press-for-menu would otherwise fire at the same moment as ours
   // Quick recovery — double-click/double-tap the header sends this one
   // widget back to its normal flow position, no confirmation needed
   // since it's a two-second redo, not a destructive action.
@@ -166,6 +178,27 @@ function wireResize(card, page, pageId, key) {
   handle.dataset.wlWired = "1";
 
   let resizing = false, startX = 0, startY = 0, startW = 0, startH = 0;
+  const onMove = (evt) => {
+    if (!resizing) return;
+    evt.preventDefault();
+    card.style.width = Math.max(MIN_W, startW + (evt.clientX - startX)) + "px";
+    card.style.height = Math.max(MIN_H, startH + (evt.clientY - startY)) + "px";
+  };
+  const onUp = () => {
+    if (!resizing) return;
+    resizing = false;
+    card.classList.remove("wl-resizing");
+    window.removeEventListener("pointermove", onMove);
+    window.removeEventListener("pointerup", onUp);
+    window.removeEventListener("pointercancel", onUp);
+    saveLayout(card, pageId, key);
+    // Whiteboard canvases already watch their own wrapper with a
+    // ResizeObserver (see whiteboard.js) and pick this up on their
+    // own. Maps (Leaflet/MapLibre) don't observe anything — nudge them
+    // the same way a real window resize would, which each map library
+    // already listens for.
+    window.dispatchEvent(new Event("resize"));
+  };
   handle.addEventListener("pointerdown", (evt) => {
     if (window.innerWidth <= DESKTOP_BREAKPOINT) return;
     evt.stopPropagation();
@@ -175,29 +208,10 @@ function wireResize(card, page, pageId, key) {
     startX = evt.clientX; startY = evt.clientY;
     startW = card.offsetWidth; startH = card.offsetHeight;
     card.classList.add("wl-resizing");
-    try { handle.setPointerCapture(evt.pointerId); } catch (e) {}
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
   });
-  handle.addEventListener("pointermove", (evt) => {
-    if (!resizing) return;
-    evt.preventDefault();
-    card.style.width = Math.max(MIN_W, startW + (evt.clientX - startX)) + "px";
-    card.style.height = Math.max(MIN_H, startH + (evt.clientY - startY)) + "px";
-  });
-  const finish = (evt) => {
-    if (!resizing) return;
-    resizing = false;
-    card.classList.remove("wl-resizing");
-    try { handle.releasePointerCapture(evt.pointerId); } catch (e) {}
-    saveLayout(card, pageId, key);
-    // Whiteboard canvases already watch their own wrapper with a
-    // ResizeObserver (see whiteboard.js) and pick this up on their
-    // own. Maps (Leaflet/MapLibre) don't observe anything — nudge them
-    // the same way a real window resize would, which each map library
-    // already listens for.
-    window.dispatchEvent(new Event("resize"));
-  };
-  handle.addEventListener("pointerup", finish);
-  handle.addEventListener("pointercancel", finish);
 }
 
 /* Called once a page becomes visible (see go() in ui.js) — wires every

@@ -1684,6 +1684,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .card.wl-positioned{position:absolute;margin:0;overflow:auto;z-index:2}
 .card-head{cursor:grab;touch-action:manipulation;user-select:none;-webkit-user-select:none}
 .card.wl-dragging,.card.wl-resizing{user-select:none;-webkit-user-select:none}
+.card.wl-pressing{outline:2px solid var(--t-accent,#2563EB);outline-offset:-2px;transition:outline-color 150ms ease}
 .card.wl-dragging{opacity:.92;box-shadow:0 14px 34px rgba(27,27,26,.22);z-index:50;cursor:grabbing;transition:none}
 .card.wl-resizing{transition:none;z-index:50}
 .wl-resize-handle{position:absolute;right:3px;bottom:3px;width:18px;height:18px;cursor:nwse-resize;
