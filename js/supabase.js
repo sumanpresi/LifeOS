@@ -11,6 +11,45 @@ const GH_SVG = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentCol
 
 let sb = null, rtChannel = null;
 export let user = null;
+
+/* ---------- auth diagnostics ----------
+   Sign-in problems have been hard to pin down because they show up on
+   phones, where there's no practical way to open a console. This keeps a
+   short in-memory log of what auth actually did and renders it inside
+   the sign-in modal, so the real reason is visible on the device where
+   it's failing rather than inferred from the symptom. */
+const authLog = [];
+export function authDiag(msg) {
+  authLog.push(new Date().toLocaleTimeString() + " · " + msg);
+  if (authLog.length > 10) authLog.shift();
+  const el = document.getElementById("ghDiag");
+  if (el) { el.textContent = authLog.join("\n"); el.style.display = "block"; }
+}
+/* supabase-js keeps the session in localStorage. If that's unavailable —
+   Private Browsing, or "Block All Cookies"/strict tracking prevention on
+   iOS Safari — the session is created and then immediately lost on the
+   next read, which looks exactly like "signed in for a second, then
+   signed out." Worth detecting explicitly rather than guessing. */
+function storageWritable() {
+  try {
+    const k = "__lifeos_probe__";
+    localStorage.setItem(k, "1");
+    localStorage.removeItem(k);
+    return true;
+  } catch (e) { return false; }
+}
+/* Supabase reports OAuth failures back on the URL (in the hash for
+   implicit errors, query for others) — surface them instead of letting
+   them disappear silently. */
+function reportOauthUrlError() {
+  const q = new URLSearchParams(location.search);
+  const h = new URLSearchParams(location.hash.replace(/^#/, ""));
+  const err = q.get("error") || h.get("error");
+  const desc = q.get("error_description") || h.get("error_description");
+  if (err) authDiag("OAuth error from Supabase: " + err + (desc ? " — " + decodeURIComponent(desc) : ""));
+  return !!err;
+}
+
 export async function getAccessToken() {
   if (!sb) return null;
   try { const { data } = await sb.auth.getSession(); return data?.session?.access_token || null; }
@@ -23,6 +62,8 @@ export const configured = () =>
 export function openGhModal() {
   document.getElementById("ghModal").classList.add("open");
   document.getElementById("ghErr").style.display = "none";
+  const diagEl = document.getElementById("ghDiag");
+  if (diagEl && authLog.length) { diagEl.textContent = authLog.join("\n"); diagEl.style.display = "block"; }
   document.getElementById("ghModalSetup").style.display = configured() ? "none" : "block";
   document.getElementById("ghModalSignin").style.display = (configured() && !user) ? "block" : "none";
   document.getElementById("ghModalAccount").style.display = user ? "block" : "none";
@@ -69,9 +110,11 @@ export async function signIn() {
     }
   }
   try {
+    const back = location.origin + location.pathname;
+    authDiag("starting GitHub sign-in, will return to: " + back);
     await sb.auth.signInWithOAuth({
       provider: "github",
-      options: { redirectTo: location.origin + location.pathname }
+      options: { redirectTo: back }
     });
   } catch (e) {
     openGhModal();
@@ -184,6 +227,7 @@ export async function loadRemote(preferRemote = false) {
     setSyncPill("ok", "Synced · " + nowTime());
   } catch (e) {
     hasReconciled = true; // don't block saves forever over one failed check — the person can retry via Sync
+    authDiag("LOAD failed: " + (e.message || e) + (e.code ? " [code " + e.code + "]" : "") + (e.hint ? " — " + e.hint : ""));
     setSyncPill("err", "Sync failed — tap Sync");
   }
 }
@@ -203,7 +247,12 @@ export async function saveRemote() {
     });
     if (error) throw error;
     setSyncPill("ok", "Synced · " + nowTime());
-  } catch (e) { setSyncPill("err", "Save failed — tap Sync"); }
+  } catch (e) {
+    let size = "?";
+    try { size = Math.round(JSON.stringify(state).length / 1024) + " KB"; } catch (_) {}
+    authDiag("SAVE failed (payload " + size + "): " + (e.message || e) + (e.code ? " [code " + e.code + "]" : "") + (e.hint ? " — " + e.hint : ""));
+    setSyncPill("err", "Save failed — tap Sync");
+  }
 }
 export async function syncNow() {
   if (!user) {
@@ -256,8 +305,23 @@ function trySetupClient() {
   setRemoteSaver(saveRemote);
   sb.auth.onAuthStateChange((event, session) => {
     user = session ? session.user : null;
+    authDiag("auth event: " + event + (user ? " (user ok)" : " (no session)"));
     renderIdentity();
-    if (user) { loadRemote(); startRealtime(); }
+    if (user) {
+      loadRemote(); startRealtime();
+      /* A session that arrives and then disappears a moment later is the
+         exact symptom of storage being unavailable — verify it's really
+         still there shortly after, and say so plainly if it isn't. */
+      setTimeout(async () => {
+        try {
+          const { data } = await sb.auth.getSession();
+          if (!data?.session) {
+            authDiag("session vanished right after sign-in — the browser isn't keeping it. Usually Private Browsing, or blocked cookies/storage for this site.");
+            setSyncPill("err", "Sign-in didn't stick");
+          }
+        } catch (e) { authDiag("getSession failed: " + (e.message || e)); }
+      }, 2000);
+    }
     else { stopRealtime(); hasReconciled = false; pendingSaveAfterReconcile = false; setSyncPill("", "Local only"); }
   });
 }
@@ -267,6 +331,11 @@ export function initSupabase() {
     if (e.target.id === "ghModal") closeGhModal();
   });
   if (!configured()) { setSyncPill("", "Local only · set up sync"); return; }
+  reportOauthUrlError();
+  if (!storageWritable()) {
+    authDiag("localStorage is BLOCKED in this browser — a session can't be saved, so sign-in will not stick. Turn off Private Browsing / allow cookies & site data for this site.");
+    setSyncPill("err", "Browser storage blocked");
+  }
   const finishSetup = () => {
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) flushPendingSave();

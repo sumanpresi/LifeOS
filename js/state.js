@@ -276,6 +276,30 @@ function merge(saved) {
   s.personal = Object.assign(structuredClone(DEFAULT_STATE.personal), saved.personal || {});
   s.personal.projects.forEach(p => { p.workDocs = p.workDocs || []; });
   if (!s.layouts || typeof s.layouts !== "object") s.layouts = {};
+
+  /* Stroke coordinates used to be stored at raw float precision
+     (0.2804107424960506 — 16 decimals for a value that's rendered at
+     ~0.1px accuracy). Across tens of thousands of points that roughly
+     doubled the size of every sync payload, which is what made saving
+     fail on slower mobile connections. New points are rounded at
+     capture (see pointToNorm in whiteboard.js); this brings existing
+     saved boards down to the same precision so the payload actually
+     shrinks rather than staying large forever. Visually lossless. */
+  const roundPts = board => {
+    (board.strokes || []).forEach(st => {
+      if (!Array.isArray(st.points)) return;
+      st.points = st.points.map(p => ({
+        x: Math.round(p.x * 10000) / 10000,
+        y: Math.round(p.y * 10000) / 10000
+      }));
+    });
+  };
+  Object.values(s.whiteboards || {}).forEach(roundPts);
+  (s.brainstormBoards || []).forEach(roundPts);
+  Object.values(s.calendarScribbles || {}).forEach(b => {
+    if (Array.isArray(b)) b.forEach(st => roundPts({ strokes: [st] }));
+    else roundPts(b || {});
+  });
   s.communication = Object.assign(structuredClone(DEFAULT_STATE.communication), saved.communication || {});
   // Top up with richer philosophical quotes rather than replacing the
   // list — keeps whatever the user already has (including any they've
