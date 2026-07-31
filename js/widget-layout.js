@@ -48,12 +48,38 @@ function rectRelativeToPage(card, page) {
   const p = page.getBoundingClientRect();
   return { x: c.left - p.left + page.scrollLeft, y: c.top - p.top + page.scrollTop, w: c.width, h: c.height };
 }
-function freezeInPlace(card, page) {
+function rowMates(card) {
+  const parent = card.parentElement;
+  if (parent && (parent.classList.contains("grid-2") || parent.classList.contains("grid-3"))) {
+    return Array.from(parent.querySelectorAll(":scope > .card"));
+  }
+  return [card];
+}
+function freezeInPlace(card, page, pageId) {
   if (card.classList.contains("wl-positioned")) return;
-  const r = rectRelativeToPage(card, page);
-  card.classList.add("wl-positioned");
-  card.style.left = r.x + "px"; card.style.top = r.y + "px";
-  card.style.width = r.w + "px"; card.style.height = r.h + "px";
+  // Measure every card sharing this one's row FIRST, before touching any
+  // of their layout — switching just the dragged/resized card to
+  // position:absolute alone would pull it out of the row's flex/grid
+  // flow, leaving its row-mate(s) to reflow into the space it vacated
+  // and visually collide with it. Freezing the whole row at once means
+  // nothing reflows out from under anything.
+  const mates = rowMates(card);
+  const rects = mates.map(c => rectRelativeToPage(c, page));
+  const bucket = bucketFor(pageId);
+  mates.forEach((c, i) => {
+    if (c.classList.contains("wl-positioned")) return;
+    const r = rects[i];
+    c.classList.add("wl-positioned");
+    c.style.left = r.x + "px"; c.style.top = r.y + "px";
+    c.style.width = r.w + "px"; c.style.height = r.h + "px";
+    // Every mate needs its own saved entry now, not just the card being
+    // actively dragged/resized — otherwise a mate that was only
+    // silently frozen (never itself dragged) would have no saved
+    // layout, revert to flow on the next page load, and recreate this
+    // exact overlap the moment it did.
+    if (c.dataset.wlKey) bucket[c.dataset.wlKey] = { x: r.x, y: r.y, w: r.w, h: r.h };
+  });
+  persist();
 }
 function saveLayout(card, pageId, key) {
   bucketFor(pageId)[key] = {
@@ -89,13 +115,14 @@ function wireDrag(card, page, pageId, key) {
     startX = evt.clientX; startY = evt.clientY; moved = false;
     pressTimer = setTimeout(() => {
       armed = true;
-      freezeInPlace(card, page);
+      freezeInPlace(card, page, pageId);
       originLeft = parseFloat(card.style.left) || 0;
       originTop = parseFloat(card.style.top) || 0;
       card.classList.add("wl-dragging");
       try { head.setPointerCapture(evt.pointerId); } catch (e) {}
     }, LONG_PRESS_MS);
   });
+  head.addEventListener("contextmenu", (evt) => { if (armed || pressTimer) evt.preventDefault(); }); // mobile's long-press-for-menu would otherwise fire at the same moment as ours
   head.addEventListener("pointermove", (evt) => {
     if (!pressTimer && !armed) return;
     const dx = evt.clientX - startX, dy = evt.clientY - startY;
@@ -105,6 +132,7 @@ function wireDrag(card, page, pageId, key) {
       if (Math.abs(dx) > JITTER_PX || Math.abs(dy) > JITTER_PX) cancelPress();
       return;
     }
+    evt.preventDefault(); // once armed, this is our drag — don't also let the browser select text or start a native drag-image
     moved = true;
     card.style.left = (originLeft + dx) + "px";
     card.style.top = (originTop + dy) + "px";
@@ -141,8 +169,9 @@ function wireResize(card, page, pageId, key) {
   handle.addEventListener("pointerdown", (evt) => {
     if (window.innerWidth <= DESKTOP_BREAKPOINT) return;
     evt.stopPropagation();
+    evt.preventDefault();
     resizing = true;
-    freezeInPlace(card, page);
+    freezeInPlace(card, page, pageId);
     startX = evt.clientX; startY = evt.clientY;
     startW = card.offsetWidth; startH = card.offsetHeight;
     card.classList.add("wl-resizing");
@@ -150,6 +179,7 @@ function wireResize(card, page, pageId, key) {
   });
   handle.addEventListener("pointermove", (evt) => {
     if (!resizing) return;
+    evt.preventDefault();
     card.style.width = Math.max(MIN_W, startW + (evt.clientX - startX)) + "px";
     card.style.height = Math.max(MIN_H, startH + (evt.clientY - startY)) + "px";
   });
@@ -179,10 +209,32 @@ function wireResize(card, page, pageId, key) {
 export function initPageLayout(pageId) {
   const page = document.getElementById("page-" + pageId);
   if (!page) return;
-  const bucket = (state.layouts && state.layouts[pageId]) || {};
-  const cards = page.querySelectorAll(":scope > .card, :scope > .grid-2 > .card, :scope > .grid-3 > .card");
-  cards.forEach((card, i) => {
-    const key = keyFor(card, pageId, i);
+  const bucket = bucketFor(pageId);
+  const cards = Array.from(page.querySelectorAll(":scope > .card, :scope > .grid-2 > .card, :scope > .grid-3 > .card"));
+  cards.forEach((card, i) => { keyFor(card, pageId, i); }); // assign every card its key first — freezeInPlace/rowMates read it below
+
+  // Self-heal stale saved data: a row-mate saved before the row-freeze
+  // fix above could have only one card's position saved and not the
+  // other's — applying just that one would reproduce the exact overlap
+  // this was meant to fix. Only apply a row's saved positions if every
+  // card in that row has one; otherwise drop the stale entries and
+  // leave the whole row in normal flow, which is always safe.
+  const handledRows = new Set();
+  let healed = false;
+  cards.forEach(card => {
+    const mates = rowMates(card);
+    if (handledRows.has(mates[0])) return;
+    handledRows.add(mates[0]);
+    const allSaved = mates.every(c => bucket[c.dataset.wlKey]);
+    if (!allSaved && mates.some(c => bucket[c.dataset.wlKey])) {
+      mates.forEach(c => { delete bucket[c.dataset.wlKey]; });
+      healed = true;
+    }
+  });
+  if (healed) persist();
+
+  cards.forEach(card => {
+    const key = card.dataset.wlKey;
     const saved = bucket[key];
     if (saved && !card.classList.contains("wl-positioned")) {
       card.classList.add("wl-positioned");
