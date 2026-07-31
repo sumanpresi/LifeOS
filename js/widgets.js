@@ -269,6 +269,46 @@ export function selectJournalDate(d) {
 }
 export function journalGoToday() { selectJournalDate(todayKey()); }
 
+// Rich-text HTML -> readable plain text for export. Textwise this is
+// journalSnippet's cousin, but that one deliberately flattens everything
+// to a single line for a list preview; this keeps paragraph/line breaks
+// so a multi-paragraph entry doesn't get squashed into a wall of text.
+function journalHtmlToText(html) {
+  if (!html) return "";
+  const withBreaks = (html)
+    .replace(/<\/(p|div|li|h[1-6]|blockquote)>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n");
+  const tmp = document.createElement("div");
+  tmp.innerHTML = withBreaks;
+  return (tmp.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
+}
+const JOURNAL_SEP = "────────────────────────────────────";
+export function exportJournalRange() {
+  let dates = Object.keys(state.journal).filter(d => (state.journal[d] || "").trim()).sort().reverse(); // same "most recent first" order as the list on screen
+  if (journalFilterFrom) dates = dates.filter(d => d >= journalFilterFrom);
+  if (journalFilterTo) dates = dates.filter(d => d <= journalFilterTo);
+  if (!dates.length) { toast("No entries in that date range to export"); return; }
+
+  const rangeLabel = journalFilterFrom || journalFilterTo
+    ? `${journalFilterFrom ? fmtJournalDate(journalFilterFrom) : "the beginning"} to ${journalFilterTo ? fmtJournalDate(journalFilterTo) : "today"}`
+    : "all entries";
+  const header = `Journal export — ${rangeLabel}\nGenerated ${fmtJournalDate(todayKey())}\n`;
+  const body = dates.map(d => `${JOURNAL_SEP}\n${fmtJournalDate(d)}\n${JOURNAL_SEP}\n${journalHtmlToText(state.journal[d])}`).join("\n\n\n");
+  const text = header + "\n\n" + body + "\n";
+
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const fileRange = journalFilterFrom || journalFilterTo ? `${journalFilterFrom || "start"}_to_${journalFilterTo || "today"}` : "all";
+  a.href = url;
+  a.download = `journal_${fileRange}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  toast(`Exported ${dates.length} ${dates.length === 1 ? "entry" : "entries"}`);
+}
+
 let journalTimer = null;
 export function saveJournal(html) {
   const d = currentJournalDate || todayKey();

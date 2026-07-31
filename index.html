@@ -365,6 +365,7 @@
               <span style="color:var(--muted);font-weight:700">–</span>
               <input type="date" id="journalFilterTo" onchange="applyJournalFilter()" title="To date">
               <button class="btn btn-ghost" id="journalFilterClearBtn" onclick="clearJournalFilter()" style="display:none">✕ Clear</button>
+              <button class="btn btn-ghost" onclick="exportJournalRange()" title="Download the entries currently shown below as a text file">⬇ Export .txt</button>
             </div>
           </div>
           <div class="card-body" id="journalList" style="max-height:340px;overflow-y:auto"></div>
