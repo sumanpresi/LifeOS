@@ -55,6 +55,7 @@ export const DEFAULT_STATE = {
   taskViewPref: "board", // "board" | "list" | "calendar" — persisted like any other setting, so it syncs across devices the same way everything else does
   gsiTaskViewPref: "board", // "board" | "list" — same idea, for GSI Workspace's own task list
   pwTaskViewPref: "board", // "board" | "list" — same idea, for Personal Workspace's own task list
+  journalViewPref: "list", // "list" | "calendar" — same idea, for the Day Of page's "Past entries" card
   name: "Suman",
   tasks: [
     { id: "t1", text: "Review NGDR upload tracker", done: false, category: "work", flag: false, link: "", dueDate: "" },

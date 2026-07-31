@@ -373,8 +373,14 @@
             <div class="journal-filter-row">
               <input type="text" id="journalSearchInput" placeholder="Search entries…" oninput="applyJournalFilter()" style="flex:1;min-width:160px">
             </div>
+            <div class="journal-filter-row">
+              <div class="seg" id="journalViewSwitch">
+                <button data-view="list" onclick="setJournalView('list')">☰ List</button>
+                <button data-view="calendar" onclick="setJournalView('calendar')">📅 Calendar</button>
+              </div>
+            </div>
           </div>
-          <div class="card-body" id="journalList" style="max-height:340px;overflow-y:auto"></div>
+          <div class="card-body" id="journalList" style="max-height:420px;overflow-y:auto"></div>
           </div>
         </div>
       </div>

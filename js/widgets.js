@@ -248,20 +248,105 @@ function highlightSnippet(text, query) {
   return escaped.replace(re, m => `<mark>${m}</mark>`);
 }
 let journalFilterFrom = "", journalFilterTo = "", journalSearchQuery = "";
-function renderJournalList(viewDate) {
-  const box = document.getElementById("journalList");
-  if (!box) return;
+// Single source of truth for "which dates count right now" — shared by
+// the List view, the Calendar view, and Export, so the three can never
+// disagree about what's an entry or which filters apply.
+function filteredJournalDates() {
   let dates = Object.keys(state.journal).filter(d => (state.journal[d] || "").trim()).sort().reverse();
   if (journalFilterFrom) dates = dates.filter(d => d >= journalFilterFrom);
   if (journalFilterTo) dates = dates.filter(d => d <= journalFilterTo);
   const q = journalSearchQuery.trim().toLowerCase();
   if (q) dates = dates.filter(d => journalSnippet(state.journal[d]).toLowerCase().includes(q));
-  const filterActive = journalFilterFrom || journalFilterTo || q;
+  return dates;
+}
+function journalFilterActive() {
+  return !!(journalFilterFrom || journalFilterTo || journalSearchQuery.trim());
+}
+
+let journalView = null; // "list" | "calendar" — lazily initialized from state.journalViewPref on first render
+let journalCalMonth = (() => { const d = new Date(); d.setDate(1); return d; })(); // first-of-month, tracks which month Calendar view is showing
+export function setJournalView(v) {
+  journalView = v;
+  state.journalViewPref = v;
+  persist(false);
+  const sw = document.getElementById("journalViewSwitch");
+  if (sw) sw.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.view === v));
+  renderJournalList(currentJournalDate || todayKey());
+}
+export function journalCalPrevMonth() { journalCalMonth.setMonth(journalCalMonth.getMonth() - 1); renderJournalList(currentJournalDate || todayKey()); }
+export function journalCalNextMonth() { journalCalMonth.setMonth(journalCalMonth.getMonth() + 1); renderJournalList(currentJournalDate || todayKey()); }
+export function journalCalToday() {
+  const d = new Date(); d.setDate(1); journalCalMonth = d;
+  renderJournalList(currentJournalDate || todayKey());
+}
+
+// Month grid marking every date that has an entry. Same "flat array of
+// slots, chunked into rows of 7" construction the Tasks calendar uses
+// (see renderCalendarView in tasks.js) rather than relying on a single
+// CSS grid to auto-wrap ~35 cells at exactly the 7-column boundary.
+function renderJournalCalendar(dates, viewDate) {
+  const has = new Set(dates);
+  const year = journalCalMonth.getFullYear(), month = journalCalMonth.getMonth();
+  const firstWeekday = new Date(year, month, 1).getDay(); // 0=Sun
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const monthLabel = journalCalMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+  const todayStr = todayKey();
+
+  const slots = [];
+  for (let i = 0; i < firstWeekday; i++) slots.push(null);
+  for (let d = 1; d <= daysInMonth; d++) slots.push(d);
+  while (slots.length % 7 !== 0) slots.push(null);
+
+  const cellHtml = d => {
+    if (d === null) return `<div class="j-cal-cell j-cal-empty"></div>`;
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    const hasEntry = has.has(dateStr);
+    const cls = ["j-cal-cell",
+      hasEntry ? "has-entry" : "",
+      dateStr === todayStr ? "is-today" : "",
+      dateStr === viewDate ? "is-active" : ""].filter(Boolean).join(" ");
+    // Every day is clickable, entry or not — clicking an empty one opens
+    // that date in the editor ready to write, which is the natural way
+    // to backfill a missed day.
+    const title = hasEntry ? `${fmtJournalDate(dateStr)} — ${journalSnippet(state.journal[dateStr]).slice(0, 80)}` : `${fmtJournalDate(dateStr)} — no entry yet`;
+    return `<button class="${cls}" onclick="selectJournalDate('${dateStr}')" title="${esc(title)}">
+      <span class="j-cal-daynum">${d}</span>${hasEntry ? `<span class="j-cal-dot"></span>` : ""}</button>`;
+  };
+
+  let weeks = "";
+  for (let w = 0; w < slots.length; w += 7) {
+    weeks += `<div class="j-cal-week">${slots.slice(w, w + 7).map(cellHtml).join("")}</div>`;
+  }
+  const monthCount = dates.filter(d => d.startsWith(`${year}-${String(month + 1).padStart(2, "0")}`)).length;
+  return `
+    <div class="j-cal">
+      <div class="j-cal-head">
+        <button class="btn btn-ghost" onclick="journalCalPrevMonth()" aria-label="Previous month">‹</button>
+        <div class="j-cal-month">${monthLabel}</div>
+        <button class="btn btn-ghost" onclick="journalCalNextMonth()" aria-label="Next month">›</button>
+        <button class="btn btn-ghost" onclick="journalCalToday()">Today</button>
+      </div>
+      <div class="j-cal-weekdays"><div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div></div>
+      <div class="j-cal-grid">${weeks}</div>
+      <p class="hint j-cal-legend"><span class="j-cal-dot"></span> has an entry — ${monthCount} this month${journalFilterActive() ? " (matching the current filter)" : ""}</p>
+    </div>`;
+}
+
+function renderJournalList(viewDate) {
+  const box = document.getElementById("journalList");
+  if (!box) return;
+  if (journalView === null) {
+    journalView = state.journalViewPref || "list";
+    const sw = document.getElementById("journalViewSwitch");
+    if (sw) sw.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.view === journalView));
+  }
+  const dates = filteredJournalDates();
+  if (journalView === "calendar") { box.innerHTML = renderJournalCalendar(dates, viewDate); return; }
   box.innerHTML = dates.map(d => `
     <button class="journal-list-item ${d === viewDate ? "active" : ""}" onclick="selectJournalDate('${d}')">
       <span class="jd-date">${fmtJournalDate(d)}</span>
       <span class="jd-snip">${highlightSnippet(journalSnippet(state.journal[d]), journalSearchQuery.trim())}</span>
-    </button>`).join("") || `<p class="hint">${filterActive ? "No entries match." : "Past entries will appear here."}</p>`;
+    </button>`).join("") || `<p class="hint">${journalFilterActive() ? "No entries match." : "Past entries will appear here."}</p>`;
 }
 export function applyJournalFilter() {
   journalFilterFrom = document.getElementById("journalFilterFrom").value;
@@ -300,11 +385,8 @@ function journalHtmlToText(html) {
 }
 const JOURNAL_SEP = "────────────────────────────────────";
 export function exportJournalRange() {
-  let dates = Object.keys(state.journal).filter(d => (state.journal[d] || "").trim()).sort().reverse(); // same "most recent first" order as the list on screen
-  if (journalFilterFrom) dates = dates.filter(d => d >= journalFilterFrom);
-  if (journalFilterTo) dates = dates.filter(d => d <= journalFilterTo);
+  const dates = filteredJournalDates(); // same set, same "most recent first" order as the list/calendar on screen
   const q = journalSearchQuery.trim().toLowerCase();
-  if (q) dates = dates.filter(d => journalSnippet(state.journal[d]).toLowerCase().includes(q));
   if (!dates.length) { toast("No entries match the current filter to export"); return; }
 
   const rangeLabel = journalFilterFrom || journalFilterTo
