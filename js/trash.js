@@ -44,6 +44,7 @@ function labelFor(entry) {
     case "log": return p.text;
     case "meeting": return "Meeting: " + (p.title || "Untitled");
     case "gsiLink": return p.title;
+    case "gsiLinkGroup": return "Tab: " + p.name;
     case "personalDoc": return p.name;
     case "workDoc": return p.name;
     case "pwProject": return "Project: " + p.name;
@@ -69,7 +70,7 @@ function labelFor(entry) {
 }
 const TYPE_NAMES = {
   task: "Task", habit: "Habit", goal: "Goal", gsiProject: "GSI project", gsiProjectTask: "GSI task",
-  log: "Work log entry", meeting: "Meeting", gsiLink: "GSI link", personalDoc: "Personal document",
+  log: "Work log entry", meeting: "Meeting", gsiLink: "GSI link", gsiLinkGroup: "GSI link tab", personalDoc: "Personal document",
   workDoc: "Work document", travelPlan: "Travel plan", travelStop: "Travel stop", packingItem: "Packing item",
   pwProject: "Personal project", pwProjectTask: "Personal task", pwLink: "Personal link",
   pwDoc: "Personal document", pwProjectDoc: "Project document",
@@ -129,7 +130,12 @@ export function restoreFromTrash(id) {
     }
     case "log": state.gsi.log.push(p); break;
     case "meeting": state.gsi.meetings.push(p); break;
-    case "gsiLink": state.gsi.links.push(p); break;
+    case "gsiLink": {
+      const group = state.gsi.linkGroups.find(x => x.id === m.groupId) || state.gsi.linkGroups[0];
+      if (group) { group.links.push(p); if (group.id !== m.groupId) toast("Original tab was deleted — restored into \"" + group.name + "\" instead"); }
+      break;
+    }
+    case "gsiLinkGroup": state.gsi.linkGroups.push(p); break;
     case "personalDoc": state.gsi.personalDocs.push(p); break;
     case "workDoc": state.gsi.workDocs.push(p); break;
     case "pwProject": state.personal.projects.push(p); break;

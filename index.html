@@ -390,7 +390,13 @@
     <section class="page" id="page-work">
       <div class="card" style="margin-bottom:16px">
         <div class="card-head"><h2>GSI links</h2></div>
-        <div class="card-body">
+        <div class="card-body" style="padding-top:0">
+          <div class="tabs-row" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+            <div class="tabs" id="gsiLinkTabs" style="margin:0"></div>
+            <button class="link-edit-btn" onclick="const v=prompt('Rename this tab:',document.getElementById('gsiLinkGroupNameHidden').value);if(v)renameGsiLinkGroup(v)" title="Rename this tab">✎</button>
+            <button class="icon-btn" id="gsiLinkGroupDelBtn" onclick="delGsiLinkGroup()" title="Delete this tab" style="display:none;font-size:12px;padding:4px 8px">Delete tab</button>
+            <input type="hidden" id="gsiLinkGroupNameHidden">
+          </div>
           <div class="link-grid" id="gsiLinks" style="grid-template-columns:1fr"></div>
           <div class="add-inline">
             <input type="text" id="gsiLinkTitle" placeholder="Title">
