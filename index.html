@@ -54,9 +54,6 @@
     <button class="nav-item" data-page="work" onclick="go('work')">
       <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
       Work · GSI</button>
-    <button class="nav-item" data-page="personal" onclick="go('personal')">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21v-2a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v2"/></svg>
-      Personal Workspace</button>
     <div class="sidebar-foot">
       <button class="gh-chip" onclick="openGhModal()" id="ghChip">
         <svg id="ghChipIcon" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.54-3.87-1.54-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.26.72-1.55-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12v3.14c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>
@@ -96,9 +93,6 @@
         </button>
         <button class="btn btn-ghost" onclick="document.getElementById('backupFile').click()" title="Restore from a backup file">
           Restore
-        </button>
-        <button class="btn btn-ghost" onclick="resetCurrentPageLayout()" title="Undo any dragged/resized widget positions on the page you're currently viewing">
-          ⤾ Reset layout
         </button>
         <input type="file" id="backupFile" accept="application/json" style="display:none" onchange="importBackup(event)">
         <button class="btn btn-primary" onclick="ghButton()" id="ghBtn">
@@ -352,7 +346,7 @@
             </div>
           </div>
           <div id="journalEditorContent"><div class="card-body">
-            <div id="dayJournal" class="rich-editor-area" style="min-height:280px"></div>
+            <textarea class="notes-area" id="dayJournal" placeholder="How did that day go?" oninput="saveJournal(this.value)" style="min-height:280px"></textarea>
           </div></div>
         </div>
         <div class="card">
@@ -368,19 +362,9 @@
               <span style="color:var(--muted);font-weight:700">–</span>
               <input type="date" id="journalFilterTo" onchange="applyJournalFilter()" title="To date">
               <button class="btn btn-ghost" id="journalFilterClearBtn" onclick="clearJournalFilter()" style="display:none">✕ Clear</button>
-              <button class="btn btn-ghost" onclick="exportJournalRange()" title="Download the entries currently shown below as a text file">⬇ Export .txt</button>
-            </div>
-            <div class="journal-filter-row">
-              <input type="text" id="journalSearchInput" placeholder="Search entries…" oninput="applyJournalFilter()" style="flex:1;min-width:160px">
-            </div>
-            <div class="journal-filter-row">
-              <div class="seg" id="journalViewSwitch">
-                <button data-view="list" onclick="setJournalView('list')">☰ List</button>
-                <button data-view="calendar" onclick="setJournalView('calendar')">📅 Calendar</button>
-              </div>
             </div>
           </div>
-          <div class="card-body" id="journalList" style="max-height:420px;overflow-y:auto"></div>
+          <div class="card-body" id="journalList" style="max-height:340px;overflow-y:auto"></div>
           </div>
         </div>
       </div>
@@ -396,13 +380,7 @@
     <section class="page" id="page-work">
       <div class="card" style="margin-bottom:16px">
         <div class="card-head"><h2>GSI links</h2></div>
-        <div class="card-body" style="padding-top:0">
-          <div class="tabs-row" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-            <div class="tabs" id="gsiLinkTabs" style="margin:0"></div>
-            <button class="link-edit-btn" onclick="const v=prompt('Rename this tab:',document.getElementById('gsiLinkGroupNameHidden').value);if(v)renameGsiLinkGroup(v)" title="Rename this tab">✎</button>
-            <button class="icon-btn" id="gsiLinkGroupDelBtn" onclick="delGsiLinkGroup()" title="Delete this tab" style="display:none;font-size:12px;padding:4px 8px">Delete tab</button>
-            <input type="hidden" id="gsiLinkGroupNameHidden">
-          </div>
+        <div class="card-body">
           <div class="link-grid" id="gsiLinks" style="grid-template-columns:1fr"></div>
           <div class="add-inline">
             <input type="text" id="gsiLinkTitle" placeholder="Title">
@@ -582,166 +560,6 @@
               <button class="btn btn-ghost" onclick="addMeeting()">Add</button>
             </div>
             <div id="meetingList" style="margin-top:12px"></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ======== PAGE: PERSONAL WORKSPACE ======== -->
-    <section class="page" id="page-personal">
-      <div class="card" style="margin-bottom:16px" data-wl-group="pw-top">
-        <div class="card-head"><h2>Personal links</h2></div>
-        <div class="card-body">
-          <div class="link-grid" id="pwLinks" style="grid-template-columns:1fr"></div>
-          <div class="add-inline">
-            <input type="text" id="pwLinkTitle" placeholder="Title">
-            <input type="text" id="pwLinkUrl" placeholder="https://…">
-            <button class="btn btn-ghost" onclick="addPwLink()">Add</button>
-          </div>
-        </div>
-      </div>
-      <h1 class="display" style="font-size:28px;margin-bottom:14px">Personal Workspace</h1>
-      <div class="wb-tabs-row" style="margin-bottom:12px">
-        <div class="wb-tabs" id="pwTabsList"></div>
-        <button class="wb-tab-add" onclick="addPwProject()" title="New project">+</button>
-      </div>
-      <div class="card" data-wl-group="pw-top">
-        <div class="card-head">
-          <input type="text" id="pwProjectName" onchange="renamePwProject(this.value)"
-            style="border:none;background:transparent;font-family:'Fraunces',serif;font-size:19px;font-weight:600;flex:1;padding:0">
-          <button class="icon-btn" id="pwProjectDelBtn" onclick="delPwProject()" title="Delete this project" style="display:none;margin-left:8px">Delete</button>
-          <button class="icon-btn gsi-restore-project-btn" id="pwProjectRestoreBtn" onclick="restorePwLastDeletedProject()" title="Restore the most recently deleted project" style="display:none;margin-left:6px">↺ Restore</button>
-          <button class="expand-btn" onclick="expandView('pwCardContent',document.getElementById('pwProjectName').value || 'Project tasks')" title="View large">
-            <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-          </button>
-        </div>
-        <div id="pwCardContent">
-        <div class="card-body gsi-toolbar-row" style="padding-bottom:0">
-          <div class="seg" id="pwTaskViewSwitch">
-            <button data-view="board" onclick="setPwTaskView('board')">▦ Board</button>
-            <button data-view="list" onclick="setPwTaskView('list')">☰ List</button>
-          </div>
-          <select class="gsi-sort-sel" onchange="setPwSortMode(this.value)" title="Sort tasks">
-            <option value="default">Sort: Default</option>
-            <option value="date">Sort: Date</option>
-            <option value="priority">Sort: Priority</option>
-            <option value="status">Sort: Status</option>
-            <option value="alphabetical">Sort: Alphabetical</option>
-            <option value="newest">Sort: Newest</option>
-            <option value="oldest">Sort: Oldest</option>
-          </select>
-          <span class="hint" id="pwCount"></span>
-          <button class="gsi-archive-btn" id="pwArchiveBtn" onclick="openPwArchiveView()">📦 Archive</button>
-          <button class="gsi-del-completed-btn" onclick="archivePwCompletedTasks()">Archive completed</button>
-        </div>
-        <p class="hint" id="pwBoardDragHint" style="display:none;padding:0 18px 8px">↕️ Manual ordering is available only in Default Sort.</p>
-        <div class="card-body" id="pwTaskList"></div>
-        <div class="card-body gsi-add-row" style="padding-top:0">
-          <input type="text" id="newPwTask" placeholder="Add a task" onkeydown="if(event.key==='Enter')addPwTask()">
-          <button class="gsi-add-btn" onclick="addPwTask()">Add</button>
-        </div>
-        </div>
-      </div>
-      <div class="card" style="margin-top:16px">
-        <div class="card-head">
-          <input type="text" id="pwProjectDocsLabel" onchange="renamePwProjectDocsLabel(this.value)"
-            style="border:none;background:transparent;font-family:'Fraunces',serif;font-size:19px;font-weight:600;flex:1;padding:0">
-        </div>
-        <div class="card-body">
-          <div class="link-grid" id="pwProjectDocs" style="grid-template-columns:1fr"></div>
-          <div class="add-inline">
-            <input type="text" id="pwProjectDocName" placeholder="Document name">
-            <input type="text" id="pwProjectDocUrl" placeholder="https://…">
-            <button class="btn btn-ghost" onclick="addPwProjectDoc()">➕ Add</button>
-          </div>
-        </div>
-      </div>
-      <div class="card" style="margin-top:16px">
-        <div class="card-head"><h2>Notes</h2></div>
-        <div class="card-body">
-          <textarea class="notes-area" id="notes-personal" placeholder="Anything personal — plans, reminders, whatever doesn't need its own task…" oninput="saveSectionNotes('personal',this.value)"></textarea>
-        </div>
-      </div>
-      <div class="card" id="whiteboardCard-personal" style="margin-top:16px">
-        <div class="card-head"><h2>Whiteboard</h2></div>
-        <div class="card-body" style="padding-top:0">
-          <p class="hint" id="wbHint-personal" style="margin-bottom:8px">A quick space for scribbling ideas alongside your Personal Workspace tasks — Pen or Eraser to start, S Pen or Apple Pencil to draw.</p>
-          <div class="wb-canvas-area" id="wbCanvasArea-personal">
-            <div class="wb-canvas-wrap" id="wbCanvasWrap-personal">
-              <canvas class="whiteboard-canvas" id="whiteboardCanvas-personal"></canvas>
-              <svg class="wb-connector-layer" id="wbConnectorLayer-personal"></svg>
-              <div class="wb-object-layer" id="wbObjLayer-personal"></div>
-            </div>
-
-            <div class="wb-float-toolbar" id="wbFloatToolbar-personal">
-              <div class="wb-float-tool-wrap">
-                <button class="wb-icon-tool" id="wbPenBtn-personal" onclick="selectPenTool('personal')" title="Pen">
-                  <svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                </button>
-                <div class="wb-flyout" id="wbPenFlyout-personal">
-                  <div class="wb-colors">
-                    <button class="wb-color-swatch" data-color="#1B1B1A" style="background:#1B1B1A" onclick="setWhiteboardColor('personal','#1B1B1A')" title="Black"></button>
-                    <button class="wb-color-swatch" data-color="#DC2626" style="background:#DC2626" onclick="setWhiteboardColor('personal','#DC2626')" title="Red"></button>
-                    <button class="wb-color-swatch" data-color="#2563EB" style="background:#2563EB" onclick="setWhiteboardColor('personal','#2563EB')" title="Blue"></button>
-                    <button class="wb-color-swatch" data-color="#16A34A" style="background:#16A34A" onclick="setWhiteboardColor('personal','#16A34A')" title="Green"></button>
-                    <button class="wb-color-swatch" data-color="#F59E0B" style="background:#F59E0B" onclick="setWhiteboardColor('personal','#F59E0B')" title="Orange"></button>
-                    <button class="wb-color-swatch" data-color="#7C3AED" style="background:#7C3AED" onclick="setWhiteboardColor('personal','#7C3AED')" title="Purple"></button>
-                  </div>
-                  <div class="wb-flyout-divider"></div>
-                  <div class="wb-widths">
-                    <button class="wb-width-btn" data-width="thin" onclick="setWhiteboardWidth('personal','thin')" title="Thin">●</button>
-                    <button class="wb-width-btn" data-width="medium" onclick="setWhiteboardWidth('personal','medium')" title="Medium">●</button>
-                    <button class="wb-width-btn" data-width="thick" onclick="setWhiteboardWidth('personal','thick')" title="Thick">●</button>
-                  </div>
-                </div>
-              </div>
-
-              <div class="wb-float-tool-wrap">
-                <button class="wb-icon-tool" id="wbEraseBtn-personal" onclick="selectEraserTool('personal')" title="Eraser">
-                  <svg viewBox="0 0 24 24"><path d="M20 20H8L3 15a1.5 1.5 0 0 1 0-2.1L13 3l8 8-8 8"/><path d="M8 20l6-6"/></svg>
-                </button>
-                <div class="wb-flyout" id="wbEraserSizes-personal">
-                  <button class="wb-eraser-size-btn" data-size="small" onclick="setEraserSize('personal','small')" title="Small eraser">Small</button>
-                  <button class="wb-eraser-size-btn" data-size="large" onclick="setEraserSize('personal','large')" title="Large eraser — erase quickly">Large</button>
-                </div>
-              </div>
-
-              <button class="wb-icon-tool" id="wbStickyBtn-personal" onclick="selectStickyTool('personal')" title="Sticky note — click the board to place one">
-                <svg viewBox="0 0 24 24"><path d="M4 4h13l3 3v13H4V4z"/><path d="M17 4v6h6"/></svg>
-              </button>
-              <button class="wb-icon-tool" id="wbStickyArchiveBtn-personal" onclick="openStickyArchive('personal')" title="Archived sticky notes">🗑</button>
-
-              <div class="wb-toolbar-divider"></div>
-
-              <button class="wb-icon-tool" onclick="undoWhiteboardStroke('personal')" title="Undo last stroke on the page you're viewing">
-                <svg viewBox="0 0 24 24"><path d="M3 10h10a5 5 0 0 1 0 10H8"/><path d="M3 10l5-5M3 10l5 5"/></svg>
-              </button>
-              <button class="wb-icon-tool" onclick="clearWhiteboardPage('personal')" title="Clear the page you're currently viewing">
-                <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V6h12z"/></svg>
-              </button>
-            </div>
-
-            <div class="wb-zoom-float" id="wbZoomFloat-personal">
-              <button onclick="zoomWhiteboardOut('personal')" title="Zoom out">−</button>
-              <span class="wb-zoom-level" id="wbZoomLevel-personal">100%</span>
-              <button onclick="zoomWhiteboardIn('personal')" title="Zoom in">+</button>
-              <button class="wb-zoom-reset" onclick="resetWhiteboardZoom('personal')" title="Reset zoom">100%</button>
-            </div>
-
-            <button class="wb-fullscreen-btn" id="wbFullscreenBtn-personal" onclick="toggleWhiteboardFullscreen('personal')" title="Full screen">
-              <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-            </button>
-          </div>
-        </div>
-      </div>
-      <div class="card" style="margin-top:16px">
-        <div class="card-head"><h2>Documents</h2></div>
-        <div class="card-body">
-          <div class="link-grid" id="pwDocs" style="grid-template-columns:1fr"></div>
-          <div class="add-inline">
-            <input type="text" id="pwDocName" placeholder="Document name">
-            <input type="text" id="pwDocUrl" placeholder="https://…">
-            <button class="btn btn-ghost" onclick="addPwDoc()">➕ Add</button>
           </div>
         </div>
       </div>
@@ -1069,9 +887,6 @@
       <p class="hint" style="margin-top:8px">Your data lives in your Supabase database and syncs live between devices.</p>
     </div>
     <div class="err" id="ghErr"></div>
-    <pre id="ghDiag" style="display:none;white-space:pre-wrap;word-break:break-word;font-size:11px;line-height:1.5;
-      background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:8px;margin:10px 0 0;
-      max-height:180px;overflow:auto;color:var(--muted)"></pre>
     <div class="row">
       <button class="btn btn-ghost" id="signOutBtn" style="margin-right:auto;display:none" onclick="signOut()">Sign out</button>
       <button class="btn btn-ghost" onclick="closeGhModal()">Close</button>
@@ -1118,16 +933,6 @@
   </div>
 </div>
 
-<div class="gsi-archive-modal-bg" id="wbStickyArchiveModalBg-personal">
-  <div class="gsi-archive-modal">
-    <div class="expand-modal-head">
-      <h2>Archived sticky notes</h2>
-      <button class="btn btn-ghost" onclick="closeStickyArchive('personal')">✕ Close</button>
-    </div>
-    <div class="gsi-archive-modal-body" id="wbStickyArchiveList-personal"></div>
-  </div>
-</div>
-
 <div class="gsi-archive-modal-bg" id="gsiArchiveModalBg">
   <div class="gsi-archive-modal">
     <div class="expand-modal-head">
@@ -1135,16 +940,6 @@
       <button class="btn btn-ghost" onclick="closeArchiveView()">✕ Close</button>
     </div>
     <div class="gsi-archive-modal-body" id="gsiArchiveList"></div>
-  </div>
-</div>
-
-<div class="gsi-archive-modal-bg" id="pwArchiveModalBg">
-  <div class="gsi-archive-modal">
-    <div class="expand-modal-head">
-      <h2>Archived tasks</h2>
-      <button class="btn btn-ghost" onclick="closePwArchiveView()">✕ Close</button>
-    </div>
-    <div class="gsi-archive-modal-body" id="pwArchiveList"></div>
   </div>
 </div>
 

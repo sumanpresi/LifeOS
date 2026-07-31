@@ -398,28 +398,8 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   border-radius:10px;border:1px solid transparent;cursor:pointer}
 .journal-list-item:hover{background:var(--paper)}
 .journal-list-item.active{background:var(--lilac);border-color:var(--lilac-deep)}
-.jd-date{font-weight:700;font-size:13.5px}
-.jd-snip{font-size:13.5px;line-height:1.45;color:var(--ink);white-space:pre-wrap;word-break:break-word}
-.jd-snip mark{background:#FDE68A;color:inherit;border-radius:2px;padding:0 1px}
-
-/* ---- Past entries: Calendar view (dates holding an entry are dotted) ---- */
-.j-cal-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
-.j-cal-month{flex:1;text-align:center;font-weight:700;font-size:14px}
-.j-cal-weekdays{display:flex;margin-bottom:4px}
-.j-cal-weekdays div{flex:1;text-align:center;font-size:10.5px;font-weight:700;color:var(--muted);text-transform:uppercase}
-.j-cal-week{display:flex;gap:3px;margin-bottom:3px}
-.j-cal-cell{flex:1;min-width:0;aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:3px;border:1px solid transparent;border-radius:8px;background:transparent;cursor:pointer;
-  font-family:inherit;color:var(--ink);padding:0}
-.j-cal-cell:hover{background:var(--paper);border-color:var(--line)}
-.j-cal-empty{visibility:hidden;cursor:default}
-.j-cal-daynum{font-size:12.5px;line-height:1}
-.j-cal-cell.has-entry{background:var(--lilac);font-weight:700}
-.j-cal-cell.is-today{border-color:var(--accent)}
-.j-cal-cell.is-active{background:var(--accent);color:#fff}
-.j-cal-dot{width:5px;height:5px;border-radius:50%;background:var(--accent);display:inline-block;flex-shrink:0}
-.j-cal-cell.is-active .j-cal-dot{background:#fff}
-.j-cal-legend{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:12px}
+.jd-date{font-weight:700;font-size:12.5px}
+.jd-snip{font-size:12px;color:var(--muted);white-space:pre-wrap;word-break:break-word}
 
 /* ---------- Sort button (Overview tasks) ---------- */
 #taskSortBtn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -573,15 +553,6 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .mm-grammar-btn{border:1px solid var(--line);border-radius:7px;padding:4px 10px;background:var(--paper);
   font-size:12px;font-weight:700;color:var(--ink);cursor:pointer}
 .mm-grammar-btn:hover{border-color:var(--accent);background:#fff}
-
-/* Generic version of the block above for rich editors outside meeting
-   minutes (currently: Journal) — same Quill styling, just not tied to
-   the "mm-" (meeting minutes) naming or its fixed 110px min-height. */
-.rich-editor-area{background:#fff}
-.rich-editor-area .ql-toolbar.ql-snow{border:1px solid var(--line);border-radius:10px 10px 0 0;background:var(--paper)}
-.rich-editor-area .ql-container.ql-snow{border:1px solid var(--line);border-top:none;border-radius:0 0 10px 10px;
-  font-family:inherit;font-size:14px}
-.rich-editor-area .ql-editor{min-height:230px}
 .grammar-results{margin-top:8px}
 .grammar-list{display:flex;flex-direction:column;gap:8px}
 .grammar-item{border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#fff;font-size:12.5px}
@@ -645,8 +616,6 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .journal-filter-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
 .journal-filter-row input[type="date"]{border:1px solid var(--line);border-radius:8px;padding:6px 8px;
   background:var(--paper);font-size:12.5px}
-.journal-filter-row input[type="text"]{border:1px solid var(--line);border-radius:8px;padding:7px 10px;
-  background:var(--paper);font-size:13px;font-family:inherit}
 
 /* Completion timestamp pill (shown once a task is checked off) */
 .completed-pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;
@@ -1699,32 +1668,4 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   .wb-sfmt-color-pop{width:136px}
   .wb-sfmt-size,.wb-sfmt-font{height:34px;font-size:13px}
   .wb-sticky-format-toolbar{bottom:calc(100% + 4px)}
-}
-
-/* ---- Widget move/resize — long-press a card's header to drag it
-   anywhere on the page, drag its corner handle to resize it. Cards
-   stay in normal, fully-responsive document flow until the first time
-   they're actually moved or resized (.wl-positioned is added then,
-   switching that one card to an explicit px position/size) — every
-   untouched card looks and behaves exactly as before. Desktop-only:
-   an absolute px layout doesn't survive a viewport-width change the
-   way normal flow does, so phones always keep the standard stacked
-   layout regardless of any saved customization (see the max-width
-   override below). ---- */
-.page{position:relative}
-.card.wl-positioned{position:absolute;margin:0;overflow:auto;z-index:2}
-.card-head{cursor:grab;touch-action:manipulation;user-select:none;-webkit-user-select:none}
-.card.wl-dragging,.card.wl-resizing{user-select:none;-webkit-user-select:none}
-.card.wl-pressing{outline:2px solid var(--t-accent,#2563EB);outline-offset:-2px;transition:outline-color 150ms ease}
-.card.wl-dragging{opacity:.92;box-shadow:0 14px 34px rgba(27,27,26,.22);z-index:50;cursor:grabbing;transition:none}
-.card.wl-resizing{transition:none;z-index:50}
-.wl-resize-handle{position:absolute;right:3px;bottom:3px;width:18px;height:18px;cursor:nwse-resize;
-  color:var(--t-ink2,#9aa1ab);opacity:.4;touch-action:none;z-index:21}
-.wl-resize-handle:hover{opacity:1}
-.wl-resize-handle svg{width:100%;height:100%}
-@media(max-width:900px){
-  .card.wl-positioned{position:static!important;left:auto!important;top:auto!important;
-    width:auto!important;height:auto!important;overflow:visible!important}
-  .wl-resize-handle{display:none}
-  .card-head{cursor:default}
 }

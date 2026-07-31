@@ -44,14 +44,8 @@ function labelFor(entry) {
     case "log": return p.text;
     case "meeting": return "Meeting: " + (p.title || "Untitled");
     case "gsiLink": return p.title;
-    case "gsiLinkGroup": return "Tab: " + p.name;
     case "personalDoc": return p.name;
     case "workDoc": return p.name;
-    case "pwProject": return "Project: " + p.name;
-    case "pwProjectTask": return p.text;
-    case "pwLink": return p.title;
-    case "pwDoc": return p.name;
-    case "pwProjectDoc": return p.name;
     case "travelPlan": return "Travel plan: " + p.name;
     case "travelStop": return p.place || "(unnamed stop)";
     case "packingItem": return p.text;
@@ -70,10 +64,8 @@ function labelFor(entry) {
 }
 const TYPE_NAMES = {
   task: "Task", habit: "Habit", goal: "Goal", gsiProject: "GSI project", gsiProjectTask: "GSI task",
-  log: "Work log entry", meeting: "Meeting", gsiLink: "GSI link", gsiLinkGroup: "GSI link tab", personalDoc: "Personal document",
+  log: "Work log entry", meeting: "Meeting", gsiLink: "GSI link", personalDoc: "Personal document",
   workDoc: "Work document", travelPlan: "Travel plan", travelStop: "Travel stop", packingItem: "Packing item",
-  pwProject: "Personal project", pwProjectTask: "Personal task", pwLink: "Personal link",
-  pwDoc: "Personal document", pwProjectDoc: "Project document",
   referencePage: "Reference page", referenceLink: "Reference link", financeItem: "Finance item",
   financeLink: "Finance link", medicine: "Medicine", prescription: "Prescription",
   healthLink: "Health link", bookmarkLink: "Link", feed: "News feed", sectionLink: "Link"
@@ -130,27 +122,9 @@ export function restoreFromTrash(id) {
     }
     case "log": state.gsi.log.push(p); break;
     case "meeting": state.gsi.meetings.push(p); break;
-    case "gsiLink": {
-      const group = state.gsi.linkGroups.find(x => x.id === m.groupId) || state.gsi.linkGroups[0];
-      if (group) { group.links.push(p); if (group.id !== m.groupId) toast("Original tab was deleted — restored into \"" + group.name + "\" instead"); }
-      break;
-    }
-    case "gsiLinkGroup": state.gsi.linkGroups.push(p); break;
+    case "gsiLink": state.gsi.links.push(p); break;
     case "personalDoc": state.gsi.personalDocs.push(p); break;
     case "workDoc": state.gsi.workDocs.push(p); break;
-    case "pwProject": state.personal.projects.push(p); break;
-    case "pwProjectTask": {
-      const proj = state.personal.projects.find(x => x.id === m.projectId) || state.personal.projects[0];
-      if (proj) { proj.tasks.push(p); if (proj.id !== m.projectId) toast("Original project was deleted — restored into \"" + proj.name + "\" instead"); }
-      break;
-    }
-    case "pwLink": state.personal.links.push(p); break;
-    case "pwDoc": state.personal.docs = state.personal.docs || []; state.personal.docs.push(p); break;
-    case "pwProjectDoc": {
-      const proj = state.personal.projects.find(x => x.id === m.projectId) || state.personal.projects[0];
-      if (proj) { proj.workDocs = proj.workDocs || []; proj.workDocs.push(p); if (proj.id !== m.projectId) toast("Original project was deleted — restored into \"" + proj.name + "\" instead"); }
-      break;
-    }
     case "travelPlan": state.travel.plans.push(p); break;
     case "travelStop": {
       const plan = state.travel.plans.find(x => x.id === m.planId) || state.travel.plans[0];

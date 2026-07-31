@@ -268,17 +268,7 @@ function drawSegment(ctx, p1, p2, scaleBasis, stroke) {
 function pointToNorm(canvas, evt) {
   const box = canvas.getBoundingClientRect();
   // Both axes divided by width (not height) — see file header.
-  // Rounded to 4 decimals deliberately: these are width-normalised, so
-  // 0.0001 is a ten-thousandth of the canvas width — about 0.1px on a
-  // 1000px-wide board, i.e. below what anyone can see. Storing raw
-  // float precision (0.2804107424960506) instead costs ~2x the bytes
-  // per point, and with tens of thousands of points across all boards
-  // that dominates the sync payload and is what makes saving fail on a
-  // phone connection.
-  return {
-    x: Math.round(((evt.clientX - box.left) / box.width) * 10000) / 10000,
-    y: Math.round(((evt.clientY - box.top) / box.width) * 10000) / 10000
-  };
+  return { x: (evt.clientX - box.left) / box.width, y: (evt.clientY - box.top) / box.width };
 }
 
 function attachPointerHandlers(boardId, canvas) {

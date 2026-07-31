@@ -54,8 +54,6 @@ export const DEFAULT_STATE = {
   v: 2,
   taskViewPref: "board", // "board" | "list" | "calendar" — persisted like any other setting, so it syncs across devices the same way everything else does
   gsiTaskViewPref: "board", // "board" | "list" — same idea, for GSI Workspace's own task list
-  pwTaskViewPref: "board", // "board" | "list" — same idea, for Personal Workspace's own task list
-  journalViewPref: "list", // "list" | "calendar" — same idea, for the Day Of page's "Past entries" card
   name: "Suman",
   tasks: [
     { id: "t1", text: "Review NGDR upload tracker", done: false, category: "work", flag: false, link: "", dueDate: "" },
@@ -105,11 +103,10 @@ export const DEFAULT_STATE = {
   ],
   quoteOffset: 0,
   meditation: {},            // { "2026-07-19": minutes }
-  journal: {},               // { "2026-07-19": "<p>html now (rich text editor)</p>" } — older entries are plain strings, which Quill loads in as-is
+  journal: {},               // { "2026-07-19": "text" }
   sections: {
     communication: { notes: "", links: [] },
-    work: { notes: "", links: [] },
-    personal: { notes: "", links: [] }
+    work: { notes: "", links: [] }
   },
   gsi: {
     /* Multiple named projects, each with its own task list (with dates).
@@ -129,30 +126,9 @@ export const DEFAULT_STATE = {
       { id: "gl1", title: "GSI portal", url: "https://www.gsi.gov.in" },
       { id: "gl2", title: "Bhukosh", url: "https://bhukosh.gsi.gov.in" }
     ],
-    /* Tabs under which links are grouped — e.g. "Portals", "Reports",
-       "Reference sites" — same shape/pattern as reference.js's pages.
-       See merge() for the one-time migration of the old flat "links"
-       array above into a default "General" tab. */
-    linkGroups: [],
-    activeLinkGroup: "",
     personalDocs: [],        // [{id, name, url}]
     workDocs: []              // [{id, name, url}]
   },
-  personal: {
-    /* Personal Workspace — same shape as gsi above (multiple named
-       projects, each with its own task list), for personal-life projects
-       kept deliberately separate from GSI/work ones. See personal.js,
-       which mirrors gsi.js's pattern; the Daily work log and Meeting
-       minutes sections were left GSI-specific rather than cloned here —
-       those are office-workflow concepts, not personal-life ones. */
-    projects: [
-      { id: "pp1", name: "Personal", tasks: [], workDocs: [] }
-    ],
-    activeProject: "pp1",
-    links: [],                // [{id, title, url}]
-    docs: []                  // [{id, name, url}] — top-level "Documents" card, separate from each project's own workDocs
-  },
-  layouts: {}, // { [pageId]: { [cardKey]: {x,y,w,h} } } — per-page, per-widget saved position/size from widget-layout.js. Missing entry = that card is still in normal flow, its default.
   /* Data for the Communication module (pages/communication.html). The module
      itself renders in an isolated iframe (separate CSS/JS, no id/class clashes
      with the rest of LifeOS), but its DATA lives here so it saves through the
@@ -262,44 +238,6 @@ function merge(saved) {
     s.gsi.workDocs = [];
   }
   s.gsi.projects.forEach(p => { p.workDocs = p.workDocs || []; }); // additive field — older saved projects predate per-project work docs
-  // Links moved from one flat list to tabbed groups (mirrors reference.js's
-  // pages) — same one-time-migration shape as workDocs just above: land
-  // whatever was already there into a default "General" tab, then empty
-  // the old array out so this doesn't run again.
-  if (!s.gsi.linkGroups || !s.gsi.linkGroups.length) {
-    const group = { id: uid(), name: "General", links: Array.isArray(s.gsi.links) ? s.gsi.links : [] };
-    s.gsi.linkGroups = [group];
-    s.gsi.activeLinkGroup = group.id;
-    s.gsi.links = [];
-  }
-  if (!s.gsi.linkGroups.some(g => g.id === s.gsi.activeLinkGroup)) s.gsi.activeLinkGroup = s.gsi.linkGroups[0].id;
-  s.personal = Object.assign(structuredClone(DEFAULT_STATE.personal), saved.personal || {});
-  s.personal.projects.forEach(p => { p.workDocs = p.workDocs || []; });
-  if (!s.layouts || typeof s.layouts !== "object") s.layouts = {};
-
-  /* Stroke coordinates used to be stored at raw float precision
-     (0.2804107424960506 — 16 decimals for a value that's rendered at
-     ~0.1px accuracy). Across tens of thousands of points that roughly
-     doubled the size of every sync payload, which is what made saving
-     fail on slower mobile connections. New points are rounded at
-     capture (see pointToNorm in whiteboard.js); this brings existing
-     saved boards down to the same precision so the payload actually
-     shrinks rather than staying large forever. Visually lossless. */
-  const roundPts = board => {
-    (board.strokes || []).forEach(st => {
-      if (!Array.isArray(st.points)) return;
-      st.points = st.points.map(p => ({
-        x: Math.round(p.x * 10000) / 10000,
-        y: Math.round(p.y * 10000) / 10000
-      }));
-    });
-  };
-  Object.values(s.whiteboards || {}).forEach(roundPts);
-  (s.brainstormBoards || []).forEach(roundPts);
-  Object.values(s.calendarScribbles || {}).forEach(b => {
-    if (Array.isArray(b)) b.forEach(st => roundPts({ strokes: [st] }));
-    else roundPts(b || {});
-  });
   s.communication = Object.assign(structuredClone(DEFAULT_STATE.communication), saved.communication || {});
   // Top up with richer philosophical quotes rather than replacing the
   // list — keeps whatever the user already has (including any they've

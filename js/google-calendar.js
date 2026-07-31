@@ -64,32 +64,14 @@ export async function handleGoogleCalendarCallback() {
   const code = params.get("code");
   const returnedState = params.get("state");
   if (!code) return; // not a callback landing — nothing to do
+  history.replaceState(null, "", location.pathname); // strip the code/state out of the URL either way, so a refresh can't replay it
 
-  /* IMPORTANT: ?code= on this URL is NOT necessarily ours. Supabase's
-     GitHub sign-in (PKCE flow) lands back on this exact same page with
-     its own ?code=... which supabase-js reads asynchronously to
-     establish the session. This handler used to strip the query string
-     immediately, before checking whose callback it was — which raced
-     supabase-js and, when it won, deleted the auth code before the
-     session could be created. The visible symptom was signing in with
-     GitHub successfully and landing back logged out, more often on
-     slower connections/devices where the async read loses the race.
-
-     So: identify the callback FIRST via the state token we stored
-     before redirecting out, and only touch the URL once we know it's
-     ours. */
   const expectedState = sessionStorage.getItem("gcal_oauth_state");
-  if (!expectedState) return; // we never started a Google connect in this tab — this belongs to someone else (almost certainly Supabase sign-in). Leave the URL completely alone.
-  if (returnedState !== expectedState) {
-    // We did start one, but the state doesn't match — treat as a failed/
-    // tampered round trip. This one IS ours to clean up.
-    sessionStorage.removeItem("gcal_oauth_state");
-    history.replaceState(null, "", location.pathname);
+  sessionStorage.removeItem("gcal_oauth_state");
+  if (!expectedState || returnedState !== expectedState) {
     toast("Google Calendar connection failed — please try again");
     return;
   }
-  sessionStorage.removeItem("gcal_oauth_state");
-  history.replaceState(null, "", location.pathname); // strip the code/state out of the URL so a refresh can't replay it
 
   const token = await getAccessToken();
   if (!token) { toast("Sign in to LifeOS first, then connect Google Calendar"); return; }
