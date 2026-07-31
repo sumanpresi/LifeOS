@@ -54,6 +54,7 @@ export const DEFAULT_STATE = {
   v: 2,
   taskViewPref: "board", // "board" | "list" | "calendar" — persisted like any other setting, so it syncs across devices the same way everything else does
   gsiTaskViewPref: "board", // "board" | "list" — same idea, for GSI Workspace's own task list
+  pwTaskViewPref: "board", // "board" | "list" — same idea, for Personal Workspace's own task list
   name: "Suman",
   tasks: [
     { id: "t1", text: "Review NGDR upload tracker", done: false, category: "work", flag: false, link: "", dueDate: "" },
@@ -103,10 +104,11 @@ export const DEFAULT_STATE = {
   ],
   quoteOffset: 0,
   meditation: {},            // { "2026-07-19": minutes }
-  journal: {},               // { "2026-07-19": "text" }
+  journal: {},               // { "2026-07-19": "<p>html now (rich text editor)</p>" } — older entries are plain strings, which Quill loads in as-is
   sections: {
     communication: { notes: "", links: [] },
-    work: { notes: "", links: [] }
+    work: { notes: "", links: [] },
+    personal: { notes: "", links: [] }
   },
   gsi: {
     /* Multiple named projects, each with its own task list (with dates).
@@ -129,6 +131,21 @@ export const DEFAULT_STATE = {
     personalDocs: [],        // [{id, name, url}]
     workDocs: []              // [{id, name, url}]
   },
+  personal: {
+    /* Personal Workspace — same shape as gsi above (multiple named
+       projects, each with its own task list), for personal-life projects
+       kept deliberately separate from GSI/work ones. See personal.js,
+       which mirrors gsi.js's pattern; the Daily work log and Meeting
+       minutes sections were left GSI-specific rather than cloned here —
+       those are office-workflow concepts, not personal-life ones. */
+    projects: [
+      { id: "pp1", name: "Personal", tasks: [], workDocs: [] }
+    ],
+    activeProject: "pp1",
+    links: [],                // [{id, title, url}]
+    docs: []                  // [{id, name, url}] — top-level "Documents" card, separate from each project's own workDocs
+  },
+  layouts: {}, // { [pageId]: { [cardKey]: {x,y,w,h} } } — per-page, per-widget saved position/size from widget-layout.js. Missing entry = that card is still in normal flow, its default.
   /* Data for the Communication module (pages/communication.html). The module
      itself renders in an isolated iframe (separate CSS/JS, no id/class clashes
      with the rest of LifeOS), but its DATA lives here so it saves through the
@@ -238,6 +255,9 @@ function merge(saved) {
     s.gsi.workDocs = [];
   }
   s.gsi.projects.forEach(p => { p.workDocs = p.workDocs || []; }); // additive field — older saved projects predate per-project work docs
+  s.personal = Object.assign(structuredClone(DEFAULT_STATE.personal), saved.personal || {});
+  s.personal.projects.forEach(p => { p.workDocs = p.workDocs || []; });
+  if (!s.layouts || typeof s.layouts !== "object") s.layouts = {};
   s.communication = Object.assign(structuredClone(DEFAULT_STATE.communication), saved.communication || {});
   // Top up with richer philosophical quotes rather than replacing the
   // list — keeps whatever the user already has (including any they've
