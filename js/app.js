@@ -49,6 +49,14 @@ function renderAll() {
   whiteboard.initWhiteboard("overview");
   whiteboard.initWhiteboard("gsi");
   whiteboard.initWhiteboard("personal"); // plain single-board instance (no tab-switching) — see personal.js's file header for why
+  // Re-applied on every render, not just page navigation — layout data
+  // can arrive asynchronously (e.g. Supabase sync completing after
+  // initial boot) via a plain rerender() with no go() call involved,
+  // and initPageLayout's self-heal (see widget-layout.js) needs to run
+  // against whatever the current data actually is, not just what it
+  // was at the moment the page was first navigated to.
+  const visiblePage = document.querySelector(".page.visible");
+  if (visiblePage) widgetLayout.initPageLayout(visiblePage.id.replace(/^page-/, ""));
 }
 
 /* The markup uses plain onclick="…" handlers; expose them globally. */
@@ -144,7 +152,7 @@ Object.assign(window,
     clearRouteFromLocation: reference.clearRouteFromLocation, calculateWorldMapRoute: reference.calculateWorldMapRoute,
     resetWorldMapRoute: reference.resetWorldMapRoute },
   { restoreFromTrash: trash.restoreFromTrash, permanentlyDeleteFromTrash: trash.permanentlyDeleteFromTrash },
-  { resetPageLayout: widgetLayout.resetPageLayout },
+  { resetPageLayout: widgetLayout.resetPageLayout, resetCurrentPageLayout: widgetLayout.resetCurrentPageLayout },
   { toggleDatePopover: dateShortcuts.toggleDatePopover, setQuickDate: dateShortcuts.setQuickDate },
   { expandView: expandView.expandView, closeExpandView: expandView.closeExpandView },
   { copyCoordsToClipboard: mapCoords.copyCoordsToClipboard },
