@@ -553,6 +553,15 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .mm-grammar-btn{border:1px solid var(--line);border-radius:7px;padding:4px 10px;background:var(--paper);
   font-size:12px;font-weight:700;color:var(--ink);cursor:pointer}
 .mm-grammar-btn:hover{border-color:var(--accent);background:#fff}
+
+/* Generic version of the block above for rich editors outside meeting
+   minutes (currently: Journal) — same Quill styling, just not tied to
+   the "mm-" (meeting minutes) naming or its fixed 110px min-height. */
+.rich-editor-area{background:#fff}
+.rich-editor-area .ql-toolbar.ql-snow{border:1px solid var(--line);border-radius:10px 10px 0 0;background:var(--paper)}
+.rich-editor-area .ql-container.ql-snow{border:1px solid var(--line);border-top:none;border-radius:0 0 10px 10px;
+  font-family:inherit;font-size:14px}
+.rich-editor-area .ql-editor{min-height:230px}
 .grammar-results{margin-top:8px}
 .grammar-list{display:flex;flex-direction:column;gap:8px}
 .grammar-item{border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#fff;font-size:12.5px}

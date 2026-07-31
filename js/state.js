@@ -104,7 +104,7 @@ export const DEFAULT_STATE = {
   ],
   quoteOffset: 0,
   meditation: {},            // { "2026-07-19": minutes }
-  journal: {},               // { "2026-07-19": "text" }
+  journal: {},               // { "2026-07-19": "<p>html now (rich text editor)</p>" } — older entries are plain strings, which Quill loads in as-is
   sections: {
     communication: { notes: "", links: [] },
     work: { notes: "", links: [] },

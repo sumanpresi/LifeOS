@@ -34,8 +34,13 @@ function buildIndex() {
   state.feeds.forEach(f => push("News", f.name, "", () => window.open(f.url, "_blank")));
   state.quotes.forEach(q => push("Quote", q, "", () => { go("overview"); scrollToEl("quoteCard"); }));
 
-  Object.entries(state.journal).forEach(([date, text]) =>
-    text.trim() && push("Journal", text.slice(0, 120), date, () => go("dayof")));
+  Object.entries(state.journal).forEach(([date, html]) => {
+    if (!html || !html.trim()) return;
+    const tmp = document.createElement("div");
+    tmp.innerHTML = html;
+    const text = (tmp.textContent || "").trim();
+    if (text) push("Journal", text.slice(0, 120), date, () => go("dayof"));
+  });
 
   const secPages = Object.assign({}, SECTION_META, { work: "Work · GSI", personal: "Personal Workspace" });
   Object.entries(secPages).forEach(([key, label]) => {

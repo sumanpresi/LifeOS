@@ -4,6 +4,7 @@ import { toast, autoGrow } from './ui.js';
 import { moveToTrash } from './trash.js';
 import { isLogged, streak } from './habits.js';
 import { getAllGsiTasksFlat } from './gsi.js';
+import { mountRichEditor } from './rich-text.js';
 
 /* ---------- important links ---------- */
 let openLinkEditId = null; // which single link's inline edit panel is open — UI-only, not persisted
@@ -206,13 +207,33 @@ function fmtJournalDate(k) {
   const [y, m, d] = k.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 }
+// Plain-text preview for the entries list — journal entries are stored
+// as HTML now (rich text), and showing raw HTML tags in a one-line
+// snippet would look broken, so this is read-only display text, never
+// written back anywhere.
+function journalSnippet(html) {
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html || "";
+  return (tmp.textContent || "").trim();
+}
 function renderJournalEditor(viewDate) {
   const isToday = viewDate === todayKey();
   document.getElementById("journalEditingLabel").textContent = isToday ? "Today — " + fmtJournalDate(viewDate) : fmtJournalDate(viewDate);
   document.getElementById("journalDatePicker").value = viewDate;
   document.getElementById("journalTodayBtn").style.display = isToday ? "none" : "";
-  const j = document.getElementById("dayJournal");
-  if (document.activeElement !== j) j.value = state.journal[viewDate] || "";
+  const quill = mountRichEditor("dayJournal", () => state.journal[viewDate] || "", saveJournal, "How did that day go?");
+  if (!quill) return; // Quill's CDN script hasn't finished loading yet — this re-runs on the next render pass
+  // mountRichEditor only loads its initial content once (the reused-
+  // instance design covers "don't clobber what's being typed" — see
+  // rich-text.js), so switching which date is being viewed needs its
+  // own explicit content swap here. Guarded so it only fires on an
+  // actual date change, not every re-render while typing today's entry.
+  if (quill.__journalDate !== viewDate) {
+    quill.__journalDate = viewDate;
+    quill.setContents([]);
+    const html = state.journal[viewDate] || "";
+    if (html) quill.clipboard.dangerouslyPasteHTML(html);
+  }
 }
 let journalFilterFrom = "", journalFilterTo = "";
 function renderJournalList(viewDate) {
@@ -225,7 +246,7 @@ function renderJournalList(viewDate) {
   box.innerHTML = dates.map(d => `
     <button class="journal-list-item ${d === viewDate ? "active" : ""}" onclick="selectJournalDate('${d}')">
       <span class="jd-date">${fmtJournalDate(d)}</span>
-      <span class="jd-snip">${esc(state.journal[d] || "")}</span>
+      <span class="jd-snip">${esc(journalSnippet(state.journal[d]))}</span>
     </button>`).join("") || `<p class="hint">${filterActive ? "No entries in that date range." : "Past entries will appear here."}</p>`;
 }
 export function applyJournalFilter() {
@@ -249,9 +270,9 @@ export function selectJournalDate(d) {
 export function journalGoToday() { selectJournalDate(todayKey()); }
 
 let journalTimer = null;
-export function saveJournal(v) {
+export function saveJournal(html) {
   const d = currentJournalDate || todayKey();
-  state.journal[d] = v;
+  state.journal[d] = html;
   clearTimeout(journalTimer);
   journalTimer = setTimeout(() => { persist(); renderJournalList(d); }, 800);
 }
