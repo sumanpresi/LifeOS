@@ -67,28 +67,36 @@ function rowMates(card) {
   }
   return [card];
 }
+function allPageCards(page) {
+  return Array.from(page.querySelectorAll(":scope > .card, :scope > .grid-2 > .card, :scope > .grid-3 > .card"));
+}
 function freezeInPlace(card, page, pageId) {
   if (card.classList.contains("wl-positioned")) return;
-  // Measure every card sharing this one's row FIRST, before touching any
-  // of their layout — switching just the dragged/resized card to
-  // position:absolute alone would pull it out of the row's flex/grid
-  // flow, leaving its row-mate(s) to reflow into the space it vacated
-  // and visually collide with it. Freezing the whole row at once means
-  // nothing reflows out from under anything.
-  const mates = rowMates(card);
-  const rects = mates.map(c => rectRelativeToPage(c, page));
+  // Measure EVERY card on the page first, before touching any of their
+  // layout. This isn't just about grid-2/3 row-mates or explicitly
+  // linked pairs — any single card leaving normal document flow causes
+  // every later sibling in that flow to shift up and fill the gap,
+  // whether they're side-by-side in a row or simply stacked full-width
+  // below it (the far more common case). A card frozen alone would
+  // still visually sit exactly where it was, while its now-reflowed
+  // next sibling slides up into that same spot — same overlap bug,
+  // just vertical instead of horizontal. Freezing the whole page at
+  // once, atomically, is the only way nothing ever reflows out from
+  // under anything.
+  const cards = allPageCards(page);
+  const rects = cards.map(c => rectRelativeToPage(c, page));
   const bucket = bucketFor(pageId);
-  mates.forEach((c, i) => {
+  cards.forEach((c, i) => {
     if (c.classList.contains("wl-positioned")) return;
     const r = rects[i];
     c.classList.add("wl-positioned");
     c.style.left = r.x + "px"; c.style.top = r.y + "px";
     c.style.width = r.w + "px"; c.style.height = r.h + "px";
-    // Every mate needs its own saved entry now, not just the card being
-    // actively dragged/resized — otherwise a mate that was only
-    // silently frozen (never itself dragged) would have no saved
-    // layout, revert to flow on the next page load, and recreate this
-    // exact overlap the moment it did.
+    // Every card needs its own saved entry now, not just the one being
+    // actively dragged/resized — otherwise an untouched card that was
+    // only silently frozen would have no saved layout, revert to flow
+    // on the next page load, and recreate this exact overlap the
+    // moment it did.
     if (c.dataset.wlKey) bucket[c.dataset.wlKey] = { x: r.x, y: r.y, w: r.w, h: r.h };
   });
   persist();
@@ -247,25 +255,19 @@ export function initPageLayout(pageId) {
   const cards = Array.from(page.querySelectorAll(":scope > .card, :scope > .grid-2 > .card, :scope > .grid-3 > .card"));
   cards.forEach((card, i) => { keyFor(card, pageId, i); }); // assign every card its key first — freezeInPlace/rowMates read it below
 
-  // Self-heal stale saved data: a row-mate saved before the row-freeze
-  // fix above could have only one card's position saved and not the
-  // other's — applying just that one would reproduce the exact overlap
-  // this was meant to fix. Only apply a row's saved positions if every
-  // card in that row has one; otherwise drop the stale entries and
-  // leave the whole row in normal flow, which is always safe.
-  const handledRows = new Set();
-  let healed = false;
-  cards.forEach(card => {
-    const mates = rowMates(card);
-    if (handledRows.has(mates[0])) return;
-    handledRows.add(mates[0]);
-    const allSaved = mates.every(c => bucket[c.dataset.wlKey]);
-    if (!allSaved && mates.some(c => bucket[c.dataset.wlKey])) {
-      mates.forEach(c => { delete bucket[c.dataset.wlKey]; });
-      healed = true;
-    }
-  });
-  if (healed) persist();
+  // Self-heal stale saved data: since freezeInPlace freezes an entire
+  // page at once, a trustworthy saved layout should cover every card on
+  // the page or none of them. Partial data left over from an older
+  // version of this logic (row-level, or single-card) would reproduce
+  // the exact overlap that whole-page freezing exists to prevent —
+  // apply it only if it's complete, otherwise drop all of it and leave
+  // the whole page in normal flow, which is always safe.
+  const anySaved = cards.some(c => bucket[c.dataset.wlKey]);
+  const allSaved = cards.every(c => bucket[c.dataset.wlKey]);
+  if (anySaved && !allSaved) {
+    cards.forEach(c => { delete bucket[c.dataset.wlKey]; });
+    persist();
+  }
 
   cards.forEach(card => {
     const key = card.dataset.wlKey;
