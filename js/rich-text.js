@@ -79,14 +79,14 @@ function addLineHeightControl(quill) {
    only consulted the FIRST time (new instance) so re-render passes never
    clobber what's currently being typed. `onChange(html)` fires debounced
    as the user edits. */
-export function mountRichEditor(containerId, getInitialHtml, onChange) {
+export function mountRichEditor(containerId, getInitialHtml, onChange, placeholder) {
   if (instances[containerId]) return instances[containerId];
   const el = document.getElementById(containerId);
   if (!el || typeof Quill === "undefined") return null;
 
   registerCustomFormats();
 
-  const quill = new Quill(el, { theme: "snow", modules: { toolbar: TOOLBAR } });
+  const quill = new Quill(el, { theme: "snow", placeholder: placeholder || "", modules: { toolbar: TOOLBAR } });
   const initial = getInitialHtml();
   if (initial) quill.clipboard.dangerouslyPasteHTML(initial);
   addLineHeightControl(quill);

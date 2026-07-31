@@ -247,8 +247,22 @@ function gsiCardHtml(item) {
         <select class="gsi-status-sel s-${item.status}" onchange="setTaskStatus('${item.id}',this.value)">
           ${STATUSES.map(([v, l]) => `<option value="${v}" ${item.status === v ? "selected" : ""}>${l}</option>`).join("")}
         </select>
+        ${projectSelectorHtml(item.id)}
       </div>
     </div>`;
+}
+// Shared by List and Board card templates below — lets a task move to a
+// different GSI project, or back to a plain native task ("No project"),
+// right from wherever it's already sitting. Routes through
+// changeTaskProject (tasks.js, exposed globally via app.js) rather than
+// touching state.gsi.projects here, since that function already knows
+// how to remap a task's shape across native<->GSI and between projects.
+function projectSelectorHtml(taskId) {
+  const currentId = state.gsi.activeProject;
+  return `<select class="gsi-project-sel" title="Move to project" onchange="changeTaskProject('${taskId}',this.value)">
+    <option value="">No project</option>
+    ${state.gsi.projects.map(p => `<option value="${p.id}" ${p.id === currentId ? "selected" : ""}>${esc(p.name)}</option>`).join("")}
+  </select>`;
 }
 
 // ---------- GSI Board view — columns by status, since that's the
@@ -279,6 +293,7 @@ function gsiBoardCardHtml(item) {
           : `<button class="t-add-link-btn" onclick="toggleGsiLinkEdit(event,'${item.id}')">+ Link</button>`}
         <input type="text" class="t-link-input" id="gsi-link-edit-${item.id}" placeholder="Paste a link…" value="${esc(item.link||"")}"
           onclick="event.stopPropagation()" onchange="editProjectTask('${item.id}','link',this.value)" onblur="this.style.display='none'" style="display:none">
+        <span onclick="event.stopPropagation()">${projectSelectorHtml(item.id)}</span>
       </div>
     </div>`;
 }
@@ -475,6 +490,46 @@ export function delProjectTask(id) {
 export function toggleProjectTaskFlag(id) {
   const { task: t } = findProjectTask(id);
   if (t) { t.flag = !t.flag; persist(); rerender(); }
+}
+// Every GSI project's id + name — used to build "which project?"
+// selectors elsewhere (currently just Overview's task-project picker,
+// see changeTaskProject/addTask in tasks.js). Keeps state.gsi.projects
+// itself private to this file, same as everything else here.
+export function getProjectList() {
+  return state.gsi.projects.map(p => ({ id: p.id, name: p.name }));
+}
+// Adds an already-built task object straight into one project's list —
+// used when Overview creates a new task with a project chosen, or when
+// a native task is converted into a GSI task (see changeTaskProject in
+// tasks.js). Returns false and does nothing if the project no longer
+// exists, so the caller can decide not to lose the task.
+export function addProjectTaskRaw(projectId, task) {
+  const p = state.gsi.projects.find(x => x.id === projectId);
+  if (!p) return false;
+  p.tasks.push(task);
+  persist(); rerender();
+  return true;
+}
+// Moves an existing task from its current project into a different one.
+export function moveProjectTask(taskId, targetProjectId) {
+  const { task: t, project: from } = findProjectTask(taskId);
+  if (!t || !from) return false;
+  const to = state.gsi.projects.find(x => x.id === targetProjectId);
+  if (!to || to.id === from.id) return false;
+  from.tasks = from.tasks.filter(x => x.id !== taskId);
+  to.tasks.push(t);
+  persist(); rerender();
+  return true;
+}
+// Removes a task from its project WITHOUT persisting/re-rendering —
+// used only mid-conversion by changeTaskProject in tasks.js, which
+// pushes the same task into state.tasks right after and persists once
+// for the whole operation rather than twice.
+export function pluckProjectTask(taskId) {
+  const { task: t, project: p } = findProjectTask(taskId);
+  if (!t || !p) return null;
+  p.tasks = p.tasks.filter(x => x.id !== taskId);
+  return t;
 }
 
 /* ---------------- Daily work log ---------------- */
@@ -707,13 +762,56 @@ document.addEventListener("pointerdown", evt => {
   if (evt.target.closest(".link-edit-panel") || evt.target.closest(".link-edit-btn")) return;
   toggleDocEdit(openDocEditId);
 });
+function activeLinkGroup() {
+  return state.gsi.linkGroups.find(g => g.id === state.gsi.activeLinkGroup) || state.gsi.linkGroups[0];
+}
+export function addGsiLinkGroup() {
+  const name = prompt("Name this tab (e.g. Portals, Reports, Reference sites):");
+  if (!name || !name.trim()) return;
+  const g = { id: uid(), name: name.trim(), links: [] };
+  state.gsi.linkGroups.push(g);
+  state.gsi.activeLinkGroup = g.id;
+  persist(); renderLinksAndDocs();
+}
+export function switchGsiLinkGroup(id) {
+  state.gsi.activeLinkGroup = id;
+  persist(false); renderLinksAndDocs();
+}
+export function renameGsiLinkGroup(v) {
+  const g = activeLinkGroup(); if (!g || !v.trim()) return;
+  g.name = v.trim();
+  persist(); renderLinksAndDocs();
+}
+export function delGsiLinkGroup() {
+  if (state.gsi.linkGroups.length <= 1) return;
+  const g = activeLinkGroup();
+  if (!confirm(`Delete the "${g.name}" tab and all its links? You can restore it from Trash within 30 days.`)) return;
+  moveToTrash("gsiLinkGroup", g);
+  state.gsi.linkGroups = state.gsi.linkGroups.filter(x => x.id !== g.id);
+  state.gsi.activeLinkGroup = state.gsi.linkGroups[0].id;
+  persist(); renderLinksAndDocs();
+}
 function renderLinksAndDocs() {
   const g = state.gsi;
   const p = activeProject();
   const labelEl = document.getElementById("workDocsLabel");
   if (labelEl && document.activeElement !== labelEl) labelEl.value = p.workDocsLabel || "Work documents";
+
+  const activeGroup = activeLinkGroup();
+  if (activeGroup && state.gsi.activeLinkGroup !== activeGroup.id) state.gsi.activeLinkGroup = activeGroup.id;
+  const tabs = document.getElementById("gsiLinkTabs");
+  if (tabs) {
+    tabs.innerHTML = g.linkGroups.map(lg => `
+      <button class="tab ${lg.id === activeGroup.id ? "active" : ""}" onclick="switchGsiLinkGroup('${lg.id}')">${esc(lg.name)}</button>`).join("")
+      + `<button class="tab tab-add" onclick="addGsiLinkGroup()" title="New tab">＋</button>`;
+  }
+  const nameEl = document.getElementById("gsiLinkGroupNameHidden");
+  if (nameEl) nameEl.value = activeGroup.name;
+  const delBtn = document.getElementById("gsiLinkGroupDelBtn");
+  if (delBtn) delBtn.style.display = g.linkGroups.length > 1 ? "" : "none";
+
   const gl = document.getElementById("gsiLinks");
-  if (gl) gl.innerHTML = g.links.map(l => docTabHtml(l, "title", "url", "editGsiLink", "delGsiLink")).join("") || `<p class="hint">No links yet.</p>`;
+  if (gl) gl.innerHTML = activeGroup.links.map(l => docTabHtml(l, "title", "url", "editGsiLink", "delGsiLink")).join("") || `<p class="hint">No links yet.</p>`;
   const pd = document.getElementById("personalDocs");
   if (pd) pd.innerHTML = (g.personalDocs || []).map(d => docTabHtml(d, "name", "url", "editPersonalDoc", "delPersonalDoc")).join("") || `<p class="hint">No documents yet.</p>`;
   const wd = document.getElementById("workDocs");
@@ -726,7 +824,11 @@ function renderLinksAndDocs() {
 export function undoLastDeleted(type) {
   const entry = state.trash.find(x => x.type === type); // trash is newest-first (moveToTrash unshifts new entries), so no reverse needed here
   if (!entry) return;
-  if (type === "gsiLink") state.gsi.links.unshift(entry.payload);
+  if (type === "gsiLink") {
+    const group = state.gsi.linkGroups.find(x => x.id === entry.meta?.groupId) || activeLinkGroup();
+    if (group) { group.links.unshift(entry.payload); if (group.id !== entry.meta?.groupId) toast("Original tab was deleted — restored into \"" + group.name + "\" instead"); }
+  }
+  else if (type === "gsiLinkGroup") state.gsi.linkGroups.push(entry.payload);
   else if (type === "personalDoc") { state.gsi.personalDocs = state.gsi.personalDocs || []; state.gsi.personalDocs.unshift(entry.payload); }
   else if (type === "workDoc") {
     const p = state.gsi.projects.find(x => x.id === entry.meta?.projectId) || activeProject();
@@ -744,7 +846,7 @@ function editUrlField(field, value) {
   return value && !/^https?:\/\//i.test(value) ? "https://" + value : value;
 }
 export function editGsiLink(id, field, value) {
-  const l = state.gsi.links.find(x => x.id === id); if (!l) return;
+  const l = activeLinkGroup().links.find(x => x.id === id); if (!l) return;
   l[field] = editUrlField(field, value); persist(); rerender();
 }
 export function editPersonalDoc(id, field, value) {
@@ -759,15 +861,16 @@ export function addGsiLink() {
   const t = document.getElementById("gsiLinkTitle"), u = document.getElementById("gsiLinkUrl");
   if (!t.value.trim() || !u.value.trim()) return toast("Title and URL are required");
   let url = u.value.trim(); if (!/^https?:\/\//i.test(url)) url = "https://" + url;
-  state.gsi.links.push({ id: uid(), title: t.value.trim(), url });
+  activeLinkGroup().links.push({ id: uid(), title: t.value.trim(), url });
   t.value = u.value = "";
   persist(); rerender();
 }
 export function delGsiLink(id) {
-  const l = state.gsi.links.find(x => x.id === id);
+  const group = activeLinkGroup();
+  const l = group.links.find(x => x.id === id);
   if (!l) return;
-  moveToTrash("gsiLink", l);
-  state.gsi.links = state.gsi.links.filter(x => x.id !== id); persist(); rerender();
+  moveToTrash("gsiLink", l, { groupId: group.id });
+  group.links = group.links.filter(x => x.id !== id); persist(); rerender();
   toast(`Deleted "${l.title}"`, "Undo", "undoLastDeleted('gsiLink')");
 }
 export function addPersonalDoc() {

@@ -1,6 +1,7 @@
 /* Navigation, toasts, header, sync pill. */
 import { state, replaceState, persist, rerender, esc } from './state.js';
 import { resizeWhiteboardIfVisible } from './whiteboard.js';
+import { initPageLayout } from './widget-layout.js';
 
 let toastTimer = null;
 export function toast(msg, actionLabel, actionOnclick) {
@@ -39,6 +40,8 @@ export function go(page) {
     el.querySelectorAll(".task-row textarea").forEach(autoGrow);
     if (page === "overview") resizeWhiteboardIfVisible("overview");
     if (page === "work") resizeWhiteboardIfVisible("gsi");
+    if (page === "personal") resizeWhiteboardIfVisible("personal");
+    initPageLayout(page);
     if (page === "reference") import("./reference.js").then(m => m.showWorldMap());
   }
   document.getElementById("sidebar").classList.remove("open");

@@ -4,6 +4,7 @@ import { toast, autoGrow } from './ui.js';
 import { moveToTrash } from './trash.js';
 import { isLogged, streak } from './habits.js';
 import { getAllGsiTasksFlat } from './gsi.js';
+import { mountRichEditor } from './rich-text.js';
 
 /* ---------- important links ---------- */
 let openLinkEditId = null; // which single link's inline edit panel is open — UI-only, not persisted
@@ -206,38 +207,74 @@ function fmtJournalDate(k) {
   const [y, m, d] = k.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 }
+// Plain-text preview for the entries list — journal entries are stored
+// as HTML now (rich text), and showing raw HTML tags in a one-line
+// snippet would look broken, so this is read-only display text, never
+// written back anywhere.
+function journalSnippet(html) {
+  const tmp = document.createElement("div");
+  tmp.innerHTML = html || "";
+  return (tmp.textContent || "").trim();
+}
 function renderJournalEditor(viewDate) {
   const isToday = viewDate === todayKey();
   document.getElementById("journalEditingLabel").textContent = isToday ? "Today — " + fmtJournalDate(viewDate) : fmtJournalDate(viewDate);
   document.getElementById("journalDatePicker").value = viewDate;
   document.getElementById("journalTodayBtn").style.display = isToday ? "none" : "";
-  const j = document.getElementById("dayJournal");
-  if (document.activeElement !== j) j.value = state.journal[viewDate] || "";
+  const quill = mountRichEditor("dayJournal", () => state.journal[viewDate] || "", saveJournal, "How did that day go?");
+  if (!quill) return; // Quill's CDN script hasn't finished loading yet — this re-runs on the next render pass
+  // mountRichEditor only loads its initial content once (the reused-
+  // instance design covers "don't clobber what's being typed" — see
+  // rich-text.js), so switching which date is being viewed needs its
+  // own explicit content swap here. Guarded so it only fires on an
+  // actual date change, not every re-render while typing today's entry.
+  if (quill.__journalDate !== viewDate) {
+    quill.__journalDate = viewDate;
+    quill.setContents([]);
+    const html = state.journal[viewDate] || "";
+    if (html) quill.clipboard.dangerouslyPasteHTML(html);
+  }
 }
-let journalFilterFrom = "", journalFilterTo = "";
+function escRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+// Wraps matches in <mark> for the snippet display. Both the snippet text
+// and the query are escaped through the same esc() first, then matched
+// against each other post-escaping — keeps this safe (the only literal
+// HTML ever inserted is the <mark> tags themselves) without needing a
+// separate escaping scheme for the search term.
+function highlightSnippet(text, query) {
+  const escaped = esc(text);
+  if (!query) return escaped;
+  const re = new RegExp(escRegex(esc(query)), "ig");
+  return escaped.replace(re, m => `<mark>${m}</mark>`);
+}
+let journalFilterFrom = "", journalFilterTo = "", journalSearchQuery = "";
 function renderJournalList(viewDate) {
   const box = document.getElementById("journalList");
   if (!box) return;
   let dates = Object.keys(state.journal).filter(d => (state.journal[d] || "").trim()).sort().reverse();
   if (journalFilterFrom) dates = dates.filter(d => d >= journalFilterFrom);
   if (journalFilterTo) dates = dates.filter(d => d <= journalFilterTo);
-  const filterActive = journalFilterFrom || journalFilterTo;
+  const q = journalSearchQuery.trim().toLowerCase();
+  if (q) dates = dates.filter(d => journalSnippet(state.journal[d]).toLowerCase().includes(q));
+  const filterActive = journalFilterFrom || journalFilterTo || q;
   box.innerHTML = dates.map(d => `
     <button class="journal-list-item ${d === viewDate ? "active" : ""}" onclick="selectJournalDate('${d}')">
       <span class="jd-date">${fmtJournalDate(d)}</span>
-      <span class="jd-snip">${esc(state.journal[d] || "")}</span>
-    </button>`).join("") || `<p class="hint">${filterActive ? "No entries in that date range." : "Past entries will appear here."}</p>`;
+      <span class="jd-snip">${highlightSnippet(journalSnippet(state.journal[d]), journalSearchQuery.trim())}</span>
+    </button>`).join("") || `<p class="hint">${filterActive ? "No entries match." : "Past entries will appear here."}</p>`;
 }
 export function applyJournalFilter() {
   journalFilterFrom = document.getElementById("journalFilterFrom").value;
   journalFilterTo = document.getElementById("journalFilterTo").value;
-  document.getElementById("journalFilterClearBtn").style.display = (journalFilterFrom || journalFilterTo) ? "" : "none";
+  journalSearchQuery = document.getElementById("journalSearchInput").value;
+  document.getElementById("journalFilterClearBtn").style.display = (journalFilterFrom || journalFilterTo || journalSearchQuery) ? "" : "none";
   renderJournalList(currentJournalDate || todayKey());
 }
 export function clearJournalFilter() {
-  journalFilterFrom = journalFilterTo = "";
+  journalFilterFrom = journalFilterTo = journalSearchQuery = "";
   document.getElementById("journalFilterFrom").value = "";
   document.getElementById("journalFilterTo").value = "";
+  document.getElementById("journalSearchInput").value = "";
   document.getElementById("journalFilterClearBtn").style.display = "none";
   renderJournalList(currentJournalDate || todayKey());
 }
@@ -248,10 +285,53 @@ export function selectJournalDate(d) {
 }
 export function journalGoToday() { selectJournalDate(todayKey()); }
 
+// Rich-text HTML -> readable plain text for export. Textwise this is
+// journalSnippet's cousin, but that one deliberately flattens everything
+// to a single line for a list preview; this keeps paragraph/line breaks
+// so a multi-paragraph entry doesn't get squashed into a wall of text.
+function journalHtmlToText(html) {
+  if (!html) return "";
+  const withBreaks = (html)
+    .replace(/<\/(p|div|li|h[1-6]|blockquote)>/gi, "\n")
+    .replace(/<br\s*\/?>/gi, "\n");
+  const tmp = document.createElement("div");
+  tmp.innerHTML = withBreaks;
+  return (tmp.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
+}
+const JOURNAL_SEP = "────────────────────────────────────";
+export function exportJournalRange() {
+  let dates = Object.keys(state.journal).filter(d => (state.journal[d] || "").trim()).sort().reverse(); // same "most recent first" order as the list on screen
+  if (journalFilterFrom) dates = dates.filter(d => d >= journalFilterFrom);
+  if (journalFilterTo) dates = dates.filter(d => d <= journalFilterTo);
+  const q = journalSearchQuery.trim().toLowerCase();
+  if (q) dates = dates.filter(d => journalSnippet(state.journal[d]).toLowerCase().includes(q));
+  if (!dates.length) { toast("No entries match the current filter to export"); return; }
+
+  const rangeLabel = journalFilterFrom || journalFilterTo
+    ? `${journalFilterFrom ? fmtJournalDate(journalFilterFrom) : "the beginning"} to ${journalFilterTo ? fmtJournalDate(journalFilterTo) : "today"}`
+    : "all entries";
+  const searchNote = q ? ` — matching "${journalSearchQuery.trim()}"` : "";
+  const header = `Journal export — ${rangeLabel}${searchNote}\nGenerated ${fmtJournalDate(todayKey())}\n`;
+  const body = dates.map(d => `${JOURNAL_SEP}\n${fmtJournalDate(d)}\n${JOURNAL_SEP}\n${journalHtmlToText(state.journal[d])}`).join("\n\n\n");
+  const text = header + "\n\n" + body + "\n";
+
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const fileRange = journalFilterFrom || journalFilterTo ? `${journalFilterFrom || "start"}_to_${journalFilterTo || "today"}` : "all";
+  a.href = url;
+  a.download = `journal_${fileRange}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  toast(`Exported ${dates.length} ${dates.length === 1 ? "entry" : "entries"}`);
+}
+
 let journalTimer = null;
-export function saveJournal(v) {
+export function saveJournal(html) {
   const d = currentJournalDate || todayKey();
-  state.journal[d] = v;
+  state.journal[d] = html;
   clearTimeout(journalTimer);
   journalTimer = setTimeout(() => { persist(); renderJournalList(d); }, 800);
 }
