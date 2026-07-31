@@ -39,7 +39,7 @@ export function saveSectionNotes(key, v) {
 
 export function renderSections() {
   /* generic pages + the Work notes textarea living on the GSI page */
-  for (const key of [...Object.keys(SECTION_META), "work", "personal"]) {
+  for (const key of [...Object.keys(SECTION_META), "work"]) {
     const n = document.getElementById("notes-" + key);
     if (n && document.activeElement !== n) n.value = state.sections[key].notes || "";
     const g = document.getElementById("secLinks-" + key);

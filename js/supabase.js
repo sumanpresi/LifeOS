@@ -51,23 +51,6 @@ export async function signIn() {
     err.textContent = "GitHub sign-in needs a hosted URL (GitHub Pages / Vercel / local server) — it can't redirect back to a file opened from disk.";
     err.style.display = "block"; return;
   }
-  if (!sb) {
-    // The Supabase client never finished initializing — most likely its
-    // CDN script (supabase-js) was slow, blocked by an ad/script blocker,
-    // or briefly unreachable. Try once to set it up now rather than
-    // immediately failing with a confusing null-pointer error, since the
-    // library may well be available by now even though it wasn't at
-    // page load.
-    trySetupClient();
-    if (!sb) {
-      openGhModal();
-      err.textContent = window.supabase
-        ? "Sync isn't set up yet — check the GSI portal setup instructions."
-        : "Couldn't load the sign-in library (Supabase). This is usually a blocked script — check any ad/script blocker for this site, then try again.";
-      err.style.display = "block";
-      return;
-    }
-  }
   try {
     await sb.auth.signInWithOAuth({
       provider: "github",
@@ -250,8 +233,13 @@ function startRealtime() {
 function stopRealtime() { if (rtChannel && sb) { sb.removeChannel(rtChannel); rtChannel = null; } }
 
 /* ---------- init ---------- */
-function trySetupClient() {
-  if (sb || !window.supabase) return; // already set up, or the library genuinely isn't available yet
+export function initSupabase() {
+  renderIdentity();
+  document.getElementById("ghModal").addEventListener("click", e => {
+    if (e.target.id === "ghModal") closeGhModal();
+  });
+  if (!configured()) { setSyncPill("", "Local only · set up sync"); return; }
+  if (!window.supabase) { setSyncPill("err", "Couldn't load Supabase library"); return; }
   sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   setRemoteSaver(saveRemote);
   sb.auth.onAuthStateChange((event, session) => {
@@ -260,36 +248,12 @@ function trySetupClient() {
     if (user) { loadRemote(); startRealtime(); }
     else { stopRealtime(); hasReconciled = false; pendingSaveAfterReconcile = false; setSyncPill("", "Local only"); }
   });
-}
-export function initSupabase() {
-  renderIdentity();
-  document.getElementById("ghModal").addEventListener("click", e => {
-    if (e.target.id === "ghModal") closeGhModal();
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) flushPendingSave();
+    else if (user) loadRemote();
   });
-  if (!configured()) { setSyncPill("", "Local only · set up sync"); return; }
-  const finishSetup = () => {
-    document.addEventListener("visibilitychange", () => {
-      if (document.hidden) flushPendingSave();
-      else if (user) loadRemote();
-    });
-    /* A second, independent safety net: on some platforms (especially
-       mobile) visibilitychange doesn't fire reliably right before an
-       actual tab close, but pagehide does. */
-    window.addEventListener("pagehide", flushPendingSave);
-  };
-  trySetupClient();
-  if (sb) { finishSetup(); return; }
-  // supabase-js (loaded via CDN <script> in <head>, before this module
-  // runs) isn't available yet — this shouldn't normally happen since
-  // that script is render-blocking, but a slow/flaky CDN response can
-  // still land after this point. Retry a few times before actually
-  // giving up, rather than failing permanently on one check taken the
-  // instant the page loaded.
-  let attempts = 0;
-  const retry = setInterval(() => {
-    attempts++;
-    trySetupClient();
-    if (sb) { clearInterval(retry); setSyncPill("", "Local only"); finishSetup(); }
-    else if (attempts >= 6) { clearInterval(retry); setSyncPill("err", "Couldn't load Supabase library"); }
-  }, 500);
+  /* A second, independent safety net: on some platforms (especially
+     mobile) visibilitychange doesn't fire reliably right before an actual
+     tab close, but pagehide does. */
+  window.addEventListener("pagehide", flushPendingSave);
 }
