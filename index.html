@@ -385,7 +385,7 @@
 
     <!-- ======== PAGE: WORK / GSI ======== -->
     <section class="page" id="page-work">
-      <div class="card" style="margin-bottom:16px">
+      <div class="card" style="margin-bottom:16px" data-wl-group="gsi-top">
         <div class="card-head"><h2>GSI links</h2></div>
         <div class="card-body">
           <div class="link-grid" id="gsiLinks" style="grid-template-columns:1fr"></div>
@@ -401,7 +401,7 @@
         <div class="wb-tabs" id="wsTabsList"></div>
         <button class="wb-tab-add" onclick="addProject()" title="New workspace">+</button>
       </div>
-      <div class="card">
+      <div class="card" data-wl-group="gsi-top">
         <div class="card-head">
           <input type="text" id="projectName" onchange="renameProject(this.value)"
             style="border:none;background:transparent;font-family:'Fraunces',serif;font-size:19px;font-weight:600;flex:1;padding:0">
@@ -574,7 +574,7 @@
 
     <!-- ======== PAGE: PERSONAL WORKSPACE ======== -->
     <section class="page" id="page-personal">
-      <div class="card" style="margin-bottom:16px">
+      <div class="card" style="margin-bottom:16px" data-wl-group="pw-top">
         <div class="card-head"><h2>Personal links</h2></div>
         <div class="card-body">
           <div class="link-grid" id="pwLinks" style="grid-template-columns:1fr"></div>
@@ -590,7 +590,7 @@
         <div class="wb-tabs" id="pwTabsList"></div>
         <button class="wb-tab-add" onclick="addPwProject()" title="New project">+</button>
       </div>
-      <div class="card">
+      <div class="card" data-wl-group="pw-top">
         <div class="card-head">
           <input type="text" id="pwProjectName" onchange="renamePwProject(this.value)"
             style="border:none;background:transparent;font-family:'Fraunces',serif;font-size:19px;font-weight:600;flex:1;padding:0">

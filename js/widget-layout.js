@@ -50,6 +50,16 @@ function rectRelativeToPage(card, page) {
   return { x: c.left - p.left + page.scrollLeft, y: c.top - p.top + page.scrollTop, w: c.width, h: c.height };
 }
 function rowMates(card) {
+  // Explicit grouping wins when present — two cards can be marked as a
+  // set (data-wl-group="same-value") even when they're not adjacent in
+  // the DOM, e.g. GSI/Personal Workspace's "links" card and their
+  // project tracker card, which have a page title and tab bar between
+  // them and so aren't row-mates in the grid-2/3 sense below.
+  const group = card.dataset.wlGroup;
+  if (group) {
+    const page = card.closest(".page");
+    if (page) return Array.from(page.querySelectorAll(`.card[data-wl-group="${group}"]`));
+  }
   const parent = card.parentElement;
   if (parent && (parent.classList.contains("grid-2") || parent.classList.contains("grid-3"))) {
     return Array.from(parent.querySelectorAll(":scope > .card"));
@@ -106,7 +116,13 @@ function wireDrag(card, page, pageId, key) {
   head.dataset.wlWired = "1";
 
   let pressTimer = null, armed = false, moved = false, activePointerId = null;
-  let startX = 0, startY = 0, originLeft = 0, originTop = 0;
+  let startX = 0, startY = 0;
+  // Only an explicit data-wl-group travels together as a unit during
+  // the drag itself — grid-2/3 row-mates are just two cards that
+  // happen to share a row; freezing them together (see freezeInPlace)
+  // is enough to stop them overlapping, but they don't need to move
+  // in lockstep the way an intentionally-linked pair does.
+  let moveGroup = [card], origins = [];
   const cancelPress = () => { clearTimeout(pressTimer); pressTimer = null; card.classList.remove("wl-pressing"); };
 
   const onMove = (evt) => {
@@ -120,15 +136,18 @@ function wireDrag(card, page, pageId, key) {
     }
     evt.preventDefault(); // once armed, this is our drag — don't also let the browser select text or start a native drag-image
     moved = true;
-    card.style.left = (originLeft + dx) + "px";
-    card.style.top = (originTop + dy) + "px";
+    moveGroup.forEach((c, i) => {
+      c.style.left = (origins[i].left + dx) + "px";
+      c.style.top = (origins[i].top + dy) + "px";
+    });
   };
   const onUp = (evt) => {
     if (activePointerId !== null && evt.pointerId !== activePointerId) return;
     cancelPress();
     if (armed) {
       card.classList.remove("wl-dragging");
-      if (moved) saveLayout(card, pageId, key);
+      moveGroup.forEach(c => c.classList.remove("wl-dragging"));
+      if (moved) moveGroup.forEach(c => saveLayout(c, pageId, c.dataset.wlKey));
     }
     armed = false; moved = false; activePointerId = null;
     window.removeEventListener("pointermove", onMove);
@@ -154,9 +173,9 @@ function wireDrag(card, page, pageId, key) {
       armed = true;
       card.classList.remove("wl-pressing");
       freezeInPlace(card, page, pageId);
-      originLeft = parseFloat(card.style.left) || 0;
-      originTop = parseFloat(card.style.top) || 0;
-      card.classList.add("wl-dragging");
+      moveGroup = card.dataset.wlGroup ? rowMates(card) : [card];
+      origins = moveGroup.map(c => ({ left: parseFloat(c.style.left) || 0, top: parseFloat(c.style.top) || 0 }));
+      moveGroup.forEach(c => c.classList.add("wl-dragging"));
     }, delay);
   });
   head.addEventListener("contextmenu", (evt) => { if (armed || pressTimer) evt.preventDefault(); }); // mobile's long-press-for-menu would otherwise fire at the same moment as ours
