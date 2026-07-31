@@ -34,15 +34,10 @@ function buildIndex() {
   state.feeds.forEach(f => push("News", f.name, "", () => window.open(f.url, "_blank")));
   state.quotes.forEach(q => push("Quote", q, "", () => { go("overview"); scrollToEl("quoteCard"); }));
 
-  Object.entries(state.journal).forEach(([date, html]) => {
-    if (!html || !html.trim()) return;
-    const tmp = document.createElement("div");
-    tmp.innerHTML = html;
-    const text = (tmp.textContent || "").trim();
-    if (text) push("Journal", text.slice(0, 120), date, () => go("dayof"));
-  });
+  Object.entries(state.journal).forEach(([date, text]) =>
+    text.trim() && push("Journal", text.slice(0, 120), date, () => go("dayof")));
 
-  const secPages = Object.assign({}, SECTION_META, { work: "Work · GSI", personal: "Personal Workspace" });
+  const secPages = Object.assign({}, SECTION_META, { work: "Work · GSI" });
   Object.entries(secPages).forEach(([key, label]) => {
     const sec = state.sections[key]; if (!sec) return;
     (sec.notes || "").split("\n").forEach(line =>
@@ -65,14 +60,6 @@ function buildIndex() {
   state.gsi.links.forEach(l => push("Link", l.title, "GSI", () => window.open(l.url, "_blank")));
   (state.gsi.personalDocs || []).forEach(d => push("Document", d.name, "Personal", () => window.open(d.url, "_blank")));
   (state.gsi.workDocs || []).forEach(d => push("Document", d.name, "Work", () => window.open(d.url, "_blank")));
-
-  // Personal Workspace — same shape as Work · GSI above, siloed to its own projects
-  (state.personal.projects || []).forEach(p => {
-    (p.tasks || []).forEach(t => push("Personal task", t.text, p.name + " · " + t.status, () => go("personal")));
-    (p.workDocs || []).forEach(d => push("Document", d.name, p.name, () => window.open(d.url, "_blank")));
-  });
-  (state.personal.links || []).forEach(l => push("Link", l.title, "Personal Workspace", () => window.open(l.url, "_blank")));
-  (state.personal.docs || []).forEach(d => push("Document", d.name, "Personal Workspace", () => window.open(d.url, "_blank")));
 
   // Finance
   (state.finance.notes || "").split("\n").forEach(line =>

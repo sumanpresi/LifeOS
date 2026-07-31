@@ -247,22 +247,8 @@ function gsiCardHtml(item) {
         <select class="gsi-status-sel s-${item.status}" onchange="setTaskStatus('${item.id}',this.value)">
           ${STATUSES.map(([v, l]) => `<option value="${v}" ${item.status === v ? "selected" : ""}>${l}</option>`).join("")}
         </select>
-        ${projectSelectorHtml(item.id)}
       </div>
     </div>`;
-}
-// Shared by List and Board card templates below — lets a task move to a
-// different GSI project, or back to a plain native task ("No project"),
-// right from wherever it's already sitting. Routes through
-// changeTaskProject (tasks.js, exposed globally via app.js) rather than
-// touching state.gsi.projects here, since that function already knows
-// how to remap a task's shape across native<->GSI and between projects.
-function projectSelectorHtml(taskId) {
-  const currentId = state.gsi.activeProject;
-  return `<select class="gsi-project-sel" title="Move to project" onchange="changeTaskProject('${taskId}',this.value)">
-    <option value="">No project</option>
-    ${state.gsi.projects.map(p => `<option value="${p.id}" ${p.id === currentId ? "selected" : ""}>${esc(p.name)}</option>`).join("")}
-  </select>`;
 }
 
 // ---------- GSI Board view — columns by status, since that's the
@@ -293,7 +279,6 @@ function gsiBoardCardHtml(item) {
           : `<button class="t-add-link-btn" onclick="toggleGsiLinkEdit(event,'${item.id}')">+ Link</button>`}
         <input type="text" class="t-link-input" id="gsi-link-edit-${item.id}" placeholder="Paste a link…" value="${esc(item.link||"")}"
           onclick="event.stopPropagation()" onchange="editProjectTask('${item.id}','link',this.value)" onblur="this.style.display='none'" style="display:none">
-        <span onclick="event.stopPropagation()">${projectSelectorHtml(item.id)}</span>
       </div>
     </div>`;
 }
@@ -490,46 +475,6 @@ export function delProjectTask(id) {
 export function toggleProjectTaskFlag(id) {
   const { task: t } = findProjectTask(id);
   if (t) { t.flag = !t.flag; persist(); rerender(); }
-}
-// Every GSI project's id + name — used to build "which project?"
-// selectors elsewhere (currently just Overview's task-project picker,
-// see changeTaskProject/addTask in tasks.js). Keeps state.gsi.projects
-// itself private to this file, same as everything else here.
-export function getProjectList() {
-  return state.gsi.projects.map(p => ({ id: p.id, name: p.name }));
-}
-// Adds an already-built task object straight into one project's list —
-// used when Overview creates a new task with a project chosen, or when
-// a native task is converted into a GSI task (see changeTaskProject in
-// tasks.js). Returns false and does nothing if the project no longer
-// exists, so the caller can decide not to lose the task.
-export function addProjectTaskRaw(projectId, task) {
-  const p = state.gsi.projects.find(x => x.id === projectId);
-  if (!p) return false;
-  p.tasks.push(task);
-  persist(); rerender();
-  return true;
-}
-// Moves an existing task from its current project into a different one.
-export function moveProjectTask(taskId, targetProjectId) {
-  const { task: t, project: from } = findProjectTask(taskId);
-  if (!t || !from) return false;
-  const to = state.gsi.projects.find(x => x.id === targetProjectId);
-  if (!to || to.id === from.id) return false;
-  from.tasks = from.tasks.filter(x => x.id !== taskId);
-  to.tasks.push(t);
-  persist(); rerender();
-  return true;
-}
-// Removes a task from its project WITHOUT persisting/re-rendering —
-// used only mid-conversion by changeTaskProject in tasks.js, which
-// pushes the same task into state.tasks right after and persists once
-// for the whole operation rather than twice.
-export function pluckProjectTask(taskId) {
-  const { task: t, project: p } = findProjectTask(taskId);
-  if (!t || !p) return null;
-  p.tasks = p.tasks.filter(x => x.id !== taskId);
-  return t;
 }
 
 /* ---------------- Daily work log ---------------- */
