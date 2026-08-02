@@ -234,6 +234,7 @@ export function calendarPrevMonth() { calendarMonth.setMonth(calendarMonth.getMo
 export function calendarNextMonth() { calendarMonth.setMonth(calendarMonth.getMonth() + 1); renderTasks(); }
 export function calendarGoToday() { calendarMonth = new Date(); calendarMonth.setDate(1); renderTasks(); }
 export function calendarQuickAdd(dateStr) {
+  if (calendarClickSuppressed()) return; // the click that trails a drop, not a real one
   const v = prompt(`Add a task for ${dateStr}:`);
   if (!v || !v.trim()) return;
   createNativeTask(v.trim(), dateStr);
@@ -344,6 +345,9 @@ export function changeTaskProject(id, projectId) {
   moveProjectTask(id, projectId); // GSI -> a different GSI project
 }
 export function openTaskPopup(id) {
+  // A chip is dragged by its title button, so the drop is followed by that
+  // button's click — which would open the detail popup on top of the move.
+  if (calendarClickSuppressed()) return;
   const bg = document.getElementById("taskPopupModalBg");
   if (!bg) return;
   bg.classList.add("open");
@@ -567,6 +571,54 @@ function renderBoardView(overdueGroup, todayGroup, upcomingGroup, noDateGroup, d
   </div>`;
 }
 
+// ---------- Calendar view: drag a task onto another day to reschedule it ----------
+// Every day cell is a Sortable container in one shared group, which is what
+// lets a chip cross from one day to another. The drop does nothing itself
+// beyond working out the target date and handing it to editTaskMeta — the
+// single function the date picker, the popup and the board already use — so
+// persistence, re-render and Google Calendar sync stay in one place and
+// GSI-sourced tasks reschedule in their real project rather than in a copy.
+let calSortableInstances = [];
+let calDragEndedAt = 0; // see calendarClickSuppressed()
+function destroyCalSortables() {
+  calSortableInstances.forEach(s => { try { s.destroy(); } catch (e) { /* already gone with its container */ } });
+  calSortableInstances = [];
+}
+function initCalendarSorting() {
+  destroyCalSortables();
+  if (taskView !== "calendar" || typeof Sortable === "undefined") return;
+  // Unlike List and Board, this isn't manual ordering — it edits the due
+  // date — so it stays available even when "Sort by date" is on.
+  document.querySelectorAll("#taskList .t-cal-tasks").forEach(container => {
+    calSortableInstances.push(Sortable.create(container, {
+      group: "task-calendar",
+      draggable: ".t-cal-chip", // the "+N more" line isn't a task and mustn't be picked up
+      animation: 180,
+      delay: 300, delayOnTouchOnly: true, touchStartThreshold: 5, // a plain touch-drag should still scroll the month
+      ghostClass: "t-cal-chip-ghost", chosenClass: "t-cal-chip-chosen", dragClass: "t-cal-chip-dragging",
+      scroll: true, scrollSensitivity: 90, scrollSpeed: 12,
+      onEnd: handleCalendarDragEnd,
+    }));
+  });
+}
+function handleCalendarDragEnd(evt) {
+  calDragEndedAt = Date.now();
+  const id = evt.item.dataset.taskId;
+  const from = evt.from.dataset.calDate, to = evt.to.dataset.calDate;
+  // Re-render either way: rebuilding from real data is what makes an
+  // unchanged or rejected drop snap back, rather than trying to undo
+  // whatever SortableJS already did to the DOM.
+  if (!id || !to || to === from) { renderTasks(); return; }
+  editTaskMeta(id, "dueDate", to); // persists, re-renders and syncs on its own
+  toast(`Moved to ${new Date(to + "T00:00:00").toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" })}`);
+}
+// A drag that ends over a day cell is followed by that cell's own click,
+// which would otherwise pop the "add a task" prompt every time something
+// is dropped. Anything within a moment of a drop is that stray click.
+function calendarClickSuppressed() {
+  return Date.now() - calDragEndedAt < 400;
+}
+
 // ---------- Calendar view — a plain month grid. Only tasks with a due
 // date can appear here at all (nothing to place on a calendar without
 // one) — that's inherent to the view, not a filter to route around.
@@ -586,11 +638,11 @@ function renderCalendarView(tasksWithDates) {
     const dayTasks = byDate[dateStr] || [];
     const shown = dayTasks.slice(0, 3);
     return `
-      <div class="t-cal-cell ${dateStr === todayStr ? "t-cal-today" : ""}" onclick="calendarQuickAdd('${dateStr}')" title="Click to add a task on ${dateStr}">
+      <div class="t-cal-cell ${dateStr === todayStr ? "t-cal-today" : ""}" data-cal-date="${dateStr}" onclick="calendarQuickAdd('${dateStr}')" title="Click to add a task on ${dateStr}">
         <div class="t-cal-daynum-row"><span class="t-cal-daynum">${d}</span><span class="t-cal-add-hint">+</span></div>
-        <div class="t-cal-tasks">
+        <div class="t-cal-tasks" data-cal-date="${dateStr}">
           ${shown.map(t => `
-            <div class="t-cal-chip ${t.done ? "done" : ""} ${t.dueDate < todayStr && !t.done ? "overdue" : ""}">
+            <div class="t-cal-chip ${t.done ? "done" : ""} ${t.dueDate < todayStr && !t.done ? "overdue" : ""}" data-task-id="${t.id}" title="Drag to another day to reschedule">
               <button class="t-cal-chip-chk" onclick="event.stopPropagation();toggleTask('${t.id}')" aria-label="Toggle complete"></button>
               <button class="t-cal-chip-title" onclick="event.stopPropagation();openTaskPopup('${t.id}')" title="${esc(t.text)}">${esc(t.text)}</button>
             </div>`).join("")}
@@ -808,6 +860,7 @@ export function renderTasks() {
   }
   initTaskSorting();
   initBoardSorting();
+  initCalendarSorting();
 }
 
 export function setTaskFilter(f) { taskFilter = f; renderTasks(); }

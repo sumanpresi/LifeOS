@@ -959,9 +959,14 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .t-cal-today .t-cal-daynum{color:var(--t-accent)}
 .t-cal-add-hint{font-size:12px;font-weight:800;color:var(--t-accent);opacity:0;transition:opacity 150ms ease}
 .t-cal-cell:hover .t-cal-add-hint{opacity:1}
-.t-cal-tasks{display:flex;flex-direction:column;gap:2px;overflow:hidden}
+.t-cal-tasks{display:flex;flex-direction:column;gap:2px;overflow:hidden;
+  flex:1;min-height:22px} /* an empty day still needs a body big enough to drop onto */
 .t-cal-chip{display:flex;align-items:center;gap:3px;padding:1px 4px 1px 1px;border-radius:5px;
-  background:#fff;border:1px solid var(--t-border)}
+  background:#fff;border:1px solid var(--t-border);cursor:grab}
+/* Drag a chip onto another day to reschedule it. */
+.t-cal-chip-chosen{cursor:grabbing}
+.t-cal-chip-ghost{background:var(--lilac);border:1px dashed var(--accent);opacity:.7}
+.t-cal-chip-dragging{opacity:.9;box-shadow:0 4px 12px rgba(0,0,0,.18)}
 .t-cal-chip.overdue{border-color:#F0D9BE}
 .t-cal-chip-chk{flex-shrink:0;width:11px;height:11px;border-radius:3px;border:1.5px solid var(--t-border);background:#fff;padding:0}
 .t-cal-chip.done .t-cal-chip-chk{background:var(--t-accent);border-color:var(--t-accent)}
