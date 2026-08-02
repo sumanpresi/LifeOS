@@ -549,6 +549,11 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .mm-rich-editor .ql-container.ql-snow{border:1px solid var(--line);border-top:none;border-radius:0 0 10px 10px;
   font-family:inherit;font-size:13px;min-height:110px}
 .mm-rich-editor .ql-editor{min-height:110px}
+/* The journal is a full-page writing surface, not a short minutes field,
+   so it gets a much taller default body than .mm-rich-editor's 110px. */
+.journal-rich-editor .ql-editor{min-height:260px}
+.journal-rich-editor .ql-editor.ql-blank::before{font-style:normal;color:var(--muted)}
+.journal-rich-editor .ql-toolbar.ql-snow{flex-wrap:wrap}
 .mm-grammar-row{display:flex;justify-content:flex-end;margin-top:6px}
 .mm-grammar-btn{border:1px solid var(--line);border-radius:7px;padding:4px 10px;background:var(--paper);
   font-size:12px;font-weight:700;color:var(--ink);cursor:pointer}
@@ -616,6 +621,47 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .journal-filter-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
 .journal-filter-row input[type="date"]{border:1px solid var(--line);border-radius:8px;padding:6px 8px;
   background:var(--paper);font-size:12.5px}
+.journal-export-btn{margin-left:auto;font-size:12.5px;padding:6px 10px;white-space:nowrap}
+.journal-export-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ---------- Journal month calendar (marks days that have an entry) ----------
+   The native <input type="date"> popup can't be annotated from the page,
+   so this in-page grid sits beside it and does the marking. */
+.jcal-wrap{position:relative;display:flex;align-items:center;gap:4px}
+.jcal-btn{display:flex;align-items:center;justify-content:center;width:30px;height:30px;flex-shrink:0;
+  border:1px solid var(--line);border-radius:8px;background:var(--paper);cursor:pointer;color:var(--ink)}
+.jcal-btn:hover{border-color:var(--accent)}
+.jcal-btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round}
+.jcal-pop{display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:50;width:252px;
+  background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;
+  box-shadow:0 12px 30px rgba(0,0,0,.16)}
+.jcal-pop.open{display:block}
+.jcal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;
+  font-weight:800;font-size:13px}
+.jcal-nav{border:1px solid var(--line);border-radius:7px;background:var(--paper);cursor:pointer;
+  width:24px;height:24px;font-size:15px;font-weight:800;line-height:1;color:var(--ink)}
+.jcal-nav:hover{border-color:var(--accent)}
+.jcal-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px}
+.jcal-dow div{text-align:center;font-size:10px;font-weight:800;color:var(--muted)}
+.jcal-days{display:grid;grid-template-columns:repeat(7,1fr);gap:3px}
+.jcal-cell{position:relative;aspect-ratio:1;border:1px solid transparent;border-radius:7px;
+  background:transparent;font-size:12px;font-weight:700;cursor:pointer;color:var(--ink);padding:0}
+.jcal-cell.empty{cursor:default}
+.jcal-cell:not(.empty):hover{background:var(--paper);border-color:var(--line)}
+.jcal-cell.has-entry::after{content:"";position:absolute;left:50%;bottom:3px;transform:translateX(-50%);
+  width:4px;height:4px;border-radius:50%;background:var(--accent)}
+.jcal-cell.today{box-shadow:inset 0 0 0 1.5px var(--lilac-deep)}
+.jcal-cell.sel{background:var(--accent);border-color:var(--accent);color:#fff}
+.jcal-cell.sel.has-entry::after{background:#fff}
+.jcal-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:9px;
+  padding-top:8px;border-top:1px dashed var(--line);font-size:11px;color:var(--muted);font-weight:600}
+.jcal-legend{display:flex;align-items:center;gap:5px}
+.jcal-legend i{width:5px;height:5px;border-radius:50%;background:var(--accent);display:block}
+@media(max-width:640px){
+  .jcal-pop{width:min(252px,78vw)}
+  .jcal-btn{width:36px;height:36px}
+}
 
 /* Completion timestamp pill (shown once a task is checked off) */
 .completed-pill{font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;
@@ -812,7 +858,11 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   transition:background 120ms ease,border-color 120ms ease}
 .t-board-col-add:hover{background:var(--t-card);border-color:var(--t-accent);color:var(--t-accent)}
 .t-board-card.done .t-board-card-title{text-decoration:line-through;color:var(--t-ink2)}
-.t-board-card-flag{flex-shrink:0;font-size:12px;opacity:.7}
+.t-board-card-flag{flex-shrink:0;font-size:12px;opacity:.22;filter:grayscale(1);border:none;
+  background:none;cursor:pointer;padding:2px;line-height:1;border-radius:6px;transition:opacity .12s,transform .12s}
+.t-board-card-flag:hover{opacity:.65}
+.t-board-card-flag.on{opacity:1;filter:none;transform:scale(1.12)}
+.t-board-card.flagged{border-left:3px solid var(--warn)}
 .t-board-card-meta{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:8px;margin-left:30px}
 .t-board-card-date{font-size:11px;font-weight:600;color:var(--t-ink2)}
 .t-board-card-date.overdue{color:var(--warn)}
@@ -1136,7 +1186,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .gsi-del-completed-btn:hover{color:var(--danger)}
 
 /* Add-task row: large rounded input, solid dark button */
-.gsi-add-row{display:flex;gap:10px;align-items:center}
+.gsi-add-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .gsi-add-row input{flex:1;min-width:0;border:1px solid var(--line);border-radius:14px;
   padding:12px 16px;font-size:14.5px;font-family:inherit;background:#fff;
   transition:border-color 150ms ease,box-shadow 150ms ease}
@@ -1146,6 +1196,27 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   flex-shrink:0}
 .gsi-add-btn:hover{background:#000}
 .gsi-add-btn:active{transform:scale(.97)}
+
+/* Optional due-date + link fields for the task being composed. Hidden
+   until asked for, so the plain "type and press Enter" path is unchanged. */
+.gsi-add-opts-btn{flex-shrink:0;border:1px solid var(--line);background:#fff;border-radius:14px;
+  padding:12px 14px;font-size:13px;cursor:pointer;letter-spacing:-1px;
+  transition:border-color 150ms ease,background 150ms ease}
+.gsi-add-opts-btn:hover{border-color:var(--ink)}
+.gsi-add-opts-btn.on{background:var(--lilac);border-color:var(--lilac-deep)}
+.gsi-add-options{display:none;flex-basis:100%;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:2px 2px 0}
+.gsi-add-options.open{display:flex}
+.gsi-add-opt{display:flex;align-items:center;gap:6px;font-size:13px}
+.gsi-add-options input{flex:0 1 auto;width:auto;border:1px solid var(--line);border-radius:10px;
+  padding:8px 12px;font-size:13.5px;background:var(--paper);box-shadow:none}
+.gsi-add-opt-link{flex:1;min-width:180px}
+.gsi-add-opt-link input{flex:1;min-width:0;width:100%}
+.gsi-add-target{font-size:12px;font-weight:700;color:var(--accent-ink);background:var(--lilac);
+  border-radius:99px;padding:5px 10px;display:inline-flex;align-items:center;gap:6px}
+.gsi-add-target:empty{display:none}
+.gsi-add-target-clear{border:none;background:none;cursor:pointer;font-size:12px;
+  color:var(--accent-ink);padding:0 2px;line-height:1}
 
 @media(max-width:767px){
   .gsi-card{padding:14px;min-height:auto;flex-wrap:wrap}
@@ -1161,7 +1232,9 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   .gsi-toolbar-row{gap:8px}
   .gsi-sort-sel{min-height:40px}
   .gsi-del-completed-btn{min-height:40px}
-  .gsi-add-row input,.gsi-add-btn{min-height:46px}
+  .gsi-add-row input,.gsi-add-btn,.gsi-add-opts-btn{min-height:46px}
+  .gsi-add-options input{min-height:42px}
+  .t-board-card-flag{opacity:.35;width:34px;height:34px;display:flex;align-items:center;justify-content:center;font-size:14px}
 }
 
 /* ---------- GSI Archive & project-restore ---------- */

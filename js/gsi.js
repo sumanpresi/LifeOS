@@ -273,14 +273,16 @@ function projectSelectorHtml(taskId) {
 function gsiBoardCardHtml(item) {
   const due = fmtGsiDate(item.date);
   return `
-    <div class="t-board-card ${item.status === "done" ? "done" : ""}" data-task-id="${item.id}">
+    <div class="t-board-card ${item.status === "done" ? "done" : ""}${item.flag ? " flagged" : ""}" data-task-id="${item.id}">
       <div class="t-board-card-top">
         <span class="t-board-card-handle" title="Drag to move">⠿</span>
         <button class="t-chk ${item.status === "done" ? "on" : ""}" onclick="event.stopPropagation();setTaskStatus('${item.id}','${item.status === "done" ? "todo" : "done"}')" aria-label="Toggle done">
           <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
         <textarea class="gsi-board-card-title" rows="1" onclick="event.stopPropagation()"
           onchange="editProjectTask('${item.id}','text',this.value)" oninput="autoGrow(this)">${esc(item.text)}</textarea>
-        ${item.flag ? `<span class="t-board-card-flag" title="Priority">🚩</span>` : ""}
+        <button class="t-board-card-flag ${item.flag ? "on" : ""}" aria-pressed="${!!item.flag}"
+          onclick="event.stopPropagation();toggleProjectTaskFlag('${item.id}')"
+          title="${item.flag ? "Remove priority" : "Mark high priority"}">🚩</button>
       </div>
       <div class="t-board-card-meta">
         <span class="t-board-card-date ${due && due.cls === "gsi-overdue" ? "overdue" : ""}">
@@ -382,7 +384,11 @@ function renderProjects() {
 
   const listEl = document.getElementById("ngdrList");
   if (gsiTaskView === "board") {
-    listEl.innerHTML = renderGsiBoardView(active.tasks);
+    // Board gets the same sorted list List does. Per-column order is
+    // unaffected by the open/done split (done tasks all live in one
+    // column anyway), and in Default sort `ordered` still holds plain
+    // insertion order — so drag-to-reorder keeps working untouched.
+    listEl.innerHTML = renderGsiBoardView(ordered);
   } else {
     listEl.innerHTML = ordered.map(gsiCardHtml).join("") || `<div class="gsi-empty"><p>No tasks yet in ${esc(active.name)}.</p><p class="hint">Add your first task below.</p></div>`;
   }
@@ -451,16 +457,68 @@ export function delProject() {
   state.gsi.activeProject = state.gsi.projects[0].id;
   persist(); renderProjects();
 }
-export function addNgdr() {
-  const el = document.getElementById("newNgdr"); const v = el.value.trim(); if (!v) return;
-  activeProject().tasks.push({ id: uid(), text: v, status: "todo", date: "", link: "", flag: false, googleEventId: null }); el.value = "";
-  persist(); rerender();
+/* ---------- task composer ----------
+   The single add row at the bottom of the card is the one place a task
+   gets created, so date and link belong here rather than only becoming
+   editable after the fact. Both are optional and live in a collapsible
+   details row, keeping the common case (type text, press Enter) exactly
+   as fast as it was. */
+let pendingAddStatus = "todo"; // which column a new task lands in — UI-only, reset after each add
+
+export function toggleGsiAddOptions(forceOpen) {
+  const box = document.getElementById("gsiAddOptions");
+  const btn = document.getElementById("gsiAddOptsBtn");
+  if (!box) return;
+  const open = forceOpen === true ? true : !box.classList.contains("open");
+  box.classList.toggle("open", open);
+  if (btn) btn.classList.toggle("on", open);
+  if (open) document.getElementById("newNgdrDate")?.focus();
 }
-export function quickAddGsiTask(statusKey) {
-  const v = prompt("Add a task:");
-  if (!v || !v.trim()) return;
-  activeProject().tasks.push({ id: uid(), text: v.trim(), status: statusKey, date: "", link: "", flag: false, googleEventId: null });
+function renderGsiAddTarget() {
+  const el = document.getElementById("gsiAddTarget");
+  if (!el) return;
+  if (pendingAddStatus === "todo") { el.innerHTML = ""; return; }
+  const label = (STATUSES.find(([k]) => k === pendingAddStatus) || [null, pendingAddStatus])[1];
+  el.innerHTML = `Adding to ${esc(label)} <button class="gsi-add-target-clear" onclick="clearGsiAddTarget()" title="Add to To do instead">✕</button>`;
+}
+export function clearGsiAddTarget() {
+  pendingAddStatus = "todo";
+  renderGsiAddTarget();
+}
+export function addNgdr() {
+  const el = document.getElementById("newNgdr");
+  const v = el.value.trim();
+  if (!v) { el.focus(); return; }
+  const dateEl = document.getElementById("newNgdrDate");
+  const linkEl = document.getElementById("newNgdrLink");
+  const date = dateEl ? dateEl.value : "";
+  const link = linkEl ? linkEl.value.trim() : "";
+  const task = { id: uid(), text: v, status: pendingAddStatus, date, link, flag: false, googleEventId: null };
+  activeProject().tasks.push(task);
+  el.value = "";
+  if (dateEl) dateEl.value = "";
+  if (linkEl) linkEl.value = "";
+  pendingAddStatus = "todo";
   persist(); rerender();
+  // rerender() rebuilds the task list, not the static add row, so the
+  // badge has to be cleared explicitly.
+  renderGsiAddTarget();
+  el.focus(); // keep the cursor here for the next one
+  // A task created with a due date should reach Google Calendar the
+  // same way one that gets a date later does (see editProjectTask).
+  if (date && task.status !== "done") syncGsiTaskToGoogle(task, "create");
+}
+/* A column's "+ Add task" now aims the shared composer at that column
+   instead of opening a prompt() — a prompt can't offer a due date or a
+   link, and having two different add paths with different capabilities
+   was the inconsistency worth removing. */
+export function quickAddGsiTask(statusKey) {
+  pendingAddStatus = statusKey;
+  renderGsiAddTarget();
+  const el = document.getElementById("newNgdr");
+  if (!el) return;
+  el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  el.focus();
 }
 export function editProjectTask(id, field, v) {
   const { task: t } = findProjectTask(id); if (!t) return;

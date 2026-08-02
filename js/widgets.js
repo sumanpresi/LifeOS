@@ -4,6 +4,7 @@ import { toast, autoGrow } from './ui.js';
 import { moveToTrash } from './trash.js';
 import { isLogged, streak } from './habits.js';
 import { getAllGsiTasksFlat } from './gsi.js';
+import { mountRichEditor, getRichEditor } from './rich-text.js';
 
 /* ---------- important links ---------- */
 let openLinkEditId = null; // which single link's inline edit panel is open — UI-only, not persisted
@@ -206,28 +207,209 @@ function fmtJournalDate(k) {
   const [y, m, d] = k.split("-").map(Number);
   return new Date(y, m - 1, d).toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 }
+/* The journal editor is one Quill instance showing many documents — one
+   per date — unlike the meeting-minutes editors, which get an instance
+   each. mountRichEditor only consults its initial-HTML callback on the
+   very first mount, so switching dates has to swap the content in
+   explicitly, and this tracks which date the editor is currently
+   holding so an edit always saves to the right day. */
+const JOURNAL_EDITOR_ID = "dayJournalEditor";
+let journalLoadedDate = null;
+
+function flushJournalEditor() {
+  // Quill's change events are debounced, so a pending edit can still be
+  // in flight when the date changes. Writing the current contents back
+  // to the date they belong to *before* swapping avoids that edit
+  // landing on the day being switched to.
+  const q = getRichEditor(JOURNAL_EDITOR_ID);
+  if (!q || !journalLoadedDate) return;
+  const html = q.root.innerHTML;
+  if (isEmptyRichText(html)) {
+    if (state.journal[journalLoadedDate]) { delete state.journal[journalLoadedDate]; persist(); }
+  } else if (state.journal[journalLoadedDate] !== html) {
+    state.journal[journalLoadedDate] = html;
+    persist();
+  }
+}
+// Quill never leaves its root truly empty — an untouched editor still
+// holds "<p><br></p>" — so a blank day has to be recognised by content,
+// not by string length, or every date visited would gain an entry.
+function isEmptyRichText(html) {
+  return !String(html || "").replace(/<[^>]*>/g, "").replace(/&nbsp;|\s/g, "").trim();
+}
+
 function renderJournalEditor(viewDate) {
   const isToday = viewDate === todayKey();
   document.getElementById("journalEditingLabel").textContent = isToday ? "Today — " + fmtJournalDate(viewDate) : fmtJournalDate(viewDate);
   document.getElementById("journalDatePicker").value = viewDate;
   document.getElementById("journalTodayBtn").style.display = isToday ? "none" : "";
-  const j = document.getElementById("dayJournal");
-  if (document.activeElement !== j) j.value = state.journal[viewDate] || "";
+
+  const quill = mountRichEditor(JOURNAL_EDITOR_ID, () => state.journal[viewDate] || "", html => {
+    const d = journalLoadedDate;
+    if (!d) return;
+    if (isEmptyRichText(html)) delete state.journal[d];
+    else state.journal[d] = html;
+    persist();
+    renderJournalList(d);
+  });
+  if (!quill) return; // Quill CDN unavailable — nothing to load into
+  // Quill renders .ql-blank::before from this attribute, so the original
+  // textarea's prompt survives the switch to a rich-text editor.
+  quill.root.dataset.placeholder = "How did that day go?";
+  if (journalLoadedDate === null) { journalLoadedDate = viewDate; return; } // just mounted with this date's content
+  if (journalLoadedDate === viewDate) return; // same day, don't disturb the cursor
+
+  flushJournalEditor();
+  journalLoadedDate = viewDate;
+  const html = state.journal[viewDate] || "";
+  // Source is 'api' for both of these, which rich-text.js deliberately
+  // ignores — loading a day must not count as editing it.
+  if (html) quill.clipboard.dangerouslyPasteHTML(html);
+  else quill.setText("");
 }
 let journalFilterFrom = "", journalFilterTo = "";
-function renderJournalList(viewDate) {
-  const box = document.getElementById("journalList");
-  if (!box) return;
+
+/* The dates that currently pass the date-range filter, newest first.
+   Shared by the Past-entries list and the .txt export so the export
+   button always writes out exactly what the list is showing — one
+   filter, one definition of "the selected range". */
+function filteredJournalDates() {
   let dates = Object.keys(state.journal).filter(d => (state.journal[d] || "").trim()).sort().reverse();
   if (journalFilterFrom) dates = dates.filter(d => d >= journalFilterFrom);
   if (journalFilterTo) dates = dates.filter(d => d <= journalFilterTo);
+  return dates;
+}
+
+/* Some older journal entries are stored as HTML ("<p>Weekly-off</p>")
+   rather than plain text. Stored values are left exactly as they are —
+   this only flattens the markup for *reading*: the list snippets and the
+   exported file. DOMParser is used instead of innerHTML so nothing in
+   that markup can execute or fetch anything while being unwrapped. */
+function journalPlainText(raw) {
+  const s = String(raw ?? "");
+  if (!/<[a-z!\/][^>]*>/i.test(s)) return s.trim(); // plain text already — leave it alone
+  const withBreaks = s
+    .replace(/<\s*br\s*\/?\s*>/gi, "\n")
+    .replace(/<\s*li[^>]*>/gi, "\u2022 ")
+    .replace(/<\s*\/\s*(p|div|li|h[1-6]|blockquote|tr|ul|ol)\s*>/gi, "\n");
+  const doc = new DOMParser().parseFromString(withBreaks, "text/html");
+  return (doc.body.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+function renderJournalList(viewDate) {
+  const box = document.getElementById("journalList");
+  if (!box) return;
+  const dates = filteredJournalDates();
   const filterActive = journalFilterFrom || journalFilterTo;
+  const exportBtn = document.getElementById("journalExportBtn");
+  if (exportBtn) {
+    exportBtn.disabled = !dates.length;
+    exportBtn.title = dates.length
+      ? `Export ${dates.length} ${dates.length === 1 ? "entry" : "entries"} as a .txt file`
+      : "No entries in this range to export";
+  }
   box.innerHTML = dates.map(d => `
     <button class="journal-list-item ${d === viewDate ? "active" : ""}" onclick="selectJournalDate('${d}')">
       <span class="jd-date">${fmtJournalDate(d)}</span>
-      <span class="jd-snip">${esc(state.journal[d] || "")}</span>
+      <span class="jd-snip">${esc(journalPlainText(state.journal[d] || ""))}</span>
     </button>`).join("") || `<p class="hint">${filterActive ? "No entries in that date range." : "Past entries will appear here."}</p>`;
+  // Entry dots go stale the moment an entry is written or the selection
+  // moves, and every one of those paths already ends here.
+  renderJournalCalendar();
 }
+
+/* ---------- export the selected date range to a .txt file ---------- */
+export function exportJournalRange() {
+  const dates = filteredJournalDates().slice().reverse(); // oldest first reads better in a file
+  if (!dates.length) { toast("No entries in that date range to export."); return; }
+  const from = dates[0], to = dates[dates.length - 1];
+  const rule = "=".repeat(56);
+  const out = [
+    "LifeOS — Journal export",
+    `Range:    ${fmtJournalDate(from)}  to  ${fmtJournalDate(to)}`,
+    `Entries:  ${dates.length}`,
+    `Exported: ${new Date().toLocaleString("en-IN")}`,
+    ""
+  ];
+  dates.forEach(d => out.push(rule, fmtJournalDate(d), rule, journalPlainText(state.journal[d] || ""), ""));
+  // CRLF so the file opens with its line breaks intact in Notepad too.
+  const blob = new Blob([out.join("\r\n")], { type: "text/plain;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = from === to ? `journal-${from}.txt` : `journal-${from}_to_${to}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  toast(`Exported ${dates.length} ${dates.length === 1 ? "entry" : "entries"}.`);
+}
+
+/* ---------- month calendar marking the days that have entries ----------
+   The browser's own <input type="date"> popup is native UI: its day
+   cells cannot be styled or annotated from the page, so days holding an
+   entry can never be marked inside it. This is a small in-page calendar
+   that can — the same Monday-start grid the habits month view uses, with
+   a dot under every date that has a journal entry. The native input is
+   kept alongside it for typing a date directly. */
+let journalCalCursor = null; // first of the month on screen; null until first opened
+
+export function toggleJournalCalendar(evt) {
+  if (evt) evt.stopPropagation();
+  const pop = document.getElementById("journalCalPop");
+  if (!pop) return;
+  const opening = !pop.classList.contains("open");
+  pop.classList.toggle("open", opening);
+  // backdrop-filter gives every .card its own stacking context, so the
+  // popover's z-index can't escape it — see toggleLinkEdit above.
+  pop.closest(".card")?.classList.toggle("has-open-popover", opening);
+  if (opening) {
+    const [y, m] = (currentJournalDate || todayKey()).split("-").map(Number);
+    journalCalCursor = new Date(y, m - 1, 1);
+    renderJournalCalendar();
+  }
+}
+export function closeJournalCalendar() {
+  const pop = document.getElementById("journalCalPop");
+  if (!pop || !pop.classList.contains("open")) return;
+  pop.classList.remove("open");
+  pop.closest(".card")?.classList.remove("has-open-popover");
+}
+export function shiftJournalCalMonth(delta) {
+  journalCalCursor = journalCalCursor || new Date();
+  journalCalCursor = new Date(journalCalCursor.getFullYear(), journalCalCursor.getMonth() + delta, 1);
+  renderJournalCalendar();
+}
+export function journalCalPick(d) {
+  selectJournalDate(d);
+  closeJournalCalendar();
+}
+function renderJournalCalendar() {
+  const grid = document.getElementById("journalCalGrid");
+  if (!grid || !journalCalCursor) return;
+  const year = journalCalCursor.getFullYear(), month = journalCalCursor.getMonth();
+  document.getElementById("journalCalLabel").textContent =
+    journalCalCursor.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+  const startOffset = (new Date(year, month, 1).getDay() + 6) % 7; // Monday-start, matching habits.js
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const tKey = todayKey(), selected = currentJournalDate || tKey;
+  let cells = "", monthCount = 0;
+  for (let i = 0; i < startOffset; i++) cells += `<div class="jcal-cell empty"></div>`;
+  for (let day = 1; day <= daysInMonth; day++) {
+    const k = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const has = !!(state.journal[k] || "").trim();
+    if (has) monthCount++;
+    cells += `<button class="jcal-cell${has ? " has-entry" : ""}${k === selected ? " sel" : ""}${k === tKey ? " today" : ""}"
+      onclick="journalCalPick('${k}')" title="${fmtJournalDate(k)}${has ? " — has an entry" : ""}">${day}</button>`;
+  }
+  grid.innerHTML = cells;
+  document.getElementById("journalCalCount").textContent =
+    monthCount ? `${monthCount} ${monthCount === 1 ? "entry" : "entries"}` : "No entries";
+}
+document.addEventListener("pointerdown", (e) => {
+  if (e.target.closest && e.target.closest(".jcal-wrap")) return;
+  closeJournalCalendar();
+});
 export function applyJournalFilter() {
   journalFilterFrom = document.getElementById("journalFilterFrom").value;
   journalFilterTo = document.getElementById("journalFilterTo").value;
@@ -243,15 +425,11 @@ export function clearJournalFilter() {
 }
 export function selectJournalDate(d) {
   currentJournalDate = d;
+  // Whichever route picked the date — the grid, the native input, the
+  // Today button, a past-entry row — the month popover has served its
+  // purpose and should get out of the way.
+  closeJournalCalendar();
   renderJournalEditor(d);
   renderJournalList(d);
 }
 export function journalGoToday() { selectJournalDate(todayKey()); }
-
-let journalTimer = null;
-export function saveJournal(v) {
-  const d = currentJournalDate || todayKey();
-  state.journal[d] = v;
-  clearTimeout(journalTimer);
-  journalTimer = setTimeout(() => { persist(); renderJournalList(d); }, 800);
-}

@@ -338,7 +338,22 @@
           <div class="card-head">
             <h2>Journal — <span id="journalEditingLabel"></span></h2>
             <div style="display:flex;gap:8px;align-items:center">
-              <input type="date" id="journalDatePicker" onchange="selectJournalDate(this.value)" title="Jump to a date">
+              <div class="jcal-wrap">
+                <input type="date" id="journalDatePicker" onchange="selectJournalDate(this.value)" title="Jump to a date">
+                <button class="jcal-btn" onclick="toggleJournalCalendar(event)" title="Month view — days with an entry are marked">
+                  <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+                </button>
+                <div class="jcal-pop" id="journalCalPop">
+                  <div class="jcal-head">
+                    <button class="jcal-nav" onclick="shiftJournalCalMonth(-1)" title="Previous month">‹</button>
+                    <span id="journalCalLabel"></span>
+                    <button class="jcal-nav" onclick="shiftJournalCalMonth(1)" title="Next month">›</button>
+                  </div>
+                  <div class="jcal-dow"><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div><div>S</div></div>
+                  <div class="jcal-days" id="journalCalGrid"></div>
+                  <div class="jcal-foot"><span class="jcal-legend"><i></i>has entry</span><span id="journalCalCount"></span></div>
+                </div>
+              </div>
               <button class="btn btn-ghost" id="journalTodayBtn" onclick="journalGoToday()" style="display:none">Today</button>
               <button class="expand-btn" onclick="expandView('journalEditorContent','Journal')" title="View large">
                 <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
@@ -346,7 +361,7 @@
             </div>
           </div>
           <div id="journalEditorContent"><div class="card-body">
-            <textarea class="notes-area" id="dayJournal" placeholder="How did that day go?" oninput="saveJournal(this.value)" style="min-height:280px"></textarea>
+            <div id="dayJournalEditor" class="mm-rich-editor journal-rich-editor"></div>
           </div></div>
         </div>
         <div class="card">
@@ -362,6 +377,7 @@
               <span style="color:var(--muted);font-weight:700">–</span>
               <input type="date" id="journalFilterTo" onchange="applyJournalFilter()" title="To date">
               <button class="btn btn-ghost" id="journalFilterClearBtn" onclick="clearJournalFilter()" style="display:none">✕ Clear</button>
+              <button class="btn btn-ghost journal-export-btn" id="journalExportBtn" onclick="exportJournalRange()">⭳ Export .txt</button>
             </div>
           </div>
           <div class="card-body" id="journalList" style="max-height:340px;overflow-y:auto"></div>
@@ -427,7 +443,17 @@
         <div class="card-body" id="ngdrList"></div>
         <div class="card-body gsi-add-row" style="padding-top:0">
           <input type="text" id="newNgdr" placeholder="Add a task, e.g. UAT test plan for AI module" onkeydown="if(event.key==='Enter')addNgdr()">
+          <button class="gsi-add-opts-btn" id="gsiAddOptsBtn" onclick="toggleGsiAddOptions()" title="Set a due date or a link for this task">🗓 🔗</button>
           <button class="gsi-add-btn" onclick="addNgdr()">Add</button>
+          <div class="gsi-add-options" id="gsiAddOptions">
+            <label class="gsi-add-opt"><span>🗓</span>
+              <input type="date" id="newNgdrDate" title="Due date (optional)" onkeydown="if(event.key==='Enter')addNgdr()">
+            </label>
+            <label class="gsi-add-opt gsi-add-opt-link"><span>🔗</span>
+              <input type="text" id="newNgdrLink" placeholder="Link (optional)" onkeydown="if(event.key==='Enter')addNgdr()">
+            </label>
+            <span class="gsi-add-target" id="gsiAddTarget"></span>
+          </div>
         </div>
         </div>
       </div>

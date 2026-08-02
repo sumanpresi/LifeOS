@@ -34,8 +34,13 @@ function buildIndex() {
   state.feeds.forEach(f => push("News", f.name, "", () => window.open(f.url, "_blank")));
   state.quotes.forEach(q => push("Quote", q, "", () => { go("overview"); scrollToEl("quoteCard"); }));
 
-  Object.entries(state.journal).forEach(([date, text]) =>
-    text.trim() && push("Journal", text.slice(0, 120), date, () => go("dayof")));
+  // Journal entries are stored as HTML now that the editor is rich text,
+  // so index and preview the readable text — searching for a word should
+  // not miss it because a tag sits in the middle of it.
+  Object.entries(state.journal).forEach(([date, text]) => {
+    const plain = stripHtml(text);
+    plain.trim() && push("Journal", plain.slice(0, 120), date, () => go("dayof"));
+  });
 
   const secPages = Object.assign({}, SECTION_META, { work: "Work · GSI" });
   Object.entries(secPages).forEach(([key, label]) => {
