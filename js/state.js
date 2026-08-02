@@ -105,8 +105,8 @@ export const DEFAULT_STATE = {
   meditation: {},            // { "2026-07-19": minutes }
   journal: {},               // { "2026-07-19": "text" }
   sections: {
-    communication: { notes: "", links: [] },
-    work: { notes: "", links: [] }
+    communication: { notes: "", noteList: [], links: [] },
+    work: { notes: "", noteList: [], links: [] }
   },
   gsi: {
     /* Multiple named projects, each with its own task list (with dates).
@@ -225,6 +225,30 @@ function merge(saved) {
   const s = Object.assign(structuredClone(DEFAULT_STATE), saved);
   /* deep-default the containers that older versions may lack */
   s.sections = Object.assign(structuredClone(DEFAULT_STATE.sections), saved.sections || {});
+  /* One-time migration: a section's single free-text Notes box becomes a
+     list of separately-titled rich-text notes. Whatever was already
+     written is carried in as the first note rather than dropped, and
+     `notes` is emptied straight after so a second load can't duplicate
+     it. The id is fixed rather than random for the same reason
+     "legacy-gsi" is below: two devices that each still hold the old
+     shape will migrate to the *same* id and merge instead of ending up
+     with two copies of the same note. */
+  Object.keys(s.sections).forEach(k => {
+    const sec = s.sections[k];
+    if (!Array.isArray(sec.noteList)) sec.noteList = [];
+    const legacy = (sec.notes || "").trim();
+    if (legacy && !sec.noteList.length) {
+      const escText = t => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      sec.noteList.push({
+        id: "note-legacy-" + k,
+        title: "Notes",
+        html: legacy.split(/\r?\n/).map(line => `<p>${escText(line) || "<br>"}</p>`).join(""),
+        open: true,
+        updated: Date.now()
+      });
+    }
+    sec.notes = "";
+  });
   s.gsi = Object.assign(structuredClone(DEFAULT_STATE.gsi), saved.gsi || {});
   // Work documents move from one shared list to per-project — each
   // project now keeps its own workDocs array, so switching workspaces

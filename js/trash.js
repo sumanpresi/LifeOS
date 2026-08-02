@@ -59,6 +59,7 @@ function labelFor(entry) {
     case "bookmarkLink": return p.title;
     case "feed": return p.name || p.url;
     case "sectionLink": return p.title;
+    case "sectionNote": return "Note: " + (p.title || "Untitled note");
     default: return "(item)";
   }
 }
@@ -68,7 +69,7 @@ const TYPE_NAMES = {
   workDoc: "Work document", travelPlan: "Travel plan", travelStop: "Travel stop", packingItem: "Packing item",
   referencePage: "Reference page", referenceLink: "Reference link", financeItem: "Finance item",
   financeLink: "Finance link", medicine: "Medicine", prescription: "Prescription",
-  healthLink: "Health link", bookmarkLink: "Link", feed: "News feed", sectionLink: "Link"
+  healthLink: "Health link", bookmarkLink: "Link", feed: "News feed", sectionLink: "Link", sectionNote: "Note"
 };
 
 function timeAgo(ts) {
@@ -152,6 +153,15 @@ export function restoreFromTrash(id) {
     case "sectionLink": {
       const key = m.sectionKey;
       if (state.sections[key]) state.sections[key].links.push(p);
+      break;
+    }
+    case "sectionNote": {
+      const key = m.sectionKey;
+      const sec = state.sections[key];
+      if (sec) {
+        if (!Array.isArray(sec.noteList)) sec.noteList = [];
+        sec.noteList.unshift(p);
+      }
       break;
     }
   }

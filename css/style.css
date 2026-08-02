@@ -400,6 +400,27 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .journal-list-item.active{background:var(--lilac);border-color:var(--lilac-deep)}
 .jd-date{font-weight:700;font-size:12.5px}
 .jd-snip{font-size:12px;color:var(--muted);white-space:pre-wrap;word-break:break-word}
+/* Search results: one snippet line per occurrence, hit marked in place. */
+.jd-head{display:flex;align-items:center;gap:8px;width:100%}
+.jd-hit-count{font-size:10.5px;font-weight:800;color:var(--accent-ink);background:var(--lilac);
+  border-radius:99px;padding:2px 8px;margin-left:auto;flex-shrink:0}
+.journal-list-item .jd-snip + .jd-snip{margin-top:3px}
+.jd-hit{background:#FBE7A2;color:var(--ink);border-radius:3px;padding:0 1px;font-weight:700}
+.journal-list-item.active .jd-hit{background:#F5D76E}
+.journal-search-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.journal-search-icon{font-size:12px;opacity:.55;flex-shrink:0}
+.journal-search-row input{flex:1;min-width:150px;border:1px solid var(--line);border-radius:9px;
+  padding:7px 10px;font-size:13px;font-family:inherit;background:var(--paper);
+  transition:border-color 150ms ease,box-shadow 150ms ease}
+.journal-search-row input:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 3px rgba(27,27,26,.07)}
+.journal-search-clear{border:none;background:none;cursor:pointer;color:var(--muted);font-size:12px;
+  padding:4px 6px;flex-shrink:0}
+.journal-search-clear:hover{color:var(--ink)}
+#journalSearchStat{flex-shrink:0;font-size:11.5px}
+@media(max-width:640px){
+  .journal-search-row input{min-height:40px}
+  #journalSearchStat{flex-basis:100%}
+}
 
 /* ---------- Sort button (Overview tasks) ---------- */
 #taskSortBtn.on{background:var(--accent);color:#fff;border-color:var(--accent)}
@@ -516,6 +537,31 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
    while sketching or erasing, so a finger or stylus stroke acts on the
    map instead of panning it. */
 .leaflet-container.freehand-active,.leaflet-container.eraser-active{touch-action:none}
+
+/* ---------- Section notes: a list of collapsible rich-text notes ---------- */
+.sec-note-add{font-size:12.5px;padding:6px 12px;margin-left:auto;white-space:nowrap}
+.sec-notes{display:flex;flex-direction:column;gap:10px}
+.sec-note{border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden}
+.sec-note.open{border-color:var(--lilac-deep)}
+.sec-note-head{display:flex;align-items:center;gap:8px;padding:8px 10px;min-width:0}
+.sec-note-toggle{border:none;background:none;cursor:pointer;font-size:12px;color:var(--muted);
+  padding:4px 6px;flex-shrink:0;line-height:1}
+.sec-note-toggle:hover{color:var(--ink)}
+.sec-note-title{flex:0 1 auto;min-width:120px;max-width:280px;border:1px solid transparent;border-radius:8px;
+  padding:6px 8px;font-family:inherit;font-size:13.5px;font-weight:700;background:transparent;color:var(--ink)}
+.sec-note-title:hover{border-color:var(--line)}
+.sec-note-title:focus{outline:none;border-color:var(--ink);background:var(--paper)}
+.sec-note-preview{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:12px;color:var(--muted)}
+.sec-note-del{flex-shrink:0;margin-left:auto}
+.sec-note-body{padding:0 10px 10px}
+.sec-note-editor .ql-editor{min-height:170px}
+@media(max-width:640px){
+  .sec-note-head{flex-wrap:wrap}
+  .sec-note-title{flex:1;max-width:none;min-height:38px}
+  .sec-note-preview{flex-basis:100%;order:5}
+  .sec-note-toggle,.sec-note-del{min-width:34px;min-height:34px}
+}
 
 /* ---------- Trash ---------- */
 .trash-row{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px dashed var(--line);font-size:13.5px}

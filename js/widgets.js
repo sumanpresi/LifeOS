@@ -268,15 +268,20 @@ function renderJournalEditor(viewDate) {
   else quill.setText("");
 }
 let journalFilterFrom = "", journalFilterTo = "";
+let journalSearchQuery = "";
 
-/* The dates that currently pass the date-range filter, newest first.
-   Shared by the Past-entries list and the .txt export so the export
-   button always writes out exactly what the list is showing — one
-   filter, one definition of "the selected range". */
+/* The dates that currently pass the date range *and* the text search,
+   newest first. Shared by the Past-entries list and the .txt export so
+   the export button always writes out exactly what the list is showing —
+   one filter, one definition of "what's selected". */
 function filteredJournalDates() {
   let dates = Object.keys(state.journal).filter(d => (state.journal[d] || "").trim()).sort().reverse();
   if (journalFilterFrom) dates = dates.filter(d => d >= journalFilterFrom);
   if (journalFilterTo) dates = dates.filter(d => d <= journalFilterTo);
+  if (journalSearchQuery) {
+    const q = journalSearchQuery.toLowerCase();
+    dates = dates.filter(d => journalPlainText(state.journal[d]).toLowerCase().includes(q));
+  }
   return dates;
 }
 
@@ -296,26 +301,95 @@ function journalPlainText(raw) {
   return (doc.body.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
 }
 
+/* Every occurrence of the search term inside one entry, each as a short
+   window of surrounding text with the hit marked — a day mentioning
+   "BISAG-N" three times should show all three, not just the first. The
+   pieces are escaped individually and only the <mark> is real markup, so
+   entry text can never inject HTML into the list. */
+const MATCH_CONTEXT = 45; // characters shown either side of a hit
+const MAX_MATCHES_PER_ENTRY = 12;
+function matchOffsets(plain, q) {
+  const hay = plain.toLowerCase(), needle = q.toLowerCase(), out = [];
+  let i = hay.indexOf(needle);
+  while (i !== -1 && out.length < MAX_MATCHES_PER_ENTRY) {
+    out.push(i);
+    i = hay.indexOf(needle, i + needle.length);
+  }
+  return out;
+}
+function matchSnippetsHtml(plain, q) {
+  return matchOffsets(plain, q).map(i => {
+    const end = i + q.length;
+    const s = Math.max(0, i - MATCH_CONTEXT), e = Math.min(plain.length, end + MATCH_CONTEXT);
+    return `<span class="jd-snip">${s > 0 ? "…" : ""}${esc(plain.slice(s, i))}` +
+      `<mark class="jd-hit">${esc(plain.slice(i, end))}</mark>` +
+      `${esc(plain.slice(end, e))}${e < plain.length ? "…" : ""}</span>`;
+  }).join("");
+}
+function countMatches(plain, q) {
+  const hay = plain.toLowerCase(), needle = q.toLowerCase();
+  let n = 0, i = hay.indexOf(needle);
+  while (i !== -1) { n++; i = hay.indexOf(needle, i + needle.length); }
+  return n;
+}
+
 function renderJournalList(viewDate) {
   const box = document.getElementById("journalList");
   if (!box) return;
   const dates = filteredJournalDates();
+  const q = journalSearchQuery;
   const filterActive = journalFilterFrom || journalFilterTo;
   const exportBtn = document.getElementById("journalExportBtn");
   if (exportBtn) {
     exportBtn.disabled = !dates.length;
     exportBtn.title = dates.length
       ? `Export ${dates.length} ${dates.length === 1 ? "entry" : "entries"} as a .txt file`
-      : "No entries in this range to export";
+      : "No entries to export";
   }
-  box.innerHTML = dates.map(d => `
+
+  let totalMatches = 0;
+  box.innerHTML = dates.map(d => {
+    const plain = journalPlainText(state.journal[d] || "");
+    let body, badge = "";
+    if (q) {
+      const n = countMatches(plain, q);
+      totalMatches += n;
+      body = matchSnippetsHtml(plain, q);
+      if (n > 1) badge = `<span class="jd-hit-count">${n} matches</span>`;
+    } else {
+      body = `<span class="jd-snip">${esc(plain)}</span>`;
+    }
+    return `
     <button class="journal-list-item ${d === viewDate ? "active" : ""}" onclick="selectJournalDate('${d}')">
-      <span class="jd-date">${fmtJournalDate(d)}</span>
-      <span class="jd-snip">${esc(journalPlainText(state.journal[d] || ""))}</span>
-    </button>`).join("") || `<p class="hint">${filterActive ? "No entries in that date range." : "Past entries will appear here."}</p>`;
+      <span class="jd-head"><span class="jd-date">${fmtJournalDate(d)}</span>${badge}</span>
+      ${body}
+    </button>`;
+  }).join("") || `<p class="hint">${
+    q ? "No entries contain that." : filterActive ? "No entries in that date range." : "Past entries will appear here."
+  }</p>`;
+
+  const stat = document.getElementById("journalSearchStat");
+  if (stat) {
+    stat.textContent = q
+      ? `${totalMatches} ${totalMatches === 1 ? "match" : "matches"} in ${dates.length} ${dates.length === 1 ? "entry" : "entries"}`
+      : "";
+  }
+  const clearBtn = document.getElementById("journalSearchClearBtn");
+  if (clearBtn) clearBtn.style.display = q ? "" : "none";
   // Entry dots go stale the moment an entry is written or the selection
   // moves, and every one of those paths already ends here.
   renderJournalCalendar();
+}
+
+export function applyJournalSearch() {
+  journalSearchQuery = (document.getElementById("journalSearchInput")?.value || "").trim();
+  renderJournalList(currentJournalDate || todayKey());
+}
+export function clearJournalSearch() {
+  journalSearchQuery = "";
+  const el = document.getElementById("journalSearchInput");
+  if (el) { el.value = ""; el.focus(); }
+  renderJournalList(currentJournalDate || todayKey());
 }
 
 /* ---------- export the selected date range to a .txt file ---------- */
@@ -327,6 +401,7 @@ export function exportJournalRange() {
   const out = [
     "LifeOS — Journal export",
     `Range:    ${fmtJournalDate(from)}  to  ${fmtJournalDate(to)}`,
+    ...(journalSearchQuery ? [`Matching: "${journalSearchQuery}"`] : []),
     `Entries:  ${dates.length}`,
     `Exported: ${new Date().toLocaleString("en-IN")}`,
     ""

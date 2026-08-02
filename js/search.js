@@ -45,8 +45,13 @@ function buildIndex() {
   const secPages = Object.assign({}, SECTION_META, { work: "Work · GSI" });
   Object.entries(secPages).forEach(([key, label]) => {
     const sec = state.sections[key]; if (!sec) return;
-    (sec.notes || "").split("\n").forEach(line =>
-      line.trim() && push("Notes", line.trim().slice(0, 120), label, () => go(key)));
+    // Notes are now a list of rich-text notes per section rather than one
+    // free-text box, so index each note by its title and its readable text.
+    (sec.noteList || []).forEach(n => {
+      n.title && push("Notes", n.title, label, () => go(key));
+      stripHtml(n.html).split(/(?:\n|\.\s)/).forEach(line =>
+        line.trim() && push("Notes", line.trim().slice(0, 120), label, () => go(key)));
+    });
     (sec.links || []).forEach(l => push("Link", l.title, label, () => window.open(l.url, "_blank")));
   });
 

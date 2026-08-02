@@ -372,6 +372,12 @@
           </div>
           <div id="journalListContent">
           <div class="card-body" style="padding-bottom:0">
+            <div class="journal-search-row">
+              <span class="journal-search-icon">🔍</span>
+              <input type="search" id="journalSearchInput" placeholder="Search entries — a word or a phrase" oninput="applyJournalSearch()">
+              <button class="journal-search-clear" id="journalSearchClearBtn" onclick="clearJournalSearch()" title="Clear search" style="display:none">✕</button>
+              <span class="hint" id="journalSearchStat"></span>
+            </div>
             <div class="journal-filter-row">
               <input type="date" id="journalFilterFrom" onchange="applyJournalFilter()" title="From date">
               <span style="color:var(--muted);font-weight:700">–</span>
@@ -472,9 +478,11 @@
         </div>
       </div>
       <div class="card" style="margin-top:16px">
-        <div class="card-head"><h2>Notes</h2></div>
+        <div class="card-head"><h2>Notes</h2>
+          <button class="btn btn-ghost sec-note-add" onclick="addSectionNote('work')">+ New note</button>
+        </div>
         <div class="card-body">
-          <textarea class="notes-area" id="notes-work" placeholder="Reference notes, circular summaries, anything work…" oninput="saveSectionNotes('work',this.value)"></textarea>
+          <div class="sec-notes" id="secNotes-work"></div>
         </div>
       </div>
       <div class="card" id="whiteboardCard-gsi" style="margin-top:16px">
