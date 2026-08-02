@@ -714,6 +714,21 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   background:#E4F1E8;color:var(--ok)}
 
 /* ---------- Travel: packing list (checkbox items, matching task-list style) ---------- */
+.pack-list-name-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.pack-list-name-row input{flex:1;min-width:0;border:none;background:transparent;padding:0;
+  font-family:'Fraunces',serif;font-size:18px;font-weight:600;color:var(--ink)}
+.pack-list-name-row input:focus{outline:none;border-bottom:1px solid var(--line)}
+.pack-item-link{color:var(--accent-ink);text-decoration:underline;text-underline-offset:2px;word-break:break-all}
+.pack-item-link:hover{color:var(--accent)}
+.pack-item.done .pack-item-link{color:var(--muted)}
+.pack-notes-wrap{margin-top:14px}
+.pack-notes-label{display:block;font-size:12px;font-weight:800;color:var(--muted);
+  letter-spacing:.03em;margin-bottom:6px}
+.pack-notes-editor .ql-editor{min-height:150px}
+@media(max-width:640px){
+  .pack-item-link{min-height:32px;display:inline-block}
+  .pack-list-name-row input{min-height:40px}
+}
 .pack-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line)}
 .pack-item:last-child{border-bottom:none}
 .pack-item-text{flex:1;min-width:0;font-weight:600}

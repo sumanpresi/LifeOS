@@ -1,8 +1,8 @@
 /* A real, rendering rich-text editor (Quill.js — free, open source, no
    API key) for anywhere a plain textarea isn't enough: bold/italic/
    underline/strikethrough, sub/superscript, font family & size, text
-   colour & highlight, bullet/numbered lists, indent, alignment, and line
-   spacing — matching the core of a Word-style toolbar. A few Word-only
+   colour & highlight, hyperlinks, bullet/numbered lists, indent, alignment,
+   and line spacing — matching the core of a Word-style toolbar. A few Word-only
    concepts (multilevel list numbering schemes, A–Z list sorting, the
    paragraph-marks toggle, paragraph shading/borders) aren't things any
    web rich-text editor exposes as standard buttons, so those aren't
@@ -32,6 +32,7 @@ const TOOLBAR = [
   ["bold", "italic", "underline", "strike"],
   [{ script: "sub" }, { script: "super" }],
   [{ color: [] }, { background: [] }],
+  ["link"],
   [{ list: "ordered" }, { list: "bullet" }],
   [{ indent: "-1" }, { indent: "+1" }],
   [{ align: [] }],

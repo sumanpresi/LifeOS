@@ -806,11 +806,22 @@
       </div>
       <div class="card" style="margin-top:16px">
         <div class="card-head"><h2>Packing list</h2></div>
+        <div class="card-body" style="padding-bottom:0">
+          <div class="tabs" id="packListTabs"></div>
+          <div class="pack-list-name-row">
+            <input type="text" id="packListName" onchange="renamePackList(this.value)" title="Rename this packing list">
+            <button class="icon-btn" id="packListDelBtn" onclick="delPackList()" title="Delete this packing list" style="display:none">Delete</button>
+          </div>
+        </div>
         <div class="card-body" id="travelPackingList"></div>
         <div class="card-body" style="padding-top:0">
           <div class="add-inline">
-            <input type="text" id="newPackingItem" placeholder="Passport, chargers, warm jacket…" onkeydown="if(event.key==='Enter')addPackingItem()">
+            <input type="text" id="newPackingItem" placeholder="Passport, chargers, warm jacket… (paste a link and it becomes tappable)" onkeydown="if(event.key==='Enter')addPackingItem()">
             <button class="btn btn-ghost" onclick="addPackingItem()">Add</button>
+          </div>
+          <div class="pack-notes-wrap">
+            <label class="pack-notes-label">Notes for this list</label>
+            <div id="packListNotesEditor" class="mm-rich-editor pack-notes-editor"></div>
           </div>
         </div>
       </div>

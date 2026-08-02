@@ -12,6 +12,7 @@ import { addFullscreenControl } from './map-fullscreen.js';
 import { moveToTrash } from './trash.js';
 import { getCurrentLocation } from './geolocation.js';
 import { attachClickCoordinates } from './map-click-coords.js';
+import { mountRichEditor, unmountRichEditor, getRichEditor } from './rich-text.js';
 
 let travelView = "itinerary"; // "itinerary" | "route"
 
@@ -94,24 +95,133 @@ export function renderTravel() {
     }
   }
 
-  const packList = document.getElementById("travelPackingList");
-  if (packList) {
-    const items = active.packing || [];
-    packList.innerHTML = items.map(it => `
+  renderPackLists(active);
+}
+
+/* ---------- packing lists ----------
+   A plan holds several named lists ("Documents", "Field kit", …), picked
+   with the same tab row the plans themselves use. */
+function activePackList(plan) {
+  const lists = plan.packLists || [];
+  return lists.find(l => l.id === plan.activePackList) || lists[0] || null;
+}
+const PACK_NOTES_EDITOR = "packListNotesEditor";
+
+/* Turns bare URLs typed into an item into real tappable links. The text is
+   escaped first and only <a> is added afterwards, so an item can never
+   inject markup — the anchor is built from the matched URL alone. */
+function linkifyPackText(text) {
+  const safe = esc(text);
+  return safe.replace(/(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi, m => {
+    const trimmed = m.replace(/[.,;:!?)\]]+$/, ""); // trailing punctuation belongs to the sentence, not the URL
+    const tail = m.slice(trimmed.length);
+    const href = /^https?:\/\//i.test(trimmed) ? trimmed : "https://" + trimmed;
+    return `<a href="${href}" target="_blank" rel="noopener" class="pack-item-link" onclick="event.stopPropagation()">${trimmed}</a>${tail}`;
+  });
+}
+
+function renderPackLists(plan) {
+  const tabs = document.getElementById("packListTabs");
+  const list = activePackList(plan);
+  if (tabs && list) {
+    tabs.innerHTML = (plan.packLists || []).map(l => `
+      <button class="tab ${l.id === list.id ? "active" : ""}" onclick="switchPackList('${l.id}')">${esc(l.name)}</button>`).join("")
+      + `<button class="tab tab-add" onclick="addPackList()" title="New packing list">＋</button>`;
+  }
+  const nameEl = document.getElementById("packListName");
+  if (nameEl && list && document.activeElement !== nameEl) nameEl.value = list.name;
+  const delBtn = document.getElementById("packListDelBtn");
+  if (delBtn) delBtn.style.display = (plan.packLists || []).length > 1 ? "" : "none";
+
+  const box = document.getElementById("travelPackingList");
+  if (box) {
+    const items = list ? list.items : [];
+    box.innerHTML = items.map(it => `
       <div class="pack-item ${it.done ? "done" : ""}">
         <button class="chk ${it.done ? "on" : ""}" onclick="togglePackingItem('${it.id}')" aria-label="Toggle packed">
           <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
-        <span class="pack-item-text">${esc(it.text)}</span>
+        <span class="pack-item-text">${linkifyPackText(it.text)}</span>
         <button class="del" onclick="delPackingItem('${it.id}')" aria-label="Delete">✕</button>
       </div>`).join("") || `<p class="hint">Add what you need to pack — passport, chargers, warm jacket…</p>`;
   }
+
+  /* One editor serves every list, so switching lists swaps its contents —
+     the same one-instance-many-documents arrangement the journal uses.
+     mountRichEditor only reads its initial-content callback on first
+     mount, hence the explicit swap below. */
+  const notesBox = document.getElementById(PACK_NOTES_EDITOR);
+  if (!notesBox || !list) return;
+  const quill = mountRichEditor(PACK_NOTES_EDITOR, () => list.notes || "", html => {
+    const l = (plan.packLists || []).find(x => x.id === loadedPackListId);
+    if (!l) return;
+    l.notes = html;
+    persist(); // rich-text.js debounced this already; renderTravel() here would destroy the editor mid-edit
+  });
+  if (!quill) return;
+  quill.root.dataset.placeholder = "Notes for this list — sizes, weights, what to buy…";
+  if (loadedPackListId === null) { loadedPackListId = list.id; return; }
+  if (loadedPackListId === list.id) return;
+  flushPackNotes(plan);
+  loadedPackListId = list.id;
+  if (list.notes) quill.clipboard.dangerouslyPasteHTML(list.notes);
+  else quill.setText("");
+}
+let loadedPackListId = null; // which list's notes the shared editor is currently holding
+function flushPackNotes(plan) {
+  // Quill's change handler is debounced, so an edit can still be in flight
+  // when the list changes — write it back to the list it belongs to first.
+  const q = getRichEditor(PACK_NOTES_EDITOR);
+  if (!q || loadedPackListId === null) return;
+  const l = (plan.packLists || []).find(x => x.id === loadedPackListId);
+  if (l && l.notes !== q.root.innerHTML) { l.notes = q.root.innerHTML; persist(); }
+}
+
+export function addPackList() {
+  const name = prompt("Name this packing list (e.g. Documents, Field kit, Clothing):");
+  if (!name || !name.trim()) return;
+  const plan = activePlan();
+  flushPackNotes(plan);
+  const l = { id: uid(), name: name.trim(), notes: "", items: [] };
+  plan.packLists.push(l);
+  plan.activePackList = l.id;
+  persist(); renderTravel();
+}
+export function switchPackList(id) {
+  const plan = activePlan();
+  flushPackNotes(plan);
+  plan.activePackList = id;
+  persist(false); renderTravel();
+}
+export function renamePackList(v) {
+  const l = activePackList(activePlan());
+  if (!l || !v.trim()) return;
+  l.name = v.trim();
+  persist(); renderTravel();
+}
+export function delPackList() {
+  const plan = activePlan();
+  if ((plan.packLists || []).length <= 1) return; // a plan always keeps at least one list
+  const l = activePackList(plan);
+  if (!l) return;
+  if (!confirm(`Delete the "${l.name}" packing list and its ${l.items.length} item(s)? You can restore it from Trash within 30 days.`)) return;
+  flushPackNotes(plan);
+  moveToTrash("packList", l, { planId: plan.id });
+  plan.packLists = plan.packLists.filter(x => x.id !== l.id);
+  plan.activePackList = plan.packLists[0].id;
+  loadedPackListId = null;
+  unmountRichEditor(PACK_NOTES_EDITOR);
+  persist(); renderTravel();
 }
 
 /* ---------- plans ---------- */
 export function addTravelPlan() {
   const name = prompt("Name this travel plan (e.g. Sikkim, Rajasthan, Ladakh):");
   if (!name || !name.trim()) return;
-  const p = { id: uid(), name: name.trim(), notes: "", packing: "", stops: [] };
+  // `packing: ""` here was a real bug — addPackingItem() push()es onto it,
+  // which throws on a string. New plans now start with one empty named list.
+  const p = { id: uid(), name: name.trim(), notes: "", packing: [], stops: [],
+    packLists: [{ id: uid(), name: "Packing list", notes: "", items: [] }] };
+  p.activePackList = p.packLists[0].id;
   state.travel.plans.push(p);
   state.travel.activePlan = p.id;
   persist(); renderTravel();
@@ -163,19 +273,25 @@ export function delStop(id) {
 export function addPackingItem() {
   const el = document.getElementById("newPackingItem");
   const v = el.value.trim(); if (!v) return;
-  activePlan().packing.push({ id: uid(), text: v, done: false });
+  const l = activePackList(activePlan());
+  if (!l) return;
+  l.items.push({ id: uid(), text: v, done: false });
   el.value = "";
   persist(); renderTravel();
+  el.focus();
 }
 export function togglePackingItem(id) {
-  const item = activePlan().packing.find(x => x.id === id);
+  const l = activePackList(activePlan());
+  const item = l && l.items.find(x => x.id === id);
   if (item) { item.done = !item.done; persist(); renderTravel(); }
 }
 export function delPackingItem(id) {
   const p = activePlan();
-  const item = p.packing.find(x => x.id === id);
-  if (item) moveToTrash("packingItem", item, { planId: p.id });
-  p.packing = p.packing.filter(x => x.id !== id);
+  const l = activePackList(p);
+  if (!l) return;
+  const item = l.items.find(x => x.id === id);
+  if (item) moveToTrash("packingItem", item, { planId: p.id, packListId: l.id });
+  l.items = l.items.filter(x => x.id !== id);
   persist(); renderTravel();
 }
 

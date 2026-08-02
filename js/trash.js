@@ -49,6 +49,7 @@ function labelFor(entry) {
     case "travelPlan": return "Travel plan: " + p.name;
     case "travelStop": return p.place || "(unnamed stop)";
     case "packingItem": return p.text;
+    case "packList": return "Packing list: " + p.name;
     case "referencePage": return "Reference page: " + p.name;
     case "referenceLink": return p.title;
     case "financeItem": return p.name;
@@ -66,7 +67,7 @@ function labelFor(entry) {
 const TYPE_NAMES = {
   task: "Task", habit: "Habit", goal: "Goal", gsiProject: "GSI project", gsiProjectTask: "GSI task",
   log: "Work log entry", meeting: "Meeting", gsiLink: "GSI link", personalDoc: "Personal document",
-  workDoc: "Work document", travelPlan: "Travel plan", travelStop: "Travel stop", packingItem: "Packing item",
+  workDoc: "Work document", travelPlan: "Travel plan", travelStop: "Travel stop", packingItem: "Packing item", packList: "Packing list",
   referencePage: "Reference page", referenceLink: "Reference link", financeItem: "Finance item",
   financeLink: "Finance link", medicine: "Medicine", prescription: "Prescription",
   healthLink: "Health link", bookmarkLink: "Link", feed: "News feed", sectionLink: "Link", sectionNote: "Note"
@@ -134,7 +135,25 @@ export function restoreFromTrash(id) {
     }
     case "packingItem": {
       const plan = state.travel.plans.find(x => x.id === m.planId) || state.travel.plans[0];
-      if (plan) { plan.packing.push(p); if (plan.id !== m.planId) toast("Original plan was deleted — restored into \"" + plan.name + "\" instead"); }
+      if (plan) {
+        // An item now belongs to a named list inside the plan, so fall back
+        // twice: the original list, then the plan's first list.
+        const list = (plan.packLists || []).find(x => x.id === m.packListId) || (plan.packLists || [])[0];
+        if (list) {
+          list.items.push(p);
+          if (plan.id !== m.planId) toast("Original plan was deleted — restored into \"" + plan.name + "\" instead");
+          else if (m.packListId && list.id !== m.packListId) toast("Original list was deleted — restored into \"" + list.name + "\" instead");
+        }
+      }
+      break;
+    }
+    case "packList": {
+      const plan = state.travel.plans.find(x => x.id === m.planId) || state.travel.plans[0];
+      if (plan) {
+        if (!Array.isArray(plan.packLists)) plan.packLists = [];
+        plan.packLists.push(p);
+        if (plan.id !== m.planId) toast("Original plan was deleted — restored into \"" + plan.name + "\" instead");
+      }
       break;
     }
     case "referencePage": state.reference.pages.push(p); break;

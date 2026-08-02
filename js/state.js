@@ -180,7 +180,10 @@ export const DEFAULT_STATE = {
   },
   travel: {
     plans: [
-      { id: "tp1", name: "General", notes: "", packing: [],  // [{id, text, done}]
+      { id: "tp1", name: "General", notes: "", packing: [],  // legacy single list — migrated into packLists below
+        // Several named packing lists per plan, e.g. "Documents", "Field kit".
+        // Each: {id, name, notes (rich-text HTML), items: [{id, text, done}]}
+        packLists: [], activePackList: "",
         stops: [] }   // [{id, place, duration, hotel, bookedHotel, mapDrawing}] — mapDrawing is a saved GeoJSON FeatureCollection or null
     ],
     activePlan: "tp1"
@@ -290,6 +293,23 @@ function merge(saved) {
     } else if (!Array.isArray(p.packing)) {
       p.packing = [];
     }
+    /* One-time migration: a plan's single packing list becomes the first of
+       several named lists. The existing items move across rather than being
+       rebuilt, so their ids — and anything in Trash pointing at them — stay
+       valid. p.packing is emptied straight after so a second load can't
+       duplicate the list. The list id is derived from the plan id rather
+       than random, so two devices still holding the old shape migrate to
+       the same id and merge instead of producing two identical lists. */
+    if (!Array.isArray(p.packLists)) p.packLists = [];
+    if (!p.packLists.length) {
+      p.packLists.push({
+        id: "pl-legacy-" + p.id, name: "Packing list", notes: "",
+        items: p.packing.length ? p.packing : []
+      });
+    }
+    p.packing = [];
+    p.packLists.forEach(l => { if (!Array.isArray(l.items)) l.items = []; });
+    if (!p.packLists.some(l => l.id === p.activePackList)) p.activePackList = p.packLists[0].id;
   });
   s.reference = Object.assign(structuredClone(DEFAULT_STATE.reference), saved.reference || {});
   s.trash = Array.isArray(saved.trash) ? saved.trash : [];

@@ -91,8 +91,15 @@ function buildIndex() {
     push("Travel plan", p.name, "", () => go("travel"));
     (p.notes || "").split("\n").forEach(line =>
       line.trim() && push("Notes", line.trim().slice(0, 120), "Travel · " + p.name, () => go("travel")));
-    (p.packing || "").split("\n").forEach(line =>
-      line.trim() && push("Packing", line.trim(), p.name, () => go("travel")));
+    // Packing is now several named lists per plan rather than one blob —
+    // index each list's name, its items, and its rich-text notes.
+    (p.packLists || []).forEach(l => {
+      push("Packing list", l.name, p.name, () => go("travel"));
+      (l.items || []).forEach(it =>
+        it.text && push("Packing", it.text, `${p.name} · ${l.name}`, () => go("travel")));
+      stripHtml(l.notes).split(/(?:\n|\.\s)/).forEach(line =>
+        line.trim() && push("Notes", line.trim().slice(0, 120), `${p.name} · ${l.name}`, () => go("travel")));
+    });
     (p.stops || []).forEach(s => s.place && push("Stop", s.place, p.name, () => go("travel")));
   });
 
