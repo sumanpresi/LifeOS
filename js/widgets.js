@@ -269,13 +269,25 @@ function renderJournalEditor(viewDate) {
 }
 let journalFilterFrom = "", journalFilterTo = "";
 let journalSearchQuery = "";
+let journalSortDesc = true; // newest first by default
 
 /* The dates that currently pass the date range *and* the text search,
    newest first. Shared by the Past-entries list and the .txt export so
    the export button always writes out exactly what the list is showing —
    one filter, one definition of "what's selected". */
+/* Order by the actual date the key represents rather than by string
+   comparison. Padded ISO keys sort identically either way, but a key that
+   slipped through in another shape would land arbitrarily under a plain
+   sort — here it still falls in the right place. */
+function journalDateValue(k) {
+  const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(String(k).trim());
+  return m ? Number(m[1]) * 10000 + Number(m[2]) * 100 + Number(m[3]) : -1;
+}
 function filteredJournalDates() {
-  let dates = Object.keys(state.journal).filter(d => (state.journal[d] || "").trim()).sort().reverse();
+  let dates = Object.keys(state.journal).filter(d => (state.journal[d] || "").trim())
+    .sort((a, b) => journalSortDesc
+      ? journalDateValue(b) - journalDateValue(a)
+      : journalDateValue(a) - journalDateValue(b));
   if (journalFilterFrom) dates = dates.filter(d => d >= journalFilterFrom);
   if (journalFilterTo) dates = dates.filter(d => d <= journalFilterTo);
   if (journalSearchQuery) {
@@ -381,6 +393,16 @@ function renderJournalList(viewDate) {
   renderJournalCalendar();
 }
 
+export function toggleJournalSort() {
+  journalSortDesc = !journalSortDesc;
+  const btn = document.getElementById("journalSortBtn");
+  if (btn) {
+    btn.textContent = journalSortDesc ? "↓ Most recent first" : "↑ Oldest first";
+    btn.title = journalSortDesc ? "Showing newest first — click for oldest first" : "Showing oldest first — click for newest first";
+  }
+  renderJournalList(currentJournalDate || todayKey());
+}
+
 export function applyJournalSearch() {
   journalSearchQuery = (document.getElementById("journalSearchInput")?.value || "").trim();
   renderJournalList(currentJournalDate || todayKey());
@@ -394,9 +416,12 @@ export function clearJournalSearch() {
 
 /* ---------- export the selected date range to a .txt file ---------- */
 export function exportJournalRange() {
-  const dates = filteredJournalDates().slice().reverse(); // oldest first reads better in a file
+  // The file is written in the same order the list is showing, so the
+  // export can never disagree with what's on screen.
+  const dates = filteredJournalDates();
   if (!dates.length) { toast("No entries in that date range to export."); return; }
-  const from = dates[0], to = dates[dates.length - 1];
+  const first = dates[0], last = dates[dates.length - 1];
+  const from = journalSortDesc ? last : first, to = journalSortDesc ? first : last;
   const rule = "=".repeat(56);
   const out = [
     "LifeOS — Journal export",

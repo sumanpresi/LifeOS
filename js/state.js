@@ -227,6 +227,24 @@ function load() {
 function merge(saved) {
   const s = Object.assign(structuredClone(DEFAULT_STATE), saved);
   /* deep-default the containers that older versions may lack */
+  /* Journal keys must be zero-padded ISO ("2026-08-02"), because the Past
+     entries list, the calendar and the date filters all compare them as
+     plain strings — a stray "2026-8-2" from an older build or a manual
+     import would sort into the wrong place and never match a filter.
+     Rewrite anything repairable; leave genuinely unparseable keys alone
+     rather than silently dropping someone's writing. */
+  if (s.journal && typeof s.journal === "object") {
+    const fixed = {};
+    Object.keys(s.journal).forEach(k => {
+      const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(String(k).trim());
+      const key = m ? `${m[1]}-${m[2].padStart(2, "0")}-${m[3].padStart(2, "0")}` : k;
+      // If both forms exist, keep the longer entry rather than letting
+      // whichever happens to come last win.
+      if (fixed[key] && String(fixed[key]).length > String(s.journal[k]).length) return;
+      fixed[key] = s.journal[k];
+    });
+    s.journal = fixed;
+  }
   s.sections = Object.assign(structuredClone(DEFAULT_STATE.sections), saved.sections || {});
   /* One-time migration: a section's single free-text Notes box becomes a
      list of separately-titled rich-text notes. Whatever was already

@@ -407,6 +407,9 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .journal-list-item .jd-snip + .jd-snip{margin-top:3px}
 .jd-hit{background:#FBE7A2;color:var(--ink);border-radius:3px;padding:0 1px;font-weight:700}
 .journal-list-item.active .jd-hit{background:#F5D76E}
+.journal-sort-btn{border:1px solid transparent;background:none;cursor:pointer;color:var(--muted);
+  font-size:12px;font-weight:600;padding:4px 9px;border-radius:8px;white-space:nowrap}
+.journal-sort-btn:hover{border-color:var(--line);color:var(--ink);background:var(--paper)}
 .journal-search-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px}
 .journal-search-icon{font-size:12px;opacity:.55;flex-shrink:0}
 .journal-search-row input{flex:1;min-width:150px;border:1px solid var(--line);border-radius:9px;
