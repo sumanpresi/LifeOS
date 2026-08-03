@@ -69,7 +69,13 @@ function buildIndex() {
   });
   state.gsi.links.forEach(l => push("Link", l.title, "GSI", () => window.open(l.url, "_blank")));
   (state.gsi.personalDocs || []).forEach(d => push("Document", d.name, "Personal", () => window.open(d.url, "_blank")));
-  (state.gsi.workDocs || []).forEach(d => push("Document", d.name, "Work", () => window.open(d.url, "_blank")));
+  // Work documents live per project, inside named tabs — the old flat
+  // state.gsi.workDocs has been empty since that move, so nothing here was
+  // reaching the index at all. Archived tabs and links stay out.
+  (state.gsi.projects || []).forEach(proj =>
+    (proj.workDocGroups || []).filter(gr => !gr.archived).forEach(gr =>
+      gr.docs.filter(d => !d.archived).forEach(d =>
+        push("Document", d.name, `${proj.name} · ${gr.name}`, () => window.open(d.url, "_blank")))));
 
   // Finance
   (state.finance.notes || "").split("\n").forEach(line =>

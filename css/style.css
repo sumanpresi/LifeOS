@@ -1318,6 +1318,15 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .gsi-archive-modal{width:100%;max-width:600px;max-height:80vh;background:var(--card);border-radius:18px;
   box-shadow:0 30px 80px -20px rgba(0,0,0,.4);display:flex;flex-direction:column;overflow:hidden}
 .gsi-archive-modal-body{flex:1;overflow-y:auto;padding:12px 20px 20px}
+.wd-group-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap}
+.wd-group-row input{flex:1;min-width:120px;border:none;background:transparent;padding:0;
+  font-family:'Fraunces',serif;font-size:17px;font-weight:600;color:var(--ink)}
+.wd-group-row input:focus{outline:none;border-bottom:1px solid var(--line)}
+.wd-archive-btn{margin-top:10px;font-size:12.5px;padding:6px 12px}
+.wd-archive-panel{display:none;margin-top:8px;border:1px solid var(--line);border-radius:12px;
+  padding:2px 12px;background:var(--paper)}
+.wd-archive-panel.open{display:block}
+@media(max-width:640px){.wd-group-row input{min-height:40px}}
 .gsi-archive-row{display:flex;align-items:center;justify-content:space-between;gap:10px;
   padding:10px 0;border-bottom:1px dashed var(--line)}
 .gsi-archive-row:last-child{border-bottom:none}

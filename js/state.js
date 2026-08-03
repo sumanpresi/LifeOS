@@ -127,7 +127,10 @@ export const DEFAULT_STATE = {
       { id: "gl2", title: "Bhukosh", url: "https://bhukosh.gsi.gov.in" }
     ],
     personalDocs: [],        // [{id, name, url}]
-    workDocs: []              // [{id, name, url}]
+    workDocs: [],             // legacy flat list — migrated into workDocGroups below
+    // Documents are grouped under named tabs. Each group:
+    // {id, name, archived, docs: [{id, name, url, archived}]}
+    workDocGroups: [], activeWorkDocGroup: ""
   },
   /* Data for the Communication module (pages/communication.html). The module
      itself renders in an isolated iframe (separate CSS/JS, no id/class clashes
@@ -282,7 +285,36 @@ function merge(saved) {
     target.workDocs = [...(target.workDocs || []), ...s.gsi.workDocs];
     s.gsi.workDocs = [];
   }
-  s.gsi.projects.forEach(p => { p.workDocs = p.workDocs || []; }); // additive field — older saved projects predate per-project work docs
+  s.gsi.projects.forEach(p => {
+    p.workDocs = p.workDocs || []; // additive field — older saved projects predate per-project work docs
+    /* One-time migration: a project's flat document list becomes the first
+       of several named tabs. Existing documents move across rather than
+       being rebuilt, so their ids stay valid and anything already in Trash
+       still points at something real. p.workDocs is emptied straight after
+       so a second load can't duplicate them. The group id is derived from
+       the project id rather than random, for the same reason "legacy-gsi"
+       is above: two devices still holding the old shape migrate to the
+       same id and merge instead of creating two identical tabs. */
+    if (!Array.isArray(p.workDocGroups)) p.workDocGroups = [];
+    if (!p.workDocGroups.length) {
+      p.workDocGroups.push({
+        id: "wdg-legacy-" + p.id, name: "General", archived: false,
+        docs: p.workDocs.length ? p.workDocs : []
+      });
+    }
+    p.workDocs = [];
+    p.workDocGroups.forEach(gr => {
+      if (!Array.isArray(gr.docs)) gr.docs = [];
+      gr.archived = !!gr.archived;
+      gr.docs.forEach(d => { d.archived = !!d.archived; });
+    });
+    // The selected tab must be one that's actually on screen. Fall back to
+    // the first live tab, and only to an archived one if every tab is
+    // archived — in which case the card shows its empty state, not a crash.
+    if (!p.workDocGroups.some(gr => gr.id === p.activeWorkDocGroup && !gr.archived)) {
+      p.activeWorkDocGroup = (p.workDocGroups.find(gr => !gr.archived) || p.workDocGroups[0]).id;
+    }
+  });
   s.communication = Object.assign(structuredClone(DEFAULT_STATE.communication), saved.communication || {});
   // Top up with richer philosophical quotes rather than replacing the
   // list — keeps whatever the user already has (including any they've

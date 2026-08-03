@@ -46,6 +46,7 @@ function labelFor(entry) {
     case "gsiLink": return p.title;
     case "personalDoc": return p.name;
     case "workDoc": return p.name;
+    case "workDocGroup": return "Documents tab: " + p.name;
     case "travelPlan": return "Travel plan: " + p.name;
     case "travelStop": return p.place || "(unnamed stop)";
     case "packingItem": return p.text;
@@ -67,7 +68,7 @@ function labelFor(entry) {
 const TYPE_NAMES = {
   task: "Task", habit: "Habit", goal: "Goal", gsiProject: "GSI project", gsiProjectTask: "GSI task",
   log: "Work log entry", meeting: "Meeting", gsiLink: "GSI link", personalDoc: "Personal document",
-  workDoc: "Work document", travelPlan: "Travel plan", travelStop: "Travel stop", packingItem: "Packing item", packList: "Packing list",
+  workDoc: "Work document", workDocGroup: "Documents tab", travelPlan: "Travel plan", travelStop: "Travel stop", packingItem: "Packing item", packList: "Packing list",
   referencePage: "Reference page", referenceLink: "Reference link", financeItem: "Finance item",
   financeLink: "Finance link", medicine: "Medicine", prescription: "Prescription",
   healthLink: "Health link", bookmarkLink: "Link", feed: "News feed", sectionLink: "Link", sectionNote: "Note"
@@ -126,7 +127,29 @@ export function restoreFromTrash(id) {
     case "meeting": state.gsi.meetings.push(p); break;
     case "gsiLink": state.gsi.links.push(p); break;
     case "personalDoc": state.gsi.personalDocs.push(p); break;
-    case "workDoc": state.gsi.workDocs.push(p); break;
+    case "workDoc": {
+      const proj = state.gsi.projects.find(x => x.id === m.projectId) || state.gsi.projects[0];
+      if (proj) {
+        if (!Array.isArray(proj.workDocGroups)) proj.workDocGroups = [];
+        if (!proj.workDocGroups.length) proj.workDocGroups.push({ id: "wdg-restored", name: "General", archived: false, docs: [] });
+        const gr = proj.workDocGroups.find(x => x.id === m.groupId) || proj.workDocGroups[0];
+        gr.docs.push(p);
+        if (proj.id !== m.projectId) toast("Original project was deleted — restored into \"" + proj.name + "\" instead");
+        else if (m.groupId && gr.id !== m.groupId) toast("Original tab was deleted — restored into \"" + gr.name + "\" instead");
+      }
+      break;
+    }
+    case "workDocGroup": {
+      const proj = state.gsi.projects.find(x => x.id === m.projectId) || state.gsi.projects[0];
+      if (proj) {
+        if (!Array.isArray(proj.workDocGroups)) proj.workDocGroups = [];
+        p.archived = false;
+        proj.workDocGroups.push(p);
+        proj.activeWorkDocGroup = p.id;
+        if (proj.id !== m.projectId) toast("Original project was deleted — restored into \"" + proj.name + "\" instead");
+      }
+      break;
+    }
     case "travelPlan": state.travel.plans.push(p); break;
     case "travelStop": {
       const plan = state.travel.plans.find(x => x.id === m.planId) || state.travel.plans[0];

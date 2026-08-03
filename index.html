@@ -468,6 +468,14 @@
           <input type="text" id="workDocsLabel" onchange="renameWorkDocsLabel(this.value)"
             style="border:none;background:transparent;font-family:'Fraunces',serif;font-size:19px;font-weight:600;flex:1;padding:0">
         </div>
+        <div class="card-body" style="padding-bottom:0">
+          <div class="tabs" id="workDocTabs"></div>
+          <div class="wd-group-row" id="workDocGroupRow">
+            <input type="text" id="workDocGroupName" onchange="renameWorkDocGroup(this.value)" title="Rename this tab">
+            <button class="icon-btn" onclick="archiveWorkDocGroup()" title="Archive this tab — keeps it, just hides it">🗄 Archive</button>
+            <button class="icon-btn" onclick="delWorkDocGroup()" title="Delete this tab (recoverable from Trash)">Delete</button>
+          </div>
+        </div>
         <div class="card-body">
           <div class="link-grid" id="workDocs" style="grid-template-columns:1fr"></div>
           <div class="add-inline">
@@ -475,6 +483,8 @@
             <input type="text" id="workDocUrl" placeholder="https://…">
             <button class="btn btn-ghost" onclick="addWorkDoc()">➕ Add</button>
           </div>
+          <button class="btn btn-ghost wd-archive-btn" id="workDocArchiveBtn" onclick="toggleWorkDocArchive()" style="display:none">🗄 Archived (0)</button>
+          <div class="wd-archive-panel" id="workDocArchivePanel"></div>
         </div>
       </div>
       <div class="card" style="margin-top:16px">

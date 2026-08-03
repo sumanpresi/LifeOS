@@ -428,7 +428,9 @@ export function toggleGsiLinkEdit(evt, id) {
 export function addProject() {
   const name = prompt("Name this project (e.g. NGDR, BISAG-N Integration, Field Survey):");
   if (!name || !name.trim()) return;
-  const p = { id: uid(), name: name.trim(), tasks: [], workDocs: [] };
+  const p = { id: uid(), name: name.trim(), tasks: [], workDocs: [],
+    workDocGroups: [{ id: uid(), name: "General", archived: false, docs: [] }] };
+  p.activeWorkDocGroup = p.workDocGroups[0].id;
   state.gsi.projects.push(p);
   state.gsi.activeProject = p.id;
   persist(); renderProjects();
@@ -829,8 +831,175 @@ function renderLinksAndDocs() {
   if (gl) gl.innerHTML = g.links.map(l => docTabHtml(l, "title", "url", "editGsiLink", "delGsiLink")).join("") || `<p class="hint">No links yet.</p>`;
   const pd = document.getElementById("personalDocs");
   if (pd) pd.innerHTML = (g.personalDocs || []).map(d => docTabHtml(d, "name", "url", "editPersonalDoc", "delPersonalDoc")).join("") || `<p class="hint">No documents yet.</p>`;
+  renderWorkDocs();
+}
+
+/* ---------- Work documents: named tabs, each holding its own links ----------
+   Deleting still routes through Trash (30-day recovery). Archiving is the
+   separate, gentler action — the tab or link stays with the project, just
+   out of the way, and comes back from the Archived panel in one click.
+   Same split GSI tasks already draw between Archive and Trash. */
+function liveWorkDocGroups(p) { return (p.workDocGroups || []).filter(gr => !gr.archived); }
+function currentWorkDocGroup(p) {
+  const live = liveWorkDocGroups(p);
+  return live.find(gr => gr.id === p.activeWorkDocGroup) || live[0] || null;
+}
+let workDocArchiveOpen = false;
+
+function renderWorkDocs() {
+  const p = activeProject();
+  if (!p) return;
+  const live = liveWorkDocGroups(p);
+  const group = currentWorkDocGroup(p);
+
+  const tabsEl = document.getElementById("workDocTabs");
+  if (tabsEl) {
+    tabsEl.innerHTML = live.map(gr => `
+      <button class="tab ${group && gr.id === group.id ? "active" : ""}" onclick="switchWorkDocGroup('${gr.id}')">${esc(gr.name)}</button>`).join("")
+      + `<button class="tab tab-add" onclick="addWorkDocGroup()" title="New tab">＋</button>`;
+  }
+
+  const nameRow = document.getElementById("workDocGroupRow");
+  if (nameRow) nameRow.style.display = group ? "" : "none";
+  const nameEl = document.getElementById("workDocGroupName");
+  if (nameEl && group && document.activeElement !== nameEl) nameEl.value = group.name;
+
   const wd = document.getElementById("workDocs");
-  if (wd) wd.innerHTML = (activeProject().workDocs || []).map(d => docTabHtml(d, "name", "url", "editWorkDoc", "delWorkDoc")).join("") || `<p class="hint">No documents yet.</p>`;
+  if (wd) {
+    if (!group) {
+      wd.innerHTML = `<p class="hint">Every tab is archived — restore one below, or add a new tab.</p>`;
+    } else {
+      const docs = group.docs.filter(d => !d.archived);
+      wd.innerHTML = docs.map(d => workDocRowHtml(d)).join("") || `<p class="hint">No documents in this tab yet.</p>`;
+    }
+  }
+
+  // The count covers archived tabs plus archived links inside *live* tabs.
+  // Links inside an archived tab aren't listed separately — restoring the
+  // tab brings them back with it, so listing them twice would mislead.
+  const archivedGroups = (p.workDocGroups || []).filter(gr => gr.archived);
+  const archivedDocs = [];
+  live.forEach(gr => gr.docs.filter(d => d.archived).forEach(d => archivedDocs.push({ d, gr })));
+  const total = archivedGroups.length + archivedDocs.length;
+
+  const trigger = document.getElementById("workDocArchiveBtn");
+  if (trigger) {
+    trigger.style.display = total ? "" : "none";
+    trigger.textContent = `🗄 Archived (${total})`;
+  }
+  const panel = document.getElementById("workDocArchivePanel");
+  if (panel) {
+    if (!total) workDocArchiveOpen = false;
+    panel.classList.toggle("open", workDocArchiveOpen);
+    panel.innerHTML = !workDocArchiveOpen ? "" :
+      archivedGroups.map(gr => `
+        <div class="gsi-archive-row">
+          <span class="gsi-archive-text">📁 ${esc(gr.name)} <span class="hint">— tab, ${gr.docs.length} link(s)</span></span>
+          <div class="gsi-archive-actions">
+            <button class="gsi-archive-restore" onclick="restoreWorkDocGroup('${gr.id}')">↺ Restore</button>
+            <button class="gsi-archive-remove" onclick="delWorkDocGroup('${gr.id}')" title="Delete tab (recoverable from Trash)">✕</button>
+          </div>
+        </div>`).join("")
+      + archivedDocs.map(({ d, gr }) => `
+        <div class="gsi-archive-row">
+          <span class="gsi-archive-text">🔗 ${esc(d.name)} <span class="hint">— in ${esc(gr.name)}</span></span>
+          <div class="gsi-archive-actions">
+            <button class="gsi-archive-restore" onclick="restoreWorkDoc('${gr.id}','${d.id}')">↺ Restore</button>
+            <button class="gsi-archive-remove" onclick="delWorkDoc('${d.id}','${gr.id}')" title="Delete link (recoverable from Trash)">✕</button>
+          </div>
+        </div>`).join("");
+  }
+}
+// The same row docTabHtml builds, with an archive button before delete.
+function workDocRowHtml(d) {
+  const url = d.url || "";
+  const fullUrl = url.startsWith("http") ? url : "https://" + url;
+  return `
+    <div class="link-row" data-doc-id="${d.id}">
+      <a href="${esc(fullUrl)}" target="_blank" rel="noopener" class="link-row-title" onclick="linkClickPulse(this)">${esc(d.name || "")}</a>
+      <button class="link-edit-btn" onclick="toggleDocEdit('${d.id}')" title="Edit">✎</button>
+      <button class="link-edit-btn" onclick="archiveWorkDoc('${d.id}')" title="Archive — keeps it, just hides it">🗄</button>
+      <button class="del link-del-btn" onclick="delWorkDoc('${d.id}')" title="Delete">✕</button>
+      <div class="link-edit-panel ${openDocEditId === d.id ? "open" : ""}" id="docEdit-${d.id}">
+        <div class="link-edit-panel-inner">
+          <input type="text" value="${esc(d.name || "")}" placeholder="Name" onchange="editWorkDoc('${d.id}','name',this.value)">
+          <input type="text" value="${esc(url)}" placeholder="https://…" onchange="editWorkDoc('${d.id}','url',this.value)">
+        </div>
+      </div>
+    </div>`;
+}
+
+export function toggleWorkDocArchive() { workDocArchiveOpen = !workDocArchiveOpen; renderWorkDocs(); }
+export function addWorkDocGroup() {
+  const name = prompt("Name this tab (e.g. NGDR, Circulars, Field reports):");
+  if (!name || !name.trim()) return;
+  const p = activeProject();
+  const gr = { id: uid(), name: name.trim(), archived: false, docs: [] };
+  p.workDocGroups.push(gr);
+  p.activeWorkDocGroup = gr.id;
+  persist(); rerender();
+}
+export function switchWorkDocGroup(id) {
+  activeProject().activeWorkDocGroup = id;
+  persist(false); rerender();
+}
+export function renameWorkDocGroup(v) {
+  const gr = currentWorkDocGroup(activeProject());
+  if (!gr || !v.trim()) return;
+  gr.name = v.trim();
+  persist(); rerender();
+}
+export function archiveWorkDocGroup() {
+  const p = activeProject();
+  const gr = currentWorkDocGroup(p);
+  if (!gr) return;
+  gr.archived = true;
+  const next = liveWorkDocGroups(p)[0];
+  p.activeWorkDocGroup = next ? next.id : "";
+  persist(); rerender();
+  toast(`Archived "${gr.name}" — restore it from Archived`);
+}
+export function restoreWorkDocGroup(id) {
+  const p = activeProject();
+  const gr = (p.workDocGroups || []).find(x => x.id === id);
+  if (!gr) return;
+  gr.archived = false;
+  p.activeWorkDocGroup = gr.id;
+  persist(); rerender();
+  toast(`Restored "${gr.name}"`);
+}
+export function delWorkDocGroup(id) {
+  const p = activeProject();
+  const gr = (p.workDocGroups || []).find(x => x.id === id) || currentWorkDocGroup(p);
+  if (!gr) return;
+  if (!confirm(`Delete the "${gr.name}" tab and its ${gr.docs.length} link(s)? You can restore it from Trash within 30 days.`)) return;
+  moveToTrash("workDocGroup", gr, { projectId: p.id });
+  p.workDocGroups = p.workDocGroups.filter(x => x.id !== gr.id);
+  if (!p.workDocGroups.length) {
+    // A project always keeps at least one tab, otherwise Add has nowhere to go.
+    p.workDocGroups.push({ id: uid(), name: "General", archived: false, docs: [] });
+  }
+  const next = liveWorkDocGroups(p)[0] || p.workDocGroups[0];
+  p.activeWorkDocGroup = next.id;
+  persist(); rerender();
+  toast(`Deleted "${gr.name}"`, "Undo", "undoLastDeleted('workDocGroup')");
+}
+export function archiveWorkDoc(id) {
+  const gr = currentWorkDocGroup(activeProject());
+  const d = gr && gr.docs.find(x => x.id === id);
+  if (!d) return;
+  d.archived = true;
+  persist(); rerender();
+  toast(`Archived "${d.name}" — restore it from Archived`);
+}
+export function restoreWorkDoc(groupId, docId) {
+  const p = activeProject();
+  const gr = (p.workDocGroups || []).find(x => x.id === groupId);
+  const d = gr && gr.docs.find(x => x.id === docId);
+  if (!d) return;
+  d.archived = false;
+  persist(); rerender();
+  toast(`Restored "${d.name}"`);
 }
 // Delete already goes through Trash for all three (see delGsiLink /
 // delPersonalDoc / delWorkDoc below) — this just gives an accidental
@@ -843,8 +1012,18 @@ export function undoLastDeleted(type) {
   else if (type === "personalDoc") { state.gsi.personalDocs = state.gsi.personalDocs || []; state.gsi.personalDocs.unshift(entry.payload); }
   else if (type === "workDoc") {
     const p = state.gsi.projects.find(x => x.id === entry.meta?.projectId) || activeProject();
-    p.workDocs = p.workDocs || [];
-    p.workDocs.unshift(entry.payload);
+    // Fall back through: the tab it came from, the tab on screen, the first tab.
+    const gr = (p.workDocGroups || []).find(x => x.id === entry.meta?.groupId)
+      || currentWorkDocGroup(p) || (p.workDocGroups || [])[0];
+    if (!gr) return;
+    gr.docs.unshift(entry.payload);
+  }
+  else if (type === "workDocGroup") {
+    const p = state.gsi.projects.find(x => x.id === entry.meta?.projectId) || activeProject();
+    p.workDocGroups = p.workDocGroups || [];
+    entry.payload.archived = false;
+    p.workDocGroups.push(entry.payload);
+    p.activeWorkDocGroup = entry.payload.id;
   }
   else return;
   state.trash = state.trash.filter(x => x.id !== entry.id);
@@ -865,7 +1044,9 @@ export function editPersonalDoc(id, field, value) {
   d[field] = editUrlField(field, value); persist(); rerender();
 }
 export function editWorkDoc(id, field, value) {
-  const d = (activeProject().workDocs || []).find(x => x.id === id); if (!d) return;
+  const p = activeProject();
+  const gr = (p.workDocGroups || []).find(x => x.docs.some(d => d.id === id));
+  const d = gr && gr.docs.find(x => x.id === id); if (!d) return;
   d[field] = editUrlField(field, value); persist(); rerender();
 }
 export function addGsiLink() {
@@ -903,17 +1084,23 @@ export function addWorkDoc() {
   const n = document.getElementById("workDocName"), u = document.getElementById("workDocUrl");
   if (!n.value.trim() || !u.value.trim()) return toast("Name and link are required");
   const p = activeProject();
-  p.workDocs = p.workDocs || [];
-  p.workDocs.push({ id: uid(), name: n.value.trim(), url: u.value.trim() });
+  const gr = currentWorkDocGroup(p);
+  if (!gr) return toast("Add or restore a tab first");
+  gr.docs.push({ id: uid(), name: n.value.trim(), url: u.value.trim(), archived: false });
   n.value = u.value = "";
   persist(); rerender();
 }
-export function delWorkDoc(id) {
+// groupId is optional — supplied when deleting from the Archived panel,
+// where the link may sit in a tab that isn't the one currently selected.
+export function delWorkDoc(id, groupId) {
   const p = activeProject();
-  const d = (p.workDocs || []).find(x => x.id === id);
+  const gr = groupId
+    ? (p.workDocGroups || []).find(x => x.id === groupId)
+    : (p.workDocGroups || []).find(x => x.docs.some(d => d.id === id));
+  const d = gr && gr.docs.find(x => x.id === id);
   if (!d) return;
-  moveToTrash("workDoc", d, { projectId: p.id });
-  p.workDocs = (p.workDocs || []).filter(x => x.id !== id);
+  moveToTrash("workDoc", d, { projectId: p.id, groupId: gr.id });
+  gr.docs = gr.docs.filter(x => x.id !== id);
   persist(); rerender();
   toast(`Deleted "${d.name}"`, "Undo", "undoLastDeleted('workDoc')");
 }
