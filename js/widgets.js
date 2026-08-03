@@ -5,6 +5,7 @@ import { moveToTrash } from './trash.js';
 import { isLogged, streak } from './habits.js';
 import { getAllGsiTasksFlat } from './gsi.js';
 import { mountRichEditor, getRichEditor } from './rich-text.js';
+import { sanitizeHtml } from './sanitize.js';
 
 /* ---------- important links ---------- */
 let openLinkEditId = null; // which single link's inline edit panel is open — UI-only, not persisted
@@ -247,8 +248,18 @@ function renderJournalEditor(viewDate) {
   const quill = mountRichEditor(JOURNAL_EDITOR_ID, () => state.journal[viewDate] || "", html => {
     const d = journalLoadedDate;
     if (!d) return;
-    if (isEmptyRichText(html)) delete state.journal[d];
-    else state.journal[d] = html;
+    if (isEmptyRichText(html)) {
+      // Selecting a day's writing and deleting it used to remove the entry
+      // outright, with nothing anywhere to get it back from. Keep a copy.
+      const previous = state.journal[d];
+      if (previous && !isEmptyRichText(previous)) {
+        moveToTrash("journalEntry", { id: "journal-" + d, date: d, html: previous }, { date: d });
+        toast(`Entry for ${fmtJournalDate(d)} moved to Trash`);
+      }
+      delete state.journal[d];
+    } else {
+      state.journal[d] = html;
+    }
     persist();
     renderJournalList(d);
   });
@@ -264,7 +275,9 @@ function renderJournalEditor(viewDate) {
   const html = state.journal[viewDate] || "";
   // Source is 'api' for both of these, which rich-text.js deliberately
   // ignores — loading a day must not count as editing it.
-  if (html) quill.clipboard.dangerouslyPasteHTML(html);
+  // Date-to-date content swaps bypass mountRichEditor's own sanitizing,
+  // so this second entry point needs the same guard.
+  if (html) quill.clipboard.dangerouslyPasteHTML(sanitizeHtml(html));
   else quill.setText("");
 }
 let journalFilterFrom = "", journalFilterTo = "";

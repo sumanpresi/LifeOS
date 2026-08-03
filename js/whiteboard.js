@@ -60,7 +60,9 @@
       lag and the eraser visually misbehaving on high-frequency,
       high-resolution mobile input. */
 import { state, persist, uid, esc } from './state.js';
+import { sanitizeHtml } from './sanitize.js';
 import { toast } from './ui.js';
+import { moveToTrash } from './trash.js';
 
 const COLORS = ["#1B1B1A", "#DC2626", "#2563EB", "#16A34A", "#F59E0B", "#7C3AED"];
 const WIDTHS = { thin: 2, medium: 4, thick: 8 };
@@ -428,9 +430,23 @@ export function undoWhiteboardStroke(boardId) {
 export function clearWhiteboardPage(boardId) {
   const b = board(boardId);
   if (!b.strokes.length && !b.objects.length) return;
-  if (!confirm("Clear this whiteboard? This can't be undone.")) return;
+  const noteCount = b.objects.length;
+  if (!confirm(
+    `Clear this whiteboard?\n\n${b.strokes.length} drawing stroke(s) and ${noteCount} sticky note(s) ` +
+    `will be moved to Trash, where you can restore them for 30 days.`
+  )) return;
+  // This used to say "this can't be undone", and it meant it — one click
+  // destroyed every stroke and every sticky note on the board with no way
+  // back. The whole page contents now go to Trash as a single entry, so
+  // restoring puts the board back exactly as it was.
+  moveToTrash("whiteboardPage", {
+    id: uid(), boardId,
+    strokes: structuredClone(b.strokes),
+    objects: structuredClone(b.objects),
+  }, { boardId });
   b.strokes = []; b.objects = [];
   persist(); redraw(boardId); renderObjects(boardId);
+  toast(`Cleared — ${noteCount} note(s) and the drawing are in Trash`);
 }
 
 export function zoomWhiteboardIn(boardId) { setZoom(boardId, Math.min(200, inst(boardId).zoomPct + 25)); }
@@ -587,39 +603,13 @@ const STICKY_HILITE_COLORS = ["#FEF08A","#FCA5A5","#93C5FD","#86EFAC","#D8B4FE",
 // another device via innerHTML — this is the render-time allowlist that
 // makes that safe, independent of what actually produced the HTML
 // (this editor's own toolbar, a stray paste, or old/foreign data).
-const STICKY_ALLOWED_TAGS = new Set(["B","STRONG","I","EM","U","S","STRIKE","SPAN","DIV","P","BR","UL","OL","LI","A","HR","LABEL"]);
-const STICKY_ALLOWED_ATTRS = { SPAN: ["style"], DIV: ["class"], A: ["href","target","rel"], LI: ["class"] };
-const STICKY_ALLOWED_STYLE_PROPS = /^(color|background-color|font-size|font-family|text-align)\s*:/i;
+// Sticky notes had their own allowlist; it now delegates to the shared
+// sanitizer in sanitize.js so notes, journal entries and every other
+// rich field are held to one identical standard rather than two that
+// drift apart. The shared version is the stricter of the two: it also
+// parses inertly via DOMParser and blocks javascript:/data: hrefs.
 function sanitizeStickyHtml(html) {
-  const root = document.createElement("div");
-  root.innerHTML = html || "";
-  (function walk(node) {
-    Array.from(node.childNodes).forEach(child => {
-      if (child.nodeType === 3) return; // plain text — always safe
-      if (child.nodeType !== 1) { node.removeChild(child); return; } // comments etc.
-      if (!STICKY_ALLOWED_TAGS.has(child.tagName)) {
-        while (child.firstChild) node.insertBefore(child.firstChild, child); // unwrap, keep the content
-        node.removeChild(child);
-        return;
-      }
-      const allowedAttrs = STICKY_ALLOWED_ATTRS[child.tagName] || [];
-      Array.from(child.attributes).forEach(attr => {
-        if (!allowedAttrs.includes(attr.name.toLowerCase())) child.removeAttribute(attr.name);
-      });
-      if (child.tagName === "SPAN" && child.hasAttribute("style")) {
-        const safe = child.getAttribute("style").split(";").map(s => s.trim())
-          .filter(s => STICKY_ALLOWED_STYLE_PROPS.test(s)).join(";");
-        if (safe) child.setAttribute("style", safe); else child.removeAttribute("style");
-      }
-      if (child.tagName === "A") {
-        const href = child.getAttribute("href") || "";
-        if (!/^https?:\/\//i.test(href)) child.removeAttribute("href");
-        else { child.setAttribute("target", "_blank"); child.setAttribute("rel", "noopener noreferrer"); }
-      }
-      walk(child);
-    });
-  })(root);
-  return root.innerHTML;
+  return sanitizeHtml(html);
 }
 // Reads a note's rich content, migrating a pre-rich-text note (plain
 // o.text only) into o.html exactly once. Newlines become <br> so

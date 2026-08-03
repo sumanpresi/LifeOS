@@ -46,6 +46,8 @@ function labelFor(entry) {
     case "gsiLink": return p.title;
     case "personalDoc": return p.name;
     case "workDoc": return p.name;
+    case "journalEntry": return "Journal — " + p.date;
+    case "whiteboardPage": return `Whiteboard contents — ${(p.objects||[]).length} note(s), ${(p.strokes||[]).length} stroke(s)`;
     case "workDocGroup": return "Documents tab: " + p.name;
     case "travelPlan": return "Travel plan: " + p.name;
     case "travelStop": return p.place || "(unnamed stop)";
@@ -68,7 +70,7 @@ function labelFor(entry) {
 const TYPE_NAMES = {
   task: "Task", habit: "Habit", goal: "Goal", gsiProject: "GSI project", gsiProjectTask: "GSI task",
   log: "Work log entry", meeting: "Meeting", gsiLink: "GSI link", personalDoc: "Personal document",
-  workDoc: "Work document", workDocGroup: "Documents tab", travelPlan: "Travel plan", travelStop: "Travel stop", packingItem: "Packing item", packList: "Packing list",
+  workDoc: "Work document", journalEntry: "Journal entry", whiteboardPage: "Whiteboard contents", workDocGroup: "Documents tab", travelPlan: "Travel plan", travelStop: "Travel stop", packingItem: "Packing item", packList: "Packing list",
   referencePage: "Reference page", referenceLink: "Reference link", financeItem: "Finance item",
   financeLink: "Finance link", medicine: "Medicine", prescription: "Prescription",
   healthLink: "Health link", bookmarkLink: "Link", feed: "News feed", sectionLink: "Link", sectionNote: "Note"
@@ -176,6 +178,24 @@ export function restoreFromTrash(id) {
         if (!Array.isArray(plan.packLists)) plan.packLists = [];
         plan.packLists.push(p);
         if (plan.id !== m.planId) toast("Original plan was deleted — restored into \"" + plan.name + "\" instead");
+      }
+      break;
+    }
+    case "journalEntry": {
+      // If something has since been written on that date, don't overwrite
+      // it — append the restored text below instead of replacing it.
+      const existing = state.journal[p.date];
+      state.journal[p.date] = existing ? existing + p.html : p.html;
+      if (existing) toast("That day already had an entry — the restored text was added below it");
+      break;
+    }
+    case "whiteboardPage": {
+      const b = state.whiteboards[m.boardId] || (state.brainstormBoards || []).find(x => x.id === m.boardId);
+      if (b) {
+        b.strokes = [...(b.strokes || []), ...(p.strokes || [])];
+        b.objects = [...(b.objects || []), ...(p.objects || [])];
+      } else {
+        toast("That whiteboard no longer exists");
       }
       break;
     }

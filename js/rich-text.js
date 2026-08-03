@@ -22,6 +22,8 @@
    (the same mistake this app already hit once with its Leaflet maps)
    would wipe out an active editing session and its cursor position. */
 
+import { sanitizeHtml } from './sanitize.js';
+
 const instances = {}; // containerId -> quill instance
 
 const FONTS = ["arial", "times-new-roman", "georgia", "verdana", "courier-new", "trebuchet-ms", "comic-sans-ms", "impact"];
@@ -88,7 +90,11 @@ export function mountRichEditor(containerId, getInitialHtml, onChange) {
   registerCustomFormats();
 
   const quill = new Quill(el, { theme: "snow", modules: { toolbar: TOOLBAR } });
-  const initial = getInitialHtml();
+  // Both directions are sanitized. Inbound, because stored HTML may
+  // predate this check or have arrived from another device; outbound,
+  // because a paste from a web page brings that page's markup with it
+  // and this is the last point before it reaches storage.
+  const initial = sanitizeHtml(getInitialHtml());
   if (initial) quill.clipboard.dangerouslyPasteHTML(initial);
   addLineHeightControl(quill);
 
@@ -102,7 +108,7 @@ export function mountRichEditor(containerId, getInitialHtml, onChange) {
     // sync bug fixed earlier in this project. Only 'user' should count.
     if (source !== "user") return;
     clearTimeout(timer);
-    timer = setTimeout(() => onChange(quill.root.innerHTML), 500);
+    timer = setTimeout(() => onChange(sanitizeHtml(quill.root.innerHTML)), 500);
   });
 
   instances[containerId] = quill;

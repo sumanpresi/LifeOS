@@ -12,6 +12,8 @@ import * as health from './health.js';
 import * as travel from './travel.js';
 import * as reference from './reference.js';
 import * as trash from './trash.js';
+import * as backup from './backup.js';
+import * as healthCheck from './health-check.js';
 import * as dateShortcuts from './date-shortcuts.js';
 import * as expandView from './expand-view.js';
 import * as mapCoords from './map-click-coords.js';
@@ -43,6 +45,7 @@ function renderAll() {
   travel.renderTravel();
   reference.renderReference();
   trash.renderTrash();
+  backup.renderBackupPanel();
   whiteboard.initWhiteboard("overview");
   whiteboard.initWhiteboard("gsi");
 }
@@ -155,12 +158,19 @@ Object.assign(window,
   { openGhModal: cloud.openGhModal, closeGhModal: cloud.closeGhModal, ghButton: cloud.ghButton,
     signIn: cloud.signIn, signOut: cloud.signOut, syncNow: cloud.syncNow },
   { connectGoogleCalendar: gcal.connectGoogleCalendar, disconnectGoogleCalendar: gcal.disconnectGoogleCalendar },
-  { exportBackup: ui.exportBackup, importBackup: ui.importBackup, autoGrow: ui.autoGrow });
+  { exportBackup: backup.downloadBackup, importBackup: backup.importBackupFile, autoGrow: ui.autoGrow },
+  { downloadBackup: backup.downloadBackup, importBackupFile: backup.importBackupFile,
+    restoreSnapshot: backup.restoreSnapshot, deleteSnapshot: backup.deleteSnapshot,
+    takeSnapshotNow: () => { backup.takeSnapshot("manual"); backup.renderBackupPanel(); },
+    runDataHealthCheck: healthCheck.runDataHealthCheck, repairDataProblems: healthCheck.repairDataProblems });
 
 /* ---- boot ---- */
 setRenderer(renderAll);
 sections.buildSectionPages();
 trash.purgeOldTrash();
+// Before renderAll, so the very first snapshot captures the data exactly
+// as it was loaded rather than after any render-time normalisation.
+backup.autoSnapshotIfDue();
 renderAll();
 try {
   const lastPage = localStorage.getItem("lifeos-last-page");
@@ -171,4 +181,5 @@ search.initSearch();
 initCommunicationBridge();
 initNgdrTrackerBridge();
 cloud.initSupabase();
+backup.backupReminderIfDue();
 gcal.handleGoogleCalendarCallback();

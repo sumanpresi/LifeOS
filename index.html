@@ -901,6 +901,41 @@
           <div id="trashList"></div>
         </div>
       </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card-head"><h2>Backup</h2><span class="hint" id="backupStatus"></span></div>
+        <div class="card-body">
+          <p class="hint" style="margin-top:0">A backup is a file that leaves this device. Download one regularly and keep it in Google Drive, OneDrive, or on a disk &mdash; Supabase and this browser can both fail, and a copy you hold cannot.</p>
+          <div class="backup-actions">
+            <button class="btn" onclick="downloadBackup()">&darr; Download backup (.json)</button>
+            <label class="btn btn-ghost backup-import-label">
+              &uarr; Restore from file
+              <input type="file" accept="application/json,.json" onchange="importBackupFile(this)" hidden>
+            </label>
+            <button class="btn btn-ghost" onclick="takeSnapshotNow()">&#128247; Snapshot now</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card-head"><h2>Data health</h2></div>
+        <div class="card-body">
+          <p class="hint" style="margin-top:0">Checks your data for faults that could hide your work or make a page fail to load. Nothing you've written is ever deleted by a repair.</p>
+          <div class="backup-actions">
+            <button class="btn" onclick="runDataHealthCheck()">&#128269; Check my data</button>
+            <button class="btn btn-ghost" id="healthRepairBtn" onclick="repairDataProblems()" style="display:none">&#128295; Repair problems</button>
+          </div>
+          <div id="healthReport"></div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:16px">
+        <div class="card-head"><h2>Snapshot history</h2></div>
+        <div class="card-body">
+          <p class="hint" style="margin-top:0">Automatic local restore points, taken every few hours. Good for undoing a bad edit or a mass deletion &mdash; but they live in this browser, so they are not a substitute for a downloaded backup.</p>
+          <div id="snapshotList"></div>
+        </div>
+      </div>
     </section>
     <div id="sectionPages"></div>
   </main>

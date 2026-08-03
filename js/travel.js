@@ -13,6 +13,7 @@ import { moveToTrash } from './trash.js';
 import { getCurrentLocation } from './geolocation.js';
 import { attachClickCoordinates } from './map-click-coords.js';
 import { mountRichEditor, unmountRichEditor, getRichEditor } from './rich-text.js';
+import { sanitizeHtml } from './sanitize.js';
 
 let travelView = "itinerary"; // "itinerary" | "route"
 
@@ -163,7 +164,9 @@ function renderPackLists(plan) {
   if (loadedPackListId === list.id) return;
   flushPackNotes(plan);
   loadedPackListId = list.id;
-  if (list.notes) quill.clipboard.dangerouslyPasteHTML(list.notes);
+  // Same as the journal: switching lists loads HTML directly, outside
+  // mountRichEditor's own sanitizing.
+  if (list.notes) quill.clipboard.dangerouslyPasteHTML(sanitizeHtml(list.notes));
   else quill.setText("");
 }
 let loadedPackListId = null; // which list's notes the shared editor is currently holding
