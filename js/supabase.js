@@ -325,6 +325,16 @@ export async function loadRemote(preferRemote = false) {
   }
 }
 export async function saveRemote() {
+  /* Nothing to send if this device holds exactly what the cloud already
+     has. rev is the same counter the reconcile uses, so this is the same
+     question ("have I edited since we agreed?") asked before spending an
+     upload of the entire document. Without it, a manual Sync press or the
+     one-minute poll re-uploads the whole state — whiteboard drawings and
+     all — to change nothing. */
+  if (agreedWithCloud() && !hasLocalEdits()) {
+    setSyncPill("ok", "Synced · " + nowTime());
+    return;
+  }
   if (!sb || !user) return;
   /* Never push this device's data up before it has checked what's already in
      the cloud — otherwise a stale local copy (e.g. a laptop that's been

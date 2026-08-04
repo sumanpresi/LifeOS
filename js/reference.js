@@ -4,6 +4,7 @@
    about different countries — same Leaflet + freehand sketch setup as the
    Travel Plan maps, with drawings saved as GeoJSON and fully editable. */
 import { state, uid, esc, persist, rerender } from './state.js';
+import { loadMapLibs } from './lazy-libs.js';
 import { toast } from './ui.js';
 import { attachFreehandTool } from './leaflet-freehand.js';
 import { attachPenAnnotationTool } from './map-pen-annotation.js';
@@ -212,11 +213,15 @@ export function resetWorldMapRoute() {
   document.getElementById("routeResetBtn").style.display = "none";
 }
 
-function initWorldMap() {
+async function initWorldMap() {
   const container = document.getElementById("worldMap");
   if (!container) return;
   if (worldMapInstance) { worldMapInstance.map.invalidateSize(); return; }
+  // Fetched on demand rather than at boot — see js/lazy-libs.js.
+  try { await loadMapLibs(); } catch (e) { container.textContent = "Map library couldn't load — check your connection."; return; }
   if (typeof L === "undefined") return;
+  // Another call may have finished building the map while this awaited.
+  if (worldMapInstance) { worldMapInstance.map.invalidateSize(); return; }
 
   const map = L.map(container).setView([20, 10], 2); // whole-world starting view
   addBaseLayer(map);

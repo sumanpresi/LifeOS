@@ -508,7 +508,21 @@ let saveTimer = null;
 
 export function setRemoteSaver(fn) { remoteSaver = fn; }
 export function setRenderer(fn) { renderer = fn; }
-export function rerender() { if (renderer) renderer(); }
+/* A single interaction often calls rerender() more than once — a handler
+   that edits data and then a sibling that re-sorts, or several fields
+   saved in a row. renderAll() redraws every module on every call, so
+   those duplicates were full extra passes over the whole interface.
+   Coalescing to one animation frame collapses a burst into a single
+   redraw, and lands it just before the browser paints rather than
+   between paints where the work is invisible anyway. */
+let renderQueued = false;
+export function rerender() {
+  if (!renderer || renderQueued) return;
+  renderQueued = true;
+  requestAnimationFrame(() => { renderQueued = false; renderer(); });
+}
+// For the few places that must see the DOM updated on the next line.
+export function rerenderNow() { if (renderer) renderer(); }
 
 export function persist(pushRemote = true) {
   /* pushRemote=false marks a purely local UI-state change — which tab is
@@ -525,7 +539,17 @@ export function persist(pushRemote = true) {
     state.updatedAt = Date.now();
     state.rev = (state.rev || 0) + 1; // clock-independent "something really changed here"
   }
-  store.set("lifeos-data", JSON.stringify(state));
+  /* JSON.stringify over the entire state — whiteboard strokes included —
+     ran on every single keystroke that reached persist(). On a large
+     board that is megabytes of serialisation per character typed, on the
+     main thread, and it was the biggest cause of typing feeling heavy.
+
+     The write is now coalesced over a short window. state itself is
+     already updated synchronously, so nothing reads stale data; only the
+     disk copy lags, and by at most a moment. flushLocalSave() below
+     forces it out before the tab can go away, so the window can't turn
+     into lost work. */
+  scheduleLocalWrite();
   if (pushRemote && remoteSaver) {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => { saveTimer = null; remoteSaver(); }, 1500);
@@ -538,7 +562,21 @@ export function persist(pushRemote = true) {
    followed right away by switching apps or closing the tab would never
    reach the cloud at all, since the debounce timer simply never gets the
    chance to fire. */
+let localWriteTimer = null;
+function scheduleLocalWrite() {
+  if (localWriteTimer) return;
+  localWriteTimer = setTimeout(() => { localWriteTimer = null; writeLocalNow(); }, 400);
+}
+function writeLocalNow() {
+  store.set("lifeos-data", JSON.stringify(state));
+}
+export function flushLocalSave() {
+  if (localWriteTimer) { clearTimeout(localWriteTimer); localWriteTimer = null; }
+  writeLocalNow();
+}
+
 export function flushPendingSave() {
+  flushLocalSave(); // never let the cloud copy be newer than the disk copy
   if (saveTimer && remoteSaver) {
     clearTimeout(saveTimer);
     saveTimer = null;

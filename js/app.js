@@ -15,6 +15,7 @@ import * as trash from './trash.js';
 import * as backup from './backup.js';
 import * as entertainment from './entertainment.js';
 import { decorateLinkRows } from './link-preview.js';
+import { flushLocalSave } from './state.js';
 import * as healthCheck from './health-check.js';
 import * as dateShortcuts from './date-shortcuts.js';
 import * as expandView from './expand-view.js';
@@ -196,4 +197,13 @@ initCommunicationBridge();
 initNgdrTrackerBridge();
 cloud.initSupabase();
 backup.backupReminderIfDue();
+
+/* The disk write is now coalesced (see persist() in state.js), so it has
+   to be forced out before the tab can disappear. supabase.js registers a
+   flush too, but only once signed in — this pair runs regardless, so a
+   signed-out session can't lose the last few hundred milliseconds of
+   work. pagehide is the reliable one on iOS, where visibilitychange
+   often doesn't fire before an actual close. */
+document.addEventListener("visibilitychange", () => { if (document.hidden) flushLocalSave(); });
+window.addEventListener("pagehide", flushLocalSave);
 gcal.handleGoogleCalendarCallback();

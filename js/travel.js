@@ -4,6 +4,7 @@
    markers, lines, shapes — that save as GeoJSON and reload fully editable.
    The Route Map tab still uses Google's no-key directions embed. */
 import { state, uid, esc, persist, rerender } from './state.js';
+import { loadMapLibs } from './lazy-libs.js';
 import { toast } from './ui.js';
 import { attachFreehandTool } from './leaflet-freehand.js';
 import { geocodeOne } from './geocode.js';
@@ -344,10 +345,13 @@ async function geocodeWithFallback(hotelName, placeName, alreadyTried) {
   return null;
 }
 
-function initStopMap(plan, s) {
+async function initStopMap(plan, s) {
   if (mapInstances[s.id]) { mapInstances[s.id].map.invalidateSize(); return; }
   const container = document.getElementById("leafletMap-" + s.id);
-  if (!container || typeof L === "undefined") return;
+  if (!container) return;
+  // Fetched on demand rather than at boot — see js/lazy-libs.js.
+  try { await loadMapLibs(); } catch (e) { container.textContent = "Map library couldn't load — check your connection."; return; }
+  if (typeof L === "undefined") return;
 
   // Fractional zoom (zoomSnap/zoomDelta below 1) was tried here for
   // smoother wheel-zoom steps, but it visibly clashed with the vector
