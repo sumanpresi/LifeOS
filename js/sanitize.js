@@ -27,12 +27,23 @@ const ALLOWED_TAGS = new Set([
   "TABLE", "THEAD", "TBODY", "TR", "TD", "TH"
 ]);
 
-/* `class` is allowed on block elements because Quill encodes alignment,
-   indentation, size and font as ql-* classes rather than inline style.
-   It is filtered below to ql-* only, so a class can't pull in styling
-   defined elsewhere in the app. */
+/* `class` is allowed on block elements because the editors encode
+   structure in classes rather than inline style: Quill uses ql-* for
+   alignment, indent, size and font, and sticky-note checklists use wb-*
+   for the checkbox rows. Both prefixes are the app's own, and the filter
+   below permits nothing else, so a class can't reach for styling defined
+   anywhere outside those two namespaces.
+
+   `contenteditable` and `data-checked` are permitted on SPAN for one
+   specific reason: a sticky-note checkbox is a contenteditable="false"
+   span carrying its own tick state. Strip either and the checkbox stops
+   being a checkbox — it becomes an ordinary character that can't be
+   ticked and behaves oddly when edited. Both values are validated below
+   rather than passed through, since neither can execute anything but
+   both change how the editor treats the element. */
 const ALLOWED_ATTRS = {
-  SPAN: ["style", "class"], DIV: ["style", "class"], P: ["style", "class"],
+  SPAN: ["style", "class", "contenteditable", "data-checked"],
+  DIV: ["style", "class", "contenteditable"], P: ["style", "class"],
   LI: ["style", "class"], OL: ["class"], UL: ["class"], PRE: ["class"],
   BLOCKQUOTE: ["class"], CODE: ["class"],
   H1: ["style", "class"], H2: ["style", "class"], H3: ["style", "class"],
@@ -57,9 +68,30 @@ function cleanStyle(el) {
 }
 
 function cleanClass(el) {
-  const safe = (el.getAttribute("class") || "").split(/\s+/)
-    .filter(c => /^ql-[\w-]+$/.test(c)).join(" ");
+  const classes = (el.getAttribute("class") || "").split(/\s+/).filter(Boolean);
+  // "done" is the ticked state of a checkbox row and carries its
+  // strikethrough. It's a bare, generic name, so it's only permitted
+  // alongside a wb- class — that keeps stored content from reaching for
+  // the identically-named .done styling used elsewhere in the app.
+  const hasWb = classes.some(c => /^wb-[\w-]+$/.test(c));
+  const safe = classes
+    .filter(c => /^(ql|wb)-[\w-]+$/.test(c) || (hasWb && c === "done"))
+    .join(" ");
   if (safe) el.setAttribute("class", safe); else el.removeAttribute("class");
+}
+
+/* contenteditable="false" is what makes a checkbox behave as one solid
+   object rather than loose text. Only that exact value is kept: "true"
+   and the plaintext-only variant are dropped, since neither is something
+   stored content has any business asserting. */
+function cleanEditable(el) {
+  if ((el.getAttribute("contenteditable") || "").toLowerCase() !== "false") {
+    el.removeAttribute("contenteditable");
+  }
+}
+function cleanChecked(el) {
+  const v = (el.getAttribute("data-checked") || "").toLowerCase();
+  if (v !== "true" && v !== "false") el.removeAttribute("data-checked");
 }
 
 function cleanHref(el) {
@@ -130,6 +162,8 @@ export function sanitizeHtml(html) {
 
       if (child.hasAttribute("style")) cleanStyle(child);
       if (child.hasAttribute("class")) cleanClass(child);
+      if (child.hasAttribute("contenteditable")) cleanEditable(child);
+      if (child.hasAttribute("data-checked")) cleanChecked(child);
       if (tag === "A") cleanHref(child);
 
       walk(child);
