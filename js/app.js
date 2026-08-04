@@ -13,6 +13,7 @@ import * as travel from './travel.js';
 import * as reference from './reference.js';
 import * as trash from './trash.js';
 import * as backup from './backup.js';
+import { decorateLinkRows } from './link-preview.js';
 import * as healthCheck from './health-check.js';
 import * as dateShortcuts from './date-shortcuts.js';
 import * as expandView from './expand-view.js';
@@ -46,6 +47,12 @@ function renderAll() {
   reference.renderReference();
   trash.renderTrash();
   backup.renderBackupPanel();
+  /* One call covers GSI links, Work documents and Reference links: they
+     are all rebuilt by innerHTML on each render, which discards any
+     decoration, so it has to be reapplied here rather than inside each
+     module. decorateLinkRows skips rows it has already handled and reads
+     from cache, so repeating it costs nothing. */
+  decorateLinkRows();
   whiteboard.initWhiteboard("overview");
   whiteboard.initWhiteboard("gsi");
 }

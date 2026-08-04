@@ -61,6 +61,7 @@
       high-resolution mobile input. */
 import { state, persist, uid, esc } from './state.js';
 import { sanitizeHtml } from './sanitize.js';
+import { decorateLinks, stripPreviewCards } from './link-preview.js';
 import { toast } from './ui.js';
 import { moveToTrash } from './trash.js';
 
@@ -1057,7 +1058,20 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
   // paste, handled separately below.
   const textEl = el.querySelector(".wb-sticky-text");
   textEl.addEventListener("pointerdown", (evt) => evt.stopPropagation()); // typing shouldn't start a drag
-  const saveHtml = () => { const o = getObj(); if (o) { o.html = textEl.innerHTML; o.updatedAt = Date.now(); persist(); } };
+  // Preview cards are built from the link each time, never typed, so they
+  // are stripped before saving. Storing them would embed a stale copy of
+  // someone else's page title in the note and stack a fresh card on top
+  // of it every time the note was reopened.
+  const saveHtml = () => {
+    const o = getObj();
+    if (o) { o.html = stripPreviewCards(textEl.innerHTML); o.updatedAt = Date.now(); persist(); }
+  };
+
+  // Fetching happens in the background; the note is usable meanwhile and
+  // cards appear as they arrive. Failures are silent by design — a link
+  // with no metadata just stays a plain link.
+  const refreshLinkPreviews = () => { decorateLinks(textEl); };
+  refreshLinkPreviews();
 
   // execCommand acts on the current selection, and clicking a toolbar
   // button/color-swatch would normally move focus away from the note
@@ -1250,6 +1264,7 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
     const sel = window.getSelection();
     if (!sel.rangeCount || sel.isCollapsed) {
       document.execCommand("insertHTML", false, `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">🔗 Open link</a>`);
+      refreshLinkPreviews();
     } else {
       document.execCommand("createLink", false, url);
     }
@@ -1407,7 +1422,7 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
   });
 
   textEl.addEventListener("input", saveHtml);
-  textEl.addEventListener("blur", () => { autoLinkOnBlur(); saveHtml(); });
+  textEl.addEventListener("blur", () => { autoLinkOnBlur(); saveHtml(); refreshLinkPreviews(); });
   const openStickyLink = (evt) => {
     const a = evt.target.closest("a");
     if (a && a.href) { evt.preventDefault(); evt.stopPropagation(); window.open(a.href, "_blank", "noopener,noreferrer"); }
