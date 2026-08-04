@@ -909,6 +909,10 @@
             </div>
           </div>
           <div class="card" style="margin-top:16px">
+            <div class="card-head"><h2>Tags</h2></div>
+            <div class="card-body"><div class="ent-tagfilters" id="entTagFilters"></div></div>
+          </div>
+          <div class="card" style="margin-top:16px">
             <div class="card-head"><h2>Catalogue</h2></div>
             <div class="card-body"><div class="ent-counts" id="entCounts"></div></div>
           </div>
@@ -920,8 +924,25 @@
           </div>
 
           <div class="card" style="margin-top:16px">
-            <div class="card-head"><h2>Entries</h2></div>
-            <div class="card-body"><div class="ent-grid" id="entGrid"></div></div>
+            <div class="card-body ent-toolbar">
+              <div class="ent-tabs" id="entStatusTabs"></div>
+              <div class="ent-toolbar-right">
+                <div class="ent-viewtoggle" id="entViewToggle">
+                  <button data-view="grid" onclick="setEntertainmentView('grid')" title="Grid view">▦</button>
+                  <button data-view="list" onclick="setEntertainmentView('list')" title="List view">☰</button>
+                </div>
+                <select id="entSort" class="ent-sort" onchange="sortEntertainment(this.value)" title="Sort">
+                  <option value="added">Sort: Date added</option>
+                  <option value="rating">Sort: Rating</option>
+                  <option value="title">Sort: Title (A–Z)</option>
+                </select>
+              </div>
+            </div>
+            <div class="card-body" style="padding-top:0">
+              <div class="ent-summary" id="entSummary"></div>
+              <div class="ent-grid" id="entGrid"></div>
+              <button class="btn btn-ghost ent-more" id="entMore" onclick="showMoreEntertainment()" style="display:none"></button>
+            </div>
           </div>
 
           <div class="card" style="margin-top:16px">
@@ -933,10 +954,16 @@
                   <option value="music">🎵 Music</option>
                   <option value="video">🎬 Video</option>
                 </select>
+                <select id="entStatus" class="ent-add-type" title="Where are you with it?">
+                  <option value="want">Want to</option>
+                  <option value="doing">In progress</option>
+                  <option value="done">Finished</option>
+                </select>
                 <input type="text" id="entTitle" placeholder="Title" onkeydown="if(event.key==='Enter')addEntertainment()">
                 <input type="text" id="entCreator" placeholder="Author / artist / channel" onkeydown="if(event.key==='Enter')addEntertainment()">
                 <input type="text" id="entUrl" placeholder="Link (optional)" onkeydown="if(event.key==='Enter')addEntertainment()">
-                <input type="text" id="entTag" placeholder="Genre (optional)" onkeydown="if(event.key==='Enter')addEntertainment()">
+                <input type="text" id="entTags" list="entTagOptions" placeholder="Tags, comma separated (optional)" onkeydown="if(event.key==='Enter')addEntertainment()">
+                <datalist id="entTagOptions"></datalist>
                 <input type="text" id="entNote" placeholder="A note to yourself (optional)" onkeydown="if(event.key==='Enter')addEntertainment()">
                 <button class="btn" onclick="addEntertainment()">Add entry</button>
               </div>

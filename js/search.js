@@ -95,7 +95,7 @@ function buildIndex() {
   // Entertainment — books, music and video, findable by title, creator or note
   ((state.entertainment && state.entertainment.items) || []).forEach(it => {
     const kind = { book: "Book", music: "Music", video: "Video" }[it.type] || "Entry";
-    push(kind, it.title, [it.creator, it.tag].filter(Boolean).join(" \u00B7 "), () => go("entertainment"));
+    push(kind, it.title, [it.creator, ...(it.tags || [])].filter(Boolean).join(" \u00B7 "), () => go("entertainment"));
     it.note && push(kind, it.note.slice(0, 120), it.title, () => go("entertainment"));
   });
 

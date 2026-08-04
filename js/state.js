@@ -261,6 +261,21 @@ function merge(saved) {
   }
   s.entertainment = Object.assign({ items: [] }, saved.entertainment || {});
   if (!Array.isArray(s.entertainment.items)) s.entertainment.items = [];
+  /* One-time migration: a single free-text `tag` becomes a list, and every
+     entry gains a status. An entry is only ever gaining fields here — the
+     old `tag` string is carried into the list rather than dropped, and
+     status is inferred from progress so a part-read book doesn't come back
+     as untouched. */
+  s.entertainment.items.forEach(it => {
+    if (!Array.isArray(it.tags)) {
+      it.tags = it.tag && String(it.tag).trim() ? [String(it.tag).trim()] : [];
+    }
+    delete it.tag;
+    if (!it.status) {
+      const p = Number(it.progress) || 0;
+      it.status = p >= 100 ? "done" : p > 0 ? "doing" : "want";
+    }
+  });
   s.sections = Object.assign(structuredClone(DEFAULT_STATE.sections), saved.sections || {});
   /* One-time migration: a section's single free-text Notes box becomes a
      list of separately-titled rich-text notes. Whatever was already

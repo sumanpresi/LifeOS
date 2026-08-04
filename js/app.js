@@ -177,7 +177,13 @@ Object.assign(window,
     rateEntertainment: entertainment.rateEntertainment, toggleEntertainmentFocus: entertainment.toggleEntertainmentFocus,
     setEntertainmentProgress: entertainment.setEntertainmentProgress,
     previewEntertainmentProgress: entertainment.previewEntertainmentProgress,
-    filterEntertainment: entertainment.filterEntertainment, searchEntertainment: entertainment.searchEntertainment });
+    setEntertainmentStatus: entertainment.setEntertainmentStatus,
+    filterEntertainment: entertainment.filterEntertainment, searchEntertainment: entertainment.searchEntertainment,
+    filterEntertainmentStatus: entertainment.filterEntertainmentStatus,
+    toggleEntertainmentTag: entertainment.toggleEntertainmentTag,
+    sortEntertainment: entertainment.sortEntertainment, setEntertainmentView: entertainment.setEntertainmentView,
+    showMoreEntertainment: entertainment.showMoreEntertainment,
+    clearEntertainmentFilters: entertainment.clearEntertainmentFilters });
 
 /* ---- boot ---- */
 setRenderer(renderAll);

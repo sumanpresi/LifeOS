@@ -1,23 +1,21 @@
 /* Entertainment — a personal catalogue of books, music and video.
 
-   The layout follows the "curated archive" idea: a Current focus panel
-   for whatever is being read or watched right now, a filter down the
-   side, a search, and a grid of entries.
+   The controls are deliberately limited to five: type, status, tags, sort
+   and search, plus a density toggle. Every extra filter costs attention
+   permanently and gets used rarely; anything that can't earn a place on
+   the toolbar belongs in search instead.
 
-   Two deliberate departures from the mockup that inspired it:
+   Two choices worth stating, because both look like omissions:
 
-   • It is built in LifeOS's own visual language rather than the dark
-     glass one. A single page in a different palette reads as a page from
-     a different app, and the sidebar and header sit around it regardless.
-     The structure is what was worth taking.
+   NO PAGINATION. Page numbers hide a personal collection behind
+   navigation and break the browser's own find-on-page. Filtering and
+   sorting are what make a long list usable; splitting it into pages only
+   makes it shorter to look at, not easier to search. Long results are
+   capped and extended on demand instead.
 
-   • No Tailwind and no Alpine. Adding two CDN frameworks for one page
-     would put the whole app's no-build setup on someone else's uptime,
-     and the filtering they were doing there is a few lines here.
-
-   Entries carry a URL, so the link-preview work already in the app does
-   the heavy lifting: a pasted song or video link brings back its own
-   title and artwork. */
+   STATUS BEFORE TAGS. The question actually asked of a catalogue is
+   "what should I read next", not "what is science fiction". Status also
+   changes over time, which keeps the page current rather than archival. */
 
 import { state, uid, esc, persist, rerender } from './state.js';
 import { toast } from './ui.js';
@@ -29,50 +27,105 @@ const TYPES = [
   ["music", "Music", "\u{1F3B5}"],
   ["video", "Video", "\u{1F3AC}"],
 ];
-const TYPE_LABEL = Object.fromEntries(TYPES.map(([k, label]) => [k, label]));
+const TYPE_LABEL = Object.fromEntries(TYPES.map(([k, l]) => [k, l]));
+const STATUSES = [["want", "Want to"], ["doing", "In progress"], ["done", "Finished"]];
+
+/* Results are capped and extended on demand rather than paginated. Below
+   this many matches the cap never comes into play, so a normal-sized
+   catalogue pays nothing for it. */
+const PAGE_SIZE = 60;
 
 let filterType = "all";
+let filterStatus = "all";
+let selectedTags = new Set();   // multi-select: something can be Sci-Fi *and* Re-read
 let searchQuery = "";
+let sortMode = "added";
+let viewMode = "grid";
+let renderLimit = PAGE_SIZE;
 
 function ent() {
-  if (!state.entertainment || typeof state.entertainment !== "object") {
-    state.entertainment = { items: [] };
-  }
+  if (!state.entertainment || typeof state.entertainment !== "object") state.entertainment = { items: [] };
   if (!Array.isArray(state.entertainment.items)) state.entertainment.items = [];
   return state.entertainment;
 }
+const itemTags = it => (Array.isArray(it.tags) ? it.tags : []);
+const q1 = s => String(s).replace(/'/g, "\\'"); // safe inside a single-quoted inline handler
 
-function visibleItems() {
+/* Every tag in use, with its count, most-used first. Matching is
+   case-insensitive and the first spelling seen wins, so "Sci-Fi" and
+   "sci-fi" collapse into one filter instead of splitting the shelf in
+   two — the failure that makes a tag list useless within a year. */
+function allTags() {
+  const seen = new Map(); // lowercase -> {label, count}
+  ent().items.forEach(it => itemTags(it).forEach(t => {
+    const key = String(t).toLowerCase();
+    if (seen.has(key)) seen.get(key).count++;
+    else seen.set(key, { label: t, count: 1 });
+  }));
+  return [...seen.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+}
+// Reuses an existing spelling when the tag already exists in another case.
+function canonicalTag(raw) {
+  const t = String(raw).trim();
+  if (!t) return "";
+  const match = allTags().find(x => x.label.toLowerCase() === t.toLowerCase());
+  return match ? match.label : t;
+}
+function parseTags(raw) {
+  return [...new Set(String(raw || "").split(",").map(canonicalTag).filter(Boolean))];
+}
+
+const filtersActive = () =>
+  filterType !== "all" || filterStatus !== "all" || selectedTags.size > 0 || searchQuery.trim() !== "";
+
+function matchingItems() {
   const q = searchQuery.trim().toLowerCase();
+  const wanted = [...selectedTags].map(t => t.toLowerCase());
   return ent().items.filter(it => {
     if (filterType !== "all" && it.type !== filterType) return false;
+    if (filterStatus !== "all" && (it.status || "want") !== filterStatus) return false;
+    /* Several tags selected means "has all of them" — narrowing. Reading
+       it as "any of them" would widen the results as you click more,
+       which is the opposite of what picking another filter should do. */
+    if (wanted.length) {
+      const mine = itemTags(it).map(t => String(t).toLowerCase());
+      if (!wanted.every(t => mine.includes(t))) return false;
+    }
     if (!q) return true;
-    // Searched across everything the person typed, not just the title —
-    // "Herbert" and "sci-fi" are how you actually look for a book.
-    return [it.title, it.creator, it.note, it.tag, TYPE_LABEL[it.type]]
+    return [it.title, it.creator, it.note, ...itemTags(it), TYPE_LABEL[it.type]]
       .filter(Boolean).join(" ").toLowerCase().includes(q);
   });
 }
 
-function starsHtml(rating, id) {
-  // Clicking the star you're already on clears it — otherwise a rating
-  // given by mistake can only ever be changed, never removed.
-  return `<span class="ent-stars">${[1, 2, 3, 4, 5].map(n =>
-    `<button class="ent-star ${n <= (rating || 0) ? "on" : ""}"
-       onclick="rateEntertainment('${id}',${n})"
-       title="${n === rating ? "Clear rating" : n + " star" + (n === 1 ? "" : "s")}">\u2605</button>`).join("")}</span>`;
+function sortItems(list) {
+  const copy = [...list];
+  if (sortMode === "rating") return copy.sort((a, b) => (b.rating || 0) - (a.rating || 0) || (b.addedAt || 0) - (a.addedAt || 0));
+  if (sortMode === "title") return copy.sort((a, b) => String(a.title).localeCompare(String(b.title)));
+  return copy.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0)); // newest first
 }
 
-function entryHtml(it) {
-  const host = (() => {
-    try { return it.url ? new URL(it.url).hostname.replace(/^www\./, "") : ""; }
-    catch (e) { return ""; }
-  })();
+function starsHtml(rating, id) {
+  return `<span class="ent-stars">${[1, 2, 3, 4, 5].map(n =>
+    `<button class="ent-star ${n <= (rating || 0) ? "on" : ""}" onclick="rateEntertainment('${id}',${n})"
+       title="${n === rating ? "Clear rating" : n + " star" + (n === 1 ? "" : "s")}">\u2605</button>`).join("")}</span>`;
+}
+function tagChipsHtml(it) {
+  return itemTags(it).map(t =>
+    `<button class="ent-tag" onclick="toggleEntertainmentTag('${esc(q1(t))}')" title="Filter by ${esc(t)}">${esc(t)}</button>`).join("");
+}
+function statusSelect(it) {
+  const s = it.status || "want";
+  return `<select class="ent-status ent-status-${s}" onchange="setEntertainmentStatus('${it.id}',this.value)" title="Status">
+    ${STATUSES.map(([k, l]) => `<option value="${k}" ${k === s ? "selected" : ""}>${l}</option>`).join("")}</select>`;
+}
+
+function cardHtml(it) {
+  const host = (() => { try { return it.url ? new URL(it.url).hostname.replace(/^www\./, "") : ""; } catch (e) { return ""; } })();
   return `
-  <article class="ent-card ent-${esc(it.type)}" data-ent-id="${it.id}">
+  <article class="ent-card" data-ent-id="${it.id}">
     <div class="ent-card-head">
       <span class="ent-type">${TYPES.find(t => t[0] === it.type)?.[2] || ""} ${esc(TYPE_LABEL[it.type] || it.type)}</span>
-      ${it.tag ? `<span class="ent-tag">${esc(it.tag)}</span>` : ""}
+      ${statusSelect(it)}
       <button class="ent-focus-btn ${it.featured ? "on" : ""}" onclick="toggleEntertainmentFocus('${it.id}')"
         title="${it.featured ? "Remove from Current focus" : "Set as Current focus"}">\u25C9</button>
       <button class="del" onclick="delEntertainment('${it.id}')" title="Delete">\u2715</button>
@@ -80,6 +133,7 @@ function entryHtml(it) {
     <h4 class="ent-title">${esc(it.title)}</h4>
     ${it.creator ? `<p class="ent-creator">${esc(it.creator)}</p>` : ""}
     ${it.note ? `<p class="ent-note">${esc(it.note)}</p>` : ""}
+    ${itemTags(it).length ? `<div class="ent-tags">${tagChipsHtml(it)}</div>` : ""}
     <div class="ent-card-foot">
       ${starsHtml(it.rating, it.id)}
       ${it.url ? `<span class="link-row ent-link"><a href="${esc(it.url)}" target="_blank" rel="noopener">${esc(host || "Open")} \u2192</a></span>` : ""}
@@ -87,17 +141,34 @@ function entryHtml(it) {
   </article>`;
 }
 
+/* One line per entry. Past roughly forty items the artwork grid stops
+   being a browsing aid and becomes a wall — this is what gets used for
+   scanning a real collection. */
+function rowHtml(it) {
+  return `
+  <div class="ent-row" data-ent-id="${it.id}">
+    <span class="ent-row-type" title="${esc(TYPE_LABEL[it.type] || "")}">${TYPES.find(t => t[0] === it.type)?.[2] || ""}</span>
+    <span class="ent-row-main">
+      <span class="ent-row-title">${esc(it.title)}</span>
+      ${it.creator ? `<span class="ent-row-creator">${esc(it.creator)}</span>` : ""}
+    </span>
+    <span class="ent-row-tags">${tagChipsHtml(it)}</span>
+    ${statusSelect(it)}
+    ${starsHtml(it.rating, it.id)}
+    ${it.url ? `<a class="ent-row-link" href="${esc(it.url)}" target="_blank" rel="noopener" title="Open">\u2197</a>` : `<span class="ent-row-link"></span>`}
+    <button class="del" onclick="delEntertainment('${it.id}')" title="Delete">\u2715</button>
+  </div>`;
+}
+
 function focusHtml(it) {
-  if (!it) {
-    return `<p class="hint" style="margin:0">Nothing set as Current focus. Use the \u25C9 button on any entry to pin what you're reading or watching right now.</p>`;
-  }
+  if (!it) return `<p class="hint" style="margin:0">Nothing set as Current focus. Use the \u25C9 on any entry to pin what you're reading or watching right now.</p>`;
   const pct = Number(it.progress) > 0 ? Math.min(100, Number(it.progress)) : 0;
   return `
     <div class="ent-focus-art" id="entFocusArt"></div>
     <div class="ent-focus-body">
       <span class="ent-focus-badge">Current focus</span>
       <h2 class="ent-focus-title">${esc(it.title)}</h2>
-      <p class="ent-focus-meta">${esc(it.creator || "")}${it.creator && it.tag ? " \u00B7 " : ""}${esc(it.tag || "")}</p>
+      <p class="ent-focus-meta">${esc(it.creator || "")}${it.creator && itemTags(it).length ? " \u00B7 " : ""}${esc(itemTags(it).join(", "))}</p>
       ${it.note ? `<p class="ent-focus-note">${esc(it.note)}</p>` : ""}
       <div class="ent-progress-row">
         <input type="range" min="0" max="100" value="${pct}" class="ent-progress"
@@ -110,118 +181,168 @@ function focusHtml(it) {
 }
 
 export function renderEntertainment() {
-  const page = document.getElementById("page-entertainment");
-  if (!page) return;
+  if (!document.getElementById("page-entertainment")) return;
   const items = ent().items;
 
   const counts = document.getElementById("entCounts");
   if (counts) {
-    counts.innerHTML = TYPES.map(([k, label]) =>
-      `<div class="ent-stat"><span>${esc(label)}</span><span class="ent-stat-n">${items.filter(i => i.type === k).length}</span></div>`
-    ).join("");
+    counts.innerHTML =
+      TYPES.map(([k, l]) => `<div class="ent-stat"><span>${esc(l)}</span><span class="ent-stat-n">${items.filter(i => i.type === k).length}</span></div>`).join("")
+      + STATUSES.map(([k, l]) => `<div class="ent-stat ent-stat-status"><span>${esc(l)}</span><span class="ent-stat-n">${items.filter(i => (i.status || "want") === k).length}</span></div>`).join("");
   }
 
-  const filters = document.getElementById("entFilters");
-  if (filters) {
-    filters.innerHTML = [["all", "All items"], ...TYPES.map(([k, l]) => [k, l])].map(([k, label]) =>
-      `<button class="ent-filter ${filterType === k ? "active" : ""}" onclick="filterEntertainment('${k}')">${esc(label)}</button>`
-    ).join("");
+  const typeBox = document.getElementById("entFilters");
+  if (typeBox) {
+    typeBox.innerHTML = [["all", "All items"], ...TYPES.map(([k, l]) => [k, l])].map(([k, l]) =>
+      `<button class="ent-filter ${filterType === k ? "active" : ""}" onclick="filterEntertainment('${k}')">${esc(l)}</button>`).join("");
   }
+
+  const statusBox = document.getElementById("entStatusTabs");
+  if (statusBox) {
+    statusBox.innerHTML = [["all", "All"], ...STATUSES].map(([k, l]) =>
+      `<button class="ent-tab ${filterStatus === k ? "active" : ""}" onclick="filterEntertainmentStatus('${k}')">${esc(l)}</button>`).join("");
+  }
+
+  const tagBox = document.getElementById("entTagFilters");
+  if (tagBox) {
+    const tags = allTags();
+    tagBox.innerHTML = tags.length
+      ? tags.map(t => `<button class="ent-tagfilter ${selectedTags.has(t.label) ? "active" : ""}"
+          onclick="toggleEntertainmentTag('${esc(q1(t.label))}')">${esc(t.label)} <span>${t.count}</span></button>`).join("")
+      : `<p class="hint" style="margin:0">Tags you add will appear here.</p>`;
+  }
+  // Typing a tag offers the ones already in use — the one thing that stops
+  // a tag list fragmenting into near-duplicates over time.
+  const dl = document.getElementById("entTagOptions");
+  if (dl) dl.innerHTML = allTags().map(t => `<option value="${esc(t.label)}">`).join("");
 
   const focusBox = document.getElementById("entFocus");
   const featured = items.find(i => i.featured) || null;
   if (focusBox) focusBox.innerHTML = focusHtml(featured);
 
-  const grid = document.getElementById("entGrid");
-  if (grid) {
-    const shown = visibleItems();
-    grid.innerHTML = shown.map(entryHtml).join("") || `<p class="hint">${
-      searchQuery ? "Nothing matches that." :
-      filterType === "all" ? "Nothing catalogued yet \u2014 add a book, a song or a video below."
-        : "Nothing in this category yet."}</p>`;
+  const matched = sortItems(matchingItems());
+  const shown = matched.slice(0, renderLimit);
+
+  /* A filtered view that comes back empty with no explanation is the most
+     common way people conclude their data has been lost. The count and a
+     visible way out are not decoration. */
+  const summary = document.getElementById("entSummary");
+  if (summary) {
+    summary.innerHTML = !items.length ? ""
+      : `<span>${matched.length === items.length
+          ? `${items.length} entr${items.length === 1 ? "y" : "ies"}`
+          : `${matched.length} of ${items.length} shown`}</span>`
+        + (filtersActive() ? ` <button class="ent-clear" onclick="clearEntertainmentFilters()">Clear filters</button>` : "");
   }
 
-  // Artwork for the focus panel comes from the link itself, so a pinned
-  // song or film shows its own cover without anything being uploaded.
+  const grid = document.getElementById("entGrid");
+  if (grid) {
+    grid.className = viewMode === "list" ? "ent-list" : "ent-grid";
+    grid.innerHTML = shown.map(viewMode === "list" ? rowHtml : cardHtml).join("") || `<p class="hint">${
+      filtersActive() ? "Nothing matches these filters." : "Nothing catalogued yet \u2014 add a book, a song or a video below."}</p>`;
+  }
+
+  const more = document.getElementById("entMore");
+  if (more) {
+    const remaining = matched.length - shown.length;
+    more.style.display = remaining > 0 ? "" : "none";
+    more.textContent = `Show ${Math.min(remaining, PAGE_SIZE)} more (${remaining} left)`;
+  }
+
+  const viewBtns = document.getElementById("entViewToggle");
+  if (viewBtns) viewBtns.querySelectorAll("button").forEach(b => b.classList.toggle("active", b.dataset.view === viewMode));
+  const sortSel = document.getElementById("entSort");
+  if (sortSel && sortSel.value !== sortMode) sortSel.value = sortMode;
+
   if (featured && featured.url) {
     getLinkPreview(featured.url).then(p => {
       const art = document.getElementById("entFocusArt");
-      // The page may have re-rendered or moved on while this was fetching.
       if (!art || !p || !p.image || !art.isConnected) return;
       const img = document.createElement("img");
-      img.src = p.image;
-      img.alt = "";
-      img.referrerPolicy = "no-referrer";
+      img.src = p.image; img.alt = ""; img.referrerPolicy = "no-referrer";
       img.addEventListener("error", () => img.remove());
       art.appendChild(img);
     });
   }
 }
 
+/* ---------- filters ----------
+   All view-only. None of this is written to state, so which filter a
+   device happens to be showing never travels to another device or counts
+   as an edit for syncing. */
+export function filterEntertainment(type) { filterType = type; renderLimit = PAGE_SIZE; renderEntertainment(); }
+export function filterEntertainmentStatus(s) { filterStatus = s; renderLimit = PAGE_SIZE; renderEntertainment(); }
+export function toggleEntertainmentTag(tag) {
+  if (selectedTags.has(tag)) selectedTags.delete(tag); else selectedTags.add(tag);
+  renderLimit = PAGE_SIZE;
+  renderEntertainment();
+}
+export function searchEntertainment() {
+  searchQuery = document.getElementById("entSearch")?.value || "";
+  renderLimit = PAGE_SIZE;
+  renderEntertainment();
+}
+export function sortEntertainment(mode) { sortMode = mode; renderEntertainment(); }
+export function setEntertainmentView(mode) { viewMode = mode; renderEntertainment(); }
+export function showMoreEntertainment() { renderLimit += PAGE_SIZE; renderEntertainment(); }
+export function clearEntertainmentFilters() {
+  filterType = "all"; filterStatus = "all"; selectedTags.clear(); searchQuery = "";
+  const box = document.getElementById("entSearch"); if (box) box.value = "";
+  renderLimit = PAGE_SIZE;
+  renderEntertainment();
+}
+
+// ---------- entries ----------
 export function addEntertainment() {
-  const type = document.getElementById("entType").value;
-  const titleEl = document.getElementById("entTitle");
-  const creatorEl = document.getElementById("entCreator");
-  const urlEl = document.getElementById("entUrl");
-  const noteEl = document.getElementById("entNote");
-  const tagEl = document.getElementById("entTag");
+  const get = id => document.getElementById(id);
+  const titleEl = get("entTitle");
   const title = titleEl.value.trim();
   if (!title) { titleEl.focus(); return toast("A title is the one thing that's required"); }
-
   ent().items.unshift({
-    id: uid(), type, title,
-    creator: creatorEl.value.trim(),
-    url: urlEl.value.trim(),
-    note: noteEl.value.trim(),
-    tag: tagEl.value.trim(),
-    rating: 0, progress: 0, featured: false,
-    addedAt: Date.now(),
+    id: uid(),
+    type: get("entType").value,
+    status: get("entStatus").value,
+    title,
+    creator: get("entCreator").value.trim(),
+    url: get("entUrl").value.trim(),
+    note: get("entNote").value.trim(),
+    tags: parseTags(get("entTags").value),
+    rating: 0, progress: 0, featured: false, addedAt: Date.now(),
   });
-  [titleEl, creatorEl, urlEl, noteEl, tagEl].forEach(el => { el.value = ""; });
+  ["entTitle", "entCreator", "entUrl", "entNote", "entTags"].forEach(id => { get(id).value = ""; });
   persist(); rerender();
   titleEl.focus(); // straight on to the next one
 }
-
 export function delEntertainment(id) {
-  const list = ent().items;
-  const it = list.find(x => x.id === id);
+  const it = ent().items.find(x => x.id === id);
   if (!it) return;
   moveToTrash("entertainment", it, {});
-  state.entertainment.items = list.filter(x => x.id !== id);
+  state.entertainment.items = ent().items.filter(x => x.id !== id);
   persist(); rerender();
   toast(`Deleted "${it.title}"`);
 }
-
 export function rateEntertainment(id, n) {
   const it = ent().items.find(x => x.id === id);
   if (!it) return;
-  it.rating = it.rating === n ? 0 : n; // same star again clears it
+  it.rating = it.rating === n ? 0 : n; // the same star again clears it
   persist(); rerender();
 }
-
+export function setEntertainmentStatus(id, status) {
+  const it = ent().items.find(x => x.id === id);
+  if (!it) return;
+  it.status = status;
+  if (status === "done") it.progress = 100; // finished shouldn't still read 40%
+  persist(); rerender();
+}
 export function toggleEntertainmentFocus(id) {
   const it = ent().items.find(x => x.id === id);
   if (!it) return;
-  const turningOn = !it.featured;
-  // Only one thing can be the current focus — "what I'm on right now"
-  // stops meaning anything if three items claim it.
-  ent().items.forEach(x => { x.featured = false; });
-  it.featured = turningOn;
+  const on = !it.featured;
+  ent().items.forEach(x => { x.featured = false; }); // only one focus at a time
+  it.featured = on;
+  if (on && (it.status || "want") === "want") it.status = "doing"; // pinning it means you've started
   persist(); rerender();
 }
-
-/* Dragging fires continuously, so the label is updated on the way and the
-   value is only committed when the slider is released.
-
-   The first version of this called persist(false) during the drag and a
-   full persist() on a timer afterwards. That was wrong in a way specific
-   to how syncing works here: persist(false) writes to this device but
-   does NOT increment state.rev, and rev is exactly what tells the sync
-   layer "this device has changes". Close the tab inside that window and
-   the new progress sits on disk while the device still looks unedited —
-   so the next sync would treat the cloud copy as authoritative and
-   silently roll it back. Committing on release removes the window
-   entirely: the value is either not saved yet, or saved and flagged. */
 export function previewEntertainmentProgress(value) {
   const pct = document.querySelector(".ent-progress-pct");
   if (pct) pct.textContent = Math.max(0, Math.min(100, Number(value) || 0)) + "%";
@@ -230,16 +351,8 @@ export function setEntertainmentProgress(id, value) {
   const it = ent().items.find(x => x.id === id);
   if (!it) return;
   it.progress = Math.max(0, Math.min(100, Number(value) || 0));
+  if (it.progress >= 100) it.status = "done";
+  else if (it.progress > 0 && (it.status || "want") === "want") it.status = "doing";
   previewEntertainmentProgress(it.progress);
-  persist(); // real data — must bump rev so the change is offered to other devices
-}
-
-export function filterEntertainment(type) {
-  filterType = type;
-  renderEntertainment();
-}
-
-export function searchEntertainment() {
-  searchQuery = document.getElementById("entSearch")?.value || "";
-  renderEntertainment();
+  persist(); // committed on release, so it always marks the device as edited
 }
