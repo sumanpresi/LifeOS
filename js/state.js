@@ -202,7 +202,15 @@ export const DEFAULT_STATE = {
   /* One shared recycle bin for deletions from anywhere in the app.
      [{id, type, payload, meta, deletedAt}] — see js/trash.js */
   trash: [],
-  updatedAt: 0
+  updatedAt: 0,
+  /* Increments on every real edit. Unlike updatedAt this is not a clock
+     reading, so it can't be thrown off by a device whose time is wrong —
+     see the reconcile logic in supabase.js. */
+  rev: 0,
+  /* Rewritten on every successful upload. A device compares the token it
+     last agreed with against the one in the cloud to tell "the cloud has
+     changed since I last looked" apart from "nothing has moved". */
+  syncToken: ""
 };
 
 /* Section pages generated generically. Nothing uses this template anymore —
@@ -508,7 +516,10 @@ export function persist(pushRemote = true) {
      else win the cross-device sync comparison and overwrite newer data
      elsewhere. Any real edit that follows will bump updatedAt properly on
      its own and carry this UI state along with it in the same snapshot. */
-  if (pushRemote) state.updatedAt = Date.now();
+  if (pushRemote) {
+    state.updatedAt = Date.now();
+    state.rev = (state.rev || 0) + 1; // clock-independent "something really changed here"
+  }
   store.set("lifeos-data", JSON.stringify(state));
   if (pushRemote && remoteSaver) {
     clearTimeout(saveTimer);

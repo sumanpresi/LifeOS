@@ -148,6 +148,63 @@ function renderIdentity() {
 let hasReconciled = false;      // has this session checked the cloud at least once?
 let pendingSaveAfterReconcile = false;
 
+/* ---------- deciding who is newer ----------
+
+   This used to be decided by comparing state.updatedAt on each side —
+   that is, by comparing two *clock readings taken on different devices*.
+   That fails in a way that looks exactly like "sync is broken": if one
+   device's clock is even a minute fast, that device's data always looks
+   newer, so it never pulls anything down and pushes its own older copy
+   up over the good one. Phones and desktops routinely disagree by more
+   than that, and nothing about it is visible to the person using it.
+
+   The replacement doesn't consult a clock at all. Two facts are enough:
+
+     • Did I edit anything since the last time I agreed with the cloud?
+       (state.rev differs from the rev recorded at that moment)
+     • Has the cloud changed since then?
+       (its syncToken differs from the one recorded at that moment)
+
+   Only when BOTH are true is there a genuine conflict needing a
+   tie-break. In every other case the answer is unambiguous, which is
+   what makes "I saved on the computer and the phone won't update"
+   impossible rather than merely unlikely. */
+const SYNC_META_KEY = "lifeos-sync-meta"; // device-local; deliberately NOT part of synced state
+function readSyncMeta() {
+  try { return JSON.parse(localStorage.getItem(SYNC_META_KEY)) || {}; }
+  catch (e) { return {}; }
+}
+function writeSyncMeta(meta) {
+  try { localStorage.setItem(SYNC_META_KEY, JSON.stringify(meta)); } catch (e) {}
+}
+function newSyncToken() { return uid() + uid(); }
+function agreedWithCloud() { return readSyncMeta().rev !== undefined; }
+function hasLocalEdits() {
+  const meta = readSyncMeta();
+  if (meta.rev === undefined) return true; // never synced — assume local work matters
+  return (state.rev || 0) !== meta.rev;
+}
+function cloudChangedSinceLastSync(remote) {
+  const meta = readSyncMeta();
+  if (meta.token === undefined) return true;
+  return (remote.syncToken || "") !== meta.token;
+}
+function markAgreed(token) { writeSyncMeta({ rev: state.rev || 0, token: token || "" }); }
+
+/* A wrong device clock no longer breaks syncing, but it still misdates
+   entries, so it's worth saying out loud once rather than leaving it to
+   be discovered later. */
+let skewWarned = false;
+function checkClockSkew(serverStampIso) {
+  if (skewWarned || !serverStampIso) return;
+  const drift = Math.abs(Date.now() - new Date(serverStampIso).getTime());
+  if (drift < 5 * 60 * 1000) return;
+  skewWarned = true;
+  const mins = Math.round(drift / 60000);
+  authDiag("this device's clock is about " + mins + " min away from the last save's timestamp");
+  toast("This device's clock looks about " + mins + " min off — worth checking date & time settings");
+}
+
 // The reconciliation used by both loadRemote() and the realtime
 // subscription below resolves conflicts by comparing one timestamp for
 // the *entire* saved state — whichever side's overall timestamp is
@@ -196,7 +253,11 @@ function mergeIncomingBrainstormBoards(remote) {
   }
 }
 function applyRemote(remote) {
+  const token = remote.syncToken || "";
   replaceState(remote);
+  // Recorded after replaceState so it reflects the rev that actually
+  // landed — this is the point where this device and the cloud agree.
+  markAgreed(token);
   rerender();
   pushCommunicationUpdate();
   pushNgdrTrackerUpdate();
@@ -210,6 +271,7 @@ export async function loadRemote(preferRemote = false) {
     if (error) throw error;
     if (data && data.data && Object.keys(data.data).length) {
       const remote = data.data;
+      checkClockSkew(data.updated_at);
       mergeIncomingWhiteboards(remote);
       mergeIncomingBrainstormBoards(remote);
       // The merge just changed local state (possibly pulling in board
@@ -217,8 +279,39 @@ export async function loadRemote(preferRemote = false) {
       // branching below decides — make sure that's actually reflected
       // here, not just in the payload that eventually gets pushed back.
       persist(false); rerender();
-      if (preferRemote || (remote.updatedAt || 0) > (state.updatedAt || 0)) applyRemote(remote);
-      else if ((state.updatedAt || 0) > (remote.updatedAt || 0)) { hasReconciled = true; await saveRemote(); return; }
+
+      const mine = hasLocalEdits();
+      const theirs = cloudChangedSinceLastSync(remote);
+
+      if (preferRemote) { applyRemote(remote); }
+      else if (!agreedWithCloud()) {
+        /* First run after upgrading, so there's no record of a previous
+           agreement to reason from. Fall back to the old timestamp
+           comparison this once; from the next successful sync onward the
+           clock is out of the picture for good. */
+        if ((remote.updatedAt || 0) > (state.updatedAt || 0)) applyRemote(remote);
+        else { hasReconciled = true; await saveRemote(); return; }
+      }
+      else if (!mine && theirs) {
+        applyRemote(remote);                       // cloud moved, this device didn't — take it
+      }
+      else if (mine && !theirs) {
+        hasReconciled = true; await saveRemote(); return;  // only this device moved — send it
+      }
+      else if (mine && theirs) {
+        /* Both sides changed since they last agreed. There is no correct
+           automatic answer, so take the newer one but say so — silently
+           discarding one side is how people lose work without noticing. */
+        if ((remote.updatedAt || 0) >= (state.updatedAt || 0)) {
+          applyRemote(remote);
+          toast("Another device had newer changes — its version is now shown");
+        } else {
+          hasReconciled = true; await saveRemote();
+          toast("This device had newer changes — they've been sent up");
+          return;
+        }
+      }
+      // neither side moved: nothing to do
     } else {
       hasReconciled = true; await saveRemote(); return;      /* first device: seed the cloud copy */
     }
@@ -241,11 +334,14 @@ export async function saveRemote() {
   if (!hasReconciled) { pendingSaveAfterReconcile = true; return; }
   setSyncPill("busy", "Saving…");
   try {
+    const token = newSyncToken();
+    state.syncToken = token; // stored in state so every device sees the same value
     const payload = Object.assign({}, state, { _client: CLIENT_ID });
     const { error } = await sb.from("lifeos_data").upsert({
       user_id: user.id, data: payload, updated_at: new Date().toISOString()
     });
     if (error) throw error;
+    markAgreed(token); // this device and the cloud now hold the same thing
     setSyncPill("ok", "Synced · " + nowTime());
   } catch (e) {
     let size = "?";
@@ -279,24 +375,58 @@ export async function syncNow() {
 }
 
 /* ---------- live cross-device updates ---------- */
+/* Realtime delivery depends on the lifeos_data table being added to the
+   database's realtime publication — a setting in the Supabase dashboard,
+   not something this code can switch on. If it was never enabled, the
+   subscription below silently delivers nothing forever and cross-device
+   updates only ever arrive when a tab is re-focused. Rather than depend
+   on a setting that can't be verified from here, poll gently as well:
+   once a minute, only while the tab is actually visible, and only when
+   this device has nothing unsaved to lose. */
+let pollTimer = null;
+const POLL_MS = 60_000;
+function startPolling() {
+  stopPolling();
+  pollTimer = setInterval(() => {
+    if (document.hidden || !user || !sb) return;
+    if (hasLocalEdits()) return; // loadRemote would handle it, but don't interrupt typing
+    loadRemote();
+  }, POLL_MS);
+}
+function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+
 function startRealtime() {
   stopRealtime();
+  startPolling();
   rtChannel = sb.channel("lifeos-" + user.id)
     .on("postgres_changes",
       { event: "*", schema: "public", table: "lifeos_data", filter: "user_id=eq." + user.id },
       payload => {
         const row = payload.new;
-        if (row && row.data && row.data._client !== CLIENT_ID &&
-            (row.data.updatedAt || 0) > (state.updatedAt || 0)) {
-          mergeIncomingWhiteboards(row.data);
-          mergeIncomingBrainstormBoards(row.data);
-          applyRemote(row.data);
-          toast("Updated from another device");
+        if (!row || !row.data || row.data._client === CLIENT_ID) return;
+        if (!cloudChangedSinceLastSync(row.data)) return; // already have it
+        if (hasLocalEdits()) {
+          // Don't overwrite something being typed right now. loadRemote()
+          // handles it properly on the next sync, conflict warning included.
+          setSyncPill("busy", "Changes waiting — tap Sync");
+          return;
         }
+        mergeIncomingWhiteboards(row.data);
+        mergeIncomingBrainstormBoards(row.data);
+        applyRemote(row.data);
+        toast("Updated from another device");
       })
-    .subscribe();
+    .subscribe(status => {
+      // Visible on the device where it's failing — the whole point of
+      // authDiag. "CHANNEL_ERROR"/"TIMED_OUT" here means realtime isn't
+      // enabled for the table, and the poll above is doing the work.
+      authDiag("realtime: " + status);
+    });
 }
-function stopRealtime() { if (rtChannel && sb) { sb.removeChannel(rtChannel); rtChannel = null; } }
+function stopRealtime() {
+  stopPolling();
+  if (rtChannel && sb) { sb.removeChannel(rtChannel); rtChannel = null; }
+}
 
 /* ---------- init ---------- */
 function trySetupClient() {
