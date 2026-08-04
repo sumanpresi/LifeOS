@@ -1222,7 +1222,24 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
   // the delegated click handler on textEl below.
   fmtToolbar.querySelector(".wb-sfmt-checklist").addEventListener("pointerdown", (evt) => evt.preventDefault());
   fmtToolbar.querySelector(".wb-sfmt-checklist").addEventListener("click", () => {
-    document.execCommand("insertHTML", false, '<div class="wb-check-item"><span class="wb-check-box" contenteditable="false" data-checked="false">☐</span>\u00A0</div>');
+    // Toggle, not just insert: pressing it while the caret is already on a
+    // checkbox row takes the checkbox off. Without this the only way to
+    // undo the button was Backspace, which is exactly what doesn't work
+    // beside a non-editable element (see handleBackspace).
+    const sel = window.getSelection();
+    const node = sel && sel.rangeCount ? sel.anchorNode : null;
+    const el = node ? (node.nodeType === 1 ? node : node.parentElement) : null;
+    const existing = el && textEl.contains(el) ? el.closest(".wb-check-item") : null;
+    if (existing) {
+      const box = existing.querySelector(".wb-check-box");
+      if (box) box.remove();
+      const first = existing.firstChild;
+      if (first && first.nodeType === 3) first.nodeValue = first.nodeValue.replace(/^[\s\u00A0]+/, "");
+      existing.classList.remove("wb-check-item", "done");
+      if (!existing.getAttribute("class")) existing.removeAttribute("class");
+    } else {
+      document.execCommand("insertHTML", false, '<div class="wb-check-item"><span class="wb-check-box" contenteditable="false" data-checked="false">☐</span>\u00A0</div>');
+    }
     saveHtml();
   });
   const insertLink = () => {
@@ -1297,9 +1314,88 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
     saveHtml();
   });
 
+  /* ---------- removing a checkbox or an empty bullet ----------
+     Neither can be deleted with Backspace on its own, for two separate
+     browser reasons:
+
+     • The checkbox is a contenteditable="false" span. Backspace beside a
+       non-editable inline element is left to the browser, and browsers
+       either ignore it or require selecting the element first — so the
+       key appears to do nothing at all.
+     • An empty list item has no character in front of the caret to
+       remove, so Backspace has nothing to act on and the bullet stays.
+
+     Both are handled explicitly below. Backspace is only intercepted
+     when it would otherwise do nothing; in every other position it is
+     left alone so normal typing and deleting are unaffected. */
+  const elementAt = (node) => node ? (node.nodeType === 1 ? node : node.parentElement) : null;
+
+  // Text between the start of `container` and the caret, ignoring the
+  // checkbox itself and whitespace — i.e. "is the caret effectively at
+  // the beginning of this line?"
+  function nothingBeforeCaret(container, sel) {
+    const r = sel.getRangeAt(0).cloneRange();
+    r.selectNodeContents(container);
+    try { r.setEnd(sel.anchorNode, sel.anchorOffset); }
+    catch (e) { return false; } // caret isn't inside this container after all
+    const holder = document.createElement("div");
+    holder.appendChild(r.cloneContents());
+    holder.querySelectorAll(".wb-check-box").forEach(b => b.remove());
+    return holder.textContent.replace(/[\s\u00A0]/g, "") === "";
+  }
+
+  // Turns a checkbox row back into an ordinary line, keeping whatever was
+  // typed on it. Deleting the row's text along with the box would be the
+  // easier implementation and the wrong behaviour.
+  function removeCheckbox(item) {
+    const box = item.querySelector(".wb-check-box");
+    if (box) box.remove();
+    const first = item.firstChild;
+    if (first && first.nodeType === 3) {
+      first.nodeValue = first.nodeValue.replace(/^[\s\u00A0]+/, ""); // the spacer that followed the box
+    }
+    item.classList.remove("wb-check-item", "done");
+    if (!item.getAttribute("class")) item.removeAttribute("class");
+    const sel = window.getSelection();
+    const r = document.createRange();
+    r.setStart(item, 0);
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
+  }
+
+  function handleBackspace(evt) {
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount || !sel.isCollapsed) return false; // a real selection deletes normally
+    const el = elementAt(sel.anchorNode);
+    if (!el || !textEl.contains(el)) return false;
+
+    const item = el.closest(".wb-check-item");
+    if (item && nothingBeforeCaret(item, sel)) {
+      evt.preventDefault();
+      removeCheckbox(item);
+      saveHtml();
+      return true;
+    }
+    const li = el.closest("li");
+    if (li && li.textContent.replace(/[\s\u00A0]/g, "") === "" && !li.querySelector(".wb-check-box")) {
+      evt.preventDefault();
+      // Toggling the same list command off is what removes the bullet and
+      // returns the line to normal flow.
+      const ordered = li.parentElement && li.parentElement.tagName === "OL";
+      document.execCommand(ordered ? "insertOrderedList" : "insertUnorderedList");
+      saveHtml();
+      return true;
+    }
+    return false;
+  }
+
   textEl.addEventListener("keydown", (evt) => {
     const mod = evt.ctrlKey || evt.metaKey;
     const k = evt.key.toLowerCase();
+    if ((evt.key === "Backspace" || evt.key === "Delete") && !mod) {
+      if (handleBackspace(evt)) return;
+    }
     if (mod && k === "b") { evt.preventDefault(); document.execCommand("bold"); saveHtml(); updateActiveStates(); }
     else if (mod && k === "i") { evt.preventDefault(); document.execCommand("italic"); saveHtml(); updateActiveStates(); }
     else if (mod && k === "u") { evt.preventDefault(); document.execCommand("underline"); saveHtml(); updateActiveStates(); }
