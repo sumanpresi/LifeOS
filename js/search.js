@@ -92,6 +92,13 @@ function buildIndex() {
   (state.health.medicines || []).forEach(m => push("Medicine", m.name, "", () => go("health")));
   (state.health.prescriptions || []).forEach(p => push("Prescription", p.name, "", () => go("health")));
 
+  // Entertainment — books, music and video, findable by title, creator or note
+  ((state.entertainment && state.entertainment.items) || []).forEach(it => {
+    const kind = { book: "Book", music: "Music", video: "Video" }[it.type] || "Entry";
+    push(kind, it.title, [it.creator, it.tag].filter(Boolean).join(" \u00B7 "), () => go("entertainment"));
+    it.note && push(kind, it.note.slice(0, 120), it.title, () => go("entertainment"));
+  });
+
   // Travel Plan — every plan's notes, packing list, and stops
   (state.travel.plans || []).forEach(p => {
     push("Travel plan", p.name, "", () => go("travel"));

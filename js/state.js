@@ -104,6 +104,9 @@ export const DEFAULT_STATE = {
   quoteOffset: 0,
   meditation: {},            // { "2026-07-19": minutes }
   journal: {},               // { "2026-07-19": "text" }
+  // Personal catalogue of books, music and video.
+  // items: [{id, type, title, creator, url, note, tag, rating, progress, featured, addedAt}]
+  entertainment: { items: [] },
   sections: {
     communication: { notes: "", noteList: [], links: [] },
     work: { notes: "", noteList: [], links: [] }
@@ -256,6 +259,8 @@ function merge(saved) {
     });
     s.journal = fixed;
   }
+  s.entertainment = Object.assign({ items: [] }, saved.entertainment || {});
+  if (!Array.isArray(s.entertainment.items)) s.entertainment.items = [];
   s.sections = Object.assign(structuredClone(DEFAULT_STATE.sections), saved.sections || {});
   /* One-time migration: a section's single free-text Notes box becomes a
      list of separately-titled rich-text notes. Whatever was already

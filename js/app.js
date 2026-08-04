@@ -13,6 +13,7 @@ import * as travel from './travel.js';
 import * as reference from './reference.js';
 import * as trash from './trash.js';
 import * as backup from './backup.js';
+import * as entertainment from './entertainment.js';
 import { decorateLinkRows } from './link-preview.js';
 import * as healthCheck from './health-check.js';
 import * as dateShortcuts from './date-shortcuts.js';
@@ -46,6 +47,7 @@ function renderAll() {
   travel.renderTravel();
   reference.renderReference();
   trash.renderTrash();
+  entertainment.renderEntertainment();
   backup.renderBackupPanel();
   /* One call covers GSI links, Work documents and Reference links: they
      are all rebuilt by innerHTML on each render, which discards any
@@ -169,7 +171,12 @@ Object.assign(window,
   { downloadBackup: backup.downloadBackup, importBackupFile: backup.importBackupFile,
     restoreSnapshot: backup.restoreSnapshot, deleteSnapshot: backup.deleteSnapshot,
     takeSnapshotNow: () => { backup.takeSnapshot("manual"); backup.renderBackupPanel(); },
-    runDataHealthCheck: healthCheck.runDataHealthCheck, repairDataProblems: healthCheck.repairDataProblems });
+    runDataHealthCheck: healthCheck.runDataHealthCheck, repairDataProblems: healthCheck.repairDataProblems },
+  { addEntertainment: entertainment.addEntertainment, delEntertainment: entertainment.delEntertainment,
+    rateEntertainment: entertainment.rateEntertainment, toggleEntertainmentFocus: entertainment.toggleEntertainmentFocus,
+    setEntertainmentProgress: entertainment.setEntertainmentProgress,
+    previewEntertainmentProgress: entertainment.previewEntertainmentProgress,
+    filterEntertainment: entertainment.filterEntertainment, searchEntertainment: entertainment.searchEntertainment });
 
 /* ---- boot ---- */
 setRenderer(renderAll);

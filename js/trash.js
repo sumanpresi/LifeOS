@@ -46,6 +46,7 @@ function labelFor(entry) {
     case "gsiLink": return p.title;
     case "personalDoc": return p.name;
     case "workDoc": return p.name;
+    case "entertainment": return p.title;
     case "journalEntry": return "Journal — " + p.date;
     case "whiteboardPage": return `Whiteboard contents — ${(p.objects||[]).length} note(s), ${(p.strokes||[]).length} stroke(s)`;
     case "workDocGroup": return "Documents tab: " + p.name;
@@ -70,7 +71,7 @@ function labelFor(entry) {
 const TYPE_NAMES = {
   task: "Task", habit: "Habit", goal: "Goal", gsiProject: "GSI project", gsiProjectTask: "GSI task",
   log: "Work log entry", meeting: "Meeting", gsiLink: "GSI link", personalDoc: "Personal document",
-  workDoc: "Work document", journalEntry: "Journal entry", whiteboardPage: "Whiteboard contents", workDocGroup: "Documents tab", travelPlan: "Travel plan", travelStop: "Travel stop", packingItem: "Packing item", packList: "Packing list",
+  workDoc: "Work document", entertainment: "Entertainment entry", journalEntry: "Journal entry", whiteboardPage: "Whiteboard contents", workDocGroup: "Documents tab", travelPlan: "Travel plan", travelStop: "Travel stop", packingItem: "Packing item", packList: "Packing list",
   referencePage: "Reference page", referenceLink: "Reference link", financeItem: "Finance item",
   financeLink: "Finance link", medicine: "Medicine", prescription: "Prescription",
   healthLink: "Health link", bookmarkLink: "Link", feed: "News feed", sectionLink: "Link", sectionNote: "Note"
@@ -197,6 +198,11 @@ export function restoreFromTrash(id) {
       } else {
         toast("That whiteboard no longer exists");
       }
+      break;
+    }
+    case "entertainment": {
+      if (!state.entertainment || !Array.isArray(state.entertainment.items)) state.entertainment = { items: [] };
+      state.entertainment.items.unshift(p);
       break;
     }
     case "referencePage": state.reference.pages.push(p); break;

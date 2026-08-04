@@ -51,6 +51,9 @@
     <button class="nav-item" data-page="reference" onclick="go('reference')">
       <svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2zm0 0a2 2 0 0 1 2-2h13"/></svg>
       Reference</button>
+    <button class="nav-item" data-page="entertainment" onclick="go('entertainment')">
+      <svg viewBox="0 0 24 24"><path d="M4 5h16v11H4zM8 20h8M12 16v4"/><path d="M9 8l5 2.5L9 13z"/></svg>
+      Entertainment</button>
     <button class="nav-item" data-page="work" onclick="go('work')">
       <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
       Work · GSI</button>
@@ -888,6 +891,58 @@
             <p class="route-result" id="routeResult"></p>
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- ======== PAGE: ENTERTAINMENT ======== -->
+    <section class="page" id="page-entertainment">
+      <h1 class="display" style="font-size:28px;margin-bottom:4px">Entertainment</h1>
+      <p class="hint" style="margin:0 0 14px">Books, music and video worth keeping track of.</p>
+
+      <div class="ent-layout">
+        <aside class="ent-side">
+          <div class="card">
+            <div class="card-head"><h2>Browse</h2></div>
+            <div class="card-body">
+              <div class="ent-filters" id="entFilters"></div>
+              <input type="search" id="entSearch" class="ent-search" placeholder="Search the catalogue…" oninput="searchEntertainment()">
+            </div>
+          </div>
+          <div class="card" style="margin-top:16px">
+            <div class="card-head"><h2>Catalogue</h2></div>
+            <div class="card-body"><div class="ent-counts" id="entCounts"></div></div>
+          </div>
+        </aside>
+
+        <main class="ent-main">
+          <div class="card ent-focus-card">
+            <div class="card-body"><div class="ent-focus" id="entFocus"></div></div>
+          </div>
+
+          <div class="card" style="margin-top:16px">
+            <div class="card-head"><h2>Entries</h2></div>
+            <div class="card-body"><div class="ent-grid" id="entGrid"></div></div>
+          </div>
+
+          <div class="card" style="margin-top:16px">
+            <div class="card-head"><h2>Add to the catalogue</h2></div>
+            <div class="card-body">
+              <div class="ent-add">
+                <select id="entType" class="ent-add-type" title="What kind of thing is this?">
+                  <option value="book">📖 Book</option>
+                  <option value="music">🎵 Music</option>
+                  <option value="video">🎬 Video</option>
+                </select>
+                <input type="text" id="entTitle" placeholder="Title" onkeydown="if(event.key==='Enter')addEntertainment()">
+                <input type="text" id="entCreator" placeholder="Author / artist / channel" onkeydown="if(event.key==='Enter')addEntertainment()">
+                <input type="text" id="entUrl" placeholder="Link (optional)" onkeydown="if(event.key==='Enter')addEntertainment()">
+                <input type="text" id="entTag" placeholder="Genre (optional)" onkeydown="if(event.key==='Enter')addEntertainment()">
+                <input type="text" id="entNote" placeholder="A note to yourself (optional)" onkeydown="if(event.key==='Enter')addEntertainment()">
+                <button class="btn" onclick="addEntertainment()">Add entry</button>
+              </div>
+            </div>
+          </div>
+        </main>
       </div>
     </section>
 

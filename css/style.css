@@ -1827,6 +1827,91 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
    <input type=checkbox> (keeps them working the same inside
    contenteditable across desktop/Android/S Pen without the usual
    checkbox-in-contenteditable quirks around focus and toggling). */
+/* ---------- Entertainment page ----------
+   Structure borrowed from the curated-archive layout (side filter,
+   current-focus panel, card grid); palette and type are LifeOS's own, so
+   the page sits inside the same sidebar and header as everything else
+   rather than looking like a different product. */
+.ent-layout{display:grid;grid-template-columns:250px 1fr;gap:18px;align-items:start}
+.ent-side{position:sticky;top:14px}
+.ent-filters{display:flex;flex-direction:column;gap:2px;border-left:1px solid var(--line);padding-left:10px;margin-bottom:12px}
+.ent-filter{text-align:left;border:none;background:none;cursor:pointer;padding:6px 4px;border-radius:6px;
+  font-size:13px;font-weight:600;color:var(--muted);font-family:inherit;transition:color 140ms ease}
+.ent-filter:hover{color:var(--ink)}
+.ent-filter.active{color:var(--accent-ink);font-weight:800;margin-left:-11px;padding-left:8px;
+  border-left:2px solid var(--accent)}
+.ent-search{width:100%;border:1px solid var(--line);border-radius:9px;padding:8px 11px;
+  font-family:inherit;font-size:13px;background:var(--paper);color:var(--ink)}
+.ent-search:focus{outline:none;border-color:var(--ink);box-shadow:0 0 0 3px rgba(27,27,26,.07)}
+.ent-counts{display:flex;flex-direction:column;gap:8px}
+.ent-stat{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;
+  color:var(--muted);font-weight:600;padding-bottom:7px;border-bottom:1px dashed var(--line)}
+.ent-stat:last-child{border-bottom:none;padding-bottom:0}
+.ent-stat-n{font-weight:800;font-size:15px;color:var(--accent-ink)}
+
+.ent-focus-card{background:linear-gradient(135deg,var(--lilac) 0%,var(--card) 68%)}
+.ent-focus{display:flex;gap:18px;align-items:center}
+.ent-focus-art{width:132px;height:180px;flex-shrink:0;border-radius:12px;overflow:hidden;
+  background:var(--paper);border:1px solid var(--line)}
+.ent-focus-art:empty{display:none}
+.ent-focus-art img{width:100%;height:100%;object-fit:cover;display:block}
+.ent-focus-body{min-width:0;flex:1}
+.ent-focus-badge{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--accent-ink);background:rgba(255,255,255,.6);
+  border:1px solid var(--lilac-deep);border-radius:99px;padding:3px 10px}
+.ent-focus-title{font-family:'Fraunces',serif;font-size:29px;font-weight:600;line-height:1.15;
+  margin:8px 0 2px;color:var(--ink)}
+.ent-focus-meta{font-size:12px;font-weight:700;color:var(--muted);margin:0 0 8px;
+  letter-spacing:.02em;text-transform:uppercase}
+.ent-focus-note{font-size:13.5px;line-height:1.5;color:var(--ink);margin:0 0 12px;opacity:.85}
+.ent-progress-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.ent-progress{flex:1;accent-color:var(--accent);cursor:pointer}
+.ent-progress-pct{font-size:12px;font-weight:800;color:var(--accent-ink);min-width:38px;text-align:right}
+
+.ent-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:14px}
+.ent-card{border:1px solid var(--line);border-radius:14px;padding:14px;background:var(--card);
+  display:flex;flex-direction:column;gap:6px;transition:border-color 150ms ease,transform 150ms ease}
+.ent-card:hover{border-color:var(--lilac-deep);transform:translateY(-2px)}
+.ent-card-head{display:flex;align-items:center;gap:6px}
+.ent-type{font-size:10px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--accent-ink)}
+.ent-tag{font-size:10px;font-weight:700;color:var(--muted);background:var(--paper);
+  border:1px solid var(--line);border-radius:99px;padding:2px 8px}
+.ent-focus-btn{margin-left:auto;border:none;background:none;cursor:pointer;font-size:12px;
+  color:var(--line);padding:2px 4px;line-height:1}
+.ent-focus-btn:hover{color:var(--muted)}
+.ent-focus-btn.on{color:var(--accent)}
+.ent-title{font-family:'Fraunces',serif;font-size:18px;font-weight:600;line-height:1.2;margin:2px 0 0;color:var(--ink)}
+.ent-creator{font-size:11.5px;font-weight:700;color:var(--muted);margin:0}
+.ent-note{font-size:12.5px;line-height:1.45;color:var(--ink);opacity:.8;margin:2px 0 0}
+.ent-card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  margin-top:auto;padding-top:10px;border-top:1px solid var(--line)}
+.ent-stars{display:inline-flex;gap:1px}
+.ent-star{border:none;background:none;cursor:pointer;font-size:13px;color:var(--line);padding:0 1px;line-height:1}
+.ent-star:hover{color:var(--warn)}
+.ent-star.on{color:var(--warn)}
+.ent-link{padding:4px 10px}
+.ent-link a{font-size:11.5px;font-weight:700;text-decoration:none;color:var(--accent-ink);white-space:nowrap}
+
+.ent-add{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+.ent-add select,.ent-add input{border:1px solid var(--line);border-radius:9px;padding:9px 11px;
+  font-family:inherit;font-size:13px;background:var(--paper);color:var(--ink);min-width:0}
+.ent-add select:focus,.ent-add input:focus{outline:none;border-color:var(--ink)}
+.ent-add #entNote{grid-column:1 / -1}
+.ent-add .btn{grid-column:1 / -1;justify-self:start}
+
+@media(max-width:900px){
+  .ent-layout{grid-template-columns:1fr}
+  .ent-side{position:static}
+  .ent-filters{flex-direction:row;flex-wrap:wrap;border-left:none;padding-left:0}
+  .ent-filter.active{margin-left:0;border-left:none;padding-left:4px;background:var(--lilac)}
+}
+@media(max-width:640px){
+  .ent-focus{flex-direction:column;align-items:flex-start}
+  .ent-focus-art{width:100%;height:190px}
+  .ent-focus-title{font-size:24px}
+  .ent-add{grid-template-columns:1fr}
+  .ent-add select,.ent-add input{min-height:44px}
+}
 /* ---------- Link previews in the link lists ----------
    A thumbnail inside the pill, and the full preview on hover or on tap
    of that thumbnail. */
