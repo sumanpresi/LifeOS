@@ -1464,6 +1464,74 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
     sel.addRange(r);
   }
 
+  /* Enter on a checkbox row.
+
+     Left to the browser this does the wrong thing, and the reason is the
+     layout: .wb-check-item is a flex row so the box and the text sit
+     side by side and wrapped text lines up under itself. Pressing Enter
+     splits the line by inserting a new element INSIDE that row — and a
+     new child of a flex row is laid out beside its siblings, not below
+     them. So the caret appears to jump sideways, which reads as a tab.
+
+     Handling it here also lets the key do the more useful thing. On a row
+     with text, Enter starts another checkbox row, the way a checklist
+     behaves everywhere else. On an empty one it removes the checkbox and
+     returns the line to normal text, which is the way out of the list —
+     without that, a checklist would be a one-way door. Shift+Enter is
+     left alone so a soft line break inside one item is still possible. */
+  function handleEnterInCheckItem(evt) {
+    if (evt.shiftKey) return false;
+    const sel = window.getSelection();
+    if (!sel || !sel.rangeCount || !sel.isCollapsed) return false;
+    const el = elementAt(sel.anchorNode);
+    if (!el || !textEl.contains(el)) return false;
+    const item = el.closest(".wb-check-item");
+    if (!item) return false;
+
+    evt.preventDefault();
+
+    /* "Empty" means empty of *typed* text. item.textContent includes the
+       box's own ☐ glyph, so measuring the row directly would find every
+       row non-empty and the way out of the list would never trigger. */
+    const typed = (() => {
+      const clone = item.cloneNode(true);
+      clone.querySelectorAll(".wb-check-box").forEach(b => b.remove());
+      return clone.textContent.replace(/[\s\u00A0]/g, "");
+    })();
+    if (typed === "") {
+      removeCheckbox(item); // nothing written on this row — step out of the list
+      saveHtml();
+      return true;
+    }
+
+    // Whatever sits after the caret moves down to the new row, so Enter
+    // in the middle of a line splits it rather than discarding the tail.
+    const range = sel.getRangeAt(0);
+    const tailRange = range.cloneRange();
+    tailRange.selectNodeContents(item);
+    tailRange.setStart(range.endContainer, range.endOffset);
+    const tail = tailRange.extractContents();
+    // If the caret was somehow before the box, the box would travel with
+    // the tail and the row would end up with two.
+    tail.querySelectorAll(".wb-check-box").forEach(b => b.remove());
+
+    const next = document.createElement("div");
+    next.className = "wb-check-item";
+    const box = document.createElement("span");
+    box.className = "wb-check-box";
+    box.setAttribute("contenteditable", "false");
+    box.setAttribute("data-checked", "false");
+    box.textContent = "☐";
+    const spacer = document.createTextNode("\u00A0");
+    next.appendChild(box);
+    next.appendChild(spacer);
+    next.appendChild(tail);
+    item.parentNode.insertBefore(next, item.nextSibling);
+    caretAfter(spacer);
+    saveHtml();
+    return true;
+  }
+
   function handleBackspace(evt) {
     const sel = window.getSelection();
     if (!sel || !sel.rangeCount || !sel.isCollapsed) return false; // a real selection deletes normally
@@ -1493,6 +1561,9 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
   textEl.addEventListener("keydown", (evt) => {
     const mod = evt.ctrlKey || evt.metaKey;
     const k = evt.key.toLowerCase();
+    if (evt.key === "Enter" && !mod) {
+      if (handleEnterInCheckItem(evt)) return;
+    }
     if ((evt.key === "Backspace" || evt.key === "Delete") && !mod) {
       if (handleBackspace(evt)) return;
     }
