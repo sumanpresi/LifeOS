@@ -909,7 +909,7 @@
             </div>
           </div>
           <div class="card" style="margin-top:16px">
-            <div class="card-head"><h2>Tags</h2></div>
+            <div class="card-head"><h2 id="entTagHead">Tags</h2></div>
             <div class="card-body"><div class="ent-tagfilters" id="entTagFilters"></div></div>
           </div>
           <div class="card" style="margin-top:16px">
@@ -1024,6 +1024,38 @@
 </div>
 
 <!-- ============ ACCOUNT / SIGN-IN MODAL ============ -->
+<div class="modal-bg" id="entEditModalBg">
+  <div class="modal" style="max-width:520px">
+    <div class="expand-modal-head" style="margin-bottom:14px">
+      <h2>Edit entry</h2>
+      <button class="btn btn-ghost" onclick="closeEntertainmentEdit()">✕ Close</button>
+    </div>
+    <div class="ent-add">
+      <select id="entEditType" class="ent-add-type" title="What kind of thing is this?">
+        <option value="book">📖 Book</option>
+        <option value="music">🎵 Music</option>
+        <option value="video">🎬 Video</option>
+      </select>
+      <select id="entEditStatus" class="ent-add-type" title="Where are you with it?">
+        <option value="want">Want to</option>
+        <option value="doing">In progress</option>
+        <option value="done">Finished</option>
+      </select>
+      <input type="text" id="entEditTitle" placeholder="Title" onkeydown="if(event.key==='Enter')saveEntertainmentEdit()">
+      <input type="text" id="entEditCreator" placeholder="Author / artist / channel" onkeydown="if(event.key==='Enter')saveEntertainmentEdit()">
+      <input type="text" id="entEditUrl" placeholder="Link (optional)" onkeydown="if(event.key==='Enter')saveEntertainmentEdit()">
+      <input type="text" id="entEditTags" list="entEditTagOptions" placeholder="Tags, comma separated" onkeydown="if(event.key==='Enter')saveEntertainmentEdit()">
+      <datalist id="entEditTagOptions"></datalist>
+      <input type="text" id="entEditNote" placeholder="A note to yourself (optional)" onkeydown="if(event.key==='Enter')saveEntertainmentEdit()">
+    </div>
+    <div class="ent-edit-actions">
+      <button class="btn" onclick="saveEntertainmentEdit()">Save changes</button>
+      <button class="btn btn-ghost" onclick="closeEntertainmentEdit()">Cancel</button>
+      <button class="btn btn-ghost ent-edit-del" onclick="deleteFromEntertainmentEdit()">Delete entry</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="taskPopupModalBg">
   <div class="modal" style="max-width:420px">
     <div class="expand-modal-head" style="margin-bottom:14px">

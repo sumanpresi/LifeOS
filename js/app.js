@@ -183,7 +183,11 @@ Object.assign(window,
     toggleEntertainmentTag: entertainment.toggleEntertainmentTag,
     sortEntertainment: entertainment.sortEntertainment, setEntertainmentView: entertainment.setEntertainmentView,
     showMoreEntertainment: entertainment.showMoreEntertainment,
-    clearEntertainmentFilters: entertainment.clearEntertainmentFilters });
+    clearEntertainmentFilters: entertainment.clearEntertainmentFilters,
+    openEntertainmentEdit: entertainment.openEntertainmentEdit,
+    closeEntertainmentEdit: entertainment.closeEntertainmentEdit,
+    saveEntertainmentEdit: entertainment.saveEntertainmentEdit,
+    deleteFromEntertainmentEdit: entertainment.deleteFromEntertainmentEdit });
 
 /* ---- boot ---- */
 setRenderer(renderAll);

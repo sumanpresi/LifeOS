@@ -55,20 +55,28 @@ const q1 = s => String(s).replace(/'/g, "\\'"); // safe inside a single-quoted i
    case-insensitive and the first spelling seen wins, so "Sci-Fi" and
    "sci-fi" collapse into one filter instead of splitting the shelf in
    two — the failure that makes a tag list useless within a year. */
-function allTags() {
+function allTags(scope = "all") {
+  /* Scoped to the section being browsed. A single shared tag list mixes
+     #History from a documentary in with #History from a book, and shows
+     tags that can't match anything while Video is selected — a filter
+     that returns nothing is worse than no filter. Passing "all" gives the
+     whole catalogue, which is what the add-form's suggestions want, since
+     reusing a spelling across sections is exactly what keeps them tidy. */
   const seen = new Map(); // lowercase -> {label, count}
-  ent().items.forEach(it => itemTags(it).forEach(t => {
-    const key = String(t).toLowerCase();
-    if (seen.has(key)) seen.get(key).count++;
-    else seen.set(key, { label: t, count: 1 });
-  }));
+  ent().items
+    .filter(it => scope === "all" || it.type === scope)
+    .forEach(it => itemTags(it).forEach(t => {
+      const key = String(t).toLowerCase();
+      if (seen.has(key)) seen.get(key).count++;
+      else seen.set(key, { label: t, count: 1 });
+    }));
   return [...seen.values()].sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 }
 // Reuses an existing spelling when the tag already exists in another case.
 function canonicalTag(raw) {
   const t = String(raw).trim();
   if (!t) return "";
-  const match = allTags().find(x => x.label.toLowerCase() === t.toLowerCase());
+  const match = allTags("all").find(x => x.label.toLowerCase() === t.toLowerCase());
   return match ? match.label : t;
 }
 function parseTags(raw) {
@@ -128,6 +136,7 @@ function cardHtml(it) {
       ${statusSelect(it)}
       <button class="ent-focus-btn ${it.featured ? "on" : ""}" onclick="toggleEntertainmentFocus('${it.id}')"
         title="${it.featured ? "Remove from Current focus" : "Set as Current focus"}">\u25C9</button>
+      <button class="ent-edit-btn" onclick="openEntertainmentEdit('${it.id}')" title="Edit this entry">\u270E</button>
       <button class="del" onclick="delEntertainment('${it.id}')" title="Delete">\u2715</button>
     </div>
     <h4 class="ent-title">${esc(it.title)}</h4>
@@ -156,6 +165,7 @@ function rowHtml(it) {
     ${statusSelect(it)}
     ${starsHtml(it.rating, it.id)}
     ${it.url ? `<a class="ent-row-link" href="${esc(it.url)}" target="_blank" rel="noopener" title="Open">\u2197</a>` : `<span class="ent-row-link"></span>`}
+    <button class="ent-edit-btn" onclick="openEntertainmentEdit('${it.id}')" title="Edit this entry">\u270E</button>
     <button class="del" onclick="delEntertainment('${it.id}')" title="Delete">\u2715</button>
   </div>`;
 }
@@ -203,18 +213,22 @@ export function renderEntertainment() {
       `<button class="ent-tab ${filterStatus === k ? "active" : ""}" onclick="filterEntertainmentStatus('${k}')">${esc(l)}</button>`).join("");
   }
 
+  const tagHead = document.getElementById("entTagHead");
+  if (tagHead) tagHead.textContent = filterType === "all" ? "Tags" : `Tags \u00B7 ${TYPE_LABEL[filterType]}`;
   const tagBox = document.getElementById("entTagFilters");
   if (tagBox) {
-    const tags = allTags();
+    const tags = allTags(filterType);
     tagBox.innerHTML = tags.length
       ? tags.map(t => `<button class="ent-tagfilter ${selectedTags.has(t.label) ? "active" : ""}"
           onclick="toggleEntertainmentTag('${esc(q1(t.label))}')">${esc(t.label)} <span>${t.count}</span></button>`).join("")
-      : `<p class="hint" style="margin:0">Tags you add will appear here.</p>`;
+      : `<p class="hint" style="margin:0">${filterType === "all"
+          ? "Tags you add will appear here."
+          : `No tags on your ${TYPE_LABEL[filterType].toLowerCase()} yet.`}</p>`;
   }
   // Typing a tag offers the ones already in use — the one thing that stops
   // a tag list fragmenting into near-duplicates over time.
   const dl = document.getElementById("entTagOptions");
-  if (dl) dl.innerHTML = allTags().map(t => `<option value="${esc(t.label)}">`).join("");
+  if (dl) dl.innerHTML = allTags("all").map(t => `<option value="${esc(t.label)}">`).join("");
 
   const focusBox = document.getElementById("entFocus");
   const featured = items.find(i => i.featured) || null;
@@ -270,7 +284,16 @@ export function renderEntertainment() {
    All view-only. None of this is written to state, so which filter a
    device happens to be showing never travels to another device or counts
    as an edit for syncing. */
-export function filterEntertainment(type) { filterType = type; renderLimit = PAGE_SIZE; renderEntertainment(); }
+export function filterEntertainment(type) {
+  filterType = type;
+  /* A tag selected under Video is meaningless once Books is chosen, and
+     leaving it on would silently show an empty shelf with no obvious
+     cause. Selections that still exist in the new section are kept. */
+  const available = new Set(allTags(type).map(t => t.label));
+  [...selectedTags].forEach(t => { if (!available.has(t)) selectedTags.delete(t); });
+  renderLimit = PAGE_SIZE;
+  renderEntertainment();
+}
 export function filterEntertainmentStatus(s) { filterStatus = s; renderLimit = PAGE_SIZE; renderEntertainment(); }
 export function toggleEntertainmentTag(tag) {
   if (selectedTags.has(tag)) selectedTags.delete(tag); else selectedTags.add(tag);
@@ -355,4 +378,56 @@ export function setEntertainmentProgress(id, value) {
   else if (it.progress > 0 && (it.status || "want") === "want") it.status = "doing";
   previewEntertainmentProgress(it.progress);
   persist(); // committed on release, so it always marks the device as edited
+}
+
+/* ---------- editing an existing entry ----------
+   Everything typed when the entry was created is editable afterwards. The
+   fields are the same ones, in the same order, so the edit form reads as
+   the add form rather than as a different screen. */
+let editingId = null;
+
+export function openEntertainmentEdit(id) {
+  const it = ent().items.find(x => x.id === id);
+  if (!it) return;
+  editingId = id;
+  const set = (field, value) => { const el = document.getElementById(field); if (el) el.value = value; };
+  set("entEditType", it.type);
+  set("entEditStatus", it.status || "want");
+  set("entEditTitle", it.title || "");
+  set("entEditCreator", it.creator || "");
+  set("entEditUrl", it.url || "");
+  set("entEditTags", itemTags(it).join(", "));
+  set("entEditNote", it.note || "");
+  const dl = document.getElementById("entEditTagOptions");
+  if (dl) dl.innerHTML = allTags("all").map(t => `<option value="${esc(t.label)}">`).join("");
+  document.getElementById("entEditModalBg")?.classList.add("open");
+  document.getElementById("entEditTitle")?.focus();
+}
+export function closeEntertainmentEdit() {
+  editingId = null;
+  document.getElementById("entEditModalBg")?.classList.remove("open");
+}
+export function saveEntertainmentEdit() {
+  const it = ent().items.find(x => x.id === editingId);
+  if (!it) return closeEntertainmentEdit();
+  const get = id => (document.getElementById(id)?.value ?? "");
+  const title = get("entEditTitle").trim();
+  if (!title) { document.getElementById("entEditTitle")?.focus(); return toast("A title is still required"); }
+  it.type = get("entEditType");
+  it.status = get("entEditStatus");
+  it.title = title;
+  it.creator = get("entEditCreator").trim();
+  it.url = get("entEditUrl").trim();
+  it.note = get("entEditNote").trim();
+  it.tags = parseTags(get("entEditTags"));
+  // Same rule the status dropdown follows, so the two can't disagree.
+  if (it.status === "done") it.progress = 100;
+  closeEntertainmentEdit();
+  persist(); rerender();
+  toast("Entry updated");
+}
+export function deleteFromEntertainmentEdit() {
+  const id = editingId;
+  closeEntertainmentEdit();
+  if (id) delEntertainment(id);
 }
