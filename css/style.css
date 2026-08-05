@@ -1868,6 +1868,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .ent-progress{flex:1;accent-color:var(--accent);cursor:pointer}
 .ent-progress-pct{font-size:12px;font-weight:800;color:var(--accent-ink);min-width:38px;text-align:right}
 
+.ent-archive-btn{display:block;width:100%;margin-top:10px;font-size:12.5px}
 .ent-edit-btn{border:none;background:none;cursor:pointer;font-size:12px;color:var(--muted);
   padding:2px 4px;line-height:1;flex-shrink:0}
 .ent-edit-btn:hover{color:var(--accent-ink)}

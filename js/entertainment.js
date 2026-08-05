@@ -42,6 +42,7 @@ let searchQuery = "";
 let sortMode = "added";
 let viewMode = "grid";
 let renderLimit = PAGE_SIZE;
+let archivePanelOpen = false;   // declared with the other view state, above every use of it
 
 function ent() {
   if (!state.entertainment || typeof state.entertainment !== "object") state.entertainment = { items: [] };
@@ -49,6 +50,11 @@ function ent() {
   return state.entertainment;
 }
 const itemTags = it => (Array.isArray(it.tags) ? it.tags : []);
+/* Archived entries stay in the catalogue but out of the way — off the
+   shelf, out of the tag counts, out of the totals. They are not deleted
+   and never enter Trash, which is the whole point of having both. */
+const liveItems = () => ent().items.filter(it => !it.archived);
+const archivedItems = () => ent().items.filter(it => it.archived);
 const q1 = s => String(s).replace(/'/g, "\\'"); // safe inside a single-quoted inline handler
 
 /* Every tag in use, with its count, most-used first. Matching is
@@ -63,7 +69,7 @@ function allTags(scope = "all") {
      whole catalogue, which is what the add-form's suggestions want, since
      reusing a spelling across sections is exactly what keeps them tidy. */
   const seen = new Map(); // lowercase -> {label, count}
-  ent().items
+  liveItems()
     .filter(it => scope === "all" || it.type === scope)
     .forEach(it => itemTags(it).forEach(t => {
       const key = String(t).toLowerCase();
@@ -76,7 +82,11 @@ function allTags(scope = "all") {
 function canonicalTag(raw) {
   const t = String(raw).trim();
   if (!t) return "";
-  const match = allTags("all").find(x => x.label.toLowerCase() === t.toLowerCase());
+  // Deliberately over the whole catalogue, archived included: a spelling
+  // shouldn't be forgotten just because the only entry using it is filed away.
+  const seen = new Map();
+  ent().items.forEach(it => itemTags(it).forEach(x => seen.set(x.toLowerCase(), x)));
+  const match = [...seen.values()].map(label => ({ label })).find(x => x.label.toLowerCase() === t.toLowerCase());
   return match ? match.label : t;
 }
 function parseTags(raw) {
@@ -89,7 +99,7 @@ const filtersActive = () =>
 function matchingItems() {
   const q = searchQuery.trim().toLowerCase();
   const wanted = [...selectedTags].map(t => t.toLowerCase());
-  return ent().items.filter(it => {
+  return liveItems().filter(it => {
     if (filterType !== "all" && it.type !== filterType) return false;
     if (filterStatus !== "all" && (it.status || "want") !== filterStatus) return false;
     /* Several tags selected means "has all of them" — narrowing. Reading
@@ -137,6 +147,7 @@ function cardHtml(it) {
       <button class="ent-focus-btn ${it.featured ? "on" : ""}" onclick="toggleEntertainmentFocus('${it.id}')"
         title="${it.featured ? "Remove from Current focus" : "Set as Current focus"}">\u25C9</button>
       <button class="ent-edit-btn" onclick="openEntertainmentEdit('${it.id}')" title="Edit this entry">\u270E</button>
+      <button class="ent-edit-btn" onclick="archiveEntertainment('${it.id}')" title="Archive \u2014 keeps it, just hides it">\uD83D\uDDC4</button>
       <button class="del" onclick="delEntertainment('${it.id}')" title="Delete">\u2715</button>
     </div>
     <h4 class="ent-title">${esc(it.title)}</h4>
@@ -166,6 +177,7 @@ function rowHtml(it) {
     ${starsHtml(it.rating, it.id)}
     ${it.url ? `<a class="ent-row-link" href="${esc(it.url)}" target="_blank" rel="noopener" title="Open">\u2197</a>` : `<span class="ent-row-link"></span>`}
     <button class="ent-edit-btn" onclick="openEntertainmentEdit('${it.id}')" title="Edit this entry">\u270E</button>
+    <button class="ent-edit-btn" onclick="archiveEntertainment('${it.id}')" title="Archive">\uD83D\uDDC4</button>
     <button class="del" onclick="delEntertainment('${it.id}')" title="Delete">\u2715</button>
   </div>`;
 }
@@ -196,9 +208,11 @@ export function renderEntertainment() {
 
   const counts = document.getElementById("entCounts");
   if (counts) {
+    const live = liveItems();
     counts.innerHTML =
-      TYPES.map(([k, l]) => `<div class="ent-stat"><span>${esc(l)}</span><span class="ent-stat-n">${items.filter(i => i.type === k).length}</span></div>`).join("")
-      + STATUSES.map(([k, l]) => `<div class="ent-stat ent-stat-status"><span>${esc(l)}</span><span class="ent-stat-n">${items.filter(i => (i.status || "want") === k).length}</span></div>`).join("");
+      TYPES.map(([k, l]) => `<div class="ent-stat"><span>${esc(l)}</span><span class="ent-stat-n">${live.filter(i => i.type === k).length}</span></div>`).join("")
+      + STATUSES.map(([k, l]) => `<div class="ent-stat ent-stat-status"><span>${esc(l)}</span><span class="ent-stat-n">${live.filter(i => (i.status || "want") === k).length}</span></div>`).join("")
+      + (archivedItems().length ? `<div class="ent-stat ent-stat-status"><span>Archived</span><span class="ent-stat-n">${archivedItems().length}</span></div>` : "");
   }
 
   const typeBox = document.getElementById("entFilters");
@@ -261,6 +275,27 @@ export function renderEntertainment() {
     const remaining = matched.length - shown.length;
     more.style.display = remaining > 0 ? "" : "none";
     more.textContent = `Show ${Math.min(remaining, PAGE_SIZE)} more (${remaining} left)`;
+  }
+
+  const archived = archivedItems();
+  const archBtn = document.getElementById("entArchiveBtn");
+  if (archBtn) {
+    archBtn.style.display = archived.length ? "" : "none";
+    archBtn.textContent = `\uD83D\uDDC4 Archived (${archived.length})`;
+  }
+  const archPanel = document.getElementById("entArchivePanel");
+  if (archPanel) {
+    if (!archived.length) archivePanelOpen = false;
+    archPanel.classList.toggle("open", archivePanelOpen);
+    archPanel.innerHTML = !archivePanelOpen ? "" : archived.map(it => `
+      <div class="gsi-archive-row">
+        <span class="gsi-archive-text">${TYPES.find(t => t[0] === it.type)?.[2] || ""} ${esc(it.title)}
+          ${it.creator ? `<span class="hint">\u2014 ${esc(it.creator)}</span>` : ""}</span>
+        <div class="gsi-archive-actions">
+          <button class="gsi-archive-restore" onclick="unarchiveEntertainment('${it.id}')">\u21BA Restore</button>
+          <button class="gsi-archive-remove" onclick="delEntertainment('${it.id}')" title="Delete (recoverable from Trash)">\u2715</button>
+        </div>
+      </div>`).join("");
   }
 
   const viewBtns = document.getElementById("entViewToggle");
@@ -342,7 +377,39 @@ export function delEntertainment(id) {
   moveToTrash("entertainment", it, {});
   state.entertainment.items = ent().items.filter(x => x.id !== id);
   persist(); rerender();
-  toast(`Deleted "${it.title}"`);
+  /* Three ways back from a mistaken delete, in descending order of how
+     quickly they're needed: Undo right here, Archive if it shouldn't have
+     been deleted at all, and Trash for the next 30 days. */
+  toast(`Deleted "${it.title}"`, "Undo", "undoEntertainmentDelete()");
+}
+export function undoEntertainmentDelete() {
+  // Trash is newest-first, so the first match is the one just deleted.
+  const entry = state.trash.find(x => x.type === "entertainment");
+  if (!entry) return toast("Nothing left to undo");
+  ent().items.unshift(entry.payload);
+  state.trash = state.trash.filter(x => x.id !== entry.id);
+  persist(); rerender();
+  toast(`Restored "${entry.payload.title}"`);
+}
+
+export function archiveEntertainment(id) {
+  const it = ent().items.find(x => x.id === id);
+  if (!it) return;
+  it.archived = true;
+  it.featured = false; // something filed away can't still be the Current focus
+  persist(); rerender();
+  toast(`Archived "${it.title}"`, "Undo", `unarchiveEntertainment('${id}')`);
+}
+export function unarchiveEntertainment(id) {
+  const it = ent().items.find(x => x.id === id);
+  if (!it) return;
+  it.archived = false;
+  persist(); rerender();
+  toast(`Restored "${it.title}"`);
+}
+export function toggleEntertainmentArchivePanel() {
+  archivePanelOpen = !archivePanelOpen;
+  renderEntertainment();
 }
 export function rateEntertainment(id, n) {
   const it = ent().items.find(x => x.id === id);

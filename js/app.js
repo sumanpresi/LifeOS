@@ -187,7 +187,11 @@ Object.assign(window,
     openEntertainmentEdit: entertainment.openEntertainmentEdit,
     closeEntertainmentEdit: entertainment.closeEntertainmentEdit,
     saveEntertainmentEdit: entertainment.saveEntertainmentEdit,
-    deleteFromEntertainmentEdit: entertainment.deleteFromEntertainmentEdit });
+    deleteFromEntertainmentEdit: entertainment.deleteFromEntertainmentEdit,
+    undoEntertainmentDelete: entertainment.undoEntertainmentDelete,
+    archiveEntertainment: entertainment.archiveEntertainment,
+    unarchiveEntertainment: entertainment.unarchiveEntertainment,
+    toggleEntertainmentArchivePanel: entertainment.toggleEntertainmentArchivePanel });
 
 /* ---- boot ---- */
 setRenderer(renderAll);
