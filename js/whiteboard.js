@@ -1235,15 +1235,52 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
   // state instead of placing a text cursor inside it) and toggled via
   // the delegated click handler on textEl below.
   fmtToolbar.querySelector(".wb-sfmt-checklist").addEventListener("pointerdown", (evt) => evt.preventDefault());
-  fmtToolbar.querySelector(".wb-sfmt-checklist").addEventListener("click", () => {
-    // Toggle, not just insert: pressing it while the caret is already on a
-    // checkbox row takes the checkbox off. Without this the only way to
-    // undo the button was Backspace, which is exactly what doesn't work
-    // beside a non-editable element (see handleBackspace).
+  /* The line the caret is on, rather than the note as a whole. Used to
+     turn *that* line into a checkbox row instead of creating a new one. */
+  function caretLineBlock() {
     const sel = window.getSelection();
-    const node = sel && sel.rangeCount ? sel.anchorNode : null;
-    const el = node ? (node.nodeType === 1 ? node : node.parentElement) : null;
-    const existing = el && textEl.contains(el) ? el.closest(".wb-check-item") : null;
+    if (!sel || !sel.rangeCount) return null;
+    const n = sel.anchorNode;
+    const e = n ? (n.nodeType === 1 ? n : n.parentElement) : null;
+    if (!e || !textEl.contains(e)) return null;
+    const block = e.closest("div,p,li,h1,h2,h3,h4,blockquote");
+    return block && block !== textEl && textEl.contains(block) ? block : null;
+  }
+  function caretAfter(node) {
+    const sel = window.getSelection();
+    const r = document.createRange();
+    if (node.nodeType === 3) r.setStart(node, node.length); else r.setStartAfter(node);
+    r.collapse(true);
+    sel.removeAllRanges();
+    sel.addRange(r);
+    textEl.focus();
+    saveRange();
+  }
+
+  fmtToolbar.querySelector(".wb-sfmt-checklist").addEventListener("click", () => {
+    /* This used to run execCommand("insertHTML") with a <div>. Two things
+       went wrong with that, and they're the two complaints about it:
+
+       • Inserting a block element splits the line the caret is on, so with
+         the caret at the start of a line the checkbox landed on a new line
+         ABOVE the text it was meant to mark.
+       • After the insert the caret ends up after the whole inserted block,
+         not inside it, so typing continued on the next line rather than
+         next to the checkbox.
+
+       Both go away by not inserting a block at all: the line the caret is
+       already on is turned into a checkbox row, and the caret is then
+       placed explicitly after the spacer that follows the box. A caret
+       cannot sit "inside" a contenteditable=false element, so that spacer
+       is what makes a typing position next to the box exist at all. */
+    restoreRange();
+    const existing = (() => {
+      const sel = window.getSelection();
+      const n = sel && sel.rangeCount ? sel.anchorNode : null;
+      const e = n ? (n.nodeType === 1 ? n : n.parentElement) : null;
+      return e && textEl.contains(e) ? e.closest(".wb-check-item") : null;
+    })();
+
     if (existing) {
       const box = existing.querySelector(".wb-check-box");
       if (box) box.remove();
@@ -1251,8 +1288,56 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
       if (first && first.nodeType === 3) first.nodeValue = first.nodeValue.replace(/^[\s\u00A0]+/, "");
       existing.classList.remove("wb-check-item", "done");
       if (!existing.getAttribute("class")) existing.removeAttribute("class");
+      const sel = window.getSelection();
+      const r = document.createRange();
+      r.setStart(existing, 0); r.collapse(true);
+      sel.removeAllRanges(); sel.addRange(r);
+      textEl.focus();
     } else {
-      document.execCommand("insertHTML", false, '<div class="wb-check-item"><span class="wb-check-box" contenteditable="false" data-checked="false">☐</span>\u00A0</div>');
+      const box = document.createElement("span");
+      box.className = "wb-check-box";
+      box.setAttribute("contenteditable", "false");
+      box.setAttribute("data-checked", "false");
+      box.textContent = "☐";
+      const spacer = document.createTextNode("\u00A0");
+      const line = caretLineBlock();
+      /* Where the caret should end up depends on whether the line already
+         has words on it. On an empty line the box is being added so
+         something can be typed next to it, so that's where the caret
+         goes. On a line that already reads "Reports received from ER",
+         yanking the caret to the front would be the button moving the
+         cursor out from under the person — the original position is kept
+         instead, and it stays valid because nothing is inserted after it. */
+      const lineHadText = line ? line.textContent.replace(/[\s\u00A0]/g, "") !== "" : false;
+      const keep = (() => {
+        const sel = window.getSelection();
+        return lineHadText && sel && sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
+      })();
+      if (line) {
+        // Mark the existing line — its text stays put, nothing new is created.
+        line.classList.add("wb-check-item");
+        line.insertBefore(spacer, line.firstChild);
+        line.insertBefore(box, line.firstChild);
+        if (keep) {
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(keep);
+          textEl.focus();
+          saveRange();
+          saveHtml();
+          return;
+        }
+      } else {
+        // Text typed straight into the note with no wrapping element yet.
+        const div = document.createElement("div");
+        div.className = "wb-check-item";
+        div.appendChild(box);
+        div.appendChild(spacer);
+        const sel = window.getSelection();
+        if (sel && sel.rangeCount) { const r = sel.getRangeAt(0); r.collapse(true); r.insertNode(div); }
+        else textEl.appendChild(div);
+      }
+      caretAfter(spacer);
     }
     saveHtml();
   });
