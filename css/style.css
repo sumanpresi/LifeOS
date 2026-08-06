@@ -1510,7 +1510,13 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
    The fallback class does the same job via plain CSS for browsers without
    Fullscreen API support, so the toggle still works everywhere. */
 .wb-canvas-area:fullscreen,.wb-canvas-area.wb-fallback-fullscreen{
-  background:var(--card);padding:16px;display:flex;flex-direction:column;justify-content:center}
+  background:var(--card);padding:16px;display:flex;flex-direction:column;
+  justify-content:center;
+  /* justify-content centres along the flex axis, which here is vertical.
+     Without align-items the board sat hard against the left edge and every
+     unused pixel piled up on the right — on a 16:9 monitor that is about a
+     quarter of the screen, which is what made the board look narrow. */
+  align-items:center}
 .wb-canvas-area.wb-fallback-fullscreen{position:fixed;inset:0;z-index:500}
 /* A fixed-aspect-ratio canvas at width:100% can compute taller than
    the fullscreen container's actual available height on a wide
@@ -1522,10 +1528,26 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
    constraints while keeping the aspect ratio, the same way object-fit:
    contain works for images — so the whole board is always visible
    regardless of the monitor's own aspect ratio.  */
+/* The wrapper is sized explicitly rather than left to shrink around the
+   canvas, and that is deliberate: a <canvas> reports its pixel-buffer
+   size as its preferred width, which after device-pixel-ratio scaling is
+   far larger than the screen — so width:fit-content resolves to the full
+   available width and the wrapper stays screen-wide.
+
+   That matters beyond looks. The connector layer is an SVG sized to
+   100% of the wrapper, with a viewBox measured from the canvas and
+   preserveAspectRatio:none. If the wrapper is wider than the canvas, that
+   viewBox gets stretched across the extra width and every connector is
+   pushed sideways — which is why the arrows were landing outside the
+   board entirely. Wrapper and canvas must be exactly the same box.
+
+   min() picks whichever constraint binds first: the screen's width, or
+   the width implied by the height cap at 4:3. */
 .wb-canvas-area:fullscreen .wb-canvas-wrap,.wb-fallback-fullscreen .wb-canvas-wrap{
-  width:auto;max-width:100%;height:auto;max-height:calc(100vh - 32px);margin:0 auto}
+  width:min(calc(100vw - 32px), calc((100vh - 32px) * 4 / 3));
+  aspect-ratio:4/3;height:auto;margin:0}
 .wb-canvas-area:fullscreen .whiteboard-canvas,.wb-fallback-fullscreen .whiteboard-canvas{
-  width:auto;max-width:100%;max-height:calc(100vh - 32px)}
+  width:100%;height:100%;max-width:none;max-height:none;aspect-ratio:auto}
 
 /* No scrollable wrapper here on purpose — a nested scrollable region
    between the canvas and the page it lives on was the actual root
