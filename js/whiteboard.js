@@ -229,6 +229,12 @@ export function resizeWhiteboardIfVisible(boardId) {
 function sizeCanvas(boardId) {
   const s = inst(boardId);
   if (!s.canvas) return;
+  // Re-measured on every resize so dragging a note lower while fullscreen
+  // grows the board to keep it in view.
+  const area = s.canvas.closest(".wb-canvas-area");
+  if (area && (getFullscreenElement() === area || area.classList.contains("wb-fallback-fullscreen"))) {
+    applyFullscreenRatio(boardId, area);
+  }
   const box = s.canvas.getBoundingClientRect();
   if (box.width === 0 || box.height === 0) return; // still hidden — nothing to size yet
   // Capped rather than using the raw value — very high-resolution phones
@@ -538,10 +544,50 @@ function wireFullscreenListeners(boardId, container) {
     document.addEventListener(evt, () => onFullscreenChanged(boardId, container));
   });
 }
+/* How far down the board its content actually reaches, as a fraction of
+   the board's WIDTH.
+
+   Every coordinate — sticky notes and pen strokes alike — is stored as a
+   fraction of the width, for both axes (see drawStroke: one scale factor
+   for x and y, so drawings keep their proportions). That means a 4:3
+   board can only ever show content down to y = 0.75. Anything placed
+   below that simply falls outside it.
+
+   Out of fullscreen this went unnoticed: the note layer has no clipping,
+   so notes below the board still drew over the page beneath. Going
+   fullscreen clips at the screen edge, so the same notes were suddenly
+   cut in half — which looks like fullscreen breaking the board when it
+   is really fullscreen revealing where the board's edge always was.
+
+   Fullscreen therefore sizes itself to the content instead of to a fixed
+   4:3, so entering it shows everything rather than less. */
+function contentRatio(boardId) {
+  const b = board(boardId);
+  let deepest = 0.75; // never shrink below the normal 4:3 shape
+  (b.objects || []).forEach(o => {
+    if (o.deleted) return;
+    deepest = Math.max(deepest, (o.y || 0) + (o.h || 0));
+  });
+  (b.strokes || []).forEach(st => (st.points || []).forEach(pt => {
+    if (pt && typeof pt.y === "number") deepest = Math.max(deepest, pt.y);
+  }));
+  // A little breathing room below the lowest item, and a ceiling so one
+  // stray note dragged far down can't squash the board to a sliver.
+  return Math.min(3, deepest + 0.04);
+}
+
+function applyFullscreenRatio(boardId, container) {
+  if (!container) return;
+  container.style.setProperty("--wb-ratio", contentRatio(boardId).toFixed(4));
+}
+
 function onFullscreenChanged(boardId, container) {
   const isFull = getFullscreenElement() === container || container.classList.contains("wb-fallback-fullscreen");
   const btn = document.getElementById(id(boardId, "wbFullscreenBtn"));
   if (btn) btn.classList.toggle("on", isFull);
+  // Measured before the browser lays fullscreen out, so the board is the
+  // right shape on the first frame rather than jumping a moment later.
+  applyFullscreenRatio(boardId, container);
   setTimeout(() => sizeCanvas(boardId), 60); // let the browser finish resizing first
 }
 
