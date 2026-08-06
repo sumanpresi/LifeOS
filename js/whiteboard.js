@@ -88,16 +88,37 @@ function inst(boardId) {
   }
   return instances[boardId];
 }
-function activeBrainstormBoard() {
-  const boards = state.brainstormBoards || [];
-  let b = boards.find(x => x.id === state.activeBrainstormBoard && !x.archived && !x.deleted);
+/* Surfaces that carry tabs. The GSI Brainstorming board was the only one;
+   Day Of now has the same thing, with its own separate set of tabs — a
+   day's scratch thinking and a project's brainstorming are different
+   material, and sharing one tab strip would have made the two pages two
+   views of the same board rather than two boards.
+
+   Everything below reads the collection through this table instead of
+   naming state.brainstormBoards directly, which is what lets a second
+   surface exist without a second copy of the tab code. Overview's plain
+   "Whiteboard" is untouched and still has no tabs at all. */
+const TAB_SURFACES = {
+  gsi:   { list: "brainstormBoards", active: "activeBrainstormBoard", prefix: "bb_" },
+  dayof: { list: "dayofBoards",      active: "activeDayofBoard",      prefix: "db_" },
+};
+const isTabSurface = id => Object.prototype.hasOwnProperty.call(TAB_SURFACES, id);
+function tabList(surface) {
+  const key = TAB_SURFACES[surface].list;
+  if (!Array.isArray(state[key])) state[key] = [];
+  return state[key];
+}
+function activeBrainstormBoard(surface = "gsi") {
+  const cfg = TAB_SURFACES[surface];
+  const boards = tabList(surface);
+  let b = boards.find(x => x.id === state[cfg.active] && !x.archived && !x.deleted);
   if (!b) b = boards.find(x => !x.archived && !x.deleted) || boards[0];
-  if (b && state.activeBrainstormBoard !== b.id) state.activeBrainstormBoard = b.id;
+  if (b && state[cfg.active] !== b.id) state[cfg.active] = b.id;
   return b || null;
 }
 function board(boardId) {
-  if (boardId === "gsi") {
-    const b = activeBrainstormBoard();
+  if (isTabSurface(boardId)) {
+    const b = activeBrainstormBoard(boardId);
     if (!b) return { strokes: [], objects: [], connectors: [] }; // no tabs at all (shouldn't happen — addBrainstormBoard always leaves one)
     b.objects = b.objects || [];
     b.connectors = b.connectors || [];
@@ -191,9 +212,9 @@ export function initWhiteboard(boardId) {
       if (wrap) new ResizeObserver(() => sizeCanvas(boardId)).observe(wrap);
     }
     s.initialized = true;
-    if (boardId === "gsi") s.zoomPct = (activeBrainstormBoard() || {}).zoom || 100; // restore the active tab's own zoom on first mount
+    if (isTabSurface(boardId)) s.zoomPct = (activeBrainstormBoard(boardId) || {}).zoom || 100; // restore the active tab's own zoom on first mount
   }
-  if (boardId === "gsi") renderBrainstormTabs();
+  if (isTabSurface(boardId)) renderBrainstormTabs(boardId);
   sizeCanvas(boardId);
 }
 
@@ -460,8 +481,8 @@ function setZoom(boardId, pct) {
   if (outer) outer.style.width = pct + "%";
   const label = document.getElementById(id(boardId, "wbZoomLevel"));
   if (label) label.textContent = pct + "%";
-  if (boardId === "gsi") {
-    const b = activeBrainstormBoard();
+  if (isTabSurface(boardId)) {
+    const b = activeBrainstormBoard(boardId);
     if (b && b.zoom !== pct) { b.zoom = pct; b.updatedAt = Date.now(); persist(); }
   }
   // A real width change, not a CSS transform — the canvas genuinely
@@ -1725,38 +1746,41 @@ document.addEventListener("pointerdown", (evt) => {
    a single-step "undo last stroke," does) — not fabricated here.
    ================================================================ */
 let renamingTabId = null;
+/* One archive modal serves both boards, so it has to remember which one
+   opened it — otherwise Restore would put a Day Of tab back onto the GSI
+   board, where it would appear to have vanished. */
+let archiveSurface = "gsi";
 let openTabMenuId = null;
 
-function nextUntitledName() {
-  const taken = new Set((state.brainstormBoards || []).filter(b => !b.deleted).map(b => b.name));
+function nextUntitledName(surface) {
+  const taken = new Set(tabList(surface).filter(b => !b.deleted).map(b => b.name));
   if (!taken.has("Untitled")) return "Untitled";
   let n = 2;
   while (taken.has(`Untitled ${n}`)) n++;
   return `Untitled ${n}`;
 }
 
-export function addBrainstormBoard() {
-  if (!state.brainstormBoards) state.brainstormBoards = [];
+export function addBrainstormBoard(surface = "gsi") {
   const obj = {
-    id: "bb_" + uid(), name: nextUntitledName(), archived: false,
+    id: TAB_SURFACES[surface].prefix + uid(), name: nextUntitledName(surface), archived: false,
     strokes: [], objects: [], zoom: 100, pan: { x: 0, y: 0 },
     createdAt: Date.now(), updatedAt: Date.now()
   };
-  state.brainstormBoards.push(obj);
-  switchBrainstormBoard(obj.id);
+  tabList(surface).push(obj);
+  switchBrainstormBoard(obj.id, surface);
 }
 
-export function switchBrainstormBoard(tabId) {
-  const b = (state.brainstormBoards || []).find(x => x.id === tabId && !x.deleted);
+export function switchBrainstormBoard(tabId, surface = "gsi") {
+  const b = tabList(surface).find(x => x.id === tabId && !x.deleted);
   if (!b) return;
-  state.activeBrainstormBoard = tabId;
+  state[TAB_SURFACES[surface].active] = tabId;
   selectedStickyId = null; // a note selected on the previous tab shouldn't carry over
   persist(false); // which tab is active is local UI state, not a content edit — see persist()'s own note on this distinction
-  renderBrainstormTabs();
-  setZoom("gsi", b.zoom || 100); // also runs sizeCanvas, which repaints strokes + sticky notes from the newly active board
+  renderBrainstormTabs(surface);
+  setZoom(surface, b.zoom || 100); // also runs sizeCanvas, which repaints strokes + sticky notes from the newly active board
 }
 
-function startRenameBrainstormTab(tabId) {
+function startRenameBrainstormTab(tabId, surface = "gsi") {
   closeBrainstormTabMenu();
   const nameEl = document.querySelector(`.wb-tab-name[data-tab-id="${tabId}"]`);
   if (!nameEl) return;
@@ -1774,13 +1798,13 @@ function startRenameBrainstormTab(tabId) {
     nameEl.removeEventListener("keydown", onKeydown);
     nameEl.removeEventListener("blur", onBlur);
     nameEl.contentEditable = "false";
-    const b = (state.brainstormBoards || []).find(x => x.id === tabId);
+    const b = tabList(surface).find(x => x.id === tabId);
     if (commit && b) {
       const v = nameEl.textContent.trim();
       if (v) { b.name = v; b.updatedAt = Date.now(); persist(); }
     }
     renamingTabId = null;
-    renderBrainstormTabs();
+    renderBrainstormTabs(surface);
   };
   const onKeydown = (evt) => {
     if (evt.key === "Enter") { evt.preventDefault(); finish(true); }
@@ -1791,7 +1815,7 @@ function startRenameBrainstormTab(tabId) {
   nameEl.addEventListener("blur", onBlur);
 }
 
-function toggleBrainstormTabMenu(tabId) {
+function toggleBrainstormTabMenu(tabId, surface = "gsi") {
   openTabMenuId = openTabMenuId === tabId ? null : tabId;
   document.querySelectorAll(".wb-tab-menu").forEach(m => m.classList.toggle("open", m.dataset.tabId === openTabMenuId));
 }
@@ -1804,8 +1828,8 @@ document.addEventListener("pointerdown", (evt) => {
   if (openTabMenuId) closeBrainstormTabMenu();
 });
 
-export function duplicateBrainstormBoard(tabId) {
-  const src = (state.brainstormBoards || []).find(x => x.id === tabId && !x.deleted);
+export function duplicateBrainstormBoard(tabId, surface = "gsi") {
+  const src = tabList(surface).find(x => x.id === tabId && !x.deleted);
   if (!src) return;
   const clone = {
     id: "bb_" + uid(), name: src.name + " copy", archived: false,
@@ -1819,21 +1843,21 @@ export function duplicateBrainstormBoard(tabId) {
     pan: src.pan ? { ...src.pan } : { x: 0, y: 0 },
     createdAt: Date.now(), updatedAt: Date.now()
   };
-  state.brainstormBoards.push(clone);
+  tabList(surface).push(clone);
   switchBrainstormBoard(clone.id);
   toast(`Duplicated "${src.name}"`);
 }
 
-export function archiveBrainstormBoard(tabId) {
-  const boards = state.brainstormBoards || [];
+export function archiveBrainstormBoard(tabId, surface = "gsi") {
+  const boards = tabList(surface) || [];
   const b = boards.find(x => x.id === tabId && !x.deleted);
   if (!b) return;
   const remaining = boards.filter(x => x.id !== tabId && !x.archived && !x.deleted);
   if (!remaining.length) { toast("Can't archive the only open tab — add another one first"); return; }
   b.archived = true; b.updatedAt = Date.now();
-  const wasActive = state.activeBrainstormBoard === tabId;
+  const wasActive = state[TAB_SURFACES[surface].active] === tabId;
   persist();
-  if (wasActive) switchBrainstormBoard(remaining[0].id); else renderBrainstormTabs();
+  if (wasActive) switchBrainstormBoard(remaining[0].id); else renderBrainstormTabs(surface);
   toast(`Archived "${b.name}"`);
 }
 
@@ -1843,47 +1867,48 @@ export function archiveBrainstormBoard(tabId) {
 // confirmation first, since "Delete" reads as more final to whoever's
 // using it. Truly permanent removal only happens from the Archived
 // Boards manager's own "Delete Permanently", below.
-export function deleteBrainstormBoardFromTabBar(tabId) {
-  const b = (state.brainstormBoards || []).find(x => x.id === tabId && !x.deleted);
+export function deleteBrainstormBoardFromTabBar(tabId, surface = "gsi") {
+  const b = tabList(surface).find(x => x.id === tabId && !x.deleted);
   if (!b) return;
   if (!confirm(`Delete "${b.name}"? It moves to Archived Boards, where you can restore it or delete it permanently.`)) return;
   archiveBrainstormBoard(tabId);
 }
 
-export function openBrainstormArchive() {
+export function openBrainstormArchive(surface = "gsi") {
+  archiveSurface = surface;
   const modal = document.getElementById("wbArchiveModalBg");
   if (!modal) return;
   modal.classList.add("open");
   renderBrainstormArchiveList();
 }
-export function closeBrainstormArchive() {
+export function closeBrainstormArchive(surface = "gsi") {
   const modal = document.getElementById("wbArchiveModalBg");
   if (modal) modal.classList.remove("open");
 }
 function renderBrainstormArchiveList() {
   const box = document.getElementById("wbArchiveList");
   if (!box) return;
-  const archived = (state.brainstormBoards || []).filter(b => b.archived && !b.deleted);
+  const archived = tabList(surface).filter(b => b.archived && !b.deleted);
   box.innerHTML = archived.map(b => `
     <div class="gsi-archive-row">
       <span class="gsi-archive-text">${esc(b.name)}</span>
       <div class="gsi-archive-actions">
-        <button class="gsi-archive-restore" onclick="restoreBrainstormBoard('${b.id}')">↺ Restore</button>
-        <button class="gsi-archive-remove" onclick="deleteBrainstormBoardPermanently('${b.id}')" title="Delete permanently">✕</button>
+        <button class="gsi-archive-restore" onclick="restoreBrainstormBoard('${b.id}','${archiveSurface}')">↺ Restore</button>
+        <button class="gsi-archive-remove" onclick="deleteBrainstormBoardPermanently('${b.id}','${archiveSurface}')" title="Delete permanently">✕</button>
       </div>
     </div>`).join("") || `<p class="hint" style="padding:12px 0">No archived boards — boards you archive from a tab's ⋮ menu will appear here.</p>`;
 }
-export function restoreBrainstormBoard(tabId) {
-  const b = (state.brainstormBoards || []).find(x => x.id === tabId);
+export function restoreBrainstormBoard(tabId, surface = "gsi") {
+  const b = tabList(surface).find(x => x.id === tabId);
   if (!b) return;
   b.archived = false; b.updatedAt = Date.now();
   persist();
   renderBrainstormArchiveList();
-  renderBrainstormTabs();
+  renderBrainstormTabs(surface);
   toast(`Restored "${b.name}"`);
 }
-export function deleteBrainstormBoardPermanently(tabId) {
-  const b = (state.brainstormBoards || []).find(x => x.id === tabId);
+export function deleteBrainstormBoardPermanently(tabId, surface = "gsi") {
+  const b = tabList(surface).find(x => x.id === tabId);
   if (!b) return;
   if (!confirm(`Permanently delete "${b.name}"? This can't be undone.`)) return;
   // Tombstoned (deleted:true), not spliced out — same reasoning as the
@@ -1895,21 +1920,21 @@ export function deleteBrainstormBoardPermanently(tabId) {
   b.deleted = true; b.updatedAt = Date.now();
   persist();
   renderBrainstormArchiveList();
-  renderBrainstormTabs();
+  renderBrainstormTabs(surface);
   toast(`Deleted "${b.name}"`);
 }
 
-function renderBrainstormTabs() {
-  const list = document.getElementById("wbTabsList");
+function renderBrainstormTabs(surface) {
+  const list = document.getElementById(id(surface, "wbTabsList"));
   if (!list) return;
   if (renamingTabId) return; // don't blow away an in-progress inline rename with a rebuild
 
-  const boards = (state.brainstormBoards || []).filter(b => !b.archived && !b.deleted);
-  if (!boards.length) { addBrainstormBoard(); return; } // always leaves at least one open tab; recurses exactly once
-  if (!boards.some(b => b.id === state.activeBrainstormBoard)) state.activeBrainstormBoard = boards[0].id;
+  const boards = tabList(surface).filter(b => !b.archived && !b.deleted);
+  if (!boards.length) { addBrainstormBoard(surface); return; } // always leaves at least one open tab; recurses exactly once
+  if (!boards.some(b => b.id === state[TAB_SURFACES[surface].active])) state[TAB_SURFACES[surface].active] = boards[0].id;
 
   list.innerHTML = boards.map(b => `
-    <div class="wb-tab ${b.id === state.activeBrainstormBoard ? "active" : ""}" data-tab-id="${b.id}">
+    <div class="wb-tab ${b.id === state[TAB_SURFACES[surface].active] ? "active" : ""}" data-tab-id="${b.id}">
       <span class="wb-tab-name" data-tab-id="${b.id}">${esc(b.name)}</span>
       <button class="wb-tab-menu-btn" title="Tab options" data-tab-id="${b.id}">⋮</button>
       <div class="wb-tab-menu" data-tab-id="${b.id}">
@@ -1925,30 +1950,30 @@ function renderBrainstormTabs() {
     el.addEventListener("click", (evt) => {
       if (evt.target.closest(".wb-tab-menu") || evt.target.closest(".wb-tab-menu-btn")) return;
       if (evt.target.isContentEditable) return; // mid-rename — a stray click shouldn't switch tabs
-      switchBrainstormBoard(tabId);
+      switchBrainstormBoard(tabId, surface);
     });
     const nameEl = el.querySelector(".wb-tab-name");
-    nameEl.addEventListener("dblclick", (evt) => { evt.stopPropagation(); startRenameBrainstormTab(tabId); }); // desktop
+    nameEl.addEventListener("dblclick", (evt) => { evt.stopPropagation(); startRenameBrainstormTab(tabId, surface); }); // desktop
     let pressTimer = null;
     nameEl.addEventListener("pointerdown", (evt) => {
       if (evt.pointerType !== "touch") return;
-      pressTimer = setTimeout(() => startRenameBrainstormTab(tabId), 550); // mobile long-press
+      pressTimer = setTimeout(() => startRenameBrainstormTab(tabId, surface), 550); // mobile long-press
     });
     const cancelPress = () => { if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; } };
     nameEl.addEventListener("pointerup", cancelPress);
     nameEl.addEventListener("pointercancel", cancelPress);
     nameEl.addEventListener("pointermove", cancelPress);
 
-    el.querySelector(".wb-tab-menu-btn").addEventListener("click", (evt) => { evt.stopPropagation(); toggleBrainstormTabMenu(tabId); });
+    el.querySelector(".wb-tab-menu-btn").addEventListener("click", (evt) => { evt.stopPropagation(); toggleBrainstormTabMenu(tabId, surface); });
     el.querySelectorAll(".wb-tab-menu button").forEach(btn => {
       btn.addEventListener("click", (evt) => {
         evt.stopPropagation();
         closeBrainstormTabMenu();
         const action = btn.dataset.action;
-        if (action === "rename") startRenameBrainstormTab(tabId);
-        else if (action === "duplicate") duplicateBrainstormBoard(tabId);
-        else if (action === "archive") archiveBrainstormBoard(tabId);
-        else if (action === "delete") deleteBrainstormBoardFromTabBar(tabId);
+        if (action === "rename") startRenameBrainstormTab(tabId, surface);
+        else if (action === "duplicate") duplicateBrainstormBoard(tabId, surface);
+        else if (action === "archive") archiveBrainstormBoard(tabId, surface);
+        else if (action === "delete") deleteBrainstormBoardFromTabBar(tabId, surface);
       });
     });
   });
@@ -1958,10 +1983,11 @@ function renderBrainstormTabs() {
     if (menu) menu.classList.add("open"); else openTabMenuId = null;
   }
 
-  const archiveBtn = document.getElementById("wbTabsArchiveBtn");
+  const archiveBtn = document.getElementById(id(surface, "wbTabsArchiveBtn"));
   if (archiveBtn) {
-    const n = (state.brainstormBoards || []).filter(b => b.archived && !b.deleted).length;
+    const n = tabList(surface).filter(b => b.archived && !b.deleted).length;
     archiveBtn.textContent = `🗄 Archived${n ? ` (${n})` : ""}`;
   }
   if (document.getElementById("wbArchiveModalBg")?.classList.contains("open")) renderBrainstormArchiveList();
 }
+

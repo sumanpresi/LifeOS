@@ -58,6 +58,7 @@ function renderAll() {
   decorateLinkRows();
   whiteboard.initWhiteboard("overview");
   whiteboard.initWhiteboard("gsi");
+  whiteboard.initWhiteboard("dayof");
 }
 
 /* The markup uses plain onclick="…" handlers; expose them globally. */

@@ -85,6 +85,14 @@ export const DEFAULT_STATE = {
     { id: "legacy-gsi", name: "Brainstorming", archived: false, strokes: [], objects: [], zoom: 100, pan: { x: 0, y: 0 }, createdAt: 0, updatedAt: 0 }
   ],
   activeBrainstormBoard: "legacy-gsi",
+  /* Day Of gets the same tabbed board as GSI, with its own separate set
+     of tabs — see TAB_SURFACES in whiteboard.js for why they aren't
+     shared. Same shape as brainstormBoards so one set of tab code drives
+     both. */
+  dayofBoards: [
+    { id: "db_first", name: "Scratch", archived: false, strokes: [], objects: [], zoom: 100, pan: { x: 0, y: 0 }, createdAt: 0, updatedAt: 0 }
+  ],
+  activeDayofBoard: "db_first",
   links: [
     { id: "l1", title: "PM GatiShakti portal", url: "https://www.pmgatishakti.gov.in", desc: "NGDR staging / UAT" },
     { id: "l2", title: "GSI Bhukosh", url: "https://bhukosh.gsi.gov.in", desc: "Geoscience data" }
@@ -464,6 +472,22 @@ function merge(saved) {
     (saved.activeBrainstormBoard && s.brainstormBoards.some(b => b.id === saved.activeBrainstormBoard && !b.deleted))
       ? saved.activeBrainstormBoard
       : (s.brainstormBoards.find(b => !b.archived && !b.deleted) || s.brainstormBoards[0]).id;
+
+  /* Day Of's boards. No migration needed — nothing existed before — but
+     the same guarantees apply: always at least one live tab, and the
+     active id must point at a tab that is really there. */
+  s.dayofBoards = Array.isArray(saved.dayofBoards) && saved.dayofBoards.length
+    ? saved.dayofBoards
+    : structuredClone(DEFAULT_STATE.dayofBoards);
+  s.dayofBoards.forEach(b => {
+    b.strokes = Array.isArray(b.strokes) ? b.strokes : [];
+    b.objects = Array.isArray(b.objects) ? b.objects : [];
+  });
+  const liveDayof = s.dayofBoards.filter(b => !b.archived && !b.deleted);
+  s.activeDayofBoard =
+    (saved.activeDayofBoard && s.dayofBoards.some(b => b.id === saved.activeDayofBoard && !b.deleted))
+      ? saved.activeDayofBoard
+      : (liveDayof[0] || s.dayofBoards[0]).id;
 
   /* One-time migration: earlier versions stored Finance/Health/Travel notes
      and links under the generic sections.* template. Carry them forward so
