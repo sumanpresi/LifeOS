@@ -1059,6 +1059,30 @@ function closeAllStickyColorPops() {
 }
 
 function attachStickyHandlers(boardId, objId, canvasWidth) {
+  /* The board width passed in is the one measured when this note's
+     element was first created — and that is not safe to keep using.
+
+     A note's x/y/w/h are stored as fractions of the board width, so every
+     drag and resize converts through that number. If the board was
+     measured while its page was hidden, or the note was created before
+     the page was ever shown, the captured value is wrong and stays wrong
+     for the life of the element: renderObjects reconciles existing nodes
+     rather than rebuilding them, so these handlers are never re-attached
+     with a corrected width. Zoom has the same effect — it changes the
+     canvas width, but a note created before the zoom kept the old one.
+
+     The symptom is a resize that fights back: the pointer moves one
+     distance and the note changes by another, or clamps early against
+     limits computed from the wrong width.
+
+     Reading the width at pointerdown instead fixes both causes. It is
+     read once per gesture, not per move, so a resize still tracks
+     linearly with the pointer. */
+  const stickyInst = inst(boardId);
+  const boardWidth = () => {
+    const live = stickyInst.canvas ? stickyInst.canvas.width / stickyInst.dpr : 0;
+    return live > 0 ? live : (canvasWidth || 1); // fall back only if genuinely unmeasurable
+  };
   const el = document.querySelector(`#${id(boardId, "wbObjLayer")} [data-obj-id="${objId}"]`);
   if (!el) return;
   const getObj = () => board(boardId).objects.find(o => o.id === objId);
@@ -1616,13 +1640,14 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
     document.querySelectorAll(".wb-sticky.selected").forEach(other => { if (other !== el) other.classList.remove("selected"); });
     try { dragHandle.setPointerCapture(evt.pointerId); } catch (e) { /* rare — harmless to skip */ }
     const startX = evt.clientX, startY = evt.clientY;
-    const o = getObj(); const startLeft = o.x * canvasWidth, startTop = o.y * canvasWidth;
+    const cw = boardWidth(); // measured now, not when the note was built
+    const o = getObj(); const startLeft = o.x * cw, startTop = o.y * cw;
     const onMove = (mv) => {
       mv.preventDefault(); // finger dragging the handle shouldn't also scroll the page
-      const nx = (startLeft + (mv.clientX - startX)) / canvasWidth;
-      const ny = (startTop + (mv.clientY - startY)) / canvasWidth;
-      el.style.left = (nx * canvasWidth) + "px";
-      el.style.top = (ny * canvasWidth) + "px";
+      const nx = (startLeft + (mv.clientX - startX)) / cw;
+      const ny = (startTop + (mv.clientY - startY)) / cw;
+      el.style.left = (nx * cw) + "px";
+      el.style.top = (ny * cw) + "px";
       o.x = Math.max(0, nx); o.y = Math.max(0, ny);
       renderConnectors(boardId);
     };
@@ -1646,13 +1671,14 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
     document.querySelectorAll(".wb-sticky.selected").forEach(other => { if (other !== el) other.classList.remove("selected"); });
     try { resizeHandle.setPointerCapture(evt.pointerId); } catch (e) { /* rare — harmless to skip */ }
     const startX = evt.clientX, startY = evt.clientY;
-    const o = getObj(); const startW = o.w * canvasWidth, startH = o.h * canvasWidth;
+    const cw = boardWidth(); // measured now, not when the note was built
+    const o = getObj(); const startW = o.w * cw, startH = o.h * cw;
     const onMove = (mv) => {
       mv.preventDefault(); // finger dragging the handle shouldn't also scroll the page
-      const nw = Math.min(STICKY_MAX * canvasWidth, Math.max(STICKY_MIN * canvasWidth, startW + (mv.clientX - startX)));
-      const nh = Math.min(STICKY_MAX * canvasWidth, Math.max(STICKY_MIN * canvasWidth, startH + (mv.clientY - startY)));
+      const nw = Math.min(STICKY_MAX * cw, Math.max(STICKY_MIN * cw, startW + (mv.clientX - startX)));
+      const nh = Math.min(STICKY_MAX * cw, Math.max(STICKY_MIN * cw, startH + (mv.clientY - startY)));
       el.style.width = nw + "px"; el.style.height = nh + "px";
-      o.w = nw / canvasWidth; o.h = nh / canvasWidth;
+      o.w = nw / cw; o.h = nh / cw;
       renderConnectors(boardId);
     };
     const onUp = () => {
