@@ -72,6 +72,7 @@ function initTaskSorting() {
   });
 }
 function handleTaskDragEnd(evt) {
+  markDragJustEnded(); // a drop lands a click on the card — don't let it open the task
   const draggedId = evt.item.dataset.taskId;
   const draggedTask = state.tasks.find(t => t.id === draggedId);
   if (!draggedTask) { renderTasks(); return; } // shouldn't happen — GSI rows can't be dragged — but stay safe rather than silently do nothing
@@ -128,6 +129,7 @@ function initBoardSorting() {
   });
 }
 function handleBoardDragEnd(evt) {
+  markDragJustEnded(); // a drop lands a click on the card — don't let it open the task
   const draggedId = evt.item.dataset.taskId;
   const fromCol = evt.from.closest(".t-board-col")?.dataset.boardCol;
   const toCol = evt.to.closest(".t-board-col")?.dataset.boardCol;
@@ -506,13 +508,15 @@ function boardCardHtml(t) {
     ? `${esc(t.projectName)} / ${({ todo: "To do", progress: "In progress", done: "Done", blocked: "Blocked" })[t.status] || "To do"}`
     : `${(t.category || "work") === "work" ? "Work" : "Personal"}`;
   return `
-    <div class="t-board-card ${t.done ? "done" : ""}" data-task-id="${t.id}" data-is-gsi="${t.isGsi ? "1" : "0"}" onclick="openTaskCardDetail('${t.id}')" role="button" tabindex="0"
+    <div class="t-board-card ${t.done ? "done" : ""}${t.flag ? " flagged" : ""}" data-task-id="${t.id}" data-is-gsi="${t.isGsi ? "1" : "0"}" onclick="openTaskCardDetail('${t.id}')" role="button" tabindex="0"
       onkeydown="if(event.key==='Enter'){event.preventDefault();openTaskCardDetail('${t.id}')}">
       <div class="t-board-card-top">
         <button class="t-chk ${t.done ? "on" : ""}" onclick="event.stopPropagation();toggleTask('${t.id}')" aria-label="Toggle task">
           <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
         <span class="t-board-card-title">${esc(t.text)}</span>
-        ${t.flag ? `<span class="t-board-card-flag" title="Priority">🚩</span>` : ""}
+        <button class="t-board-card-flag ${t.flag ? "on" : ""}" aria-pressed="${!!t.flag}"
+          onclick="event.stopPropagation();toggleFlag('${t.id}')"
+          title="${t.flag ? "Remove priority" : "Mark high priority"}">🚩</button>
       </div>
       <div class="t-board-card-meta">
         ${due ? `<span class="t-board-card-date ${due.cls}">
