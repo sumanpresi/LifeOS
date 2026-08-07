@@ -1,6 +1,10 @@
 /* GSI Workspace: multi-project task tracker, daily work log, structured
    meeting minutes, GSI links, personal & work documents. */
 import { state, uid, esc, persist, rerender, todayKey } from './state.js';
+/* tasks.js already imports gsi.js, so this is a cycle — safe here because
+   neither module touches the other's bindings while modules are being
+   evaluated, only inside functions called later at runtime. */
+import { markDragJustEnded } from './tasks.js';
 import { toast, autoGrow } from './ui.js';
 import { moveToTrash } from './trash.js';
 import { checkGrammar } from './text-tools.js';
@@ -273,13 +277,13 @@ function projectSelectorHtml(taskId) {
 function gsiBoardCardHtml(item) {
   const due = fmtGsiDate(item.date);
   return `
-    <div class="t-board-card ${item.status === "done" ? "done" : ""}${item.flag ? " flagged" : ""}" data-task-id="${item.id}">
+    <div class="t-board-card ${item.status === "done" ? "done" : ""}${item.flag ? " flagged" : ""}" data-task-id="${item.id}"
+      onclick="openTaskCardDetail('${item.id}')" role="button" tabindex="0"
+      onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTaskCardDetail('${item.id}')}">
       <div class="t-board-card-top">
-        <span class="t-board-card-handle" title="Drag to move">⠿</span>
         <button class="t-chk ${item.status === "done" ? "on" : ""}" onclick="event.stopPropagation();setTaskStatus('${item.id}','${item.status === "done" ? "todo" : "done"}')" aria-label="Toggle done">
           <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
-        <textarea class="gsi-board-card-title" rows="1" onclick="event.stopPropagation()"
-          onchange="editProjectTask('${item.id}','text',this.value)" oninput="autoGrow(this)">${esc(item.text)}</textarea>
+        <span class="gsi-board-card-title">${esc(item.text)}</span>
         <button class="t-board-card-flag ${item.flag ? "on" : ""}" aria-pressed="${!!item.flag}"
           onclick="event.stopPropagation();toggleProjectTaskFlag('${item.id}')"
           title="${item.flag ? "Remove priority" : "Mark high priority"}">🚩</button>
@@ -337,12 +341,19 @@ function initGsiBoardSorting() {
   document.querySelectorAll("#ngdrList .t-board-col-body").forEach(container => {
     gsiBoardSortables.push(Sortable.create(container, {
       group: "gsi-board",
-      handle: ".t-board-card-handle",
+      /* No handle: the whole card is draggable, which is what people
+         expect of a Kanban card and what the ⠿ grip was getting in the
+         way of. filter lists the controls that must keep their own
+         behaviour instead of starting a drag; preventOnFilter:false lets
+         their click/change events through rather than swallowing them. */
+      filter: "button, input, select, textarea, a, .t-chk",
+      preventOnFilter: false,
       animation: 200,
       delay: 300, delayOnTouchOnly: true, touchStartThreshold: 5,
       ghostClass: "t-row-ghost", dragClass: "t-row-dragging", chosenClass: "t-row-chosen",
       scroll: true, scrollSensitivity: 90, scrollSpeed: 12,
       onEnd: (evt) => {
+        markDragJustEnded(); // so the click that trails a drop doesn't open the task
         const taskId = evt.item.dataset.taskId;
         const toStatus = evt.to.closest(".t-board-col")?.dataset.boardCol;
         if (taskId && toStatus) setTaskStatus(taskId, toStatus); // already persists, syncs, and re-renders

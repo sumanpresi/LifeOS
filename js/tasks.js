@@ -58,7 +58,8 @@ function initTaskSorting() {
   if (taskView !== "list" || sortByDate || typeof Sortable === "undefined") return;
   document.querySelectorAll("#taskList .t-section-rows-inner").forEach(container => {
     sortableInstances.push(Sortable.create(container, {
-      handle: ".t-drag-handle",
+      filter: "button, input, select, textarea, a, .t-chk",
+      preventOnFilter: false,
       filter: ".t-drag-handle-spacer", // the GSI-row placeholder isn't a handle at all, so grabbing it (or a GSI row generally) never starts a drag
       draggable: ".t-row[data-is-gsi='0']", // only native rows are ever pick-up-able
       preventOnFilter: false, // a tap that misses the (non-existent) handle on a GSI row should still behave as a normal click, not get swallowed
@@ -114,7 +115,8 @@ function initBoardSorting() {
   document.querySelectorAll("#taskList .t-board-col-body").forEach(container => {
     boardSortableInstances.push(Sortable.create(container, {
       group: "task-board", // shared across every column — this is what allows dragging between them, not just within one
-      handle: ".t-board-card-handle",
+      filter: "button, input, select, textarea, a, .t-chk",
+      preventOnFilter: false,
       draggable: ".t-board-card", // GSI cards are pick-up-able here too — moveTaskToColumn routes them through setGsiTaskStatus/editProjectTask/archiveGsiTaskEntry instead of the native task functions
       preventOnFilter: false,
       animation: 200,
@@ -347,6 +349,18 @@ export function changeTaskProject(id, projectId) {
 /* Kept as the single entry point every card already calls, so nothing on
    the board, the calendar or the GSI pages had to change. It now opens
    the detail modal instead of the old small popup. */
+/* One entry point for "the user clicked a task card", used by every
+   surface. It swallows the click that trails a drag — a drop lands a
+   pointerup on the card, which would otherwise open the task every time
+   something was moved. */
+let dragEndedAt = 0;
+export function markDragJustEnded() { dragEndedAt = Date.now(); }
+export function openTaskCardDetail(id) {
+  if (Date.now() - dragEndedAt < 350) return;
+  if (calendarClickSuppressed()) return;
+  openTaskModal(id);
+}
+
 export function openTaskPopup(id) {
   if (calendarClickSuppressed()) return;
   openTaskModal(id);
@@ -409,7 +423,8 @@ function taskRowHtml(t) {
     ? `${esc(t.projectName)} / ${({todo:"To do",progress:"In progress",done:"Done",blocked:"Blocked"})[t.status] || "To do"}`
     : `${(t.category||"work")==="work"?"Work":"Personal"}${due ? " / " + due.text : ""}`;
   return `
-    <div class="t-row ${t.done ? "done" : ""} ${expandedTaskId===t.id ? "t-expanded" : ""}" data-task-id="${t.id}" data-is-gsi="${t.isGsi ? "1" : "0"}" onclick="toggleTaskExpanded('${t.id}')">
+    <div class="t-row ${t.done ? "done" : ""} ${expandedTaskId===t.id ? "t-expanded" : ""}" data-task-id="${t.id}" data-is-gsi="${t.isGsi ? "1" : "0"}" onclick="openTaskCardDetail('${t.id}')" role="button" tabindex="0"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();openTaskCardDetail('${t.id}')}">
       ${t.isGsi ? `<div class="t-drag-handle t-drag-handle-spacer" aria-hidden="true"></div>`
                 : `<div class="t-drag-handle" title="Drag to reorder" onclick="event.stopPropagation()">⠿</div>`}
       <button class="t-chk ${t.done ? "on" : ""}" onclick="event.stopPropagation();toggleTask('${t.id}')" aria-label="Toggle task">
@@ -491,9 +506,9 @@ function boardCardHtml(t) {
     ? `${esc(t.projectName)} / ${({ todo: "To do", progress: "In progress", done: "Done", blocked: "Blocked" })[t.status] || "To do"}`
     : `${(t.category || "work") === "work" ? "Work" : "Personal"}`;
   return `
-    <div class="t-board-card ${t.done ? "done" : ""}" data-task-id="${t.id}" data-is-gsi="${t.isGsi ? "1" : "0"}" onclick="toggleTaskExpanded('${t.id}')">
+    <div class="t-board-card ${t.done ? "done" : ""}" data-task-id="${t.id}" data-is-gsi="${t.isGsi ? "1" : "0"}" onclick="openTaskCardDetail('${t.id}')" role="button" tabindex="0"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();openTaskCardDetail('${t.id}')}">
       <div class="t-board-card-top">
-        <span class="t-board-card-handle" title="Drag to move" onclick="event.stopPropagation()">⠿</span>
         <button class="t-chk ${t.done ? "on" : ""}" onclick="event.stopPropagation();toggleTask('${t.id}')" aria-label="Toggle task">
           <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
         <span class="t-board-card-title">${esc(t.text)}</span>

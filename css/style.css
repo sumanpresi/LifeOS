@@ -2172,3 +2172,12 @@ body.modal-locked{overflow:hidden}
   .tm-side{border-left:none;border-top:1px solid var(--line);overflow:visible}
   .tm-icon{width:38px;height:38px}
 }
+
+/* Cards are click-to-open and drag-from-anywhere now that the ⠿ grip has
+   gone, so they need to read as interactive. */
+.t-board-card{cursor:pointer}
+.t-board-card:active{cursor:grabbing}
+.t-board-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.gsi-board-card-title{flex:1;min-width:0;font-size:13.5px;font-weight:600;line-height:1.35;
+  color:var(--ink);word-break:break-word}
+.t-board-card.done .gsi-board-card-title{text-decoration:line-through;color:var(--muted)}
