@@ -1137,6 +1137,24 @@
   </div>
 </div>
 
+<!-- Task detail overlay. role/aria-modal and the labelled title are what
+     make this announce as a dialog to a screen reader; focus trapping and
+     Escape are handled in js/task-modal.js. -->
+<div class="tm-bg" id="taskModalBg" role="dialog" aria-modal="true" aria-labelledby="taskModalBarTitle" aria-hidden="true">
+  <div class="tm-shell">
+    <header class="tm-head">
+      <span class="tm-crumb" id="taskModalCrumb"></span>
+      <h2 class="tm-bar-title" id="taskModalBarTitle">Task</h2>
+      <div class="tm-head-actions">
+        <button class="tm-icon" id="taskModalPrev" onclick="taskModalStep(-1)" title="Previous task (↑)" aria-label="Previous task">⌃</button>
+        <button class="tm-icon" id="taskModalNext" onclick="taskModalStep(1)" title="Next task (↓)" aria-label="Next task">⌄</button>
+        <button class="tm-icon tm-close" onclick="closeTaskModal()" title="Close (Esc)" aria-label="Close">✕</button>
+      </div>
+    </header>
+    <div class="tm-body" id="taskModalBody"></div>
+  </div>
+</div>
+
 <div class="modal-bg" id="taskPopupModalBg">
   <div class="modal" style="max-width:420px">
     <div class="expand-modal-head" style="margin-bottom:14px">

@@ -293,7 +293,7 @@ export function openPopupDueDatePicker(id) {
 // the app already uses (toggleTask, toggleFlag/toggleProjectTaskFlag,
 // editTask/editProjectTask) — nothing task-related is reimplemented
 // here, only the display around it.
-function findAnyTask(id) {
+export function findAnyTask(id) {
   const t = state.tasks.find(x => x.id === id);
   if (t) return { task: t, isGsi: false };
   const { task: gt, project } = findProjectTask(id);
@@ -344,7 +344,15 @@ export function changeTaskProject(id, projectId) {
   }
   moveProjectTask(id, projectId); // GSI -> a different GSI project
 }
+/* Kept as the single entry point every card already calls, so nothing on
+   the board, the calendar or the GSI pages had to change. It now opens
+   the detail modal instead of the old small popup. */
 export function openTaskPopup(id) {
+  if (calendarClickSuppressed()) return;
+  openTaskModal(id);
+  return;
+}
+function legacyOpenTaskPopup(id) {
   // A chip is dragged by its title button, so the drop is followed by that
   // button's click — which would open the detail popup on top of the move.
   if (calendarClickSuppressed()) return;

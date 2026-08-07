@@ -14,6 +14,7 @@ import * as reference from './reference.js';
 import * as trash from './trash.js';
 import * as backup from './backup.js';
 import * as entertainment from './entertainment.js';
+import * as taskModal from './task-modal.js';
 import { decorateLinkRows } from './link-preview.js';
 import { flushLocalSave } from './state.js';
 import * as healthCheck from './health-check.js';
@@ -185,6 +186,15 @@ Object.assign(window,
     sortEntertainment: entertainment.sortEntertainment, setEntertainmentView: entertainment.setEntertainmentView,
     showMoreEntertainment: entertainment.showMoreEntertainment,
     clearEntertainmentFilters: entertainment.clearEntertainmentFilters,
+    openTaskModal: taskModal.openTaskModal, closeTaskModal: taskModal.closeTaskModal,
+    taskModalStep: taskModal.taskModalStep, editTaskProperty: taskModal.editTaskProperty,
+    taskModalEditTitle: taskModal.taskModalEditTitle, taskModalEditField: taskModal.taskModalEditField,
+    taskModalToggleDone: taskModal.taskModalToggleDone, taskModalSetDate: taskModal.taskModalSetDate,
+    taskModalSetProject: taskModal.taskModalSetProject, taskModalSetPriority: taskModal.taskModalSetPriority,
+    taskModalSetStatus: taskModal.taskModalSetStatus, taskModalSetLabels: taskModal.taskModalSetLabels,
+    taskModalDelete: taskModal.taskModalDelete, taskModalAddSubtask: taskModal.taskModalAddSubtask,
+    taskModalToggleSubtask: taskModal.taskModalToggleSubtask, taskModalEditSubtask: taskModal.taskModalEditSubtask,
+    taskModalDelSubtask: taskModal.taskModalDelSubtask,
     openEntertainmentEdit: entertainment.openEntertainmentEdit,
     closeEntertainmentEdit: entertainment.closeEntertainmentEdit,
     saveEntertainmentEdit: entertainment.saveEntertainmentEdit,
@@ -212,6 +222,8 @@ initCommunicationBridge();
 initNgdrTrackerBridge();
 cloud.initSupabase();
 backup.backupReminderIfDue();
+// A page loaded with ?task=… reopens that task's detail view.
+taskModal.syncModalFromUrl();
 
 /* The disk write is now coalesced (see persist() in state.js), so it has
    to be forced out before the tab can disappear. supabase.js registers a
