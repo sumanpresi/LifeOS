@@ -318,6 +318,19 @@ function projectOptionsHtml(selectedId) {
 // it rather than carrying over an event created by the other one. The
 // task keeps its id either way, so an open .t-meta panel for it stays
 // open and pointed at the same row across the conversion.
+/* The fields the detail modal owns. Moving a task between projects
+   rebuilds it from a fixed list of properties, so anything the modal
+   added has to be named here or it vanishes on the move. */
+function detailFields(t) {
+  const out = {};
+  if (t.desc) out.desc = t.desc;
+  if (Array.isArray(t.subtasks) && t.subtasks.length) out.subtasks = t.subtasks;
+  if (Array.isArray(t.labels) && t.labels.length) out.labels = t.labels;
+  if (t.priority) out.priority = t.priority;
+  if (t.createdAt) out.createdAt = t.createdAt;
+  if (t.updatedAt) out.updatedAt = t.updatedAt;
+  return out;
+}
 export function changeTaskProject(id, projectId) {
   const found = findAnyTask(id);
   if (!found) return;
@@ -327,7 +340,12 @@ export function changeTaskProject(id, projectId) {
     if (!projectId) return; // already native, nothing to do
     const ok = addProjectTaskRaw(projectId, {
       id: t.id, text: t.text, status: t.done ? "done" : "todo",
-      date: t.dueDate || "", link: t.link || "", flag: !!t.flag, googleEventId: null
+      date: t.dueDate || "", link: t.link || "", flag: !!t.flag, googleEventId: null,
+      // Carried across explicitly. This remap rebuilds the task rather
+      // than moving the object, so any field not named here is dropped —
+      // which silently threw away the description, sub-tasks and labels
+      // the detail view had just been used to write.
+      ...detailFields(t)
     });
     if (!ok) return; // project vanished (e.g. deleted mid-edit) — leave the native task alone
     state.tasks = state.tasks.filter(x => x.id !== id);
@@ -341,7 +359,8 @@ export function changeTaskProject(id, projectId) {
       id: plucked.id, text: plucked.text, done: plucked.status === "done",
       category: "work", flag: !!plucked.flag, link: plucked.link || "",
       dueDate: plucked.date || "", completedAt: plucked.status === "done" ? Date.now() : null,
-      googleEventId: null, position: nextManualPosition()
+      googleEventId: null, position: nextManualPosition(),
+      ...detailFields(plucked) // same reason as above
     });
     persist(); rerender();
     return;

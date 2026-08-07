@@ -171,6 +171,23 @@ export function renderTaskModal() {
   const bar = document.getElementById("taskModalBarTitle");
   if (bar) bar.textContent = t.text || "Task";
 
+  /* Quill lives in a real DOM node, so assigning innerHTML here throws
+     the mounted editor away — the instance stays in rich-text.js's cache
+     while its element is gone, so remounting silently returns a detached
+     editor and the Description box vanishes. That is exactly what
+     happened on every property click, because editing a property
+     re-rendered the whole modal.
+
+     Two things fix it. The editor is dropped deliberately before the
+     rebuild so a fresh one is created (and flushed first, so an
+     in-flight edit isn't lost). And property edits now repaint only the
+     sidebar via renderTaskModalSide(), which doesn't touch the editor at
+     all — so typing a description and setting a due date no longer
+     interfere with each other. */
+  flushDescription();
+  unmountRichEditor(DESC_EDITOR_ID);
+  descLoadedFor = null;
+
   box.innerHTML = `
     <div class="tm-main">
       <div class="tm-title-row">
@@ -193,26 +210,67 @@ export function renderTaskModal() {
         ${t.link ? `<a class="tm-link-go" href="${esc(t.link.startsWith("http") ? t.link : "https://" + t.link)}" target="_blank" rel="noopener">Open link →</a>` : ""}
       </div>
 
-      <div class="tm-section">
-        <div class="tm-section-head">Sub-tasks ${subtasks.length ? `<span class="tm-count">${subtasks.filter(s => s.done).length}/${subtasks.length}</span>` : ""}</div>
-        <div class="tm-subtasks">
-          ${subtasks.map(st => `
-            <div class="tm-subtask ${st.done ? "done" : ""}">
-              <button class="t-chk small ${st.done ? "on" : ""}" onclick="taskModalToggleSubtask('${st.id}')" aria-label="Toggle sub-task">
-                <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
-              <input type="text" value="${esc(st.text)}" aria-label="Sub-task"
-                onchange="taskModalEditSubtask('${st.id}', this.value)">
-              <button class="del" onclick="taskModalDelSubtask('${st.id}')" aria-label="Delete sub-task">✕</button>
-            </div>`).join("")}
-        </div>
-        <div class="tm-subtask-add">
-          <input type="text" id="taskModalNewSubtask" placeholder="Add a sub-task"
-            onkeydown="if(event.key==='Enter')taskModalAddSubtask()">
-          <button class="btn btn-ghost" onclick="taskModalAddSubtask()">Add</button>
-        </div>
-      </div>
+      <div class="tm-section" id="taskModalSubtaskSection">${subtasksHtml(subtasks)}</div>
     </div>
 
+    ${sideHtml(found)}`;
+
+  const titleEl = document.getElementById("taskModalTitle");
+  if (titleEl) { titleEl.style.height = "auto"; titleEl.style.height = titleEl.scrollHeight + "px"; }
+  mountDescription(t);
+}
+
+/* Repaints only the properties column. Everything that edits a property
+   goes through here rather than renderTaskModal(). */
+export function renderTaskModalSide() {
+  const found = openId && taskOf(openId);
+  if (!found) return;
+  const side = document.querySelector("#taskModalBody .tm-side");
+  if (!side) { renderTaskModal(); return; }
+  side.outerHTML = sideHtml(found);
+  // The left column's done state can change with status or the checkbox.
+  const done = isDone(found);
+  document.querySelector("#taskModalBody .t-chk")?.classList.toggle("on", done);
+  document.getElementById("taskModalTitle")?.classList.toggle("done", done);
+}
+
+function subtasksHtml(subtasks) {
+  return `
+    <div class="tm-section-head">Sub-tasks ${subtasks.length ? `<span class="tm-count">${subtasks.filter(s => s.done).length}/${subtasks.length}</span>` : ""}</div>
+    <div class="tm-subtasks">
+      ${subtasks.map(st => `
+        <div class="tm-subtask ${st.done ? "done" : ""}">
+          <button class="t-chk small ${st.done ? "on" : ""}" onclick="taskModalToggleSubtask('${st.id}')" aria-label="Toggle sub-task">
+            <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
+          <input type="text" value="${esc(st.text)}" aria-label="Sub-task"
+            onchange="taskModalEditSubtask('${st.id}', this.value)">
+          <button class="del" onclick="taskModalDelSubtask('${st.id}')" aria-label="Delete sub-task">✕</button>
+        </div>`).join("")}
+    </div>
+    <div class="tm-subtask-add">
+      <input type="text" id="taskModalNewSubtask" placeholder="Add a sub-task"
+        onkeydown="if(event.key==='Enter')taskModalAddSubtask()">
+      <button class="btn btn-ghost" onclick="taskModalAddSubtask()">Add</button>
+    </div>`;
+}
+/* Sub-tasks repaint on their own, for the same reason the sidebar does:
+   a full render would drop and rebuild the description editor, losing the
+   cursor for someone mid-sentence. */
+function renderSubtasks() {
+  const found = openId && taskOf(openId);
+  const box = document.getElementById("taskModalSubtaskSection");
+  if (!found || !box) return;
+  box.innerHTML = subtasksHtml(Array.isArray(found.task.subtasks) ? found.task.subtasks : []);
+}
+
+function sideHtml(found) {
+  const { task: t, isGsi, project } = found;
+  const due = dueOf(found);
+  const priority = t.priority || (t.flag ? "p1" : "p4");
+  const labels = Array.isArray(t.labels) ? t.labels : [];
+  const projName = isGsi ? ((project && project.name) || t.projectName || "Project") : "No project";
+  const statusKey = isGsi ? (t.status || "todo") : (t.done ? "done" : "todo");
+  return `
     <aside class="tm-side" aria-label="Task properties">
       ${propRow("project", "Project", `<span class="tm-pill">${esc(projName)}</span>`,
         `<select onchange="taskModalSetProject(this.value)" autofocus>
@@ -252,10 +310,6 @@ export function renderTaskModal() {
 
       <button class="btn btn-ghost tm-delete" onclick="taskModalDelete()">Delete task</button>
     </aside>`;
-
-  const titleEl = document.getElementById("taskModalTitle");
-  if (titleEl) { titleEl.style.height = "auto"; titleEl.style.height = titleEl.scrollHeight + "px"; }
-  mountDescription(t);
 }
 
 function allLabels() {
@@ -302,26 +356,33 @@ function flushDescription() {
 /* ---------- editing ---------- */
 function touch(found) { found.task.updatedAt = Date.now(); }
 
-export function editTaskProperty(field) { editingField = field; renderTaskModal(); }
+export function editTaskProperty(field) { editingField = field; renderTaskModalSide(); }
 
 export function taskModalEditTitle(v) {
   if (!openId) return;
   editTask(openId, v);
   const f = taskOf(openId); if (f) touch(f);
-  persist(); renderTaskModal();
+  persist();
+  const bar = document.getElementById("taskModalBarTitle");
+  if (bar) bar.textContent = v || "Task";
 }
 export function taskModalEditField(field, v) {
   if (!openId) return;
   editTaskMeta(openId, field, v);
   const f = taskOf(openId); if (f) touch(f);
-  persist(); renderTaskModal();
+  persist(); renderTaskModalSide();
 }
-export function taskModalToggleDone() { if (openId) { toggleTask(openId); renderTaskModal(); } }
-export function taskModalSetDate(v) { editingField = null; taskModalEditField("dueDate", v); }
+export function taskModalToggleDone() { if (openId) { toggleTask(openId); renderTaskModalSide(); } }
+export function taskModalSetDate(v) {
+  editingField = null;
+  editTaskMeta(openId, "dueDate", v);
+  const f = taskOf(openId); if (f) touch(f);
+  persist(); renderTaskModalSide();
+}
 export function taskModalSetProject(pid) {
   editingField = null;
   changeTaskProject(openId, pid);
-  renderTaskModal();
+  renderTaskModalSide();
 }
 export function taskModalSetPriority(p) {
   const f = taskOf(openId); if (!f) return;
@@ -330,18 +391,18 @@ export function taskModalSetPriority(p) {
   // them in step stops a task looking urgent in one view and not the other.
   const wantFlag = p === "p1";
   if (!!f.task.flag !== wantFlag) toggleFlag(openId);
-  touch(f); editingField = null; persist(); rerender(); renderTaskModal();
+  touch(f); editingField = null; persist(); rerender(); renderTaskModalSide();
 }
 export function taskModalSetStatus(v) {
   const f = taskOf(openId); if (!f) return;
   if (f.isGsi) f.task.status = v;
   else f.task.done = v === "done";
-  touch(f); editingField = null; persist(); rerender(); renderTaskModal();
+  touch(f); editingField = null; persist(); rerender(); renderTaskModalSide();
 }
 export function taskModalSetLabels(v) {
   const f = taskOf(openId); if (!f) return;
   f.task.labels = [...new Set(String(v).split(",").map(x => x.trim()).filter(Boolean))];
-  touch(f); editingField = null; persist(); rerender(); renderTaskModal();
+  touch(f); editingField = null; persist(); rerender(); renderTaskModalSide();
 }
 export function taskModalDelete() {
   if (!openId) return;
@@ -362,13 +423,13 @@ export function taskModalAddSubtask() {
   const f = taskOf(openId); if (!f) return;
   subs(f).push({ id: uid(), text: v, done: false });
   el.value = "";
-  touch(f); persist(); renderTaskModal();
+  touch(f); persist(); renderSubtasks();
   document.getElementById("taskModalNewSubtask")?.focus();
 }
 export function taskModalToggleSubtask(sid) {
   const f = taskOf(openId); if (!f) return;
   const st = subs(f).find(x => x.id === sid); if (!st) return;
-  st.done = !st.done; touch(f); persist(); renderTaskModal();
+  st.done = !st.done; touch(f); persist(); renderSubtasks();
 }
 export function taskModalEditSubtask(sid, v) {
   const f = taskOf(openId); if (!f) return;
@@ -378,7 +439,7 @@ export function taskModalEditSubtask(sid, v) {
 export function taskModalDelSubtask(sid) {
   const f = taskOf(openId); if (!f) return;
   f.task.subtasks = subs(f).filter(x => x.id !== sid);
-  touch(f); persist(); renderTaskModal();
+  touch(f); persist(); renderSubtasks();
 }
 
 /* ---------- keyboard, overlay, history ----------
