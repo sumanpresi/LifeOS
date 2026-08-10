@@ -1888,27 +1888,110 @@ function startRenameBrainstormTab(tabId, surface = "gsi") {
   nameEl.addEventListener("blur", onBlur);
 }
 
-/* .wb-tabs is a horizontal scroller (overflow-x:auto), and per spec an
-   element that scrolls one axis clips the other too — overflow-y computes
-   to auto, not visible. The ⋮ flyout is absolutely positioned at
-   top:calc(100% + 4px), i.e. entirely BELOW a container only as tall as a
-   tab, so it was being clipped out of existence: the menu opened, and
-   nothing appeared. Lifting the clip only while a menu is open keeps the
-   tab strip scrollable the rest of the time. */
-function syncTabMenuOverflow() {
-  document.querySelectorAll(".wb-tabs").forEach(list =>
-    list.classList.toggle("menu-open", !!list.querySelector(".wb-tab-menu.open")));
+/* THE TAB ⋮ FLYOUT LIVES ON <body>, NOT INSIDE THE TAB.
+
+   As a child of .wb-tab it was at the mercy of every ancestor between it
+   and the page. .wb-tabs is a horizontal scroller (overflow-x:auto), and
+   per spec scrolling one axis clips the other — overflow-y computes to
+   auto, not visible. Above that, .card carries both backdrop-filter and
+   container-type:inline-size, and each of those establishes a containing
+   block for fixed-position descendants, so even position:fixed would have
+   stayed trapped inside the card.
+
+   Chasing which ancestor was responsible is the wrong fight, because the
+   answer changes with any future styling of the card or the tab strip.
+   Appending the flyout to <body> and positioning it from the button's
+   viewport rect ends the whole class of problem: no ancestor overflow,
+   stacking context, filter or containment can reach it.
+
+   It is also then rebuild-proof. renderBrainstormTabs() replaces the tab
+   strip's innerHTML on every render; a menu parked inside a tab was
+   destroyed mid-interaction by any state change. */
+
+const TAB_MENU_ACTIONS = [
+  { action: "rename",    label: "Rename" },
+  { action: "share",     label: "Copy link to this board" },
+  { action: "duplicate", label: "Duplicate" },
+  { action: "archive",   label: "Archive" },
+  { action: "delete",    label: "Delete", danger: true },
+];
+
+let tabFlyoutEl = null;
+let tabFlyoutCtx = null;
+
+function tabFlyout() {
+  if (tabFlyoutEl) return tabFlyoutEl;
+  tabFlyoutEl = document.createElement("div");
+  tabFlyoutEl.className = "wb-tab-menu";
+  tabFlyoutEl.setAttribute("role", "menu");
+  tabFlyoutEl.innerHTML = TAB_MENU_ACTIONS.map(a =>
+    `<button role="menuitem" ${a.danger ? 'class="danger"' : ""} data-action="${a.action}">${a.label}</button>`).join("");
+  tabFlyoutEl.addEventListener("click", (evt) => {
+    const btn = evt.target.closest("button[data-action]");
+    if (!btn || !tabFlyoutCtx) return;
+    evt.stopPropagation();
+    const { tabId, surface } = tabFlyoutCtx;
+    closeBrainstormTabMenu();
+    const action = btn.dataset.action;
+    if (action === "rename") startRenameBrainstormTab(tabId, surface);
+    else if (action === "share") shareBrainstormBoard(tabId, surface);
+    else if (action === "duplicate") duplicateBrainstormBoard(tabId, surface);
+    else if (action === "archive") archiveBrainstormBoard(tabId, surface);
+    else if (action === "delete") deleteBrainstormBoardFromTabBar(tabId, surface);
+  });
+  document.body.appendChild(tabFlyoutEl);
+  return tabFlyoutEl;
 }
-function toggleBrainstormTabMenu(tabId, surface = "gsi") {
-  openTabMenuId = openTabMenuId === tabId ? null : tabId;
-  document.querySelectorAll(".wb-tab-menu").forEach(m => m.classList.toggle("open", m.dataset.tabId === openTabMenuId));
-  syncTabMenuOverflow();
+
+/* Right-aligned under the ⋮ button, then pulled back inside the viewport.
+   The last tab in a scrolled strip sits hard against the right edge, and
+   on a phone the menu is wider than the space left beside it — without
+   the clamp it would render off-screen, which looks identical to the bug
+   this replaced. Flips above the button when there is no room below. */
+function positionTabFlyout(btn) {
+  const m = tabFlyout();
+  const r = btn.getBoundingClientRect();
+  const pad = 8;
+  m.style.visibility = "hidden";
+  m.classList.add("open");
+  const mw = m.offsetWidth, mh = m.offsetHeight;
+
+  let left = r.right - mw;
+  left = Math.min(left, window.innerWidth - mw - pad);
+  left = Math.max(pad, left);
+
+  let top = r.bottom + 4;
+  if (top + mh > window.innerHeight - pad) {
+    const above = r.top - 4 - mh;
+    top = above >= pad ? above : Math.max(pad, window.innerHeight - mh - pad);
+  }
+  m.style.left = left + "px";
+  m.style.top = top + "px";
+  m.style.visibility = "";
 }
+
+function toggleBrainstormTabMenu(tabId, surface = "gsi", btn = null) {
+  if (openTabMenuId === tabId) { closeBrainstormTabMenu(); return; }
+  openTabMenuId = tabId;
+  tabFlyoutCtx = { tabId, surface };
+  const anchor = btn || document.querySelector(`.wb-tab-menu-btn[data-tab-id="${tabId}"]`);
+  if (!anchor) { closeBrainstormTabMenu(); return; }
+  positionTabFlyout(anchor);
+}
+
 function closeBrainstormTabMenu() {
   openTabMenuId = null;
-  document.querySelectorAll(".wb-tab-menu.open").forEach(m => m.classList.remove("open"));
-  syncTabMenuOverflow();
+  tabFlyoutCtx = null;
+  tabFlyoutEl?.classList.remove("open");
 }
+
+/* Scrolling or resizing moves the button out from under a fixed flyout,
+   so it closes rather than hovering somewhere meaningless. Capture phase
+   catches scrolls inside the tab strip, not just the window. */
+window.addEventListener("scroll", () => { if (openTabMenuId) closeBrainstormTabMenu(); }, true);
+window.addEventListener("resize", () => { if (openTabMenuId) closeBrainstormTabMenu(); });
+document.addEventListener("keydown", (evt) => { if (evt.key === "Escape" && openTabMenuId) closeBrainstormTabMenu(); });
+
 document.addEventListener("pointerdown", (evt) => {
   if (evt.target.closest(".wb-tab-menu") || evt.target.closest(".wb-tab-menu-btn")) return;
   if (openTabMenuId) closeBrainstormTabMenu();
@@ -2031,13 +2114,6 @@ function renderBrainstormTabs(surface) {
     <div class="wb-tab ${b.id === state[TAB_SURFACES[surface].active] ? "active" : ""}" data-tab-id="${b.id}">
       <span class="wb-tab-name" data-tab-id="${b.id}">${esc(b.name)}</span>
       <button class="wb-tab-menu-btn" title="Tab options" data-tab-id="${b.id}">⋮</button>
-      <div class="wb-tab-menu" data-tab-id="${b.id}">
-        <button data-action="rename">Rename</button>
-        <button data-action="share">Copy link to this board</button>
-        <button data-action="duplicate">Duplicate</button>
-        <button data-action="archive">Archive</button>
-        <button class="danger" data-action="delete">Delete</button>
-      </div>
     </div>`).join("");
 
   list.querySelectorAll(".wb-tab").forEach(el => {
@@ -2059,24 +2135,16 @@ function renderBrainstormTabs(surface) {
     nameEl.addEventListener("pointercancel", cancelPress);
     nameEl.addEventListener("pointermove", cancelPress);
 
-    el.querySelector(".wb-tab-menu-btn").addEventListener("click", (evt) => { evt.stopPropagation(); toggleBrainstormTabMenu(tabId, surface); });
-    el.querySelectorAll(".wb-tab-menu button").forEach(btn => {
-      btn.addEventListener("click", (evt) => {
-        evt.stopPropagation();
-        closeBrainstormTabMenu();
-        const action = btn.dataset.action;
-        if (action === "rename") startRenameBrainstormTab(tabId, surface);
-        else if (action === "share") shareBrainstormBoard(tabId, surface);
-        else if (action === "duplicate") duplicateBrainstormBoard(tabId, surface);
-        else if (action === "archive") archiveBrainstormBoard(tabId, surface);
-        else if (action === "delete") deleteBrainstormBoardFromTabBar(tabId, surface);
-      });
-    });
+    const menuBtn = el.querySelector(".wb-tab-menu-btn");
+    menuBtn.addEventListener("click", (evt) => { evt.stopPropagation(); toggleBrainstormTabMenu(tabId, surface, menuBtn); });
   });
 
+  /* The flyout lives on <body>, so a re-render doesn't destroy it — but it
+     does replace the ⋮ button it was positioned against. Re-anchor to the
+     new button, or close if that tab is gone. */
   if (openTabMenuId) {
-    const menu = list.querySelector(`.wb-tab-menu[data-tab-id="${openTabMenuId}"]`);
-    if (menu) menu.classList.add("open"); else openTabMenuId = null;
+    const btn = list.querySelector(`.wb-tab-menu-btn[data-tab-id="${openTabMenuId}"]`);
+    if (btn) positionTabFlyout(btn); else closeBrainstormTabMenu();
   }
 
   const archiveBtn = document.getElementById(id(surface, "wbTabsArchiveBtn"));
