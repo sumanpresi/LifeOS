@@ -519,8 +519,12 @@ function sectionHtml(name, label, tasks) {
 // a right-aligned breadcrumb column) assumes real list-row width. Squeezed
 // into a ~230px Kanban column, the title had nowhere to go but wrap
 // extremely narrow, one word (sometimes near one character) per line,
-// making cards enormous and barely readable. This clamps the title to
-// two lines and moves metadata into a small tag row underneath instead.
+// making cards enormous and barely readable. So this card keeps the title
+// on its own line and moves metadata into a small tag row underneath.
+// The title itself is no longer truncated — the narrow-wrapping it used to
+// suffer from was a missing overflow-wrap rule, not a length problem, and
+// that is now fixed in .t-board-card-title. Long NGDR filenames wrap and
+// stay fully readable, matching the GSI and Personal boards.
 function boardCardHtml(t) {
   const due = fmtDue(t.dueDate);
   const tag = t.isGsi
