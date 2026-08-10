@@ -8,6 +8,7 @@ import * as widgets from './widgets.js';
 import * as sections from './sections.js';
 import * as gsi from './gsi.js';
 import * as personal from './personal.js';
+import * as share from './share.js';
 import * as finance from './finance.js';
 import * as health from './health.js';
 import * as travel from './travel.js';
@@ -139,6 +140,8 @@ Object.assign(window,
     editPwDoc: personal.editPwDoc, addPwDoc: personal.addPwDoc, delPwDoc: personal.delPwDoc,
     editPwProjectDoc: personal.editPwProjectDoc, addPwProjectDoc: personal.addPwProjectDoc,
     delPwProjectDoc: personal.delPwProjectDoc },
+  { copyShareLink: share.copyShareLink, shareLinkViaSheet: share.shareLinkViaSheet,
+    closeShareBoardDialog: share.closeShareBoardDialog },
   { saveFinanceNotes: finance.saveFinanceNotes, addFinanceLink: finance.addFinanceLink, delFinanceLink: finance.delFinanceLink,
     addFinanceItem: finance.addFinanceItem, delFinanceItem: finance.delFinanceItem, editFinanceItem: finance.editFinanceItem,
     addEmiRow: finance.addEmiRow, editEmiRow: finance.editEmiRow, delEmiRow: finance.delEmiRow,
@@ -245,6 +248,10 @@ cloud.initSupabase();
 backup.backupReminderIfDue();
 // A page loaded with ?task=… reopens that task's detail view.
 taskModal.syncModalFromUrl();
+// A page loaded with ?board=… opens that board, once the account it
+// belongs to has finished loading. Wired with callbacks rather than
+// imports so share.js stays unaware of routing and whiteboard internals.
+share.initBoardDeepLink({ go: ui.go, switchBoard: whiteboard.switchBrainstormBoard });
 
 /* The disk write is now coalesced (see persist() in state.js), so it has
    to be forced out before the tab can disappear. supabase.js registers a

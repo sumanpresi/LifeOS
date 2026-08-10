@@ -575,10 +575,20 @@ function merge(saved) {
 export let state = load();
 
 /* Replace state wholesale (used when cloud data arrives). */
+/* Fired whenever the whole state object is swapped out — a cloud load, a
+   realtime push from another device, or a backup restore. A board deep
+   link needs this: the link is opened before Supabase has answered, so the
+   board it names usually doesn't exist yet on the first pass. Polling for
+   it would be guesswork; this is the actual moment the data arrives. */
+const stateReplacedSubs = [];
+export function onStateReplaced(fn) { if (typeof fn === "function") stateReplacedSubs.push(fn); }
+
 export function replaceState(remote) {
   delete remote._client;
   state = merge(remote);
   store.set("lifeos-data", JSON.stringify(state));
+  // Never let a misbehaving subscriber take down a cloud sync.
+  stateReplacedSubs.forEach(fn => { try { fn(); } catch (e) { console.warn("[state] subscriber failed", e); } });
 }
 
 /* ---------- helpers ---------- */

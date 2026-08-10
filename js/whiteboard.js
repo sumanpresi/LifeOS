@@ -60,6 +60,7 @@
       lag and the eraser visually misbehaving on high-frequency,
       high-resolution mobile input. */
 import { state, persist, uid, esc } from './state.js';
+import { openShareBoardDialog } from './share.js';
 import { sanitizeHtml } from './sanitize.js';
 import { decorateLinks, stripPreviewCards } from './link-preview.js';
 import { toast } from './ui.js';
@@ -1900,6 +1901,14 @@ document.addEventListener("pointerdown", (evt) => {
   if (openTabMenuId) closeBrainstormTabMenu();
 });
 
+/* Hands the board's id, name and surface to the share module. Only the id
+   travels in the link — the board itself is never copied anywhere, which
+   is what keeps the link private to this account. */
+export function shareBrainstormBoard(tabId, surface) {
+  const tab = tabList(surface).find(b => b.id === tabId);
+  openShareBoardDialog(tabId, tab ? tab.name : "Board", surface);
+}
+
 export function duplicateBrainstormBoard(tabId, surface = "gsi") {
   const src = tabList(surface).find(x => x.id === tabId && !x.deleted);
   if (!src) return;
@@ -2011,6 +2020,7 @@ function renderBrainstormTabs(surface) {
       <button class="wb-tab-menu-btn" title="Tab options" data-tab-id="${b.id}">⋮</button>
       <div class="wb-tab-menu" data-tab-id="${b.id}">
         <button data-action="rename">Rename</button>
+        <button data-action="share">Copy link to this board</button>
         <button data-action="duplicate">Duplicate</button>
         <button data-action="archive">Archive</button>
         <button class="danger" data-action="delete">Delete</button>
@@ -2043,6 +2053,7 @@ function renderBrainstormTabs(surface) {
         closeBrainstormTabMenu();
         const action = btn.dataset.action;
         if (action === "rename") startRenameBrainstormTab(tabId, surface);
+        else if (action === "share") shareBrainstormBoard(tabId, surface);
         else if (action === "duplicate") duplicateBrainstormBoard(tabId, surface);
         else if (action === "archive") archiveBrainstormBoard(tabId, surface);
         else if (action === "delete") deleteBrainstormBoardFromTabBar(tabId, surface);

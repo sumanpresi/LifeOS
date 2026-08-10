@@ -2267,3 +2267,31 @@ body.modal-locked{overflow:hidden}
   border-bottom:3px solid rgba(75,92,66,.28);
   padding-bottom:0;
 }
+
+/* ============================================================
+   SHARE BOARD DIALOG
+   ============================================================ */
+.share-modal-bg{position:fixed;inset:0;background:rgba(27,27,26,.42);z-index:120;
+  display:none;align-items:center;justify-content:center;padding:20px}
+.share-modal-bg.open{display:flex}
+.share-modal{background:var(--card);border:1px solid var(--border);border-radius:16px;
+  width:min(560px,100%);max-height:90vh;overflow:auto;box-shadow:0 18px 50px rgba(27,27,26,.22)}
+.share-modal-body{padding:18px 20px 20px}
+.share-lead{margin:0 0 14px;color:var(--ink2);font-size:13.5px}
+
+/* A readonly input rather than a block of text: it is selectable, it is
+   tappable-to-select on mobile, and it degrades to something copyable by
+   hand if the Clipboard API is blocked — which it is on insecure origins
+   and inside several in-app browsers. */
+.share-url{width:100%;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11.5px;
+  padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:var(--paper);
+  color:var(--ink);overflow-x:auto;white-space:nowrap}
+.share-url:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(75,92,66,.15)}
+
+.share-actions{display:flex;gap:10px;margin-top:16px}
+.share-fineprint{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--border);
+  font-size:12px;color:var(--ink2);line-height:1.5}
+@media (max-width:520px){
+  .share-actions{flex-direction:column}
+  .share-actions .btn{width:100%}
+}

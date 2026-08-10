@@ -1348,6 +1348,27 @@
   </div>
 </div>
 
+<!-- A private link to a board. The link carries only the board's id, so
+     it is useless to anyone not signed in to this account — access is
+     enforced by Supabase row-level security, not by secrecy of the id. -->
+<div class="share-modal-bg" id="shareBoardModalBg">
+  <div class="share-modal">
+    <div class="expand-modal-head">
+      <h2>Link to &ldquo;<span id="shareBoardTitle"></span>&rdquo;</h2>
+      <button class="btn btn-ghost" onclick="closeShareBoardDialog()">&#10005; Close</button>
+    </div>
+    <div class="share-modal-body">
+      <p class="share-lead">A private link straight to this board. Save it, bookmark it, or send it to yourself &mdash; opening it on any device jumps to this board, fully editable.</p>
+      <input type="text" id="shareBoardUrl" class="share-url" readonly onclick="this.select()">
+      <div class="share-actions">
+        <button class="btn btn-primary" onclick="copyShareLink()">Copy link</button>
+        <button class="btn btn-ghost" id="shareNativeBtn" onclick="shareLinkViaSheet()">Send to myself&hellip;</button>
+      </div>
+      <p class="share-fineprint"><b>Only you can open this.</b> The link contains nothing but the board&rsquo;s id &mdash; no notes, no drawings. Anyone else who opens it sees their own LifeOS and a message that the board isn&rsquo;t in their account. Signed out, it asks you to sign in first.</p>
+    </div>
+  </div>
+</div>
+
 <div class="gsi-archive-modal-bg" id="pwArchiveModalBg">
   <div class="gsi-archive-modal">
     <div class="expand-modal-head">
