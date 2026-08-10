@@ -181,14 +181,15 @@ function pwCardHtml(item) {
 function pwBoardCardHtml(item) {
   const due = fmtPwDate(item.date);
   return `
-    <div class="t-board-card ${item.status === "done" ? "done" : ""}" data-task-id="${item.id}">
+    <div class="t-board-card ${item.status === "done" ? "done" : ""}${item.flag ? " flagged" : ""}" data-task-id="${item.id}">
       <div class="t-board-card-top">
-        <span class="t-board-card-handle" title="Drag to move">⠿</span>
         <button class="t-chk ${item.status === "done" ? "on" : ""}" onclick="event.stopPropagation();setPwTaskStatus('${item.id}','${item.status === "done" ? "todo" : "done"}')" aria-label="Toggle done">
           <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
-        <textarea class="gsi-board-card-title" rows="1" onclick="event.stopPropagation()"
+        <textarea class="gsi-board-card-title pw-board-card-title" rows="1" onclick="event.stopPropagation()"
           onchange="editPwProjectTask('${item.id}','text',this.value)" oninput="autoGrow(this)">${esc(item.text)}</textarea>
-        ${item.flag ? `<span class="t-board-card-flag" title="Priority">🚩</span>` : ""}
+        <button class="t-board-card-flag ${item.flag ? "on" : ""}" aria-pressed="${!!item.flag}"
+          onclick="event.stopPropagation();togglePwProjectTaskFlag('${item.id}')"
+          title="${item.flag ? "Remove priority" : "Mark high priority"}">🚩</button>
       </div>
       <div class="t-board-card-meta">
         <span class="t-board-card-date ${due && due.cls === "gsi-overdue" ? "overdue" : ""}">
@@ -242,7 +243,12 @@ function initPwBoardSorting() {
   document.querySelectorAll("#pwTaskList .t-board-col-body").forEach(container => {
     pwBoardSortables.push(Sortable.create(container, {
       group: "pw-board",
-      handle: ".t-board-card-handle",
+      /* Whole card is the drag target, matching GSI's board. filter lists
+         the controls that must keep their own behaviour rather than
+         starting a drag; preventOnFilter:false lets their click/change
+         events through instead of swallowing them. */
+      filter: "button, input, select, textarea, a, .t-chk",
+      preventOnFilter: false,
       animation: 200,
       delay: 300, delayOnTouchOnly: true, touchStartThreshold: 5,
       ghostClass: "t-row-ghost", dragClass: "t-row-dragging", chosenClass: "t-row-chosen",
@@ -288,7 +294,9 @@ function renderPwProjects() {
   const listEl = document.getElementById("pwTaskList");
   if (listEl) {
     if (pwTaskView === "board") {
-      listEl.innerHTML = renderPwBoardView(active.tasks);
+      // `ordered`, not active.tasks — otherwise the sort dropdown silently
+      // does nothing in Board view while working fine in List view.
+      listEl.innerHTML = renderPwBoardView(ordered);
     } else {
       listEl.innerHTML = ordered.map(pwCardHtml).join("") || `<div class="gsi-empty"><p>No tasks yet in ${esc(active.name)}.</p><p class="hint">Add your first task below.</p></div>`;
     }
@@ -300,8 +308,16 @@ function renderPwProjects() {
   const openCount = active.tasks.filter(i => i.status !== "done").length;
   const countEl = document.getElementById("pwCount");
   if (countEl) countEl.textContent = active.tasks.length ? `${openCount} open` : "";
-  document.querySelectorAll(".gsi-title").forEach(autoGrow); // shared class with GSI's own cards — harmless to re-measure both
-  document.querySelectorAll(".gsi-board-card-title").forEach(autoGrow);
+  /* Scoped to #page-personal so this doesn't reach across and re-measure
+     GSI's cards, which share the .gsi-title class. Board titles here are
+     textareas (editable in place), so unlike GSI's spans they do need the
+     pass — go() in ui.js repeats it once this page becomes visible, since
+     anything measured while the page was display:none reads back as 0. */
+  const page = document.getElementById("page-personal");
+  if (page) {
+    page.querySelectorAll(".gsi-title").forEach(autoGrow);
+    page.querySelectorAll(".pw-board-card-title").forEach(autoGrow);
+  }
 }
 export function openPwDatePicker(id) {
   const input = document.getElementById(`pw-board-date-${id}`);

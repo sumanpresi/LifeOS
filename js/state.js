@@ -54,6 +54,7 @@ export const DEFAULT_STATE = {
   v: 2,
   taskViewPref: "board", // "board" | "list" | "calendar" — persisted like any other setting, so it syncs across devices the same way everything else does
   gsiTaskViewPref: "board", // "board" | "list" — same idea, for GSI Workspace's own task list
+  pwTaskViewPref: "board", // "board" | "list" — same idea again, for Personal Workspace
   name: "Suman",
   tasks: [
     { id: "t1", text: "Review NGDR upload tracker", done: false, category: "work", flag: false, link: "", dueDate: "" },
@@ -117,7 +118,25 @@ export const DEFAULT_STATE = {
   entertainment: { items: [] },
   sections: {
     communication: { notes: "", noteList: [], links: [] },
-    work: { notes: "", noteList: [], links: [] }
+    work: { notes: "", noteList: [], links: [] },
+    /* Backs the Notes card on the Personal Workspace page. Same shape and
+       same sections.js code path as Work's — the page is hand-written in
+       index.html rather than generated from SECTION_META, exactly like
+       Work·GSI, so this entry exists purely to give those notes somewhere
+       to live. */
+    personal: { notes: "", noteList: [], links: [] }
+  },
+  /* Personal Workspace — the same projects/board/documents machinery as
+     state.gsi below, kept as a completely separate tree. Nothing here
+     merges into Overview's task list or into GSI's project picker; see the
+     header of js/personal.js for why that separation is deliberate. */
+  personal: {
+    projects: [
+      { id: "pp1", name: "Home", tasks: [], workDocs: [], workDocsLabel: "Documents", archivedTasks: [] }
+    ],
+    activeProject: "pp1",
+    links: [],
+    docs: []
   },
   gsi: {
     /* Multiple named projects, each with its own task list (with dates).
@@ -309,6 +328,35 @@ function merge(saved) {
     }
     sec.notes = "";
   });
+  /* Personal Workspace. Anyone whose save predates this page has no
+     saved.personal at all, so they get the default single "Home" project;
+     anyone who does gets their own data with any newer fields filled in.
+     The per-project normalisation below is the same additive-field pass
+     s.gsi.projects gets — a project saved before archivedTasks/workDocs
+     existed must not come back with those undefined, because the render
+     path reads .length off them. */
+  s.personal = Object.assign(structuredClone(DEFAULT_STATE.personal), saved.personal || {});
+  if (!Array.isArray(s.personal.projects) || !s.personal.projects.length) {
+    s.personal.projects = structuredClone(DEFAULT_STATE.personal.projects);
+  }
+  s.personal.links = Array.isArray(s.personal.links) ? s.personal.links : [];
+  s.personal.docs = Array.isArray(s.personal.docs) ? s.personal.docs : [];
+  s.personal.projects.forEach(p => {
+    p.tasks = Array.isArray(p.tasks) ? p.tasks : [];
+    p.workDocs = Array.isArray(p.workDocs) ? p.workDocs : [];
+    p.archivedTasks = Array.isArray(p.archivedTasks) ? p.archivedTasks : [];
+    p.workDocsLabel = p.workDocsLabel || "Documents";
+    p.tasks.forEach(t => {
+      t.status = t.status || "todo";
+      t.date = t.date || "";
+      t.link = t.link || "";
+      t.flag = !!t.flag;
+    });
+  });
+  if (!s.personal.projects.some(p => p.id === s.personal.activeProject)) {
+    s.personal.activeProject = s.personal.projects[0].id;
+  }
+
   s.gsi = Object.assign(structuredClone(DEFAULT_STATE.gsi), saved.gsi || {});
   // Work documents move from one shared list to per-project — each
   // project now keeps its own workDocs array, so switching workspaces

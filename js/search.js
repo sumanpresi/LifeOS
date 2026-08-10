@@ -42,7 +42,7 @@ function buildIndex() {
     plain.trim() && push("Journal", plain.slice(0, 120), date, () => go("dayof"));
   });
 
-  const secPages = Object.assign({}, SECTION_META, { work: "Work · GSI" });
+  const secPages = Object.assign({}, SECTION_META, { work: "Work · GSI", personal: "Personal" });
   Object.entries(secPages).forEach(([key, label]) => {
     const sec = state.sections[key]; if (!sec) return;
     // Notes are now a list of rich-text notes per section rather than one
@@ -76,6 +76,21 @@ function buildIndex() {
     (proj.workDocGroups || []).filter(gr => !gr.archived).forEach(gr =>
       gr.docs.filter(d => !d.archived).forEach(d =>
         push("Document", d.name, `${proj.name} · ${gr.name}`, () => window.open(d.url, "_blank")))));
+
+  // Personal Workspace — projects, tasks, links and documents. Mirrors the
+  // GSI block above; kept separate because the two trees are separate, and
+  // the sub-label says which workspace a hit came from so an identically
+  // worded task in both is still tellable apart in the results list.
+  (state.personal?.projects || []).forEach(p => {
+    (p.tasks || []).forEach(t =>
+      push("Personal task", t.text, p.name + " \u00b7 " + t.status, () => go("personal")));
+    (p.workDocs || []).forEach(d =>
+      push("Document", d.name, "Personal \u00b7 " + p.name, () => window.open(d.url, "_blank")));
+  });
+  (state.personal?.links || []).forEach(l =>
+    push("Link", l.title, "Personal", () => window.open(l.url, "_blank")));
+  (state.personal?.docs || []).forEach(d =>
+    push("Document", d.name, "Personal", () => window.open(d.url, "_blank")));
 
   // Finance
   (state.finance.notes || "").split("\n").forEach(line =>

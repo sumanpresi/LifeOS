@@ -16,9 +16,19 @@ export function toast(msg, actionLabel, actionOnclick) {
 }
 
 /* Makes a textarea grow to fit its content instead of clipping/scrolling —
-   used anywhere a box should always show everything typed into it. */
+   used anywhere a box should always show everything typed into it.
+
+   The tag guard is load-bearing, not defensive noise. Writing an explicit
+   pixel height onto an ordinary element that sizes itself (a <span>, a
+   <div>) can only ever make things worse, and when the element is inside a
+   hidden page it is actively destructive: a hidden .page is display:none,
+   every descendant reports scrollHeight 0, so the element gets height:0px
+   burned into its style attribute and — paired with overflow:hidden —
+   disappears until something re-renders it while visible. That is exactly
+   the bug that made GSI board card titles invisible until you toggled
+   List/Board. Only textareas need this, so only textareas get it. */
 export function autoGrow(el) {
-  if (!el) return;
+  if (!el || el.tagName !== "TEXTAREA") return;
   el.style.height = "auto";
   el.style.height = el.scrollHeight + "px";
 }
@@ -36,6 +46,7 @@ export function go(page) {
     el.querySelectorAll(".mm-section textarea").forEach(autoGrow);
     el.querySelectorAll(".gsi-title").forEach(autoGrow);
     el.querySelectorAll(".t-title").forEach(autoGrow);
+    el.querySelectorAll(".pw-board-card-title").forEach(autoGrow);
     el.querySelectorAll(".task-row textarea").forEach(autoGrow);
     if (page === "overview") resizeWhiteboardIfVisible("overview");
     if (page === "work") resizeWhiteboardIfVisible("gsi");

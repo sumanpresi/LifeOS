@@ -417,7 +417,12 @@ function renderProjects() {
   // boot, before navigating here), this measurement will be wrong —
   // go() in ui.js re-runs this once the page actually becomes visible.
   document.querySelectorAll(".gsi-title").forEach(autoGrow);
-  document.querySelectorAll(".gsi-board-card-title").forEach(autoGrow);
+  /* Board card titles are <span>s — they size themselves and must NOT be
+     given an explicit height. Doing so while this page was hidden pinned
+     them to height:0 and made every board title invisible until a
+     List/Board toggle forced a re-render. autoGrow now ignores anything
+     that isn't a textarea, so this is belt-and-braces, but the call is
+     gone as well so the intent is unambiguous. */
 }
 export function openGsiDatePicker(id) {
   const input = document.getElementById(`gsi-board-date-${id}`);

@@ -2181,3 +2181,67 @@ body.modal-locked{overflow:hidden}
 .gsi-board-card-title{flex:1;min-width:0;font-size:13.5px;font-weight:600;line-height:1.35;
   color:var(--ink);word-break:break-word}
 .t-board-card.done .gsi-board-card-title{text-decoration:line-through;color:var(--muted)}
+
+/* ============================================================
+   PERSONAL WORKSPACE — visual identity
+   ============================================================
+   Work · GSI and Personal Workspace are structurally identical
+   pages: same tab row, same board columns, same document cards.
+   Cloning the markup was right; leaving them visually identical
+   was not. Two pages that differ only by a heading you have to
+   stop and read is a page you can land on and not know where you
+   are — and this is an app where you switch between the two all
+   day.
+
+   The fix is one hue, not a reskin. No new colour is invented:
+   --accent2 (the warm terracotta already used for the brand mark)
+   is promoted to be this page's accent, and --secondary is its
+   ink. GSI keeps the olive green. Because nearly every component
+   reads var(--accent), re-pointing the token at page scope is
+   enough — the tab row, segmented control, archive button and
+   link hovers all follow without touching their own rules.
+
+   Colour is never the only signal: the sidebar item, the page
+   heading and the tab row label all still say "Personal" in
+   words (WCAG 1.4.1). The hue makes it pre-attentive; the text
+   makes it correct.
+
+   The archive modal is listed alongside the page because it
+   lives outside #page-personal in the DOM but belongs to it. */
+#page-personal,
+#pwArchiveModalBg{
+  --accent:#B9714A;
+  --accent-ink:#8A5A3B;
+}
+
+/* Two rules bake the olive green in as a literal rgba() rather
+   than reading the token, so they can't follow the override
+   above and have to be restated at this scope. */
+#page-personal input:focus,
+#page-personal textarea:focus,
+#page-personal select:focus{
+  box-shadow:0 0 0 3px rgba(185,113,74,.16);
+}
+#page-personal .link-edit-btn:hover{
+  background:rgba(185,113,74,.12);
+}
+
+/* The sidebar entry carries the same hue when active, so the
+   association is taught before you even arrive on the page. */
+.nav-item[data-page="personal"].active{
+  background:linear-gradient(135deg,rgba(185,113,74,.16),rgba(185,113,74,.07));
+  color:#8A5A3B;
+}
+
+/* A single accent rule under the workspace tab row — the one
+   place both pages look most alike, and the thing your eye lands
+   on when the board is the tallest element on screen. 3px, full
+   width of the tab strip, and nothing else. */
+#page-personal .wb-tabs-row{
+  border-bottom:3px solid rgba(185,113,74,.35);
+  padding-bottom:0;
+}
+#page-work .wb-tabs-row{
+  border-bottom:3px solid rgba(75,92,66,.28);
+  padding-bottom:0;
+}

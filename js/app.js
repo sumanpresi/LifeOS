@@ -7,6 +7,7 @@ import * as habits from './habits.js';
 import * as widgets from './widgets.js';
 import * as sections from './sections.js';
 import * as gsi from './gsi.js';
+import * as personal from './personal.js';
 import * as finance from './finance.js';
 import * as health from './health.js';
 import * as travel from './travel.js';
@@ -44,6 +45,7 @@ function renderAll() {
   widgets.renderDayOf();
   sections.renderSections();
   gsi.renderGsi();
+  personal.renderPersonalWorkspace();
   finance.renderFinance();
   health.renderHealth();
   travel.renderTravel();
@@ -119,6 +121,24 @@ Object.assign(window,
     restoreWorkDocGroup: gsi.restoreWorkDocGroup, archiveWorkDoc: gsi.archiveWorkDoc, restoreWorkDoc: gsi.restoreWorkDoc,
     toggleWorkDocArchive: gsi.toggleWorkDocArchive, delWorkDoc: gsi.delWorkDoc,
     runGrammarCheck: gsi.runGrammarCheck, applyGrammarFix: gsi.applyGrammarFix },
+  { addPwTask: personal.addPwTask, quickAddPwTask: personal.quickAddPwTask,
+    editPwProjectTask: personal.editPwProjectTask, setPwTaskStatus: personal.setPwTaskStatus,
+    delPwProjectTask: personal.delPwProjectTask, togglePwProjectTaskFlag: personal.togglePwProjectTaskFlag,
+    setPwSortMode: personal.setPwSortMode, setPwTaskView: personal.setPwTaskView,
+    openPwDatePicker: personal.openPwDatePicker, togglePwTaskLinkEdit: personal.togglePwTaskLinkEdit,
+    addPwProject: personal.addPwProject, switchPwProject: personal.switchPwProject,
+    renamePwProject: personal.renamePwProject, delPwProject: personal.delPwProject,
+    choosePersonalWorkspace: personal.choosePersonalWorkspace,
+    renamePwProjectDocsLabel: personal.renamePwProjectDocsLabel,
+    archivePwCompletedTasks: personal.archivePwCompletedTasks, archivePwTaskEntry: personal.archivePwTaskEntry,
+    openPwArchiveView: personal.openPwArchiveView, closePwArchiveView: personal.closePwArchiveView,
+    restorePwArchivedTask: personal.restorePwArchivedTask, removePwFromArchive: personal.removePwFromArchive,
+    restorePwLastDeletedProject: personal.restorePwLastDeletedProject,
+    togglePwDocEdit: personal.togglePwDocEdit, undoPwLastDeleted: personal.undoPwLastDeleted,
+    editPwLink: personal.editPwLink, addPwLink: personal.addPwLink, delPwLink: personal.delPwLink,
+    editPwDoc: personal.editPwDoc, addPwDoc: personal.addPwDoc, delPwDoc: personal.delPwDoc,
+    editPwProjectDoc: personal.editPwProjectDoc, addPwProjectDoc: personal.addPwProjectDoc,
+    delPwProjectDoc: personal.delPwProjectDoc },
   { saveFinanceNotes: finance.saveFinanceNotes, addFinanceLink: finance.addFinanceLink, delFinanceLink: finance.delFinanceLink,
     addFinanceItem: finance.addFinanceItem, delFinanceItem: finance.delFinanceItem, editFinanceItem: finance.editFinanceItem,
     addEmiRow: finance.addEmiRow, editEmiRow: finance.editEmiRow, delEmiRow: finance.delEmiRow,

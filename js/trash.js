@@ -41,6 +41,11 @@ function labelFor(entry) {
     case "goal": return p.name;
     case "gsiProject": return "Project: " + p.name;
     case "gsiProjectTask": return p.text;
+    case "pwProject": return "Personal project: " + p.name;
+    case "pwProjectTask": return p.text;
+    case "pwLink": return p.title;
+    case "pwDoc": return p.name;
+    case "pwProjectDoc": return p.name;
     case "log": return p.text;
     case "meeting": return "Meeting: " + (p.title || "Untitled");
     case "gsiLink": return p.title;
@@ -74,7 +79,9 @@ const TYPE_NAMES = {
   workDoc: "Work document", entertainment: "Entertainment entry", journalEntry: "Journal entry", whiteboardPage: "Whiteboard contents", workDocGroup: "Documents tab", travelPlan: "Travel plan", travelStop: "Travel stop", packingItem: "Packing item", packList: "Packing list",
   referencePage: "Reference page", referenceLink: "Reference link", financeItem: "Finance item",
   financeLink: "Finance link", medicine: "Medicine", prescription: "Prescription",
-  healthLink: "Health link", bookmarkLink: "Link", feed: "News feed", sectionLink: "Link", sectionNote: "Note"
+  healthLink: "Health link", bookmarkLink: "Link", feed: "News feed", sectionLink: "Link", sectionNote: "Note",
+  pwProject: "Personal project", pwProjectTask: "Personal task", pwLink: "Personal link",
+  pwDoc: "Personal document", pwProjectDoc: "Personal project document"
 };
 
 function timeAgo(ts) {
@@ -124,6 +131,32 @@ export function restoreFromTrash(id) {
     case "gsiProjectTask": {
       const proj = state.gsi.projects.find(x => x.id === m.projectId) || state.gsi.projects[0];
       if (proj) { proj.tasks.push(p); if (proj.id !== m.projectId) toast("Original project was deleted — restored into \"" + proj.name + "\" instead"); }
+      break;
+    }
+    /* Personal Workspace mirrors the GSI cases above, against
+       state.personal instead of state.gsi. Same fallback behaviour too: if
+       the project a task or document came from has since been deleted, it
+       lands in the first remaining project rather than vanishing, and the
+       person is told that happened. */
+    case "pwProject": state.personal.projects.push(p); break;
+    case "pwProjectTask": {
+      const proj = state.personal.projects.find(x => x.id === m.projectId) || state.personal.projects[0];
+      if (proj) {
+        proj.tasks = proj.tasks || [];
+        proj.tasks.push(p);
+        if (proj.id !== m.projectId) toast("Original project was deleted — restored into \"" + proj.name + "\" instead");
+      }
+      break;
+    }
+    case "pwLink": state.personal.links.push(p); break;
+    case "pwDoc": state.personal.docs = state.personal.docs || []; state.personal.docs.push(p); break;
+    case "pwProjectDoc": {
+      const proj = state.personal.projects.find(x => x.id === m.projectId) || state.personal.projects[0];
+      if (proj) {
+        proj.workDocs = proj.workDocs || [];
+        proj.workDocs.push(p);
+        if (proj.id !== m.projectId) toast("Original project was deleted — restored into \"" + proj.name + "\" instead");
+      }
       break;
     }
     case "log": state.gsi.log.push(p); break;
