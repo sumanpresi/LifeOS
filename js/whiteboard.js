@@ -1888,13 +1888,26 @@ function startRenameBrainstormTab(tabId, surface = "gsi") {
   nameEl.addEventListener("blur", onBlur);
 }
 
+/* .wb-tabs is a horizontal scroller (overflow-x:auto), and per spec an
+   element that scrolls one axis clips the other too — overflow-y computes
+   to auto, not visible. The ⋮ flyout is absolutely positioned at
+   top:calc(100% + 4px), i.e. entirely BELOW a container only as tall as a
+   tab, so it was being clipped out of existence: the menu opened, and
+   nothing appeared. Lifting the clip only while a menu is open keeps the
+   tab strip scrollable the rest of the time. */
+function syncTabMenuOverflow() {
+  document.querySelectorAll(".wb-tabs").forEach(list =>
+    list.classList.toggle("menu-open", !!list.querySelector(".wb-tab-menu.open")));
+}
 function toggleBrainstormTabMenu(tabId, surface = "gsi") {
   openTabMenuId = openTabMenuId === tabId ? null : tabId;
   document.querySelectorAll(".wb-tab-menu").forEach(m => m.classList.toggle("open", m.dataset.tabId === openTabMenuId));
+  syncTabMenuOverflow();
 }
 function closeBrainstormTabMenu() {
   openTabMenuId = null;
   document.querySelectorAll(".wb-tab-menu.open").forEach(m => m.classList.remove("open"));
+  syncTabMenuOverflow();
 }
 document.addEventListener("pointerdown", (evt) => {
   if (evt.target.closest(".wb-tab-menu") || evt.target.closest(".wb-tab-menu-btn")) return;

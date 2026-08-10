@@ -1588,6 +1588,11 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .wb-tabs-row{display:flex;align-items:center;gap:6px;margin-bottom:10px}
 .wb-tabs{display:flex;gap:4px;flex:1;min-width:0;overflow-x:auto;scrollbar-width:none}
 .wb-tabs::-webkit-scrollbar{display:none}
+/* Set by syncTabMenuOverflow() in whiteboard.js while a tab's ⋮ flyout is
+   open. Without it the flyout is clipped away entirely — see the comment
+   there. overflow:visible on both axes, because clipping one axis clips
+   both; scrolling is restored the moment the menu closes. */
+.wb-tabs.menu-open{overflow:visible}
 .wb-tab{position:relative;display:flex;align-items:center;gap:4px;padding:6px 8px 6px 10px;
   border-radius:11px 11px 0 0;background:rgba(255,255,255,.35);border:1px solid var(--glass-line);border-bottom:none;
   cursor:pointer;font-size:13px;white-space:nowrap;flex-shrink:0;max-width:160px;color:var(--ink-soft);
