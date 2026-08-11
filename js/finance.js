@@ -21,8 +21,6 @@ function renderList(key) {
 }
 
 export function renderFinance() {
-  const n = document.getElementById("notes-finance");
-  if (n && document.activeElement !== n) n.value = state.finance.notes || "";
   const g = document.getElementById("secLinks-finance");
   if (g) g.innerHTML = (state.finance.links || []).map(l => `
     <div class="link-card">
@@ -141,6 +139,10 @@ export function delExpenseRow(id) {
 }
 
 let finTimer = null;
+/* Legacy. The Notes card here is now the shared multi-note rich editor in
+   sections.js, backed by state.sections.finance.noteList — merge() lifted any
+   old text into a first note. Kept only so a bookmarklet or an older cached
+   page calling this doesn't throw; nothing in the app calls it. */
 export function saveFinanceNotes(v) {
   state.finance.notes = v;
   clearTimeout(finTimer);

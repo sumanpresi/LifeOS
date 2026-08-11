@@ -135,12 +135,30 @@ export function delSectionNote(key, id) {
   persist(); rerender();
 }
 
+/* Pages hand-written in index.html rather than generated from SECTION_META,
+   whose Notes cards nevertheless use this module's editor. A key with a
+   #secNotes-<key> container must appear here or it silently never renders —
+   the container simply stays empty forever, which is exactly what happened
+   to Personal's Notes card until this list existed. */
+export const NOTE_SECTIONS = ["work", "personal", "health", "finance"];
+
+/* Links are deliberately NOT rendered for every key above. Health and
+   Finance own their links in state.health.links / state.finance.links and
+   render them from health.js / finance.js — pointing this loop at
+   #secLinks-health as well would have a second renderer overwrite the real
+   links with "No links yet" from the empty state.sections copy. Personal's
+   links live under #pwLinks and are drawn by personal.js. So only the
+   generated SECTION_META pages and Work read their links from here. */
+const LINK_SECTIONS = () => [...Object.keys(SECTION_META), "work"];
+
 export function renderSections() {
-  /* generic pages + the Work notes textarea living on the GSI page */
-  for (const key of [...Object.keys(SECTION_META), "work"]) {
+  for (const key of new Set([...Object.keys(SECTION_META), ...NOTE_SECTIONS])) {
     renderSectionNotes(key);
+  }
+  for (const key of LINK_SECTIONS()) {
     const g = document.getElementById("secLinks-" + key);
-    if (g) g.innerHTML = (state.sections[key].links || []).map(l => `
+    if (!g || !state.sections[key]) continue;
+    g.innerHTML = (state.sections[key].links || []).map(l => `
       <div class="link-card">
         <a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.title)}</a>
         <button class="del" onclick="delSectionLink('${key}','${l.id}')">✕</button>

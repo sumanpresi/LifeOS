@@ -120,8 +120,6 @@ export function delPrescription(id) {
 }
 
 export function renderHealth() {
-  const n = document.getElementById("notes-health");
-  if (n && document.activeElement !== n) n.value = state.health.notes || "";
   const g = document.getElementById("secLinks-health");
   if (g) g.innerHTML = (state.health.links || []).map(l => `
     <div class="link-card">
@@ -134,6 +132,10 @@ export function renderHealth() {
 }
 
 let healthTimer = null;
+/* Legacy. The Notes card here is now the shared multi-note rich editor in
+   sections.js, backed by state.sections.health.noteList — merge() lifted any
+   old text into a first note. Kept only so a bookmarklet or an older cached
+   page calling this doesn't throw; nothing in the app calls it. */
 export function saveHealthNotes(v) {
   state.health.notes = v;
   clearTimeout(healthTimer);

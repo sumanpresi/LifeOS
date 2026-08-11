@@ -812,9 +812,11 @@
     <section class="page" id="page-finance">
       <h1 class="display" style="font-size:28px;margin-bottom:14px">Finance</h1>
       <div class="grid-2">
-        <div class="card"><div class="card-head"><h2>Notes</h2></div>
+        <div class="card"><div class="card-head"><h2>Notes</h2>
+            <button class="btn btn-ghost sec-note-add" onclick="addSectionNote('finance')">+ New note</button>
+          </div>
           <div class="card-body">
-            <textarea class="notes-area" id="notes-finance" placeholder="Everything about finance lives here…" oninput="saveFinanceNotes(this.value)"></textarea>
+            <div class="sec-notes" id="secNotes-finance"></div>
           </div>
         </div>
         <div class="card"><div class="card-head"><h2>Links</h2></div>
@@ -929,9 +931,11 @@
     <section class="page" id="page-health">
       <h1 class="display" style="font-size:28px;margin-bottom:14px">Health</h1>
       <div class="grid-2">
-        <div class="card"><div class="card-head"><h2>Notes</h2></div>
+        <div class="card"><div class="card-head"><h2>Notes</h2>
+            <button class="btn btn-ghost sec-note-add" onclick="addSectionNote('health')">+ New note</button>
+          </div>
           <div class="card-body">
-            <textarea class="notes-area" id="notes-health" placeholder="Everything about health lives here…" oninput="saveHealthNotes(this.value)"></textarea>
+            <div class="sec-notes" id="secNotes-health"></div>
           </div>
         </div>
         <div class="card"><div class="card-head"><h2>Links</h2></div>

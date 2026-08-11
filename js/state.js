@@ -132,7 +132,12 @@ export const DEFAULT_STATE = {
        index.html rather than generated from SECTION_META, exactly like
        Work·GSI, so this entry exists purely to give those notes somewhere
        to live. */
-    personal: { notes: "", noteList: [], links: [] }
+    personal: { notes: "", noteList: [], links: [] },
+    /* Health and Finance keep their own hand-written pages too, but their
+       Notes cards now use the same multi-note rich editor as Work's. The
+       old single `notes` string is migrated into noteList by merge(). */
+    health: { notes: "", noteList: [], links: [] },
+    finance: { notes: "", noteList: [], links: [] }
   },
   /* Personal Workspace — the same projects/board/documents machinery as
      state.gsi below, kept as a completely separate tree. Nothing here
@@ -343,6 +348,31 @@ function merge(saved) {
      s.gsi.projects gets — a project saved before archivedTasks/workDocs
      existed must not come back with those undefined, because the render
      path reads .length off them. */
+  /* Health and Finance Notes used to be one plain textarea backed by
+     state.health.notes / state.finance.notes. They are now the same list of
+     titled rich-text notes as Work's, so any existing text is lifted into a
+     first note rather than disappearing behind the new UI. The original
+     string is left in place: it costs a few bytes and means rolling back to
+     an older build still shows the text. */
+  ["health", "finance"].forEach(key => {
+    const sec = s.sections[key] || (s.sections[key] = { notes: "", noteList: [], links: [] });
+    sec.noteList = Array.isArray(sec.noteList) ? sec.noteList : [];
+    sec.links = Array.isArray(sec.links) ? sec.links : [];
+    const legacy = (saved[key] && typeof saved[key].notes === "string") ? saved[key].notes.trim() : "";
+    const alreadyMigrated = saved.sections && saved.sections[key] && Array.isArray(saved.sections[key].noteList);
+    if (legacy && !alreadyMigrated) {
+      sec.noteList.unshift({
+        id: "mig_" + key,
+        title: key === "health" ? "Health notes" : "Finance notes",
+        // Plain text, so newlines become breaks and the markup is escaped —
+        // otherwise a stray "<" in the old note would eat the rest of it.
+        html: "<p>" + legacy.replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c])).replace(/\n/g, "<br>") + "</p>",
+        open: false,
+        updated: Date.now()
+      });
+    }
+  });
+
   s.personal = Object.assign(structuredClone(DEFAULT_STATE.personal), saved.personal || {});
   if (!Array.isArray(s.personal.projects) || !s.personal.projects.length) {
     s.personal.projects = structuredClone(DEFAULT_STATE.personal.projects);
