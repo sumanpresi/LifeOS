@@ -389,6 +389,24 @@ export function getPwProjectList() {
    project's array and pushes to the new one — the task object itself is
    carried across untouched, so its id, description, subtasks and labels
    survive the move. */
+/* Mirrors gsi.js's addProjectTaskRaw / pluckProjectTask so a task can be
+   moved between the native Overview list and a personal workspace without
+   the caller reaching into state.personal itself. */
+export function addPwProjectTaskRaw(projectId, task) {
+  const p = (state.personal?.projects || []).find(x => x.id === projectId);
+  if (!p) return false;
+  p.tasks = p.tasks || [];
+  p.tasks.push(task);
+  persist(); rerender();
+  return true;
+}
+export function pluckPwProjectTask(taskId) {
+  const { task: t, project: p } = findPwProjectTask(taskId);
+  if (!t || !p) return null;
+  p.tasks = p.tasks.filter(x => x.id !== taskId);
+  return t;
+}
+
 export function changePwTaskProject(taskId, newProjectId) {
   const projects = state.personal?.projects || [];
   const from = projects.find(p => (p.tasks || []).some(t => t.id === taskId));

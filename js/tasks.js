@@ -13,7 +13,9 @@ import { syncTaskToGoogle } from './google-calendar.js';
 import { getAllGsiTasksFlat, findProjectTask, editProjectTask, setTaskStatus as setGsiTaskStatus,
   delProjectTask, toggleProjectTaskFlag, archiveGsiTaskEntry,
   getProjectList, addProjectTaskRaw, moveProjectTask, pluckProjectTask } from './gsi.js';
-import { findPwProjectTask, editPwProjectTask, setPwTaskStatus, togglePwProjectTaskFlag, delPwProjectTask } from './personal.js';
+import { changePwTaskProject, findPwProjectTask, editPwProjectTask, setPwTaskStatus, togglePwProjectTaskFlag, delPwProjectTask,
+  getAllPwTasksFlat, archivePwTaskEntry, getPwProjectList,
+  addPwProjectTaskRaw, pluckPwProjectTask } from './personal.js';
 
 let taskFilter = "all"; // "all" | "work" | "personal"
 let sortByDate = false;
@@ -165,12 +167,20 @@ function handleBoardDragEnd(evt) {
 function moveTaskToColumn(id, targetCol) {
   const found = findAnyTask(id);
   if (!found) return false;
-  const { task: t, isGsi, project } = found;
+  const { task: t, isGsi, isPersonal, project } = found;
   const todayStr = new Date().toISOString().slice(0, 10);
-  const curDate = isGsi ? t.date : t.dueDate;
-  const done = isGsi ? t.status === "done" : t.done;
+  // Personal tasks share GSI's field shape (date/status), so they read the
+  // same way — but every WRITE below dispatches to its own tree.
+  const projShaped = isGsi || isPersonal;
+  const curDate = projShaped ? t.date : t.dueDate;
+  const done = projShaped ? t.status === "done" : t.done;
 
   if (targetCol === "archived") {
+    if (isPersonal) {
+      if (t.status !== "done") setPwTaskStatus(id, "done");
+      archivePwTaskEntry(project.id, id);
+      return true;
+    }
     if (isGsi) {
       if (done) { archiveGsiTaskEntry(project.id, id); return true; }
       setGsiTaskStatus(id, "done"); // GSI archive is for finished tasks, same intent as native's requirement below
@@ -183,6 +193,10 @@ function moveTaskToColumn(id, targetCol) {
     return true;
   }
   if (targetCol === "completed") {
+    if (isPersonal) {
+      if (t.status !== "done") setPwTaskStatus(id, "done");
+      return true;
+    }
     if (isGsi) {
       if (t.status !== "done") setGsiTaskStatus(id, "done");
       return true;
@@ -195,7 +209,9 @@ function moveTaskToColumn(id, targetCol) {
   // to come back to "open" first before its date means anything. GSI
   // has no boolean "done" to just flip back — it's reopened to "todo",
   // since which of todo/progress/blocked it was before "done" isn't tracked.
-  if (isGsi) {
+  if (isPersonal) {
+    if (t.status === "done") setPwTaskStatus(id, "todo");
+  } else if (isGsi) {
     if (t.status === "done") setGsiTaskStatus(id, "todo");
   } else {
     if (t.archived) restoreArchivedTaskEntry(id);
@@ -317,9 +333,25 @@ export function findAnyTask(id) {
 // Shared by the "Add a task" project picker and each task's own .t-meta
 // project select — "No project" is always added separately by the caller,
 // this only builds the actual GSI project options.
-function projectOptionsHtml(selectedId) {
-  return getProjectList().map(p => `<option value="${p.id}" ${p.id === selectedId ? "selected" : ""}>${esc(p.name)}</option>`).join("");
+/* `scope` limits which destinations are offered:
+     "work"     — a task already inside a GSI project
+     "personal" — a task already inside a personal workspace
+     undefined  — a native task, which may go either way
+   A task never sees the opposite tree, because GSI <-> Personal moves are
+   not allowed: the two trees are separate by design, and every sync,
+   trash and health-check path assumes a task stays in the one it was
+   created in. Offering an option that would be refused is worse than not
+   offering it. */
+function projectOptionsHtml(selectedId, scope) {
+  const opt = p => `<option value="${p.id}" ${p.id === selectedId ? "selected" : ""}>${esc(p.name)}</option>`;
+  const work = getProjectList().map(opt).join("");
+  const personal = getPwProjectList().map(opt).join("");
+  if (scope === "work") return work;
+  if (scope === "personal") return personal;
+  return (work ? `<optgroup label="Work · GSI">${work}</optgroup>` : "") +
+         (personal ? `<optgroup label="Personal Workspace">${personal}</optgroup>` : "");
 }
+const projectScopeOf = t => t.isGsi ? "work" : (t.isPersonal ? "personal" : undefined);
 // Moves a task between "no project" (native) and a GSI project, or
 // between two GSI projects. Native<->GSI conversions remap the task's
 // shape the same way createNativeTask/quickAddGsiTask build one from
@@ -344,10 +376,49 @@ function detailFields(t) {
 export function changeTaskProject(id, projectId) {
   const found = findAnyTask(id);
   if (!found) return;
-  const { task: t, isGsi } = found;
+  const { task: t, isGsi, isPersonal } = found;
+  const toPersonal = !!projectId && getPwProjectList().some(p => p.id === projectId);
+
+  // Cross-tree moves stay refused. The picker doesn't offer them, but a
+  // stale select rendered before a re-render still could.
+  if ((isGsi && toPersonal) || (isPersonal && projectId && !toPersonal)) {
+    toast("A task can't move between Work and Personal workspaces");
+    return;
+  }
+
+  if (isPersonal) {
+    if (!projectId) {
+      // Personal workspace -> the Overview list, as a personal task.
+      const plucked = pluckPwProjectTask(id);
+      if (!plucked) return;
+      state.tasks.push({
+        id: plucked.id, text: plucked.text, done: plucked.status === "done",
+        category: "personal", flag: !!plucked.flag, link: plucked.link || "",
+        dueDate: plucked.date || "", completedAt: plucked.status === "done" ? Date.now() : null,
+        googleEventId: null, position: nextManualPosition(),
+        ...detailFields(plucked)
+      });
+      persist(); rerender();
+      return;
+    }
+    changePwTaskProject(id, projectId); // between two personal workspaces
+    return;
+  }
 
   if (!isGsi) {
     if (!projectId) return; // already native, nothing to do
+    if (toPersonal) {
+      // Overview list -> a personal workspace.
+      const ok = addPwProjectTaskRaw(projectId, {
+        id: t.id, text: t.text, status: t.done ? "done" : "todo",
+        date: t.dueDate || "", link: t.link || "", flag: !!t.flag,
+        ...detailFields(t)
+      });
+      if (!ok) return;
+      state.tasks = state.tasks.filter(x => x.id !== id);
+      persist(); rerender();
+      return;
+    }
     const ok = addProjectTaskRaw(projectId, {
       id: t.id, text: t.text, status: t.done ? "done" : "todo",
       date: t.dueDate || "", link: t.link || "", flag: !!t.flag, googleEventId: null,
@@ -498,7 +569,7 @@ function taskRowHtml(t) {
       </select>`}
       <select onchange="changeTaskProject('${t.id}',this.value)" title="GSI project">
         <option value="">No project</option>
-        ${projectOptionsHtml(t.isGsi ? t.projectId : "")}
+        ${projectOptionsHtml(t.projectId || "", projectScopeOf(t))}
       </select>
       <input type="date" value="${esc(t.dueDate||"")}" onchange="editTaskMeta('${t.id}','dueDate',this.value)" title="Due date">
       <input type="text" placeholder="link" value="${esc(t.link||"")}" onchange="editTaskMeta('${t.id}','link',this.value)">
@@ -569,7 +640,7 @@ function boardCardHtml(t) {
         <span class="t-board-card-tag">${tag}</span>
         <select class="t-board-project-sel" title="Move to project" onclick="event.stopPropagation()" onchange="event.stopPropagation();changeTaskProject('${t.id}',this.value)">
           <option value="">No project</option>
-          ${projectOptionsHtml(t.isGsi ? t.projectId : "")}
+          ${projectOptionsHtml(t.projectId || "", projectScopeOf(t))}
         </select>
         ${t.done ? (t.isGsi
           ? `<button class="t-archive-btn" onclick="event.stopPropagation();archiveGsiTaskEntry('${t.projectId}','${t.id}')" title="Archive">🗂</button>`
@@ -826,6 +897,20 @@ export function renderTasks() {
     visible = visible.concat(gsiAsTasks);
   }
 
+  /* Personal Workspace tasks are the mirror image: inherently personal, so
+     they join "Personal"/"All" and never "Work". Same normalisation, and
+     the same important caveat — these are COPIES. Nothing may be written
+     back through them; every action routes by id through findAnyTask,
+     which resolves to the real object inside state.personal. */
+  if (taskFilter === "all" || taskFilter === "personal") {
+    const pwAsTasks = getAllPwTasksFlat().map(t => ({
+      id: t.id, text: t.text, done: t.status === "done", category: "personal",
+      flag: !!t.flag, link: t.link || "", dueDate: t.date || "", completedAt: null,
+      isPersonal: true, projectId: t.projectId, projectName: t.projectName, status: t.status
+    }));
+    visible = visible.concat(pwAsTasks);
+  }
+
   const byFlagThenDate = (a, b) => {
     if (!!a.flag !== !!b.flag) return a.flag ? -1 : 1;
     if (!sortByDate) return 0;
@@ -943,7 +1028,13 @@ export function addTask() {
   const projSel = document.getElementById("newTaskProject");
   const projectId = projSel ? projSel.value : "";
   if (projectId) {
-    addProjectTaskRaw(projectId, { id: uid(), text: v, status: "todo", date: "", link: "", flag: false, googleEventId: null });
+    /* The picker now lists both trees, so the id has to be routed to the
+       right one. Personal is checked first because a GSI project id would
+       never appear in the personal list and vice versa — one lookup
+       decides it, with no prefix convention to keep in sync. */
+    const task = { id: uid(), text: v, status: "todo", date: "", link: "", flag: false, googleEventId: null };
+    if (getPwProjectList().some(p => p.id === projectId)) addPwProjectTaskRaw(projectId, task);
+    else addProjectTaskRaw(projectId, task);
   } else {
     createNativeTask(v, "");
     persist(); rerender();

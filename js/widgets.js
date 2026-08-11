@@ -4,6 +4,7 @@ import { toast, autoGrow } from './ui.js';
 import { moveToTrash } from './trash.js';
 import { isLogged, streak } from './habits.js';
 import { getAllGsiTasksFlat } from './gsi.js';
+import { getAllPwTasksFlat } from './personal.js';
 import { mountRichEditor, getRichEditor } from './rich-text.js';
 import { sanitizeHtml } from './sanitize.js';
 
@@ -171,7 +172,16 @@ export function renderDayOf() {
     link: t.link || "", dueDate: t.date || "", completedAt: null,
     isGsi: true, source: t.projectName
   }));
-  const dayTaskList = [...personal, ...gsi].filter(t => {
+  /* Personal Workspace tasks belong here for the same reason GSI ones do:
+     Day Of answers "what is due today", and a task being due doesn't
+     depend on which tree it lives in. Same normalisation, and the id is
+     all any action needs — findAnyTask routes it back to the real object. */
+  const pw = getAllPwTasksFlat().map(t => ({
+    id: t.id, text: t.text, done: t.status === "done", flag: !!t.flag,
+    link: t.link || "", dueDate: t.date || "", completedAt: null,
+    isPersonal: true, source: t.projectName
+  }));
+  const dayTaskList = [...personal, ...gsi, ...pw].filter(t => {
     if (t.done) return t.completedAt && todayKey(new Date(t.completedAt)) === k;
     if (t.flag) return true;
     return t.dueDate && t.dueDate <= k;

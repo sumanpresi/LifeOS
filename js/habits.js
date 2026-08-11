@@ -4,6 +4,7 @@
 import { state, uid, esc, persist, rerender, todayKey } from './state.js';
 import { moveToTrash } from './trash.js';
 import { getAllGsiTasksFlat } from './gsi.js';
+import { getAllPwTasksFlat } from './personal.js';
 import { go } from './ui.js';
 
 let weekOffset = 0;
@@ -79,7 +80,9 @@ function tasksForDate(k) {
     .map(t => ({ id: t.id, text: t.text, done: t.done, isGsi: false, source: (t.category === "personal" ? "Personal" : "Work") }));
   const gsi = getAllGsiTasksFlat().filter(t => t.date === k)
     .map(t => ({ id: t.id, text: t.text, done: t.status === "done", isGsi: true, source: t.projectName }));
-  return [...personal, ...gsi];
+  const pw = getAllPwTasksFlat().filter(t => t.date === k)
+    .map(t => ({ id: t.id, text: t.text, done: t.status === "done", isPersonal: true, source: t.projectName }));
+  return [...personal, ...gsi, ...pw];
 }
 
 function renderCalendarView() {
