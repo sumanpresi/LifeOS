@@ -230,9 +230,21 @@ function mergeIncomingWhiteboards(remote) {
 // wholesale-replace the other's. A tab's own updatedAt decides whose
 // name/archived/zoom "wins" when both sides touched it — the content
 // (strokes/notes) is combined either way, never dropped.
-function mergeIncomingBrainstormBoards(remote) {
-  const localBoards = state.brainstormBoards || [];
-  const remoteBoards = remote.brainstormBoards || [];
+/* Runs for every tabbed board surface, not just GSI's.
+   dayofBoards (the Scratch board) was never passed through here, and
+   commBoards would have inherited the same gap: without per-record
+   merging those lists fall back to whole-state last-write-wins, so
+   drawing on the Scratch board on the phone and again on the laptop
+   loses one side's strokes outright instead of combining them. Same
+   code, three lists — the keys mirror TAB_SURFACES in whiteboard.js. */
+const BOARD_LISTS = [
+  { list: "brainstormBoards", active: "activeBrainstormBoard" },
+  { list: "dayofBoards",      active: "activeDayofBoard" },
+  { list: "commBoards",       active: "activeCommBoard" },
+];
+function mergeIncomingBoardList(remote, listKey, activeKey) {
+  const localBoards = state[listKey] || [];
+  const remoteBoards = remote[listKey] || [];
   const byId = new Map();
   localBoards.forEach(b => byId.set(b.id, b));
   remoteBoards.forEach(rb => {
@@ -245,12 +257,15 @@ function mergeIncomingBrainstormBoards(remote) {
   let mergedBoards = Array.from(byId.values());
   const TOMBSTONE_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000; // same pruning window as sticky notes
   mergedBoards = mergedBoards.filter(b => !b.deleted || Date.now() - (b.updatedAt || 0) < TOMBSTONE_MAX_AGE_MS);
-  state.brainstormBoards = mergedBoards;
-  remote.brainstormBoards = mergedBoards;
-  if (!mergedBoards.some(b => b.id === state.activeBrainstormBoard && !b.archived && !b.deleted)) {
+  state[listKey] = mergedBoards;
+  remote[listKey] = mergedBoards;
+  if (!mergedBoards.some(b => b.id === state[activeKey] && !b.archived && !b.deleted)) {
     const fallback = mergedBoards.find(b => !b.archived && !b.deleted) || mergedBoards[0];
-    if (fallback) state.activeBrainstormBoard = fallback.id;
+    if (fallback) state[activeKey] = fallback.id;
   }
+}
+function mergeIncomingBrainstormBoards(remote) {
+  BOARD_LISTS.forEach(({ list, active }) => mergeIncomingBoardList(remote, list, active));
 }
 function applyRemote(remote) {
   const token = remote.syncToken || "";

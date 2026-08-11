@@ -239,75 +239,6 @@
         </div>
       </div>
 
-      <div class="card" id="whiteboardCard-overview" style="margin-top:16px">
-        <div class="card-head"><h2>Whiteboard</h2></div>
-        <div class="card-body" style="padding-top:0">
-          <p class="hint" id="wbHint-overview" style="margin-bottom:8px">Select Pen or Eraser to start drawing with S Pen or Apple Pencil — finger scrolls, saves automatically.</p>
-          <div class="wb-canvas-area" id="wbCanvasArea-overview">
-            <div class="wb-canvas-wrap" id="wbCanvasWrap-overview">
-              <canvas class="whiteboard-canvas" id="whiteboardCanvas-overview"></canvas>
-              <svg class="wb-connector-layer" id="wbConnectorLayer-overview"></svg>
-              <div class="wb-object-layer" id="wbObjLayer-overview"></div>
-            </div>
-
-            <!-- Floating tool rail — vertical on desktop, bottom bar on mobile (CSS handles the switch) -->
-            <div class="wb-float-toolbar" id="wbFloatToolbar-overview">
-              <div class="wb-float-tool-wrap">
-                <button class="wb-icon-tool" id="wbPenBtn-overview" onclick="selectPenTool('overview')" title="Pen">
-                  <svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                </button>
-                <div class="wb-flyout" id="wbPenFlyout-overview">
-                  <div class="wb-colors">
-                    <button class="wb-color-swatch" data-color="#1B1B1A" style="background:#1B1B1A" onclick="setWhiteboardColor('overview','#1B1B1A')" title="Black"></button>
-                    <button class="wb-color-swatch" data-color="#DC2626" style="background:#DC2626" onclick="setWhiteboardColor('overview','#DC2626')" title="Red"></button>
-                    <button class="wb-color-swatch" data-color="#2563EB" style="background:#2563EB" onclick="setWhiteboardColor('overview','#2563EB')" title="Blue"></button>
-                    <button class="wb-color-swatch" data-color="#16A34A" style="background:#16A34A" onclick="setWhiteboardColor('overview','#16A34A')" title="Green"></button>
-                    <button class="wb-color-swatch" data-color="#F59E0B" style="background:#F59E0B" onclick="setWhiteboardColor('overview','#F59E0B')" title="Orange"></button>
-                    <button class="wb-color-swatch" data-color="#7C3AED" style="background:#7C3AED" onclick="setWhiteboardColor('overview','#7C3AED')" title="Purple"></button>
-                  </div>
-                  <div class="wb-flyout-divider"></div>
-                  <div class="wb-widths">
-                    <button class="wb-width-btn" data-width="thin" onclick="setWhiteboardWidth('overview','thin')" title="Thin">●</button>
-                    <button class="wb-width-btn" data-width="medium" onclick="setWhiteboardWidth('overview','medium')" title="Medium">●</button>
-                    <button class="wb-width-btn" data-width="thick" onclick="setWhiteboardWidth('overview','thick')" title="Thick">●</button>
-                  </div>
-                </div>
-              </div>
-
-              <div class="wb-float-tool-wrap">
-                <button class="wb-icon-tool" id="wbEraseBtn-overview" onclick="selectEraserTool('overview')" title="Eraser">
-                  <svg viewBox="0 0 24 24"><path d="M20 20H8L3 15a1.5 1.5 0 0 1 0-2.1L13 3l8 8-8 8"/><path d="M8 20l6-6"/></svg>
-                </button>
-                <div class="wb-flyout" id="wbEraserSizes-overview">
-                  <button class="wb-eraser-size-btn" data-size="small" onclick="setEraserSize('overview','small')" title="Small eraser">Small</button>
-                  <button class="wb-eraser-size-btn" data-size="large" onclick="setEraserSize('overview','large')" title="Large eraser — erase quickly">Large</button>
-                </div>
-              </div>
-
-              <div class="wb-toolbar-divider"></div>
-
-              <button class="wb-icon-tool" onclick="undoWhiteboardStroke('overview')" title="Undo last stroke on the page you're viewing">
-                <svg viewBox="0 0 24 24"><path d="M3 10h10a5 5 0 0 1 0 10H8"/><path d="M3 10l5-5M3 10l5 5"/></svg>
-              </button>
-              <button class="wb-icon-tool" onclick="clearWhiteboardPage('overview')" title="Clear the page you're currently viewing">
-                <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V6h12z"/></svg>
-              </button>
-            </div>
-
-            <!-- Zoom — a separate small floating control, bottom-right corner -->
-            <div class="wb-zoom-float" id="wbZoomFloat-overview">
-              <button onclick="zoomWhiteboardOut('overview')" title="Zoom out">−</button>
-              <span class="wb-zoom-level" id="wbZoomLevel-overview">100%</span>
-              <button onclick="zoomWhiteboardIn('overview')" title="Zoom in">+</button>
-              <button class="wb-zoom-reset" onclick="resetWhiteboardZoom('overview')" title="Reset zoom">100%</button>
-            </div>
-
-            <button class="wb-fullscreen-btn" id="wbFullscreenBtn-overview" onclick="toggleWhiteboardFullscreen('overview')" title="Full screen">
-              <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-            </button>
-          </div>
-        </div>
-      </div>
 
       <div class="card" id="gcalCard" style="margin-top:16px">
         <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 18px">
@@ -402,6 +333,83 @@
     <!-- ======== PAGE: COMMUNICATION ======== -->
     <section class="page" id="page-communication">
       <iframe src="pages/communication.html" class="iframe-page" title="Communication — daily English training"></iframe>
+      <!-- Whiteboard. Surface id is still "overview" for data compatibility —
+           see TAB_SURFACES in whiteboard.js. Sits after the iframe, which has a
+           fixed height, so the page simply scrolls to reach it. -->
+      <div class="card" id="whiteboardCard-overview" style="margin-top:16px">
+        <div class="card-head"><h2>Whiteboard</h2></div>
+        <div class="card-body" style="padding-top:0">
+          <div class="wb-tabs-row">
+            <div class="wb-tabs" id="wbTabsList-overview"></div>
+            <button class="wb-tab-add" onclick="addBrainstormBoard('overview')" title="New tab">+</button>
+            <button class="wb-tabs-archive-btn" id="wbTabsArchiveBtn-overview" onclick="openBrainstormArchive('overview')" title="Archived boards">🗄 Archived</button>
+          </div>
+          <p class="hint" id="wbHint-overview" style="margin-bottom:8px">Space for notes and sketching alongside your English practice — Pen or Eraser to start, S Pen or Apple Pencil to draw.</p>
+          <div class="wb-canvas-area" id="wbCanvasArea-overview">
+            <div class="wb-canvas-wrap" id="wbCanvasWrap-overview">
+              <canvas class="whiteboard-canvas" id="whiteboardCanvas-overview"></canvas>
+              <svg class="wb-connector-layer" id="wbConnectorLayer-overview"></svg>
+              <div class="wb-object-layer" id="wbObjLayer-overview"></div>
+            </div>
+
+            <!-- Floating tool rail — vertical on desktop, bottom bar on mobile (CSS handles the switch) -->
+            <div class="wb-float-toolbar" id="wbFloatToolbar-overview">
+              <div class="wb-float-tool-wrap">
+                <button class="wb-icon-tool" id="wbPenBtn-overview" onclick="selectPenTool('overview')" title="Pen">
+                  <svg viewBox="0 0 24 24"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                </button>
+                <div class="wb-flyout" id="wbPenFlyout-overview">
+                  <div class="wb-colors">
+                    <button class="wb-color-swatch" data-color="#1B1B1A" style="background:#1B1B1A" onclick="setWhiteboardColor('overview','#1B1B1A')" title="Black"></button>
+                    <button class="wb-color-swatch" data-color="#DC2626" style="background:#DC2626" onclick="setWhiteboardColor('overview','#DC2626')" title="Red"></button>
+                    <button class="wb-color-swatch" data-color="#2563EB" style="background:#2563EB" onclick="setWhiteboardColor('overview','#2563EB')" title="Blue"></button>
+                    <button class="wb-color-swatch" data-color="#16A34A" style="background:#16A34A" onclick="setWhiteboardColor('overview','#16A34A')" title="Green"></button>
+                    <button class="wb-color-swatch" data-color="#F59E0B" style="background:#F59E0B" onclick="setWhiteboardColor('overview','#F59E0B')" title="Orange"></button>
+                    <button class="wb-color-swatch" data-color="#7C3AED" style="background:#7C3AED" onclick="setWhiteboardColor('overview','#7C3AED')" title="Purple"></button>
+                  </div>
+                  <div class="wb-flyout-divider"></div>
+                  <div class="wb-widths">
+                    <button class="wb-width-btn" data-width="thin" onclick="setWhiteboardWidth('overview','thin')" title="Thin">●</button>
+                    <button class="wb-width-btn" data-width="medium" onclick="setWhiteboardWidth('overview','medium')" title="Medium">●</button>
+                    <button class="wb-width-btn" data-width="thick" onclick="setWhiteboardWidth('overview','thick')" title="Thick">●</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="wb-float-tool-wrap">
+                <button class="wb-icon-tool" id="wbEraseBtn-overview" onclick="selectEraserTool('overview')" title="Eraser">
+                  <svg viewBox="0 0 24 24"><path d="M20 20H8L3 15a1.5 1.5 0 0 1 0-2.1L13 3l8 8-8 8"/><path d="M8 20l6-6"/></svg>
+                </button>
+                <div class="wb-flyout" id="wbEraserSizes-overview">
+                  <button class="wb-eraser-size-btn" data-size="small" onclick="setEraserSize('overview','small')" title="Small eraser">Small</button>
+                  <button class="wb-eraser-size-btn" data-size="large" onclick="setEraserSize('overview','large')" title="Large eraser — erase quickly">Large</button>
+                </div>
+              </div>
+
+              <div class="wb-toolbar-divider"></div>
+
+              <button class="wb-icon-tool" onclick="undoWhiteboardStroke('overview')" title="Undo last stroke on the page you're viewing">
+                <svg viewBox="0 0 24 24"><path d="M3 10h10a5 5 0 0 1 0 10H8"/><path d="M3 10l5-5M3 10l5 5"/></svg>
+              </button>
+              <button class="wb-icon-tool" onclick="clearWhiteboardPage('overview')" title="Clear the page you're currently viewing">
+                <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V6h12z"/></svg>
+              </button>
+            </div>
+
+            <!-- Zoom — a separate small floating control, bottom-right corner -->
+            <div class="wb-zoom-float" id="wbZoomFloat-overview">
+              <button onclick="zoomWhiteboardOut('overview')" title="Zoom out">−</button>
+              <span class="wb-zoom-level" id="wbZoomLevel-overview">100%</span>
+              <button onclick="zoomWhiteboardIn('overview')" title="Zoom in">+</button>
+              <button class="wb-zoom-reset" onclick="resetWhiteboardZoom('overview')" title="Reset zoom">100%</button>
+            </div>
+
+            <button class="wb-fullscreen-btn" id="wbFullscreenBtn-overview" onclick="toggleWhiteboardFullscreen('overview')" title="Full screen">
+              <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
     </section>
 
     <!-- ======== PAGE: WORK / GSI ======== -->

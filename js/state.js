@@ -94,6 +94,14 @@ export const DEFAULT_STATE = {
     { id: "db_first", name: "Scratch", archived: false, strokes: [], objects: [], zoom: 100, pan: { x: 0, y: 0 }, createdAt: 0, updatedAt: 0 }
   ],
   activeDayofBoard: "db_first",
+  /* Communication's whiteboard tabs. The first tab keeps the id "overview"
+     deliberately: that is where this board's content used to live as a flat
+     whiteboards.overview entry, and merge() copies it in on first load so an
+     existing drawing simply becomes tab one. */
+  commBoards: [
+    { id: "overview", name: "Whiteboard", archived: false, strokes: [], objects: [], zoom: 100, pan: { x: 0, y: 0 }, createdAt: 0, updatedAt: 0 }
+  ],
+  activeCommBoard: "overview",
   links: [
     { id: "l1", title: "PM GatiShakti portal", url: "https://www.pmgatishakti.gov.in", desc: "NGDR staging / UAT" },
     { id: "l2", title: "GSI Bhukosh", url: "https://bhukosh.gsi.gov.in", desc: "Geoscience data" }
@@ -524,6 +532,36 @@ function merge(saved) {
   /* Day Of's boards. No migration needed — nothing existed before — but
      the same guarantees apply: always at least one live tab, and the
      active id must point at a tab that is really there. */
+  /* Communication whiteboard tabs. Anyone whose save predates tabs here has
+     no commBoards but may well have a drawing in whiteboards.overview — that
+     content is lifted into the first tab rather than stranded. The flat entry
+     is left in place: it costs nothing, and removing it would make a rollback
+     to an older build lose the drawing. */
+  s.commBoards = Array.isArray(saved.commBoards) && saved.commBoards.length
+    ? saved.commBoards
+    : structuredClone(DEFAULT_STATE.commBoards);
+  if (!Array.isArray(saved.commBoards) || !saved.commBoards.length) {
+    const flat = saved.whiteboards?.overview;
+    const first = s.commBoards[0];
+    if (flat && first) {
+      if (Array.isArray(flat.strokes) && flat.strokes.length) first.strokes = flat.strokes;
+      if (Array.isArray(flat.objects) && flat.objects.length) first.objects = flat.objects;
+      if (Array.isArray(flat.connectors) && flat.connectors.length) first.connectors = flat.connectors;
+    }
+  }
+  s.commBoards.forEach(b => {
+    b.strokes = Array.isArray(b.strokes) ? b.strokes : [];
+    b.objects = Array.isArray(b.objects) ? b.objects : [];
+    b.connectors = Array.isArray(b.connectors) ? b.connectors : [];
+    b.zoom = b.zoom || 100;
+    b.pan = b.pan || { x: 0, y: 0 };
+  });
+  const liveComm = s.commBoards.filter(b => !b.archived && !b.deleted);
+  s.activeCommBoard =
+    (saved.activeCommBoard && s.commBoards.some(b => b.id === saved.activeCommBoard && !b.deleted))
+      ? saved.activeCommBoard
+      : (liveComm[0] || s.commBoards[0]).id;
+
   s.dayofBoards = Array.isArray(saved.dayofBoards) && saved.dayofBoards.length
     ? saved.dayofBoards
     : structuredClone(DEFAULT_STATE.dayofBoards);

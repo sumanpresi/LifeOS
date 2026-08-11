@@ -97,11 +97,19 @@ function inst(boardId) {
 
    Everything below reads the collection through this table instead of
    naming state.brainstormBoards directly, which is what lets a second
-   surface exist without a second copy of the tab code. Overview's plain
-   "Whiteboard" is untouched and still has no tabs at all. */
+   surface exist without a second copy of the tab code. All three tabbed
+   surfaces share it. */
 const TAB_SURFACES = {
   gsi:   { list: "brainstormBoards", active: "activeBrainstormBoard", prefix: "bb_" },
   dayof: { list: "dayofBoards",      active: "activeDayofBoard",      prefix: "db_" },
+  /* Communication's whiteboard. The surface id is still "overview" — it
+     began life as the Overview page's single flat canvas, and every DOM id
+     (#whiteboardCanvas-overview and friends) plus initWhiteboard("overview")
+     is built from it. Renaming would touch two dozen ids to no benefit; the
+     heading is what the person reads. Its old flat content in
+     state.whiteboards.overview is migrated into the first tab by merge() in
+     state.js, so nothing drawn before this change is lost. */
+  overview: { list: "commBoards", active: "activeCommBoard", prefix: "cb_" },
 };
 const isTabSurface = id => Object.prototype.hasOwnProperty.call(TAB_SURFACES, id);
 function tabList(surface) {

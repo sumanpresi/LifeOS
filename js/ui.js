@@ -48,8 +48,10 @@ export function go(page) {
     el.querySelectorAll(".t-title").forEach(autoGrow);
     el.querySelectorAll(".pw-board-card-title").forEach(autoGrow);
     el.querySelectorAll(".task-row textarea").forEach(autoGrow);
-    if (page === "overview") resizeWhiteboardIfVisible("overview");
     if (page === "work") resizeWhiteboardIfVisible("gsi");
+    /* The Whiteboard's surface is still called "overview" for data
+       compatibility, but the card renders on Communication now. */
+    if (page === "communication") resizeWhiteboardIfVisible("overview");
     /* The Scratch board's surface is still called "dayof" for data
        compatibility, but the card renders on the Personal page now. */
     if (page === "personal") resizeWhiteboardIfVisible("dayof");

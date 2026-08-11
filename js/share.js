@@ -42,7 +42,7 @@ import { toast } from './ui.js';
 /* Surface -> the page that surface's boards are rendered on. "dayof" is a
    historical id: those boards live on the Personal page now, and a board
    link must open the page that actually shows them. */
-const SURFACE_PAGE = { gsi: "work", dayof: "personal" };
+const SURFACE_PAGE = { gsi: "work", dayof: "personal", overview: "communication" };
 
 let dlgState = null;
 
