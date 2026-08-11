@@ -1,6 +1,6 @@
 /* Generic life-space pages: Communication, Finance, Health, Travel, Reference.
    (Work has a dedicated GSI page in gsi.js.) */
-import { state, uid, esc, persist, rerender, SECTION_META } from './state.js';
+import { state, uid, esc, persist, rerender, onStateReplaced, SECTION_META } from './state.js';
 import { toast } from './ui.js';
 import { moveToTrash } from './trash.js';
 import { mountRichEditor, unmountRichEditor, getRichEditor } from './rich-text.js';
@@ -44,6 +44,25 @@ function noteList(key) {
   return sec.noteList;
 }
 function noteEditorId(key, id) { return `secnote-${key}-${id}`; }
+function noteById(key, id) { return (noteList(key) || []).find(x => x.id === id) || null; }
+
+/* Cheap 32-bit content fingerprint. Only needs to change when the text
+   changes — it is a cache key, not a checksum. */
+function hash(str) {
+  let h = 0;
+  const s = String(str || "");
+  for (let i = 0; i < s.length; i++) { h = (h << 5) - h + s.charCodeAt(i); h |= 0; }
+  return h;
+}
+
+/* Set while a render pass is reacting to state that arrived from another
+   device, so the read-back above knows not to overwrite it. */
+let remoteJustArrived = false;
+onStateReplaced(() => {
+  remoteJustArrived = true;
+  // Force the next pass to re-evaluate rather than trust a stale cache key.
+  document.querySelectorAll(".sec-notes").forEach(box => delete box.dataset.sig);
+});
 function notePreview(html) {
   const text = String(html || "").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
   return text ? text.slice(0, 90) + (text.length > 90 ? "…" : "") : "Empty note";
@@ -55,21 +74,50 @@ export function renderSectionNotes(key) {
   if (!box || !list) return;
 
   /* Quill lives in a real DOM node, so rebuilding this container under a
-     mounted editor would silently orphan it — and renderAll() reaches
-     here on every unrelated state change. Rebuild only when the set of
-     notes or their expanded/collapsed state actually differs from what's
-     on screen; otherwise leave the DOM (and the cursor) alone. */
-  const signature = list.map(n => `${n.id}:${n.open ? 1 : 0}`).join(",");
+     mounted editor would silently orphan it — and renderAll() reaches here
+     on every unrelated state change. Rebuild only when what's on screen
+     actually differs; otherwise leave the DOM (and the cursor) alone.
+
+     The signature includes a hash of each note's BODY, not just its id and
+     open/closed state. It used to cover only id+open, which meant a note
+     whose text had been rewritten on another device produced an identical
+     signature — so this returned early, the editor was never re-read, and
+     the screen kept showing the local copy indefinitely. The sync had in
+     fact succeeded; only the UI never caught up. That is why two devices
+     could both report "Synced" while displaying different text. */
+  const signature = list.map(n => `${n.id}:${n.open ? 1 : 0}:${hash(n.html)}`).join(",");
   if (box.dataset.sig === signature) return;
+
+  /* Never yank the DOM out from under someone mid-sentence. If the caret
+     is inside this card, defer the rebuild until they click away — the
+     newer text is applied then, instead of eating the words being typed. */
+  if (box.contains(document.activeElement) && document.activeElement !== document.body) {
+    if (!box.dataset.deferred) {
+      box.dataset.deferred = "1";
+      box.addEventListener("focusout", () => {
+        delete box.dataset.deferred;
+        setTimeout(() => renderSectionNotes(key), 0); // after focus settles
+      }, { once: true });
+    }
+    return;
+  }
+
   /* A rebuild is happening, so every live editor is about to be thrown
-     away. Quill's change handler is debounced — an edit from the last
-     half-second may not have reached state yet — so read each editor
-     back before it goes, or that edit is simply lost. */
-  list.forEach(n => {
-    const q = getRichEditor(noteEditorId(key, n.id));
-    if (q) n.html = q.root.innerHTML;
-    unmountRichEditor(noteEditorId(key, n.id));
-  });
+     away. Quill's change handler is debounced — an edit from the last half
+     second may not have reached state yet — so read each editor back
+     before it goes, or that edit is simply lost.
+
+     Except when the rebuild was triggered by state arriving from another
+     device. In that case `list` is already the incoming version, and
+     copying the local editor over it would overwrite the newer text with
+     the stale text this rebuild exists to replace. */
+  if (!remoteJustArrived) {
+    list.forEach(n => {
+      const q = getRichEditor(noteEditorId(key, n.id));
+      if (q) n.html = q.root.innerHTML;
+    });
+  }
+  list.forEach(n => unmountRichEditor(noteEditorId(key, n.id)));
   box.dataset.sig = signature;
 
   box.innerHTML = list.map(n => `
@@ -88,11 +136,22 @@ export function renderSectionNotes(key) {
     </div>`).join("") || `<p class="hint">No notes yet — "+ New note" starts one.</p>`;
 
   list.filter(n => n.open).forEach(n => {
-    mountRichEditor(noteEditorId(key, n.id), () => n.html || "", html => {
-      n.html = html;
-      n.updated = Date.now();
-      persist(); // rich-text.js already debounced this; rerender() here would destroy the editor mid-edit
-    });
+    /* Resolved by id on every read and every write, never captured.
+       Capturing `n` meant that once a sync replaced state — merge() builds
+       an entirely new object graph — the editor still held a pointer to
+       the old, detached note. Typing then wrote into an orphan, persist()
+       saved a state that never contained the edit, and the words vanished
+       with no error anywhere. */
+    const nid = n.id;
+    mountRichEditor(noteEditorId(key, nid),
+      () => (noteById(key, nid)?.html) || "",
+      html => {
+        const live = noteById(key, nid);
+        if (!live) return; // deleted on another device mid-edit
+        live.html = html;
+        live.updated = Date.now();
+        persist(); // rich-text.js already debounced this; rerender() here would destroy the editor mid-edit
+      });
   });
 }
 
@@ -155,6 +214,7 @@ export function renderSections() {
   for (const key of new Set([...Object.keys(SECTION_META), ...NOTE_SECTIONS])) {
     renderSectionNotes(key);
   }
+  remoteJustArrived = false;
   for (const key of LINK_SECTIONS()) {
     const g = document.getElementById("secLinks-" + key);
     if (!g || !state.sections[key]) continue;

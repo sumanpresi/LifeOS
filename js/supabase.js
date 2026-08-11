@@ -264,6 +264,46 @@ function mergeIncomingBoardList(remote, listKey, activeKey) {
     if (fallback) state[activeKey] = fallback.id;
   }
 }
+/* Section notes, merged per note by id rather than letting one device's
+   whole list replace the other's.
+
+   Without this, two devices editing DIFFERENT notes in the same section
+   still lose one of them: the loser's entire noteList is discarded, not
+   just the note that actually clashed. That is far more destructive than
+   the conflict warrants, and it is silent.
+
+   Where the SAME note was touched on both sides, the newer `updated`
+   wins — the same rule the board tabs use for their metadata. This is
+   still last-write-wins at the level of one note's body; merging two
+   people's edits inside a single rich-text document needs real operational
+   transforms, which is a different project. But the blast radius drops
+   from "every note in the section" to "the one note you both had open". */
+function mergeIncomingSectionNotes(remote) {
+  const keys = new Set([...Object.keys(state.sections || {}), ...Object.keys(remote.sections || {})]);
+  remote.sections = remote.sections || {};
+  keys.forEach(key => {
+    const localSec = state.sections?.[key];
+    const remoteSec = remote.sections[key];
+    if (!localSec && !remoteSec) return;
+    if (!remoteSec) { remote.sections[key] = localSec; return; }
+    if (!localSec) return;
+    const byId = new Map();
+    (localSec.noteList || []).forEach(n => byId.set(n.id, n));
+    (remoteSec.noteList || []).forEach(rn => {
+      const ln = byId.get(rn.id);
+      if (!ln) { byId.set(rn.id, rn); return; }
+      byId.set(rn.id, (rn.updated || 0) >= (ln.updated || 0) ? rn : ln);
+    });
+    /* Remote order first — it is the more recently agreed view — with any
+       note this device has that the cloud hasn't seen yet appended. */
+    const order = [];
+    (remoteSec.noteList || []).forEach(n => order.push(byId.get(n.id)));
+    (localSec.noteList || []).forEach(n => { if (!order.includes(byId.get(n.id))) order.push(byId.get(n.id)); });
+    remoteSec.noteList = order.filter(Boolean);
+    localSec.noteList = remoteSec.noteList;
+  });
+}
+
 function mergeIncomingBrainstormBoards(remote) {
   BOARD_LISTS.forEach(({ list, active }) => mergeIncomingBoardList(remote, list, active));
 }
@@ -289,6 +329,7 @@ export async function loadRemote(preferRemote = false) {
       checkClockSkew(data.updated_at);
       mergeIncomingWhiteboards(remote);
       mergeIncomingBrainstormBoards(remote);
+      mergeIncomingSectionNotes(remote);
       // The merge just changed local state (possibly pulling in board
       // data from the remote side) independent of whatever the win/lose
       // branching below decides — make sure that's actually reflected
@@ -438,6 +479,7 @@ function startRealtime() {
         }
         mergeIncomingWhiteboards(row.data);
         mergeIncomingBrainstormBoards(row.data);
+        mergeIncomingSectionNotes(row.data);
         applyRemote(row.data);
         toast("Updated from another device");
       })
