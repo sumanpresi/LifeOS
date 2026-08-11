@@ -23,6 +23,7 @@
 import { state, uid, esc, persist, rerender } from './state.js';
 import { toast, autoGrow } from './ui.js';
 import { moveToTrash } from './trash.js';
+import { markDragJustEnded } from './tasks.js';
 import { syncTaskToGoogle } from './google-calendar.js';
 
 // Personal Workspace tasks use the same field names as GSI project tasks
@@ -133,7 +134,7 @@ function sortPwTasks(open) {
 function pwCardHtml(item) {
   const due = fmtPwDate(item.date);
   return `
-    <div class="gsi-card ${item.status === "done" ? "done" : ""}">
+    <div class="gsi-card ${item.status === "done" ? "done" : ""}" data-task-id="${item.id}">
       <button class="gsi-chk ${item.status === "done" ? "on" : ""}" onclick="setPwTaskStatus('${item.id}','${item.status === "done" ? "todo" : "done"}')" aria-label="Toggle done">
         <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
       <div class="gsi-card-main">
@@ -181,7 +182,9 @@ function pwCardHtml(item) {
 function pwBoardCardHtml(item) {
   const due = fmtPwDate(item.date);
   return `
-    <div class="t-board-card ${item.status === "done" ? "done" : ""}${item.flag ? " flagged" : ""}" data-task-id="${item.id}">
+    <div class="t-board-card ${item.status === "done" ? "done" : ""}${item.flag ? " flagged" : ""}" data-task-id="${item.id}"
+      onclick="openTaskCardDetail('${item.id}')" role="button" tabindex="0"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();openTaskCardDetail('${item.id}')}">
       <div class="t-board-card-top">
         <button class="t-chk ${item.status === "done" ? "on" : ""}" onclick="event.stopPropagation();setPwTaskStatus('${item.id}','${item.status === "done" ? "todo" : "done"}')" aria-label="Toggle done">
           <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
@@ -254,6 +257,7 @@ function initPwBoardSorting() {
       ghostClass: "t-row-ghost", dragClass: "t-row-dragging", chosenClass: "t-row-chosen",
       scroll: true, scrollSensitivity: 90, scrollSpeed: 12,
       onEnd: (evt) => {
+        markDragJustEnded(); // the click trailing a drop must not open the task
         const taskId = evt.item.dataset.taskId;
         const toStatus = evt.to.closest(".t-board-col")?.dataset.boardCol;
         if (taskId && toStatus) setPwTaskStatus(taskId, toStatus); // already persists, syncs, and re-renders
@@ -371,6 +375,34 @@ export function delPwProject() {
 }
 
 /* ---------------- Tasks ---------------- */
+/* ---------- exposed to the shared task detail modal ---------- */
+
+/* The modal's Project row needs a list to choose from. Personal
+   workspaces only — a personal task must never be movable into a GSI
+   project, because the two trees are separate on purpose and the sync,
+   trash and health-check paths all assume a task stays in its own tree. */
+export function getPwProjectList() {
+  return (state.personal?.projects || []).map(p => ({ id: p.id, name: p.name }));
+}
+
+/* Moves a task between personal workspaces. Splices out of the old
+   project's array and pushes to the new one — the task object itself is
+   carried across untouched, so its id, description, subtasks and labels
+   survive the move. */
+export function changePwTaskProject(taskId, newProjectId) {
+  const projects = state.personal?.projects || [];
+  const from = projects.find(p => (p.tasks || []).some(t => t.id === taskId));
+  const to = projects.find(p => p.id === newProjectId);
+  if (!from || !to || from.id === to.id) return false;
+  const i = from.tasks.findIndex(t => t.id === taskId);
+  const [task] = from.tasks.splice(i, 1);
+  to.tasks = to.tasks || [];
+  to.tasks.push(task);
+  persist(); rerender();
+  toast(`Moved to "${to.name}"`);
+  return true;
+}
+
 export function addPwTask() {
   const el = document.getElementById("newPwTask"); const v = el.value.trim(); if (!v) return;
   activePwProject().tasks.push({ id: uid(), text: v, status: "todo", date: "", link: "", flag: false, googleEventId: null }); el.value = "";

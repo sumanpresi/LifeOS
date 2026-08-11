@@ -13,6 +13,7 @@ import { syncTaskToGoogle } from './google-calendar.js';
 import { getAllGsiTasksFlat, findProjectTask, editProjectTask, setTaskStatus as setGsiTaskStatus,
   delProjectTask, toggleProjectTaskFlag, archiveGsiTaskEntry,
   getProjectList, addProjectTaskRaw, moveProjectTask, pluckProjectTask } from './gsi.js';
+import { findPwProjectTask, editPwProjectTask, setPwTaskStatus, togglePwProjectTaskFlag, delPwProjectTask } from './personal.js';
 
 let taskFilter = "all"; // "all" | "work" | "personal"
 let sortByDate = false;
@@ -302,6 +303,15 @@ export function findAnyTask(id) {
   if (t) return { task: t, isGsi: false };
   const { task: gt, project } = findProjectTask(id);
   if (gt) return { task: gt, isGsi: true, project };
+  /* Personal tasks are shaped like GSI ones (status/date/link/flag) but are
+     deliberately NOT reported as isGsi. Several callers read that flag as
+     "lives in state.gsi" and act on it — archiveGsiTaskEntry(project.id)
+     being the dangerous one — so a personal task claiming to be GSI would
+     write into the wrong tree. Callers that care about the task's SHAPE
+     test isGsi || isPersonal; callers that care about where it LIVES test
+     one flag or the other. */
+  const { task: pt, project: pp } = findPwProjectTask(id);
+  if (pt) return { task: pt, isGsi: false, isPersonal: true, project: pp };
   return null;
 }
 // Shared by the "Add a task" project picker and each task's own .t-meta
@@ -950,12 +960,16 @@ export function toggleTask(id) {
     return;
   }
   const { task: gt } = findProjectTask(id);
-  if (gt) setGsiTaskStatus(id, gt.status === "done" ? "todo" : "done");
+  if (gt) { setGsiTaskStatus(id, gt.status === "done" ? "todo" : "done"); return; }
+  const { task: pt } = findPwProjectTask(id);
+  if (pt) setPwTaskStatus(id, pt.status === "done" ? "todo" : "done");
 }
 export function toggleFlag(id) {
   const t = state.tasks.find(x => x.id === id);
   if (t) { t.flag = !t.flag; persist(); rerender(); return; }
-  toggleProjectTaskFlag(id);
+  const { task: gt } = findProjectTask(id);
+  if (gt) { toggleProjectTaskFlag(id); return; }
+  togglePwProjectTaskFlag(id);
 }
 export function editTask(id, v) {
   const t = state.tasks.find(x => x.id === id);
@@ -965,7 +979,9 @@ export function editTask(id, v) {
     return;
   }
   const { task: gt } = findProjectTask(id);
-  if (gt) editProjectTask(id, "text", v);
+  if (gt) { editProjectTask(id, "text", v); return; }
+  const { task: pt } = findPwProjectTask(id);
+  if (pt) editPwProjectTask(id, "text", v);
 }
 export function editTaskMeta(id, field, v) {
   const t = state.tasks.find(x => x.id === id);
@@ -981,8 +997,11 @@ export function editTaskMeta(id, field, v) {
   // control is hidden for them in the template, so this shouldn't fire,
   // but guard anyway. "dueDate" maps to their own "date" field.
   if (field === "category") return;
-  const gsiField = field === "dueDate" ? "date" : field;
-  editProjectTask(id, gsiField, v);
+  const projField = field === "dueDate" ? "date" : field;
+  const { task: gt } = findProjectTask(id);
+  if (gt) { editProjectTask(id, projField, v); return; }
+  const { task: pt } = findPwProjectTask(id);
+  if (pt) editPwProjectTask(id, projField, v);
 }
 export function delTask(id) {
   const t = state.tasks.find(x => x.id === id);
@@ -992,7 +1011,9 @@ export function delTask(id) {
     return;
   }
   const { task: gt } = findProjectTask(id);
-  if (gt) delProjectTask(id);
+  if (gt) { delProjectTask(id); return; }
+  const { task: pt } = findPwProjectTask(id);
+  if (pt) delPwProjectTask(id);
 }
 
 // ---------- Archive Completed ----------

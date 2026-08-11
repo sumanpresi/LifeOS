@@ -22,6 +22,7 @@ import { state, esc, persist, rerender, uid } from './state.js';
 import { toast } from './ui.js';
 import { findAnyTask, toggleTask, toggleFlag, editTask, editTaskMeta, changeTaskProject, delTask } from './tasks.js';
 import { getProjectList } from './gsi.js';
+import { getPwProjectList, changePwTaskProject } from './personal.js';
 import { sanitizeHtml } from './sanitize.js';
 import { mountRichEditor, getRichEditor, unmountRichEditor } from './rich-text.js';
 
@@ -42,8 +43,13 @@ let descLoadedFor = null;
 
 /* ---------- helpers ---------- */
 function taskOf(id) { return findAnyTask(id); }
-function dueOf(found) { return found.isGsi ? (found.task.date || "") : (found.task.dueDate || ""); }
-function isDone(found) { return found.isGsi ? found.task.status === "done" : !!found.task.done; }
+/* Personal tasks share GSI's field shape — `date` not `dueDate`, a
+   `status` string not a `done` boolean — so both read the same way here.
+   Where the task LIVES is a different question, answered by isPersonal
+   alone further down. */
+const shapedLikeProject = f => f.isGsi || f.isPersonal;
+function dueOf(found) { return shapedLikeProject(found) ? (found.task.date || "") : (found.task.dueDate || ""); }
+function isDone(found) { return shapedLikeProject(found) ? found.task.status === "done" : !!found.task.done; }
 
 function fmtDate(iso) {
   if (!iso) return "";
@@ -158,8 +164,9 @@ export function renderTaskModal() {
   const priority = t.priority || (t.flag ? "p1" : "p4");
   const labels = Array.isArray(t.labels) ? t.labels : [];
   const subtasks = Array.isArray(t.subtasks) ? t.subtasks : [];
-  const projName = isGsi ? ((project && project.name) || t.projectName || "Project") : "No project";
-  const statusKey = isGsi ? (t.status || "todo") : (t.done ? "done" : "todo");
+  const projName = (isGsi || found.isPersonal)
+    ? ((project && project.name) || t.projectName || "Project") : "No project";
+  const statusKey = (isGsi || found.isPersonal) ? (t.status || "todo") : (t.done ? "done" : "todo");
 
   const i = siblingIds.indexOf(openId);
   const crumb = document.getElementById("taskModalCrumb");
@@ -268,15 +275,24 @@ function sideHtml(found) {
   const due = dueOf(found);
   const priority = t.priority || (t.flag ? "p1" : "p4");
   const labels = Array.isArray(t.labels) ? t.labels : [];
-  const projName = isGsi ? ((project && project.name) || t.projectName || "Project") : "No project";
-  const statusKey = isGsi ? (t.status || "todo") : (t.done ? "done" : "todo");
+  const projName = (isGsi || found.isPersonal)
+    ? ((project && project.name) || t.projectName || "Project") : "No project";
+  const statusKey = (isGsi || found.isPersonal) ? (t.status || "todo") : (t.done ? "done" : "todo");
   return `
     <aside class="tm-side" aria-label="Task properties">
       ${propRow("project", "Project", `<span class="tm-pill">${esc(projName)}</span>`,
-        `<select onchange="taskModalSetProject(this.value)" autofocus>
-           <option value="">No project</option>
-           ${getProjectList().map(p => `<option value="${p.id}" ${project && p.id === project.id ? "selected" : ""}>${esc(p.name)}</option>`).join("")}
-         </select>`)}
+        /* A personal task can only move between personal workspaces, and
+           has no "No project" state — it always lives inside one. Offering
+           GSI projects here would let a task jump trees, which the sync,
+           trash and health-check paths all assume never happens. */
+        found.isPersonal
+          ? `<select onchange="taskModalSetProject(this.value)" autofocus>
+               ${getPwProjectList().map(p => `<option value="${p.id}" ${project && p.id === project.id ? "selected" : ""}>${esc(p.name)}</option>`).join("")}
+             </select>`
+          : `<select onchange="taskModalSetProject(this.value)" autofocus>
+               <option value="">No project</option>
+               ${getProjectList().map(p => `<option value="${p.id}" ${project && p.id === project.id ? "selected" : ""}>${esc(p.name)}</option>`).join("")}
+             </select>`)}
 
       ${propRow("date", "Due date", due ? esc(fmtDate(due)) : "",
         `<input type="date" value="${esc(due)}" autofocus onchange="taskModalSetDate(this.value)">
@@ -317,6 +333,7 @@ function allLabels() {
   const add = t => (t.labels || []).forEach(l => set.add(l));
   (state.tasks || []).forEach(add);
   (state.gsi?.projects || []).forEach(p => (p.tasks || []).forEach(add));
+  (state.personal?.projects || []).forEach(p => (p.tasks || []).forEach(add));
   return [...set].sort();
 }
 
@@ -381,7 +398,9 @@ export function taskModalSetDate(v) {
 }
 export function taskModalSetProject(pid) {
   editingField = null;
-  changeTaskProject(openId, pid);
+  const f = taskOf(openId);
+  if (f?.isPersonal) changePwTaskProject(openId, pid);
+  else changeTaskProject(openId, pid);
   renderTaskModalSide();
 }
 export function taskModalSetPriority(p) {
@@ -395,7 +414,7 @@ export function taskModalSetPriority(p) {
 }
 export function taskModalSetStatus(v) {
   const f = taskOf(openId); if (!f) return;
-  if (f.isGsi) f.task.status = v;
+  if (f.isGsi || f.isPersonal) f.task.status = v;
   else f.task.done = v === "done";
   touch(f); editingField = null; persist(); rerender(); renderTaskModalSide();
 }
