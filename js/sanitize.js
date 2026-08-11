@@ -46,9 +46,24 @@ const ALLOWED_ATTRS = {
   DIV: ["style", "class", "contenteditable"], P: ["style", "class"],
   LI: ["style", "class"], OL: ["class"], UL: ["class"], PRE: ["class"],
   BLOCKQUOTE: ["class"], CODE: ["class"],
+  /* Inline formatting tags carry style too — this is not optional.
+     Quill normalises overlapping formats onto ONE element rather than
+     nesting them: colour a run of bold text and it does not produce
+     <strong><span style="color:…"> but <strong style="color: rgb(230,0,0);">.
+     With no entry here, STRONG had no permitted attributes, so that style
+     was stripped on save. The result looked like a sync fault — the text
+     and the bold arrived on the other device, the colour never did —
+     when in fact the colour had been discarded before it was ever stored.
+     The same collapse happens for italic, underline, strike, sub and sup.
+     Values stay bounded by ALLOWED_STYLE_PROPS below, so this permits no
+     property that wasn't already permitted on SPAN and P. */
+  STRONG: ["style", "class"], B: ["style", "class"],
+  EM: ["style", "class"], I: ["style", "class"],
+  U: ["style", "class"], S: ["style", "class"], STRIKE: ["style", "class"],
+  SUB: ["style", "class"], SUP: ["style", "class"],
   H1: ["style", "class"], H2: ["style", "class"], H3: ["style", "class"],
   H4: ["style", "class"], H5: ["style", "class"], H6: ["style", "class"],
-  A: ["href", "target", "rel"],
+  A: ["href", "target", "rel", "style", "class"],
   TD: ["colspan", "rowspan"], TH: ["colspan", "rowspan"]
 };
 
