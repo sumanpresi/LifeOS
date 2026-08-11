@@ -87,13 +87,17 @@ function countItems(s) {
   return n;
 }
 
-export function takeSnapshot(reason = "manual") {
-  const json = JSON.stringify(state);
+/* `data` defaults to the live state, but can be any state-shaped object.
+   The sync path needs that: when a conflict discards the CLOUD's version,
+   the thing worth preserving is the payload that just came down, not what
+   this device happens to be holding. */
+export function takeSnapshot(reason = "manual", data = null) {
+  const json = JSON.stringify(data || state);
   const snap = {
     id: "s" + Date.now() + Math.random().toString(36).slice(2, 6),
     at: Date.now(),
     reason,
-    counts: countItems(state),
+    counts: countItems(data || state),
     data: json,
   };
   const list = [snap, ...readSnapshots()];
