@@ -304,10 +304,23 @@ function drawSegment(ctx, p1, p2, scaleBasis, stroke) {
   ctx.restore();
 }
 
+/* Rounded to 4 decimals at capture. These are normalised 0–1 values, so
+   4 decimals is finer than one pixel on a 4K display — visually identical,
+   and the difference in what gets stored is not small:
+
+     {"x":0.4718309859154929,"y":0.2536231884057971}   47 bytes
+     {"x":0.4718,"y":0.2536}                           23 bytes
+
+   Every point of every stroke on every board is in the payload that the
+   whole-state save uploads on each sync, so full float precision was
+   roughly doubling the size of the largest thing in it for no visible
+   gain. Only new points are affected; existing strokes keep whatever
+   precision they were saved with and render the same. */
 function pointToNorm(canvas, evt) {
   const box = canvas.getBoundingClientRect();
+  const r = n => Math.round(n * 1e4) / 1e4;
   // Both axes divided by width (not height) — see file header.
-  return { x: (evt.clientX - box.left) / box.width, y: (evt.clientY - box.top) / box.width };
+  return { x: r((evt.clientX - box.left) / box.width), y: r((evt.clientY - box.top) / box.width) };
 }
 
 function attachPointerHandlers(boardId, canvas) {

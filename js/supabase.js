@@ -147,6 +147,11 @@ function renderIdentity() {
 
 /* ---------- database ---------- */
 let hasReconciled = false;      // has this session checked the cloud at least once?
+/* Saving is whole-document, so payload size IS the save time. Tracked so
+   it can be surfaced rather than guessed at. */
+export let lastPayloadBytes = 0;
+const BIG_PAYLOAD_BYTES = 1_500_000;
+let bigPayloadWarned = false;
 let pendingSaveAfterReconcile = false;
 
 /* ---------- deciding who is newer ----------
@@ -443,11 +448,28 @@ export async function saveRemote() {
     const token = newSyncToken();
     state.syncToken = token; // stored in state so every device sees the same value
     const payload = Object.assign({}, state, { _client: CLIENT_ID });
+
+    /* Every save uploads the ENTIRE document — there are no partial
+       writes — so how long "Saving…" lasts is mostly a function of this
+       number. It was previously only ever reported when a save FAILED,
+       which is the one moment it can't help you. Reported on every save
+       now, and called out once when it crosses the point where the upload
+       stops being instant on a normal connection. */
+    let payloadBytes = 0;
+    try { payloadBytes = JSON.stringify(payload).length; } catch (_) {}
+    lastPayloadBytes = payloadBytes;
+    if (payloadBytes > BIG_PAYLOAD_BYTES && !bigPayloadWarned) {
+      bigPayloadWarned = true;
+      authDiag("payload is " + Math.round(payloadBytes / 1024) + " KB — every save uploads all of it");
+      toast("Saves are slow because this account holds " + Math.round(payloadBytes / 1024) + " KB — see Backup for what's largest");
+    }
     const { error } = await sb.from("lifeos_data").upsert({
       user_id: user.id, data: payload, updated_at: new Date().toISOString()
     });
     if (error) throw error;
     markAgreed(token); // this device and the cloud now hold the same thing
+    const pill = document.getElementById("syncPill");
+    if (pill) pill.title = "Last upload " + Math.round(payloadBytes / 1024) + " KB — every save sends the whole document";
     setSyncPill("ok", "Synced · " + nowTime());
   } catch (e) {
     let size = "?";
