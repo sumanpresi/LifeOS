@@ -386,6 +386,11 @@
                 </div>
               </div>
 
+              <button class="wb-icon-tool" id="wbStickyBtn-overview" onclick="selectStickyTool('overview')" title="Sticky note — click the board to place one">
+                <svg viewBox="0 0 24 24"><path d="M4 4h13l3 3v13H4V4z"/><path d="M17 4v6h6"/></svg>
+              </button>
+              <button class="wb-icon-tool" id="wbStickyArchiveBtn-overview" onclick="openStickyArchive('overview')" title="Archived sticky notes">🗑</button>
+
               <div class="wb-toolbar-divider"></div>
 
               <button class="wb-icon-tool" onclick="undoWhiteboardStroke('overview')" title="Undo last stroke on the page you're viewing">
@@ -1338,6 +1343,30 @@
       <button class="btn btn-ghost" onclick="closeExpandView()">✕ Close</button>
     </div>
     <div class="expand-modal-body" id="expandModalContent"></div>
+  </div>
+</div>
+
+<!-- One sticky-note archive modal per board surface. openStickyArchive()
+     looks up wbStickyArchiveModalBg-<surface>, so a surface without its own
+     modal has an archive button that silently does nothing — which is what
+     the Scratch board shipped with. -->
+<div class="gsi-archive-modal-bg" id="wbStickyArchiveModalBg-dayof">
+  <div class="gsi-archive-modal">
+    <div class="expand-modal-head">
+      <h2>Archived sticky notes</h2>
+      <button class="btn btn-ghost" onclick="closeStickyArchive('dayof')">✕ Close</button>
+    </div>
+    <div class="gsi-archive-modal-body" id="wbStickyArchiveList-dayof"></div>
+  </div>
+</div>
+
+<div class="gsi-archive-modal-bg" id="wbStickyArchiveModalBg-overview">
+  <div class="gsi-archive-modal">
+    <div class="expand-modal-head">
+      <h2>Archived sticky notes</h2>
+      <button class="btn btn-ghost" onclick="closeStickyArchive('overview')">✕ Close</button>
+    </div>
+    <div class="gsi-archive-modal-body" id="wbStickyArchiveList-overview"></div>
   </div>
 </div>
 
