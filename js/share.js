@@ -39,7 +39,10 @@ import { state, onStateReplaced } from './state.js';
 import { toast } from './ui.js';
 
 /* surface -> the page that surface's boards live on */
-const SURFACE_PAGE = { gsi: "work", dayof: "dayof" };
+/* Surface -> the page that surface's boards are rendered on. "dayof" is a
+   historical id: those boards live on the Personal page now, and a board
+   link must open the page that actually shows them. */
+const SURFACE_PAGE = { gsi: "work", dayof: "personal" };
 
 let dlgState = null;
 

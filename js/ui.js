@@ -50,6 +50,9 @@ export function go(page) {
     el.querySelectorAll(".task-row textarea").forEach(autoGrow);
     if (page === "overview") resizeWhiteboardIfVisible("overview");
     if (page === "work") resizeWhiteboardIfVisible("gsi");
+    /* The Scratch board's surface is still called "dayof" for data
+       compatibility, but the card renders on the Personal page now. */
+    if (page === "personal") resizeWhiteboardIfVisible("dayof");
     if (page === "reference") import("./reference.js").then(m => m.showWorldMap());
   }
   document.getElementById("sidebar").classList.remove("open");
