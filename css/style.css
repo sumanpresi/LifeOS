@@ -3224,3 +3224,32 @@ html[data-theme="dark"] .t-archived-trigger:hover{
 html[data-theme="dark"] .t-archived-trigger .t-section-count{
   background:rgba(255,255,255,.10);color:var(--ink);
 }
+
+/* ---------- Board columns scroll with the page, not inside themselves ----
+   `max-height:70vh` turned every column into its own scroll container.
+   With a mouse that is genuinely slow work: the wheel only moves whichever
+   column the pointer happens to be over, each column has to be scrolled
+   separately to read it, and the page itself sits half empty underneath —
+   visible in the gap below the board.
+
+   Columns now grow to fit their tasks and the page scrolls once, which is
+   how the eye expects a board to behave on a large screen. Nested scroll
+   containers are worth their cost when the outer area cannot scroll; here
+   it can. */
+.t-board-col{max-height:none}
+.t-board-col-body{overflow-y:visible}
+
+/* No height cap at any size, deliberately.
+
+   A first attempt restored an internal scroll on short viewports, on the
+   theory that a long column would otherwise push the add-task button below
+   the fold. On a laptop that works out at roughly 620px of scrollable
+   column — barely different from the 70vh it replaced, so it would have
+   reintroduced the same slow, per-column wheeling for almost no benefit.
+   Scrolling past a long column to reach its button is the ordinary cost of
+   a long list, and it is far cheaper than making every column its own
+   scroll box. */
+
+/* The board's own horizontal scroller keeps the columns aligned to the top
+   so a long column doesn't stretch its neighbours' backgrounds. */
+.t-board{align-items:flex-start}
