@@ -227,18 +227,25 @@ function moveTaskToColumn(id, targetCol) {
   if (targetCol === "today") { editTaskMeta(id, "dueDate", todayStr); return true; }
   if (targetCol === "nodate") { editTaskMeta(id, "dueDate", ""); return true; }
   if (targetCol === "upcoming") {
-    if (!curDate) {
-      const v = prompt("Set a due date for this task (YYYY-MM-DD):", "");
-      if (v && v.trim()) {
-        const val = v.trim();
-        if (/^\d{4}-\d{2}-\d{2}$/.test(val) && val > todayStr) editTaskMeta(id, "dueDate", val);
-        else { toast("Enter a future date (YYYY-MM-DD) after today"); return false; }
-      }
-      return true; // left blank on purpose — task stays undated, lands back in No Date on re-render
-    }
-    if (curDate <= todayStr) { // was Today/Overdue — push forward so it actually qualifies as "upcoming"
+    /* An undated task dragged here used to open a prompt() demanding a
+       hand-typed YYYY-MM-DD — in the middle of a drag, which is the worst
+       possible moment to stop and type, and with no calendar to consult.
+       Mistype it and the drop was rejected outright and the card sprang
+       back.
+
+       Dropping onto "Upcoming" already states the intent: this is due,
+       and later than today. Tomorrow is the smallest date satisfying
+       that, so it is applied directly — exactly what the branch below
+       already did for a task dragged from Today or Overdue. The two paths
+       differed for no reason other than one having a date already.
+
+       Nothing is lost: the date is shown on the card and editable in
+       place, and dragging back to No Date clears it. */
+    if (!curDate || curDate <= todayStr) {
       const d = new Date(); d.setDate(d.getDate() + 1);
-      editTaskMeta(id, "dueDate", d.toISOString().slice(0, 10));
+      const iso = d.toISOString().slice(0, 10);
+      editTaskMeta(id, "dueDate", iso);
+      if (!curDate) toast("Due tomorrow — tap the date on the card to change it");
     }
     return true;
   }
