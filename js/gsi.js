@@ -1,6 +1,6 @@
 /* GSI Workspace: multi-project task tracker, daily work log, structured
    meeting minutes, GSI links, personal & work documents. */
-import { state, uid, esc, persist, rerender, todayKey } from './state.js';
+import { state, uid, esc, persist, rerender, todayKey, touch } from './state.js';
 import { isComposerOpen, composerHtml, openComposer } from './composer.js';
 /* tasks.js already imports gsi.js, so this is a cycle — safe here because
    neither module touches the other's bindings while modules are being
@@ -543,7 +543,7 @@ export function quickAddGsiTask(statusKey) {
 }
 export function editProjectTask(id, field, v) {
   const { task: t } = findProjectTask(id); if (!t) return;
-  t[field] = v; persist(); if (field === "text") { if (t.status !== "done") syncGsiTaskToGoogle(t, t.googleEventId ? "update" : "create"); return; }
+  t[field] = v; touch(t); persist(); if (field === "text") { if (t.status !== "done") syncGsiTaskToGoogle(t, t.googleEventId ? "update" : "create"); return; }
   rerender();
   if (field === "date" && t.status !== "done") {
     if (!v && t.googleEventId) syncGsiTaskToGoogle(t, "delete");
@@ -554,7 +554,7 @@ export function setTaskStatus(id, v) {
   const { task: t } = findProjectTask(id);
   if (t) {
     const wasDone = t.status === "done";
-    t.status = v; persist(); rerender();
+    t.status = v; touch(t); persist(); rerender();
     if (v === "done" && !wasDone) syncGsiTaskToGoogle(t, "delete");
     else if (v !== "done" && wasDone) syncGsiTaskToGoogle(t, "create");
   }

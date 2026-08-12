@@ -20,7 +20,7 @@
    was purpose-built for GSI's tasks specifically; wiring a second,
    parallel project system into it would roughly double that surface
    area for a feature nobody's asked for yet. Easy to add later if so. */
-import { state, uid, esc, persist, rerender } from './state.js';
+import { state, uid, esc, persist, rerender, touch } from './state.js';
 import { isComposerOpen, composerHtml, openComposer } from './composer.js';
 import { toast, autoGrow } from './ui.js';
 import { moveToTrash } from './trash.js';
@@ -442,7 +442,7 @@ export function quickAddPwTask(statusKey) {
 }
 export function editPwProjectTask(id, field, v) {
   const { task: t } = findPwProjectTask(id); if (!t) return;
-  t[field] = v; persist(); if (field === "text") { if (t.status !== "done") syncPwTaskToGoogle(t, t.googleEventId ? "update" : "create"); return; }
+  t[field] = v; touch(t); persist(); if (field === "text") { if (t.status !== "done") syncPwTaskToGoogle(t, t.googleEventId ? "update" : "create"); return; }
   rerender();
   if (field === "date" && t.status !== "done") {
     if (!v && t.googleEventId) syncPwTaskToGoogle(t, "delete");
@@ -453,7 +453,7 @@ export function setPwTaskStatus(id, v) {
   const { task: t } = findPwProjectTask(id);
   if (t) {
     const wasDone = t.status === "done";
-    t.status = v; persist(); rerender();
+    t.status = v; touch(t); persist(); rerender();
     if (v === "done" && !wasDone) syncPwTaskToGoogle(t, "delete");
     else if (v !== "done" && wasDone) syncPwTaskToGoogle(t, "create");
   }

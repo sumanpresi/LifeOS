@@ -660,6 +660,15 @@ export function replaceState(remote) {
 }
 
 /* ---------- helpers ---------- */
+/* Stamps the moment a single record changed.
+
+   Sync merges tasks per item now, so when the same task was edited on two
+   devices it needs to know which edit is newer. Without this it can only
+   fall back to comparing whole documents, which is the coarse behaviour
+   the per-item merge exists to replace. Cheap to write, and only ever
+   read by the merge. */
+export const touch = rec => { if (rec) rec.updatedAt = Date.now(); return rec; };
+
 export const uid = () => Math.random().toString(36).slice(2, 9);
 export const esc = s => String(s ?? "").replace(/[&<>"']/g,
   c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));

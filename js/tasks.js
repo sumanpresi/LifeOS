@@ -6,7 +6,7 @@
    in two different places. GSI tasks keep their own storage and schema
    (a 4-state status, not a simple done/not-done) — this only merges them
    for DISPLAY, routing edits back to the correct underlying data. */
-import { state, uid, esc, persist, rerender } from './state.js';
+import { state, uid, esc, persist, rerender, touch } from './state.js';
 import { isComposerOpen, composerHtml, openComposer, nativeColumnAccepts } from './composer.js';
 import { toast, autoGrow } from './ui.js';
 import { moveToTrash } from './trash.js';
@@ -1064,7 +1064,7 @@ export function toggleTask(id) {
   if (t) {
     t.done = !t.done;
     t.completedAt = t.done ? Date.now() : null;
-    persist(); rerender();
+    touch(t); persist(); rerender();
     syncTaskToGoogle(t, t.done ? "delete" : "create").catch(() => {}); // a completed task has nothing left to remind about; reopening it (with a due date) puts it back
     return;
   }
@@ -1075,7 +1075,7 @@ export function toggleTask(id) {
 }
 export function toggleFlag(id) {
   const t = state.tasks.find(x => x.id === id);
-  if (t) { t.flag = !t.flag; persist(); rerender(); return; }
+  if (t) { t.flag = !t.flag; touch(t); persist(); rerender(); return; }
   const { task: gt } = findProjectTask(id);
   if (gt) { toggleProjectTaskFlag(id); return; }
   togglePwProjectTaskFlag(id);
@@ -1083,7 +1083,7 @@ export function toggleFlag(id) {
 export function editTask(id, v) {
   const t = state.tasks.find(x => x.id === id);
   if (t) {
-    t.text = v; persist();
+    t.text = v; touch(t); persist();
     if (!t.done) syncTaskToGoogle(t, t.googleEventId ? "update" : "create").catch(() => {});
     return;
   }
@@ -1095,7 +1095,7 @@ export function editTask(id, v) {
 export function editTaskMeta(id, field, v) {
   const t = state.tasks.find(x => x.id === id);
   if (t) {
-    t[field] = v; persist(); rerender();
+    t[field] = v; touch(t); persist(); rerender();
     if (field === "dueDate" && !t.done) {
       if (!v && t.googleEventId) syncTaskToGoogle(t, "delete").catch(() => {});
       else if (v) syncTaskToGoogle(t, t.googleEventId ? "update" : "create").catch(() => {});

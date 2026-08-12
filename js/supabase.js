@@ -459,6 +459,100 @@ function mergeIncomingSectionNotes(remote) {
   });
 }
 
+/* ============================================================
+   Item-level merge for tasks
+   ============================================================
+   The last thing in LifeOS still resolved by replacing one device's copy
+   wholesale — and the one that actually costs work, because tasks are
+   what people add throughout the day on whichever device is to hand.
+
+   Boards and section notes already merge per record. Tasks did not, so
+   two devices that each added a different task still produced a winner
+   and a loser: the loser's task vanished from the active state (into a
+   Restore snapshot, but gone from view). Adding a task on the phone at
+   lunch could erase a morning's worth of desktop entries.
+
+   THE DELETION PROBLEM, and why this can be done safely here.
+   A naive union of both sides resurrects anything deleted: the device
+   that still has the task simply re-adds it. Merging needs to know the
+   difference between "you never had this" and "you deleted this", which
+   normally means tombstones — a schema change.
+
+   LifeOS already has them. Every delete routes through moveToTrash(),
+   which keeps the whole payload, so state.trash IS a tombstone log keyed
+   by the original item's id. Merging trash first and then treating those
+   ids as deleted gives correct deletion semantics with no new fields.
+
+   SAME ITEM EDITED ON BOTH SIDES is still last-write-wins, but now scoped
+   to that one task instead of the whole document. Per-task updatedAt
+   decides it where present; where absent (tasks created before this
+   change) it falls back to whichever device's document is newer, which is
+   exactly the old behaviour — but applied to one task rather than all of
+   them. */
+
+function mergeTrashLog(remote) {
+  const byId = new Map();
+  (state.trash || []).forEach(e => e && e.id && byId.set(e.id, e));
+  (remote.trash || []).forEach(e => { if (e && e.id && !byId.has(e.id)) byId.set(e.id, e); });
+  const merged = [...byId.values()].sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
+  state.trash = merged;
+  remote.trash = merged;
+  // Ids of items deleted on EITHER device, so neither side can revive them.
+  const gone = new Set();
+  merged.forEach(e => { const pid = e?.payload?.id; if (pid) gone.add(pid); });
+  return gone;
+}
+
+function mergeTaskArray(localArr, remoteArr, gone, remoteWins) {
+  const out = new Map();
+  const put = (t, fromRemote) => {
+    if (!t || !t.id || gone.has(t.id)) return;
+    const existing = out.get(t.id);
+    if (!existing) { out.set(t.id, t); return; }
+    const a = existing.updatedAt || 0, b = t.updatedAt || 0;
+    if (a || b) { if (b > a) out.set(t.id, t); return; }
+    // Neither carries a timestamp — defer to the document-level verdict.
+    if (fromRemote === remoteWins) out.set(t.id, t);
+  };
+  (localArr || []).forEach(t => put(t, false));
+  (remoteArr || []).forEach(t => put(t, true));
+  return [...out.values()];
+}
+
+function mergeProjectTrees(localProjects, remoteProjects, gone, remoteWins) {
+  const byId = new Map();
+  (localProjects || []).forEach(p => p && p.id && byId.set(p.id, p));
+  (remoteProjects || []).forEach(rp => {
+    if (!rp || !rp.id) return;
+    const lp = byId.get(rp.id);
+    if (!lp) { byId.set(rp.id, rp); return; }
+    // Same project on both sides: merge its task lists rather than
+    // picking one project object and discarding the other's tasks.
+    lp.tasks = mergeTaskArray(lp.tasks, rp.tasks, gone, remoteWins);
+    lp.archivedTasks = mergeTaskArray(lp.archivedTasks, rp.archivedTasks, gone, remoteWins);
+    if (remoteWins) { lp.name = rp.name ?? lp.name; lp.workDocsLabel = rp.workDocsLabel ?? lp.workDocsLabel; }
+    byId.set(rp.id, lp);
+  });
+  return [...byId.values()];
+}
+
+function mergeIncomingTasks(remote) {
+  const gone = mergeTrashLog(remote);
+  const remoteWins = (remote.updatedAt || 0) >= (state.updatedAt || 0);
+
+  state.tasks = mergeTaskArray(state.tasks, remote.tasks, gone, remoteWins);
+  remote.tasks = state.tasks;
+
+  if (state.gsi && remote.gsi) {
+    state.gsi.projects = mergeProjectTrees(state.gsi.projects, remote.gsi.projects, gone, remoteWins);
+    remote.gsi.projects = state.gsi.projects;
+  }
+  if (state.personal && remote.personal) {
+    state.personal.projects = mergeProjectTrees(state.personal.projects, remote.personal.projects, gone, remoteWins);
+    remote.personal.projects = state.personal.projects;
+  }
+}
+
 function mergeIncomingBrainstormBoards(remote) {
   BOARD_LISTS.forEach(({ list, active }) => mergeIncomingBoardList(remote, list, active));
 }
@@ -494,6 +588,7 @@ export async function loadRemote(preferRemote = false) {
       mergeIncomingWhiteboards(remote);
       mergeIncomingBrainstormBoards(remote);
       mergeIncomingSectionNotes(remote);
+      mergeIncomingTasks(remote);
       // The merge just changed local state (possibly pulling in board
       // data from the remote side) independent of whatever the win/lose
       // branching below decides — make sure that's actually reflected
@@ -691,6 +786,7 @@ function startRealtime() {
         mergeIncomingWhiteboards(row.data);
         mergeIncomingBrainstormBoards(row.data);
         mergeIncomingSectionNotes(row.data);
+        mergeIncomingTasks(row.data);
         applyRemote(row.data);
         toast("Updated from another device");
       })
