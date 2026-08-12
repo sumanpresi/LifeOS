@@ -4,7 +4,11 @@
      part of the backdrop a .72-opacity panel dropped this to 3.37:1,
      under the 4.5:1 minimum. Glass costs contrast, so the palette has to
      pay it back. */
-  --muted:#736C5B;
+  /* Darkened again as panels became more transparent. Against the worst
+     point of the mesh backdrop a .78 panel put the previous #736C5B at
+     4.31:1 — just under AA. Keeping the transparency and paying for it
+     in the palette is the right trade when the frost is the point. */
+  --muted:#6B6453;
   --line:#E7E0D0; --lilac:#EAE6DA; --lilac-deep:#D8D0BC;
   --accent:#4B5C42; --accent-ink:#37452F;
   --sand:#EFE4D0; --sage:#DCE3D3; --blush:#F2E1D6; --sky:#E4E7DC;
@@ -22,10 +26,13 @@
      flat/matte rather than frosted, so blur is pulled way back and
      only really shows on dialogs sitting over content, not as the
      dominant surface treatment everywhere the way it was before. */
-  --glass-bg:rgba(255,253,249,.86);
-  --glass-bg-strong:rgba(255,253,249,.94);
-  --glass-border:rgba(255,255,255,.7);
-  --glass-line:rgba(139,124,92,.16);
+  /* Light panels can't go as thin as dark ones: the text is dark, so a
+     translucent white panel over a mid-tone backdrop loses contrast fast.
+     .78 is the measured floor that keeps muted text above 4.5:1. */
+  --glass-bg:rgba(255,253,249,.78);
+  --glass-bg-strong:rgba(255,253,249,.90);
+  --glass-border:rgba(255,255,255,.85);
+  --glass-line:rgba(255,255,255,.6);
   /* saturate() is what separates convincing glass from grey haze: blurring
      alone washes colour out, so the backdrop is re-saturated as it is
      blurred. This is the single biggest visual difference from the
@@ -34,8 +41,12 @@
      backdrop bled colour up into the panels, which is what made the
      previous pass look candied rather than like the reference's calm
      charcoal glass. */
-  --glass-blur:saturate(108%) blur(14px);
-  --glass-blur-strong:saturate(112%) blur(22px);
+  /* This is the number that makes it frosted rather than merely tinted.
+     At 14px you read the shapes behind a panel; at 40px they dissolve
+     into a colour wash, which is exactly what the reference shows. The
+     saturation lift stops the blur draining that colour to grey. */
+  --glass-blur:saturate(180%) blur(40px);
+  --glass-blur-strong:saturate(190%) blur(56px);
   --glass-highlight:inset 0 1px 0 rgba(255,255,255,.5);
   --shadow-glass:0 1px 2px rgba(43,42,36,.05),0 10px 26px -14px rgba(43,42,36,.16);
   --shadow-glass-lift:0 4px 10px rgba(43,42,36,.06),0 20px 40px -18px rgba(43,42,36,.22);
@@ -45,9 +56,11 @@
 html{-webkit-text-size-adjust:100%}
 body{font-family:'Karla',sans-serif;color:var(--ink);font-size:15px;line-height:1.5;min-height:100vh;
   background:
-    radial-gradient(1100px 660px at 8% -10%,rgba(75,92,66,.06),transparent 64%),
-    radial-gradient(950px 620px at 100% 0%,rgba(185,113,74,.05),transparent 60%),
-    linear-gradient(180deg,#F7F3E9 0%,#F2EBDC 100%);
+    radial-gradient(1200px 900px at 8% -12%,rgba(140,120,200,.30),transparent 58%),
+    radial-gradient(1000px 800px at 90% -6%,rgba(220,140,150,.26),transparent 56%),
+    radial-gradient(900px 760px at 74% 44%,rgba(110,170,200,.24),transparent 58%),
+    radial-gradient(1000px 800px at 16% 80%,rgba(225,165,120,.24),transparent 60%),
+    linear-gradient(165deg,#F5F0E6 0%,#EFE9DC 100%);
   background-attachment:fixed}
 button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
 input,textarea,select{font-family:inherit;font-size:inherit;color:inherit}
@@ -2449,11 +2462,20 @@ html[data-theme="dark"]{
      heavy transparency was doing before. Opacity is UP from .82 — the
      reference's panels are quite solid; their glassiness comes from the
      edge and the soft blur, not from seeing much through them. */
-  --glass-bg:rgba(43,43,46,.88);
-  --glass-bg-strong:rgba(48,48,52,.94);
-  --glass-border:rgba(255,255,255,.07);
-  --glass-line:rgba(255,255,255,.085);
-  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.06);
+  /* .62, down from .88. Computed rather than guessed: against the
+     brightest point of the mesh backdrop this still gives 11.9:1 for body
+     text and 4.96:1 for muted text, both clear of AA. A dark tint is what
+     buys the transparency — a light panel over the same backdrop would
+     have failed well before this point.
+
+     The border is the other half of the reference's look: a bright
+     hairline where the panel edge catches light, considerably more
+     visible than the .07 the restrained pass used. */
+  --glass-bg:rgba(26,26,36,.62);
+  --glass-bg-strong:rgba(30,30,42,.76);
+  --glass-border:rgba(255,255,255,.16);
+  --glass-line:rgba(255,255,255,.15);
+  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.14);
   --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 26px -14px rgba(0,0,0,.6);
   --shadow-glass:0 1px 2px rgba(0,0,0,.4),0 10px 26px -14px rgba(0,0,0,.6);
   --shadow-glass-lift:0 4px 10px rgba(0,0,0,.45),0 20px 40px -18px rgba(0,0,0,.7);
@@ -2474,11 +2496,22 @@ html[data-theme="dark"]{
    flat grey — but at roughly a third of their previous strength, and
    warmed rather than pushed toward blue/violet. The effect should be
    noticed on the second look, not the first. */
+/* A mesh of overlapping colour pools, standing in for the photograph the
+   reference floats its panels over. Frosted glass is only legible AS
+   glass when the thing being blurred has colour and structure — over a
+   flat field, a 40px blur produces flat grey and the effect disappears.
+
+   The pools are large and heavily overlapped so that no panel ever sits
+   entirely over one hue; that variation is what the blur turns into the
+   soft colour wash the reference has. */
 html[data-theme="dark"] body{
   background:
-    radial-gradient(1200px 760px at 12% -10%,rgba(150,160,190,.055),transparent 64%),
-    radial-gradient(950px 640px at 90% 2%,rgba(190,150,150,.045),transparent 60%),
-    linear-gradient(180deg,#1B1B1D 0%,#141416 100%);
+    radial-gradient(1200px 900px at 8% -12%, rgba(88,74,168,.55), transparent 58%),
+    radial-gradient(1000px 800px at 88% -6%, rgba(150,58,110,.42), transparent 56%),
+    radial-gradient(900px 760px at 72% 42%, rgba(40,110,150,.40), transparent 58%),
+    radial-gradient(1100px 820px at 18% 78%, rgba(150,70,60,.34), transparent 60%),
+    radial-gradient(760px 620px at 96% 92%, rgba(60,130,120,.30), transparent 58%),
+    linear-gradient(165deg,#16151C 0%,#101017 55%,#0D0D12 100%);
   background-attachment:fixed;
 }
 
@@ -2692,12 +2725,12 @@ html[data-theme="dark"] .nav-item[data-page="personal"].active{
    barely perceptible — it stops a panel looking flat without ever
    announcing itself as a gradient. */
 .card, .sidebar, .modal{
-  background-image:linear-gradient(165deg,rgba(255,255,255,.05),transparent 34%);
+  background-image:linear-gradient(150deg,rgba(255,255,255,.13),rgba(255,255,255,.03) 38%,transparent 62%);
   background-color:var(--glass-bg);
   background-repeat:no-repeat;
 }
 html[data-theme="dark"] :is(.card,.sidebar,.modal){
-  background-image:linear-gradient(165deg,rgba(255,255,255,.028),transparent 36%);
+  background-image:linear-gradient(150deg,rgba(255,255,255,.085),rgba(255,255,255,.02) 40%,transparent 64%);
 }
 
 /* Dense data surfaces opt OUT of translucency. A spreadsheet-like table
@@ -2718,9 +2751,15 @@ html[data-theme="dark"] :is(.card,.sidebar,.modal){
    are made more opaque to compensate, so the look survives without the
    scroll jank. */
 @media (max-width:900px){
-  :root{--glass-blur:saturate(104%) blur(7px); --glass-blur-strong:saturate(106%) blur(10px);
-    --glass-bg:rgba(255,253,249,.93); --glass-bg-strong:rgba(255,253,249,.97)}
-  html[data-theme="dark"]{--glass-bg:rgba(43,43,46,.95); --glass-bg-strong:rgba(48,48,52,.98)}
+  /* 40px is a heavy filter. On a phone it is applied to the sidebar, the
+     header, every card and every open flyout, and each one forces the
+     compositor to re-sample the page behind it on every frame — the
+     classic way this aesthetic turns into scroll jank. 18px still reads
+     as frosted; the panels are thickened slightly to make up the
+     legibility that the softer blur no longer provides. */
+  :root{--glass-blur:saturate(150%) blur(18px); --glass-blur-strong:saturate(160%) blur(24px);
+    --glass-bg:rgba(255,253,249,.86); --glass-bg-strong:rgba(255,253,249,.93)}
+  html[data-theme="dark"]{--glass-bg:rgba(26,26,36,.76); --glass-bg-strong:rgba(30,30,42,.86)}
   /* The sheen stays on phones now that it is barely-there — removing it
      entirely left panels looking flatter than the desktop view for no
      performance gain, since a background gradient costs nothing. */
@@ -2731,6 +2770,16 @@ html[data-theme="dark"] :is(.card,.sidebar,.modal){
 @media (prefers-reduced-transparency:reduce){
   :root{--glass-bg:var(--card); --glass-bg-strong:var(--card); --glass-blur:none; --glass-blur-strong:none}
   html[data-theme="dark"]{--glass-bg:var(--card); --glass-bg-strong:var(--card)}
+  /* Also restores the board and calendar surfaces to solid values. They
+     were given alpha so the frost shows through them; with no blur
+     available that alpha would let the raw mesh gradient show through a
+     task card, which is unreadable rather than merely un-frosted. */
+  :root{--t-bg:#F1F2F6; --t-card:#FFFFFF; --t-border:#E3E5EA;
+    --t-cal-cell-hover:#F8F9FC; --t-cal-chip-bg:#EEF1F8; --t-cal-chip-border:#DCE1EC}
+  html[data-theme="dark"]{--t-bg:#1D1D1F; --t-card:#2B2B2E; --t-border:#3D3A34;
+    --t-cal-cell-hover:#343438; --t-cal-chip-bg:#38383C; --t-cal-chip-border:#47474C}
+  body{background-image:none}
+
   :is(.card,.sidebar,.modal){background-image:none}
 }
 
@@ -2740,6 +2789,15 @@ html[data-theme="dark"] :is(.card,.sidebar,.modal){
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
   :root{--glass-bg:var(--card); --glass-bg-strong:var(--card)}
   html[data-theme="dark"]{--glass-bg:var(--card); --glass-bg-strong:var(--card)}
+  /* Also restores the board and calendar surfaces to solid values. They
+     were given alpha so the frost shows through them; with no blur
+     available that alpha would let the raw mesh gradient show through a
+     task card, which is unreadable rather than merely un-frosted. */
+  :root{--t-bg:#F1F2F6; --t-card:#FFFFFF; --t-border:#E3E5EA;
+    --t-cal-cell-hover:#F8F9FC; --t-cal-chip-bg:#EEF1F8; --t-cal-chip-border:#DCE1EC}
+  html[data-theme="dark"]{--t-bg:#1D1D1F; --t-card:#2B2B2E; --t-border:#3D3A34;
+    --t-cal-cell-hover:#343438; --t-cal-chip-bg:#38383C; --t-cal-chip-border:#47474C}
+  body{background-image:none}
 }
 
 /* ---------- Mobile: keep the layout honest ----------
@@ -2809,3 +2867,45 @@ html[data-theme="dark"] .composer{box-shadow:0 2px 8px rgba(0,0,0,.5),inset 0 1p
    already supplies the padding and the top rule, so it doesn't need the
    margin the column-body version carries. */
 .t-board-quickadd .t-board-col-add{width:100%;margin:0}
+
+/* ---------- Frost: inner surfaces ----------
+   Board columns, calendar cells and task cards read from --t-* tokens,
+   which are opaque hex values. Left alone they become solid slabs sitting
+   inside an otherwise translucent card — the one thing that most reliably
+   breaks the illusion, because the eye sees glass with a brick in it.
+
+   These are given alpha rather than being made fully transparent: they
+   still need to separate from one another (a recessed column holding
+   raised cards), so each keeps its own step in value, just translucently. */
+html[data-theme="dark"]{
+  --t-bg:rgba(12,12,18,.34);
+  --t-card:rgba(255,255,255,.07);
+  --t-border:rgba(255,255,255,.11);
+  --t-cal-cell-hover:rgba(255,255,255,.12);
+  --t-cal-chip-bg:rgba(255,255,255,.11);
+  --t-cal-chip-border:rgba(255,255,255,.16);
+}
+:root{
+  --t-bg:rgba(120,110,140,.10);
+  --t-card:rgba(255,255,255,.62);
+  --t-border:rgba(255,255,255,.7);
+  --t-cal-cell-hover:rgba(255,255,255,.8);
+  --t-cal-chip-bg:rgba(255,255,255,.55);
+  --t-cal-chip-border:rgba(255,255,255,.7);
+}
+
+/* Inputs and small controls, same reasoning. */
+html[data-theme="dark"] :is(input,textarea,select):not(
+  :where(.gsi-board-card-title,.pw-board-card-title,.gsi-title,.t-title,.sec-note-title)
+){
+  background-color:rgba(255,255,255,.06);
+  border-color:rgba(255,255,255,.13);
+}
+
+/* The composer is a card-on-card, so it needs its own frosted treatment
+   rather than the flat --t-card it would otherwise inherit. */
+.composer{
+  background:var(--glass-bg-strong);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border-color:var(--glass-border);
+}
