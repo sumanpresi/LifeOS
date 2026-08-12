@@ -3156,3 +3156,71 @@ html[data-theme="dark"] :is(.gsi-chk,.t-chk){
 }
 html[data-theme="dark"] :is(.gsi-chk:hover,.t-chk:hover){border-color:#B0ADAA}
 html[data-theme="dark"] :is(.gsi-chk.on,.t-chk.on){background:#5B9E6E;border-color:#5B9E6E}
+
+/* ---------- Board columns: matching the reference ----------
+   The heading rules here need enough specificity to beat
+   `.t-board-col-head.t-board-overdue .t-board-col-title` (0,3,0), which
+   was silently winning and keeping OVERDUE orange and TODAY red while
+   the Todoist-style white heading was written but never applied. */
+html[data-theme="dark"] .t-board-col-head .t-board-col-title,
+html[data-theme="dark"] .t-board-col-head.t-board-overdue .t-board-col-title,
+html[data-theme="dark"] .t-board-col-head.t-board-today .t-board-col-title{
+  /* Sentence case at 16px, not 13px uppercase. The reference labels its
+     columns the way it labels anything else — uppercase micro-type reads
+     as a form legend, not a section someone works in.
+
+     Dropping the per-column colour is deliberate: in the reference the
+     only coloured thing on a board is the due date, and overdue-ness is
+     already carried there, on the cards that are actually overdue. A
+     coloured column header states it a second time, in a place that
+     stays coloured even when the column is empty. */
+  color:#FFFFFF;
+  font-size:16px;
+  font-weight:700;
+  text-transform:none;
+  letter-spacing:-.01em;
+}
+html[data-theme="dark"] .t-board-col-count{
+  color:var(--muted);font-weight:600;font-size:14px;
+}
+html[data-theme="dark"] .t-board-col-head{
+  border-bottom:none;padding:14px 14px 8px;
+}
+
+/* Column body: a touch more room, and the scrollbar toned down so a
+   half-full column doesn't show a bright track down its edge. */
+html[data-theme="dark"] .t-board-col-body{padding:0 12px 12px;gap:8px}
+html[data-theme="dark"] .t-board-col-body::-webkit-scrollbar{width:6px}
+html[data-theme="dark"] .t-board-col-body::-webkit-scrollbar-thumb{
+  background:rgba(255,255,255,.14);border-radius:3px}
+html[data-theme="dark"] .t-board-col-body::-webkit-scrollbar-track{background:transparent}
+html[data-theme="dark"] .t-board-col-body{scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.14) transparent}
+
+/* Meta row under a title: date, project tag, status. The reference keeps
+   these small and quiet so the title carries the card. */
+html[data-theme="dark"] :is(.t-due,.t-board-card .due-pill,.task-project-tag,.t-board-card .hint){
+  font-size:12.5px;font-weight:500;
+}
+html[data-theme="dark"] .task-project-tag{
+  background:rgba(255,255,255,.07);border:none;color:var(--muted);
+  border-radius:5px;padding:2px 6px;
+}
+/* Completed cards recede but stay readable — the reference greys the text
+   and keeps the strike-through rather than fading the whole card. */
+html[data-theme="dark"] .t-board-card.done{opacity:1}
+html[data-theme="dark"] .t-board-card.done .t-board-card-title{
+  color:var(--muted);text-decoration:line-through;
+}
+
+/* The archived pill kept two literal #fff values — its hover fill and the
+   count badge — which is the bright white chip visible at the bottom of a
+   dark board. */
+html[data-theme="dark"] .t-archived-trigger{
+  background:rgba(255,255,255,.06);border-color:var(--t-border);color:var(--muted);
+}
+html[data-theme="dark"] .t-archived-trigger:hover{
+  background:rgba(255,255,255,.11);border-color:#4A4948;color:var(--ink);
+}
+html[data-theme="dark"] .t-archived-trigger .t-section-count{
+  background:rgba(255,255,255,.10);color:var(--ink);
+}
