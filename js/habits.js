@@ -76,12 +76,16 @@ let scribbleMode = false;
 let openDayPopover = null; // dateKey of the currently-open task/scribble popover, if any
 
 function tasksForDate(k) {
+  /* `page` says where clicking the task should take you. It replaces an
+     isGsi boolean, which could only distinguish two of the three task
+     trees — Personal Workspace tasks rendered `undefined` into the onclick
+     and silently fell through to Overview. */
   const personal = state.tasks.filter(t => t.dueDate === k)
-    .map(t => ({ id: t.id, text: t.text, done: t.done, isGsi: false, source: (t.category === "personal" ? "Personal" : "Work") }));
+    .map(t => ({ id: t.id, text: t.text, done: t.done, page: "overview", source: (t.category === "personal" ? "Personal" : "Work") }));
   const gsi = getAllGsiTasksFlat().filter(t => t.date === k)
-    .map(t => ({ id: t.id, text: t.text, done: t.status === "done", isGsi: true, source: t.projectName }));
+    .map(t => ({ id: t.id, text: t.text, done: t.status === "done", page: "work", source: t.projectName }));
   const pw = getAllPwTasksFlat().filter(t => t.date === k)
-    .map(t => ({ id: t.id, text: t.text, done: t.status === "done", isPersonal: true, source: t.projectName }));
+    .map(t => ({ id: t.id, text: t.text, done: t.status === "done", page: "personal", source: t.projectName }));
   return [...personal, ...gsi, ...pw];
 }
 
@@ -124,11 +128,34 @@ function renderCalendarView() {
     // A plain div here, not a button — cells now host nested action buttons
     // (task badge, scribble trigger) alongside the habit-toggle click area,
     // and a button can't legally contain another button.
+    /* Tasks are listed inside the cell rather than hidden behind a badge.
+       The badge told you a count and made you click to learn anything —
+       on a month view the whole point is seeing what's on which day at a
+       glance. The first two are shown inline; a day with more keeps the
+       popover for the full list, which is what it is good at.
+
+       Each task line stops propagation: the cell itself is the habit
+       toggle, so without that, reading a task would mark the habit done. */
+    const inline = dayTasks.slice(0, 2);
     html += `
       <div class="cal-cell-wrap ${k === tKey ? "today" : ""}">
         <div class="cal-cell ${done ? "done" : ""} ${future ? "cal-future" : ""} ${scribbleMode ? "cal-scribble-armed" : ""}"
-          onclick="${scribbleMode ? `openScribbleFor('${k}')` : (future ? "" : `toggleHabit('${k}','${calendarHabitId}')`)}">${day}</div>
-        ${dayTasks.length ? `<button class="cal-task-badge" onclick="event.stopPropagation();toggleDayPopover('${k}')" title="${dayTasks.length} task(s) due">${dayTasks.length}</button>` : ""}
+          onclick="${scribbleMode ? `openScribbleFor('${k}')` : (future ? "" : `toggleHabit('${k}','${calendarHabitId}')`)}"
+          title="${scribbleMode ? "Draw a note on this day" : (future ? "" : "Click to toggle the habit for this day")}">
+          <div class="cal-cell-head">
+            <span class="cal-cell-day">${day}</span>
+            ${done ? `<span class="cal-cell-tick" title="Habit done">&#10003;</span>` : ""}
+          </div>
+          ${inline.length ? `<div class="cal-cell-tasks">
+            ${inline.map(t => `
+              <button class="cal-cell-task ${t.done ? "done" : ""}"
+                onclick="event.stopPropagation();goToCalendarTask('${t.id}','${t.page}')"
+                title="${esc(t.text)}">${esc(t.text)}</button>`).join("")}
+            ${dayTasks.length > 2 ? `<button class="cal-cell-more"
+                onclick="event.stopPropagation();toggleDayPopover('${k}')"
+                title="Show all ${dayTasks.length} tasks">+${dayTasks.length - 2} more</button>` : ""}
+          </div>` : ""}
+        </div>
         ${hasScribble ? `<span class="cal-scribble-dot" title="Has a note">✏️</span>` : ""}
         ${openDayPopover === k ? dayPopoverHtml(k, dayTasks) : ""}
       </div>`;
@@ -151,7 +178,7 @@ function dayPopoverHtml(k, dayTasks) {
     <div class="cal-day-popover" onclick="event.stopPropagation()">
       <div class="cal-day-popover-head">${fmt}</div>
       ${dayTasks.map(t => `
-        <button class="cal-day-task ${t.done ? "done" : ""}" onclick="goToCalendarTask('${t.id}',${t.isGsi})">
+        <button class="cal-day-task ${t.done ? "done" : ""}" onclick="goToCalendarTask('${t.id}','${t.page}')">
           <span class="cal-day-task-text">${esc(t.text)}</span>
           <span class="cal-day-task-source">${esc(t.source)}</span>
         </button>`).join("")}
@@ -161,10 +188,9 @@ export function toggleDayPopover(k) {
   openDayPopover = openDayPopover === k ? null : k;
   renderCalendarView();
 }
-export function goToCalendarTask(id, isGsi) {
+export function goToCalendarTask(id, page) {
   openDayPopover = null;
-  if (isGsi) { go("work"); }
-  else { go("overview"); }
+  go(page === "work" || page === "personal" ? page : "overview");
   renderCalendarView();
 }
 export function setCalendarHabit(id) { calendarHabitId = id; renderCalendarView(); }

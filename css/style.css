@@ -481,21 +481,48 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .cal-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px}
 .cal-dow div{text-align:center;font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.05em}
 .cal-days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
-.cal-cell-wrap{aspect-ratio:1;position:relative}
+/* The square aspect ratio is gone: the cell now holds the day number AND
+   the tasks due that day, so it needs to be taller than it is wide rather
+   than a fixed square built for a single digit. */
+.cal-cell-wrap{position:relative;min-height:92px;display:flex}
 .cal-cell-wrap.empty{cursor:default}
-.cal-cell-wrap.today .cal-cell{box-shadow:0 0 0 2px var(--lilac-deep)}
-.cal-cell{width:100%;height:100%;border:1.5px solid var(--line);border-radius:9px;background:#fff;font-weight:700;font-size:13px;
-  color:var(--ink-soft,var(--ink));cursor:pointer;transition:.12s;display:flex;align-items:center;justify-content:center;box-sizing:border-box}
+.cal-cell-wrap.today .cal-cell{box-shadow:0 0 0 2px var(--accent)}
+/* background was a literal #fff, so in dark mode these were white boxes
+   with near-white day numbers on them — the grid in the screenshot. */
+.cal-cell{width:100%;border:1.5px solid var(--line);border-radius:10px;background:var(--card);
+  cursor:pointer;transition:border-color .12s,background .12s;
+  display:flex;flex-direction:column;gap:4px;padding:6px 7px;box-sizing:border-box;text-align:left;overflow:hidden}
 .cal-cell:hover{border-color:var(--accent)}
-.cal-cell.done{background:var(--accent);border-color:var(--accent);color:#fff}
-.cal-cell.cal-future{opacity:.35;cursor:default}
-.cal-cell.cal-scribble-armed{border-style:dashed;border-color:var(--accent-ink);background:#FBF9FF}
-/* Task badge — a small numbered circle in the corner; opens the day's
-   task list on click without triggering the cell's own habit-toggle
-   click (handled via stopPropagation in the onclick attribute). */
-.cal-task-badge{position:absolute;top:-5px;right:-5px;width:18px;height:18px;border-radius:50%;
-  background:#EF4444;color:#fff;border:2px solid var(--card);font-size:10px;font-weight:800;
-  display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;line-height:1}
+.cal-cell-head{display:flex;align-items:center;justify-content:space-between;gap:4px}
+.cal-cell-day{font-weight:700;font-size:13px;color:var(--ink)}
+.cal-cell-tick{font-size:12px;font-weight:800;color:var(--accent);line-height:1}
+
+/* "Done" used to flood the whole cell with the accent colour and switch
+   the text to white. With task titles inside, that made them unreadable —
+   so completion is now a tint plus a tick, which reads just as clearly
+   and leaves the content legible. */
+.cal-cell.done{background:color-mix(in srgb,var(--accent) 14%,var(--card));border-color:var(--accent)}
+.cal-cell.done .cal-cell-day{color:var(--accent-ink)}
+
+/* Future days are not clickable, but their tasks still need reading —
+   .35 opacity made those illegible. Dim the chrome, not the content. */
+.cal-cell.cal-future{cursor:default;background:var(--paper)}
+.cal-cell.cal-future .cal-cell-day{opacity:.5}
+.cal-cell.cal-scribble-armed{border-style:dashed;border-color:var(--accent-ink)}
+
+.cal-cell-tasks{display:flex;flex-direction:column;gap:2px;min-width:0;--cal-task-done:#645E4F}
+html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
+.cal-cell-task{display:block;width:100%;text-align:left;background:var(--lilac);border:none;
+  border-radius:4px;padding:2px 5px;font-size:10.5px;font-weight:600;color:var(--ink);
+  line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.cal-cell-task:hover{background:var(--lilac-deep)}
+/* --muted is only 2.94:1 against the chip in light mode. A completed task
+   should recede, not become unreadable — the line-through already carries
+   the "done" signal, so the colour only needs to soften. */
+.cal-cell-task.done{text-decoration:line-through;color:var(--cal-task-done)}
+.cal-cell-more{background:none;border:none;padding:1px 5px;text-align:left;
+  font-size:10px;font-weight:700;color:var(--accent-ink);cursor:pointer}
+.cal-cell-more:hover{text-decoration:underline}
 .cal-scribble-dot{position:absolute;bottom:-3px;left:-3px;font-size:11px;pointer-events:none}
 .cal-day-popover{position:absolute;top:calc(100% + 6px);left:50%;transform:translateX(-50%);z-index:40;
   background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 30px -10px rgba(0,0,0,.25);
@@ -520,7 +547,17 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 
 @media(max-width:767px){
   .cal-scribble-toggle{min-height:40px}
-  .cal-task-badge{width:22px;height:22px;font-size:11px;top:-6px;right:-6px}
+  /* Seven columns on a phone leaves each cell ~45px wide — too narrow for
+     a readable task title. Below this width the day cell goes back to
+     showing the day number alone, with the popover for the detail. */
+  .cal-cell-wrap{min-height:52px}
+  .cal-cell-tasks{display:none}
+  .cal-cell{align-items:center;justify-content:center;padding:4px}
+  .cal-cell-head{width:100%;justify-content:center;gap:3px}
+  /* A small dot marks days that have tasks, since the titles are hidden. */
+  .cal-cell-wrap:has(.cal-cell-tasks) .cal-cell::after{content:"";position:absolute;
+    bottom:5px;left:50%;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;
+    background:var(--accent2)}
   .scribble-modal-bg{padding:0}
   .scribble-modal{max-width:none;height:100vh;border-radius:0}
   .scribble-canvas{flex:1;height:auto}
@@ -770,9 +807,24 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
    was requested specifically for the Tasks page, so those stay exactly
    as they were rather than changing pages that weren't asked for.
    ================================================================ */
-#tasksCard{--t-bg:#F7F8FA;--t-card:#FFFFFF;--t-ink:#1F2937;--t-ink2:#6B7280;
-  --t-accent:#2563EB;--t-danger:#EF4444;--t-border:#E5E7EB;
-  background:var(--t-bg);font-family:'Inter',sans-serif;border-color:var(--t-border)}
+/* The board token set. These used to be declared ON #tasksCard, which
+   meant only the Overview task board could see them — the Work·GSI and
+   Personal Workspace boards render into #ngdrList and #pwTaskList, both
+   outside that element, so every var(--t-card) and var(--t-border) in
+   their card rules resolved to nothing. Those cards were drawn with no
+   background and no border at all: invisible separation on the cream
+   page, and glaringly wrong once a dark theme existed. Declared at :root
+   they apply to all three boards. */
+:root{--t-bg:#F1F2F6;--t-card:#FFFFFF;--t-ink:#1F2937;--t-ink2:#5F6673;
+  --t-accent:#2563EB;--t-danger:#EF4444;--t-border:#E3E5EA;
+  /* Calendar surfaces. The cell is the raised object and the chip is
+     content sitting inside it, so the chip is a tint of the page rather
+     than another white panel — three stacked whites read as noise. */
+  --t-cal-cell-hover:#F8F9FC; --t-cal-chip-bg:#EEF1F8; --t-cal-chip-border:#DCE1EC;
+  /* Overdue/done text needs its own value on the chip tint: the page-level
+     --warn and --t-ink2 both fall under 4.5:1 against it. */
+  --t-cal-overdue:#96611B; --t-cal-done:#5F6673}
+#tasksCard{background:var(--t-bg);font-family:'Inter',sans-serif;border-color:var(--t-border)}
 #tasksCard .card-head{background:var(--t-card);border-bottom:1px solid var(--t-border)}
 #tasksCard .card-head h2{font-family:'Inter',sans-serif;font-size:20px;font-weight:600;color:var(--t-ink)}
 
@@ -971,33 +1023,50 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--t-ink2);text-align:center}
 .t-cal-grid{display:flex;flex-direction:column;gap:6px}
 .t-cal-week{display:flex;gap:6px}
-.t-cal-cell{flex:1 1 0;min-width:0;min-height:88px;border:1px solid var(--t-border);border-radius:9px;padding:6px;background:var(--t-bg);
+.t-cal-cell{flex:1 1 0;min-width:0;min-height:96px;border:1px solid var(--t-border);border-radius:10px;padding:7px;background:var(--t-card);
   display:flex;flex-direction:column;gap:3px;cursor:pointer;transition:background 150ms ease,border-color 150ms ease}
-.t-cal-cell:not(.t-cal-empty):hover{background:#fff;border-color:var(--t-accent)}
+.t-cal-cell:not(.t-cal-empty):hover{background:var(--t-cal-cell-hover);border-color:var(--t-accent)}
 .t-cal-cell.t-cal-empty{border:none;background:transparent;cursor:default}
 .t-cal-cell.t-cal-today{border-color:var(--t-accent);box-shadow:0 0 0 1px var(--t-accent)}
 .t-cal-daynum-row{display:flex;align-items:center;justify-content:space-between}
-.t-cal-daynum{font-size:12px;font-weight:700;color:var(--t-ink2)}
+.t-cal-daynum{font-size:13px;font-weight:700;color:var(--t-ink)}
 .t-cal-today .t-cal-daynum{color:var(--t-accent)}
 .t-cal-add-hint{font-size:12px;font-weight:800;color:var(--t-accent);opacity:0;transition:opacity 150ms ease}
 .t-cal-cell:hover .t-cal-add-hint{opacity:1}
 .t-cal-tasks{display:flex;flex-direction:column;gap:2px;overflow:hidden;
   flex:1;min-height:22px} /* an empty day still needs a body big enough to drop onto */
-.t-cal-chip{display:flex;align-items:center;gap:3px;padding:1px 4px 1px 1px;border-radius:5px;
-  background:#fff;border:1px solid var(--t-border);cursor:grab}
+/* background was a literal #fff. In dark mode that put --t-ink (#EDE9E0)
+   on white: a 1.21:1 contrast ratio, which is text you cannot read. It is
+   a token now, and the chip sits one step BELOW the cell it's on rather
+   than above it — the cell is the raised surface here, the chip is
+   content within it. */
+.t-cal-chip{display:flex;align-items:center;gap:4px;padding:3px 6px 3px 3px;border-radius:6px;
+  background:var(--t-cal-chip-bg);border:1px solid var(--t-cal-chip-border);cursor:grab}
 /* Drag a chip onto another day to reschedule it. */
 .t-cal-chip-chosen{cursor:grabbing}
 .t-cal-chip-ghost{background:var(--lilac);border:1px dashed var(--accent);opacity:.7}
 .t-cal-chip-dragging{opacity:.9;box-shadow:0 4px 12px rgba(0,0,0,.18)}
 .t-cal-chip.overdue{border-color:#F0D9BE}
-.t-cal-chip-chk{flex-shrink:0;width:11px;height:11px;border-radius:3px;border:1.5px solid var(--t-border);background:#fff;padding:0}
+.t-cal-chip-chk{flex-shrink:0;width:12px;height:12px;border-radius:3px;border:1.5px solid var(--t-ink2);background:transparent;padding:0}
 .t-cal-chip.done .t-cal-chip-chk{background:var(--t-accent);border-color:var(--t-accent)}
-.t-cal-chip.overdue .t-cal-chip-chk{border-color:var(--warn)}
-.t-cal-chip-title{flex:1;min-width:0;text-align:left;font-size:10.5px;font-weight:600;color:var(--t-ink);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.t-cal-chip.overdue .t-cal-chip-title{color:var(--warn)}
-.t-cal-chip.done .t-cal-chip-title{color:var(--t-ink2);text-decoration:line-through;opacity:.7}
-.t-cal-more{font-size:10px;color:var(--t-ink2);padding:1px 5px}
+.t-cal-chip.overdue .t-cal-chip-chk{border-color:var(--t-cal-overdue)}
+.t-cal-chip-title{flex:1;min-width:0;text-align:left;font-size:11.5px;font-weight:600;color:var(--t-ink);
+  line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.t-cal-chip.overdue .t-cal-chip-title{color:var(--t-cal-overdue)}
+.t-cal-chip.done .t-cal-chip-title{color:var(--t-cal-done);text-decoration:line-through}
+/* A real button, so it needs button resets — and enough of a hit area to
+   be tappable on a phone, where these cells are only ~52px tall. */
+.t-cal-more{display:block;width:100%;text-align:left;background:none;border:none;
+  font-size:11px;font-weight:600;color:var(--t-accent);padding:3px 5px;cursor:pointer;border-radius:4px}
+.t-cal-more:hover{background:var(--t-cal-chip-bg)}
+.t-cal-more:focus-visible{outline:2px solid var(--t-accent);outline-offset:1px}
+
+/* An expanded day shows every task, so the cell must be allowed to grow
+   past its min-height and the task list must stop clipping. The week row
+   is a flex row, so the neighbouring cells stretch to match — which is
+   the behaviour you want: the row grows, the grid stays aligned. */
+.t-cal-cell.t-cal-expanded{min-height:auto}
+.t-cal-cell.t-cal-expanded .t-cal-tasks{overflow:visible}
 
 /* ---- Task detail popup (opened from a calendar chip's title) ---- */
 .t-popup-top{display:flex;align-items:flex-start;gap:10px}
@@ -1008,7 +1077,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   .t-cal-weekdays div:not(:nth-child(1)):not(:nth-child(4)):not(:nth-child(7)){font-size:0} /* keep the grid, thin the labels — Sun/Wed/Sat only, room's too tight for all seven on a phone */
   .t-cal-cell{min-height:52px;padding:4px}
   .t-cal-add-hint{opacity:.6}
-  .t-cal-chip{font-size:9.5px}
+  .t-cal-chip{font-size:10.5px}
 }
 
 /* Header "Archive Completed" button */
@@ -2368,9 +2437,11 @@ html[data-theme="dark"] body{
 /* The task board carries its OWN token set (--t-*), defined on #tasksCard
    in cool greys rather than the warm page palette. It has to be flipped
    separately or the board stays a bright white panel in a dark app. */
-html[data-theme="dark"] #tasksCard{
-  --t-bg:#1F1E1C; --t-card:#282622; --t-ink:#EDE9E0; --t-ink2:#9E9787;
-  --t-accent:#7FA7E8; --t-danger:#E0715A; --t-border:#35332E;
+html[data-theme="dark"]{
+  --t-bg:#1F1E1C; --t-card:#2C2A26; --t-ink:#EDE9E0; --t-ink2:#9E9787;
+  --t-accent:#7FA7E8; --t-danger:#E0715A; --t-border:#3D3A34;
+  --t-cal-cell-hover:#35322C; --t-cal-chip-bg:#3A3730; --t-cal-chip-border:#4A463D;
+  --t-cal-overdue:#E9B573; --t-cal-done:#ADA694;
 }
 
 /* Literal #FFF appears 63 times for panel and control surfaces. Rather
@@ -2381,7 +2452,14 @@ html[data-theme="dark"] :is(
   .wb-float-toolbar, .wb-tab-menu, .tm-modal, .link-card, .trash-row
 ){ background-color:var(--card); }
 
-html[data-theme="dark"] :is(input, textarea, select){
+/* Deliberately excludes the in-place editable titles on board and list
+   cards. Those are textareas styled to look like plain text — giving them
+   a filled background turns every task title into what looks like a form
+   field sitting inside its own card. :where() keeps the exclusion at zero
+   specificity so it doesn't outrank anything else. */
+html[data-theme="dark"] :is(input, textarea, select):not(
+  :where(.gsi-board-card-title, .pw-board-card-title, .gsi-title, .t-title, .sec-note-title)
+){
   background-color:var(--lilac); color:var(--ink); border-color:var(--line);
 }
 html[data-theme="dark"] input::placeholder,
@@ -2423,3 +2501,77 @@ html[data-theme="dark"] canvas.wb-canvas{
 }
 html[data-theme="dark"]{ color-scheme:dark; }
 html[data-theme="light"]{ color-scheme:light; }
+
+/* ============================================================
+   BOARD CARDS — clearer separation
+   ============================================================
+   The cards were technically distinct (1px border, 8px gap) but read as
+   one continuous column: a hairline border in near-background colour,
+   flat against a flat column, with the gap the only real separator.
+
+   Three changes, in order of how much work each does:
+
+   1. A real shadow. This is what makes a card look like an object
+      sitting ON the column rather than a region drawn INTO it, and it is
+      the single biggest contributor to the effect in the reference.
+   2. More gap and more internal padding. Whitespace between cards is
+      what the eye actually uses to group; 8px reads as "rows of a list",
+      12px reads as "separate cards".
+   3. A slightly lifted card surface. In dark mode especially, the card
+      must be lighter than the column it sits on or the border is doing
+      all the work alone.
+
+   Applies to every board — Overview, Work·GSI and Personal — because the
+   tokens are now global and these rules are not scoped to one page. */
+
+.t-board-col-body{gap:12px;padding:12px}
+
+.t-board-card{
+  position:relative;
+  padding:12px 12px 11px;
+  border-radius:12px;
+  box-shadow:0 1px 2px rgba(16,18,22,.06), 0 1px 1px rgba(16,18,22,.04);
+  transition:box-shadow 160ms var(--ease,ease), border-color 160ms var(--ease,ease),
+             transform 160ms var(--ease,ease);
+}
+.t-board-card:hover{
+  box-shadow:0 2px 4px rgba(16,18,22,.08), 0 8px 18px -8px rgba(16,18,22,.18);
+  transform:translateY(-1px);
+}
+/* Pressed state reads as "picked up", which matters because these cards
+   are draggable — the cursor already changes to grabbing. */
+.t-board-card:active{transform:translateY(0);box-shadow:0 1px 2px rgba(16,18,22,.10)}
+
+/* Dark needs its own shadow values: a black shadow on a dark surface is
+   nearly invisible, so separation there comes from a subtle top highlight
+   plus a deeper, wider shadow. */
+html[data-theme="dark"] .t-board-card{
+  box-shadow:0 1px 2px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.035);
+}
+html[data-theme="dark"] .t-board-card:hover{
+  box-shadow:0 2px 6px rgba(0,0,0,.55), 0 10px 22px -10px rgba(0,0,0,.7),
+             inset 0 1px 0 rgba(255,255,255,.05);
+}
+
+/* The flag stripe was a border-left, which shortened the card's content
+   box and made flagged cards a different width from their neighbours.
+   As an inset shadow it sits inside the rounded corner and costs no
+   layout. */
+.t-board-card.flagged{border-left:1px solid var(--t-border)}
+.t-board-card.flagged::before{
+  content:"";position:absolute;left:0;top:0;bottom:0;width:3px;
+  background:var(--warn);border-radius:12px 0 0 12px;
+}
+
+/* Column heads sit closer to a real section header, so the eye can tell
+   column chrome from card content at a glance. */
+.t-board-col-head{padding:13px 14px 11px}
+.t-board-col{background:var(--t-bg)}
+
+/* Titles are editable textareas dressed as text — keep them transparent
+   in both themes so a card never looks like a form. */
+.gsi-board-card-title,.pw-board-card-title{background:transparent}
+
+/* Done cards recede rather than vanish: .6 opacity on a dark ground took
+   them below comfortable reading contrast. */
+html[data-theme="dark"] .t-board-card.done{opacity:.72}

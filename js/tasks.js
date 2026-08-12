@@ -20,6 +20,11 @@ import { changePwTaskProject, findPwProjectTask, editPwProjectTask, setPwTaskSta
 let taskFilter = "all"; // "all" | "work" | "personal"
 let sortByDate = false;
 let taskView = null; // "list" | "board" | "calendar" — lazily initialized from state.taskViewPref on first render (see renderTasks), then kept in sync with it on every change
+/* Which calendar days are showing all their tasks rather than the first
+   three. View-only and per-session: not persisted, not synced — the same
+   treatment as which task sections are collapsed. Cleared when the month
+   changes, since the dates no longer apply. */
+let expandedCalDays = new Set();
 let calendarMonth = (() => { const d = new Date(); d.setDate(1); return d; })(); // first-of-month, tracks which month Calendar view is showing
 let collapsedSections = new Set(); // UI-only display state, not persisted — which of Today/Upcoming/Completed are collapsed
 let expandedTaskId = null; // UI-only — which single row currently has its edit controls open
@@ -251,9 +256,19 @@ export function setTaskView(v) {
   if (switcher) switcher.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.view === v));
   renderTasks();
 }
-export function calendarPrevMonth() { calendarMonth.setMonth(calendarMonth.getMonth() - 1); renderTasks(); }
-export function calendarNextMonth() { calendarMonth.setMonth(calendarMonth.getMonth() + 1); renderTasks(); }
-export function calendarGoToday() { calendarMonth = new Date(); calendarMonth.setDate(1); renderTasks(); }
+export function calendarPrevMonth() { expandedCalDays.clear(); calendarMonth.setMonth(calendarMonth.getMonth() - 1); renderTasks(); }
+export function calendarNextMonth() { expandedCalDays.clear(); calendarMonth.setMonth(calendarMonth.getMonth() + 1); renderTasks(); }
+export function calendarGoToday() { expandedCalDays.clear(); calendarMonth = new Date(); calendarMonth.setDate(1); renderTasks(); }
+
+/* "+N more" used to be an inert <div>: it looked like a control, did
+   nothing, and the click fell through to the cell — whose handler adds a
+   NEW task. So the one affordance for seeing hidden tasks instead created
+   an extra one. It is a real button now, and stops propagation. */
+export function toggleCalendarDay(dateStr) {
+  if (expandedCalDays.has(dateStr)) expandedCalDays.delete(dateStr);
+  else expandedCalDays.add(dateStr);
+  renderTasks();
+}
 export function calendarQuickAdd(dateStr) {
   if (calendarClickSuppressed()) return; // the click that trails a drop, not a real one
   const v = prompt(`Add a task for ${dateStr}:`);
@@ -767,9 +782,10 @@ function renderCalendarView(tasksWithDates) {
     if (d === null) return `<div class="t-cal-cell t-cal-empty"></div>`;
     const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     const dayTasks = byDate[dateStr] || [];
-    const shown = dayTasks.slice(0, 3);
+    const expanded = expandedCalDays.has(dateStr);
+    const shown = expanded ? dayTasks : dayTasks.slice(0, 3);
     return `
-      <div class="t-cal-cell ${dateStr === todayStr ? "t-cal-today" : ""}" data-cal-date="${dateStr}" onclick="calendarQuickAdd('${dateStr}')" title="Click to add a task on ${dateStr}">
+      <div class="t-cal-cell ${dateStr === todayStr ? "t-cal-today" : ""} ${expanded ? "t-cal-expanded" : ""}" data-cal-date="${dateStr}" onclick="calendarQuickAdd('${dateStr}')" title="Click to add a task on ${dateStr}">
         <div class="t-cal-daynum-row"><span class="t-cal-daynum">${d}</span><span class="t-cal-add-hint">+</span></div>
         <div class="t-cal-tasks" data-cal-date="${dateStr}">
           ${shown.map(t => `
@@ -777,7 +793,9 @@ function renderCalendarView(tasksWithDates) {
               <button class="t-cal-chip-chk" onclick="event.stopPropagation();toggleTask('${t.id}')" aria-label="Toggle complete"></button>
               <button class="t-cal-chip-title" onclick="event.stopPropagation();openTaskPopup('${t.id}')" title="${esc(t.text)}">${esc(t.text)}</button>
             </div>`).join("")}
-          ${dayTasks.length > 3 ? `<div class="t-cal-more">+${dayTasks.length - 3} more</div>` : ""}
+          ${dayTasks.length > 3 ? `<button class="t-cal-more" onclick="event.stopPropagation();toggleCalendarDay('${dateStr}')"
+            title="${expanded ? "Show fewer" : `Show all ${dayTasks.length} tasks`}"
+            aria-expanded="${expanded}">${expanded ? "Show less" : `+${dayTasks.length - 3} more`}</button>` : ""}
         </div>
       </div>`;
   }
