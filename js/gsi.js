@@ -5,7 +5,7 @@ import { isComposerOpen, composerHtml, openComposer } from './composer.js';
 /* tasks.js already imports gsi.js, so this is a cycle — safe here because
    neither module touches the other's bindings while modules are being
    evaluated, only inside functions called later at runtime. */
-import { markDragJustEnded } from './tasks.js';
+import { markDragJustEnded, boardColHeadHtml, isColCollapsed } from './tasks.js';
 import { toast, autoGrow } from './ui.js';
 import { moveToTrash } from './trash.js';
 import { checkGrammar } from './text-tools.js';
@@ -306,11 +306,8 @@ function gsiBoardCardHtml(item) {
 }
 function gsiBoardColumnHtml(statusKey, label, tasks) {
   return `
-    <div class="t-board-col" data-board-col="${statusKey}">
-      <div class="t-board-col-head">
-        <span class="t-board-col-title">${label}</span>
-        <span class="t-section-count">${tasks.length}</span>
-      </div>
+    <div class="t-board-col ${isColCollapsed("gsi", statusKey) ? "t-col-collapsed" : ""}" data-board-col="${statusKey}">
+      ${boardColHeadHtml("gsi", statusKey, label, tasks.length)}
       <div class="t-board-col-body">
         ${tasks.length ? tasks.map(gsiBoardCardHtml).join("") : `<p class="hint" style="padding:10px 4px">Nothing here.</p>`}
       </div>

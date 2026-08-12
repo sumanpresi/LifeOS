@@ -24,7 +24,7 @@ import { state, uid, esc, persist, rerender, touch } from './state.js';
 import { isComposerOpen, composerHtml, openComposer } from './composer.js';
 import { toast, autoGrow } from './ui.js';
 import { moveToTrash } from './trash.js';
-import { markDragJustEnded } from './tasks.js';
+import { markDragJustEnded, boardColHeadHtml, isColCollapsed } from './tasks.js';
 import { syncTaskToGoogle } from './google-calendar.js';
 
 // Personal Workspace tasks use the same field names as GSI project tasks
@@ -211,11 +211,8 @@ function pwBoardCardHtml(item) {
 }
 function pwBoardColumnHtml(statusKey, label, tasks) {
   return `
-    <div class="t-board-col" data-board-col="${statusKey}">
-      <div class="t-board-col-head">
-        <span class="t-board-col-title">${label}</span>
-        <span class="t-section-count">${tasks.length}</span>
-      </div>
+    <div class="t-board-col ${isColCollapsed("personal", statusKey) ? "t-col-collapsed" : ""}" data-board-col="${statusKey}">
+      ${boardColHeadHtml("personal", statusKey, label, tasks.length)}
       <div class="t-board-col-body">
         ${tasks.length ? tasks.map(pwBoardCardHtml).join("") : `<p class="hint" style="padding:10px 4px">Nothing here.</p>`}
       </div>

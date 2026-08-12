@@ -687,13 +687,52 @@ function boardQuickAddHtml(key) {
       <button class="t-board-col-add" onclick="openComposer('native','${key}')">+ Add task</button>
     </div>`;
 }
-function boardColumnHtml(key, label, tasks, accentClass) {
+/* ---------- Collapsible board columns ----------
+   Completed columns grow without bound and push the useful columns off
+   screen, so they need to be foldable. Implemented once and exported,
+   because Work·GSI and Personal have Done columns with the same problem —
+   three separate implementations is how the boards drifted apart before.
+
+   Per device, not synced: folding the Done column on a phone shouldn't
+   fold it on the desktop, and a view preference must never be able to
+   bump updatedAt and take part in a sync conflict. Same treatment as the
+   task view preference and the trash collapse. */
+const COLLAPSE_KEY = "lifeos-collapsed-cols";
+function collapsedCols() {
+  try { return new Set(JSON.parse(localStorage.getItem(COLLAPSE_KEY) || "[]")); }
+  catch (_) { return new Set(); }
+}
+export function isColCollapsed(board, key) { return collapsedCols().has(board + ":" + key); }
+export function toggleBoardCol(board, key) {
+  const set = collapsedCols();
+  const id = board + ":" + key;
+  if (set.has(id)) set.delete(id); else set.add(id);
+  try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...set])); } catch (_) {}
+  rerender();
+}
+
+/* The head becomes a button so it is keyboard reachable; the count stays
+   outside it so it reads as a label rather than part of the control. */
+export function boardColHeadHtml(board, key, label, count) {
+  const collapsed = isColCollapsed(board, key);
   return `
-    <div class="t-board-col" data-board-col="${key}">
-      <div class="t-board-col-head ${accentClass}">
-        <span class="t-board-col-title">${label}</span>
-        <span class="t-section-count">${tasks.length}</span>
-      </div>
+    <div class="t-board-col-head">
+      <button class="t-board-col-toggle" onclick="toggleBoardCol('${board}','${key}')"
+        aria-expanded="${!collapsed}" title="${collapsed ? "Show" : "Hide"} ${esc(label)}">
+        <span class="t-board-col-chev" aria-hidden="true">${collapsed ? "&#9656;" : "&#9662;"}</span>
+        <span class="t-board-col-title">${esc(label)}</span>
+      </button>
+      <span class="t-section-count t-board-col-count">${count}</span>
+    </div>`;
+}
+
+/* accentClass is gone: the per-column heading colours it carried were
+   dropped when the boards moved to the reference's white headings, so it
+   had become an argument that was passed and never used. */
+function boardColumnHtml(key, label, tasks) {
+  return `
+    <div class="t-board-col ${isColCollapsed("native", key) ? "t-col-collapsed" : ""}" data-board-col="${key}">
+      ${boardColHeadHtml("native", key, label, tasks.length)}
       <div class="t-board-col-body">
         ${tasks.length ? tasks.map(boardCardHtml).join("") : `<p class="hint" style="padding:10px 4px">Nothing here.</p>`}
       </div>
@@ -707,11 +746,11 @@ export function quickAddBoardTask(key) {
 }
 function renderBoardView(overdueGroup, todayGroup, upcomingGroup, noDateGroup, done) {
   return `<div class="t-board">
-    ${boardColumnHtml("overdue", "Overdue", overdueGroup, "t-board-overdue")}
-    ${boardColumnHtml("today", "Today", todayGroup, "t-board-today")}
-    ${boardColumnHtml("upcoming", "Upcoming", upcomingGroup, "")}
-    ${boardColumnHtml("nodate", "No Date", noDateGroup, "")}
-    ${boardColumnHtml("completed", "Completed", done, "")}
+    ${boardColumnHtml("overdue", "Overdue", overdueGroup)}
+    ${boardColumnHtml("today", "Today", todayGroup)}
+    ${boardColumnHtml("upcoming", "Upcoming", upcomingGroup)}
+    ${boardColumnHtml("nodate", "No Date", noDateGroup)}
+    ${boardColumnHtml("completed", "Completed", done)}
   </div>`;
 }
 
