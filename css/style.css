@@ -2763,3 +2763,46 @@ html[data-theme="dark"] :is(.card,.sidebar,.modal){
   /* Header controls wrap into a tidy grid instead of a ragged pile. */
   .top .btn,.top .pill{font-size:13px;padding:7px 11px}
 }
+
+/* ---------- Inline board composer ---------- */
+.composer{background:var(--t-card);border:1px solid var(--t-accent);border-radius:12px;
+  padding:10px;display:flex;flex-direction:column;gap:8px;
+  box-shadow:0 2px 6px rgba(16,18,22,.10),0 10px 24px -12px rgba(16,18,22,.22)}
+html[data-theme="dark"] .composer{box-shadow:0 2px 8px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.05)}
+
+/* The title is a textarea, not an input: task names here run long
+   (NGDR accession strings, full report titles) and a single-line field
+   that scrolls sideways hides what you already typed. */
+.composer-text{width:100%;border:none;background:transparent;resize:none;outline:none;
+  font-family:'Inter',sans-serif;font-size:13.5px;font-weight:500;color:var(--t-ink);
+  line-height:1.35;padding:2px}
+.composer-text::placeholder{color:var(--t-ink2)}
+
+.composer-chips{display:flex;flex-wrap:wrap;gap:5px;align-items:center}
+.composer-project{font-size:11px;font-weight:600;color:var(--t-ink2);
+  background:var(--t-bg);border:1px solid var(--t-border);border-radius:6px;padding:3px 7px}
+.composer-chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:600;
+  color:var(--t-ink2);background:none;border:1px solid var(--t-border);border-radius:6px;
+  padding:3px 7px;cursor:pointer;line-height:1.3}
+.composer-chip:hover{border-color:var(--t-accent);color:var(--t-ink)}
+.composer-chip.on{border-color:var(--t-accent);color:var(--t-accent);background:var(--t-bg)}
+.composer-chip:focus-visible{outline:2px solid var(--t-accent);outline-offset:1px}
+/* The native date input is kept but visually collapsed to its icon: it
+   supplies the platform picker (and the phone keyboard) without the wide
+   dd-mm-yyyy field that would dominate a 230px column. */
+.composer-chip-date{position:relative;overflow:hidden}
+.composer-chip-date input[type=date]{position:absolute;inset:0;opacity:0;width:100%;cursor:pointer}
+.composer-chip-date b{color:var(--t-accent);font-weight:700}
+
+.composer-link{width:100%;border:1px solid var(--t-border);border-radius:7px;background:var(--t-bg);
+  padding:5px 8px;font-size:11.5px;color:var(--t-ink);outline:none}
+.composer-link::placeholder{color:var(--t-ink2)}
+.composer-link:focus{border-color:var(--t-accent)}
+
+.composer-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.composer-hint{flex:1;min-width:100%;font-size:10.5px;color:var(--t-ink2);order:-1}
+.composer-actions .btn{padding:5px 11px;font-size:12.5px}
+@media(max-width:767px){
+  .composer-hint{display:none}   /* no physical Enter key to explain */
+  .composer-actions .btn{flex:1}
+}

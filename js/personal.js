@@ -21,6 +21,7 @@
    parallel project system into it would roughly double that surface
    area for a feature nobody's asked for yet. Easy to add later if so. */
 import { state, uid, esc, persist, rerender } from './state.js';
+import { isComposerOpen, composerHtml, openComposer } from './composer.js';
 import { toast, autoGrow } from './ui.js';
 import { moveToTrash } from './trash.js';
 import { markDragJustEnded } from './tasks.js';
@@ -218,7 +219,9 @@ function pwBoardColumnHtml(statusKey, label, tasks) {
       <div class="t-board-col-body">
         ${tasks.length ? tasks.map(pwBoardCardHtml).join("") : `<p class="hint" style="padding:10px 4px">Nothing here.</p>`}
       </div>
-      <button class="t-board-col-add" onclick="quickAddPwTask('${statusKey}')" title="Add a task to ${esc(label)}">+ Add task</button>
+      ${isComposerOpen("personal", statusKey)
+        ? composerHtml("personal", statusKey)
+        : `<button class="t-board-col-add" onclick="quickAddPwTask('${statusKey}')" title="Add a task to ${esc(label)}">+ Add task</button>`}
     </div>`;
 }
 function renderPwBoardView(tasks) {
@@ -246,11 +249,16 @@ function initPwBoardSorting() {
   document.querySelectorAll("#pwTaskList .t-board-col-body").forEach(container => {
     pwBoardSortables.push(Sortable.create(container, {
       group: "pw-board",
+      /* Only cards are draggable. Without this Sortable treats every child
+         of the column body as an item — including the "+ Add task" button
+         and, now, the open composer, which could be picked up and dropped
+         into another column mid-typing. */
+      draggable: ".t-board-card",
       /* Whole card is the drag target, matching GSI's board. filter lists
          the controls that must keep their own behaviour rather than
          starting a drag; preventOnFilter:false lets their click/change
          events through instead of swallowing them. */
-      filter: "button, input, select, textarea, a, .t-chk",
+      filter: "button, input, select, textarea, a, .t-chk, .composer",
       preventOnFilter: false,
       animation: 200,
       delay: 300, delayOnTouchOnly: true, touchStartThreshold: 5,
@@ -426,11 +434,11 @@ export function addPwTask() {
   activePwProject().tasks.push({ id: uid(), text: v, status: "todo", date: "", link: "", flag: false, googleEventId: null }); el.value = "";
   persist(); rerender();
 }
+/* Was a native prompt(): one line of plain text, no date, no link, no
+   priority, and a dialog that looks like a browser security warning.
+   Now the same inline composer the GSI board uses. */
 export function quickAddPwTask(statusKey) {
-  const v = prompt("Add a task:");
-  if (!v || !v.trim()) return;
-  activePwProject().tasks.push({ id: uid(), text: v.trim(), status: statusKey, date: "", link: "", flag: false, googleEventId: null });
-  persist(); rerender();
+  openComposer("personal", statusKey);
 }
 export function editPwProjectTask(id, field, v) {
   const { task: t } = findPwProjectTask(id); if (!t) return;

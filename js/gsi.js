@@ -1,6 +1,7 @@
 /* GSI Workspace: multi-project task tracker, daily work log, structured
    meeting minutes, GSI links, personal & work documents. */
 import { state, uid, esc, persist, rerender, todayKey } from './state.js';
+import { isComposerOpen, composerHtml, openComposer } from './composer.js';
 /* tasks.js already imports gsi.js, so this is a cycle — safe here because
    neither module touches the other's bindings while modules are being
    evaluated, only inside functions called later at runtime. */
@@ -313,7 +314,9 @@ function gsiBoardColumnHtml(statusKey, label, tasks) {
       <div class="t-board-col-body">
         ${tasks.length ? tasks.map(gsiBoardCardHtml).join("") : `<p class="hint" style="padding:10px 4px">Nothing here.</p>`}
       </div>
-      <button class="t-board-col-add" onclick="quickAddGsiTask('${statusKey}')" title="Add a task to ${esc(label)}">+ Add task</button>
+      ${isComposerOpen("gsi", statusKey)
+        ? composerHtml("gsi", statusKey)
+        : `<button class="t-board-col-add" onclick="quickAddGsiTask('${statusKey}')" title="Add a task to ${esc(label)}">+ Add task</button>`}
     </div>`;
 }
 function renderGsiBoardView(tasks) {
@@ -341,12 +344,17 @@ function initGsiBoardSorting() {
   document.querySelectorAll("#ngdrList .t-board-col-body").forEach(container => {
     gsiBoardSortables.push(Sortable.create(container, {
       group: "gsi-board",
+      /* Only cards are draggable. Without this Sortable treats every child
+         of the column body as an item — including the "+ Add task" button
+         and, now, the open composer, which could be picked up and dropped
+         into another column mid-typing. */
+      draggable: ".t-board-card",
       /* No handle: the whole card is draggable, which is what people
          expect of a Kanban card and what the ⠿ grip was getting in the
          way of. filter lists the controls that must keep their own
          behaviour instead of starting a drag; preventOnFilter:false lets
          their click/change events through rather than swallowing them. */
-      filter: "button, input, select, textarea, a, .t-chk",
+      filter: "button, input, select, textarea, a, .t-chk, .composer",
       preventOnFilter: false,
       animation: 200,
       delay: 300, delayOnTouchOnly: true, touchStartThreshold: 5,
@@ -526,17 +534,12 @@ export function addNgdr() {
   // same way one that gets a date later does (see editProjectTask).
   if (date && task.status !== "done") syncGsiTaskToGoogle(task, "create");
 }
-/* A column's "+ Add task" now aims the shared composer at that column
-   instead of opening a prompt() — a prompt can't offer a due date or a
-   link, and having two different add paths with different capabilities
-   was the inconsistency worth removing. */
+/* Opens the inline composer inside the column itself. This used to aim
+   the card's bottom add-bar at the column and scroll to it, which meant
+   clicking "+ Add task" carried you away from the column you were
+   looking at — on a tall board, far enough to lose your place. */
 export function quickAddGsiTask(statusKey) {
-  pendingAddStatus = statusKey;
-  renderGsiAddTarget();
-  const el = document.getElementById("newNgdr");
-  if (!el) return;
-  el.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  el.focus();
+  openComposer("gsi", statusKey);
 }
 export function editProjectTask(id, field, v) {
   const { task: t } = findProjectTask(id); if (!t) return;

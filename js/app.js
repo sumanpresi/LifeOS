@@ -10,6 +10,7 @@ import * as gsi from './gsi.js';
 import * as personal from './personal.js';
 import * as share from './share.js';
 import * as theme from './theme.js';
+import * as composer from './composer.js';
 import * as finance from './finance.js';
 import * as health from './health.js';
 import * as travel from './travel.js';
@@ -141,6 +142,11 @@ Object.assign(window,
     editPwDoc: personal.editPwDoc, addPwDoc: personal.addPwDoc, delPwDoc: personal.delPwDoc,
     editPwProjectDoc: personal.editPwProjectDoc, addPwProjectDoc: personal.addPwProjectDoc,
     delPwProjectDoc: personal.delPwProjectDoc },
+  { openComposer: composer.openComposer, closeComposer: composer.closeComposer,
+    composerSubmit: composer.composerSubmit, composerKey: composer.composerKey,
+    composerToggleFlag: composer.composerToggleFlag,
+    composerSetQuickDate: composer.composerSetQuickDate,
+    composerDateChanged: composer.composerDateChanged },
   { toggleTheme: theme.toggleTheme },
   { copyShareLink: share.copyShareLink, shareLinkViaSheet: share.shareLinkViaSheet,
     closeShareBoardDialog: share.closeShareBoardDialog },
