@@ -2979,11 +2979,17 @@ html[data-theme="dark"] :is(
    light because what sits on them is inherently dark. */
 
 /* Controls and small panels -> translucent surfaces. */
+/* :not(.on, .active) matters here. A blanket :is() rule carries higher
+   specificity than the plain `.dose-btn.on` / `.fin-month-tab.active`
+   state rules, so without this exclusion it repainted every SELECTED
+   control to look exactly like an unselected one — the medicine tracker
+   showed no marked doses at all. State rules must always outrank the
+   surface rule that styles their resting appearance. */
 html[data-theme="dark"] :is(
   .gsi-archive-btn, .gsi-add-opts-btn, .fin-month-tab, .fin-month-nav,
   .dose-btn, .cal-scribble-toggle, .wb-eraser-size-btn, .map-fullscreen-btn,
   .t-chk, .ql-lineheight-select, .wb-tab-name[contenteditable="true"]
-){
+):not(.on):not(.active){
   background:rgba(255,255,255,.07);
   border-color:rgba(255,255,255,.13);
   color:var(--ink);
@@ -3253,3 +3259,27 @@ html[data-theme="dark"] .t-archived-trigger .t-section-count{
 /* The board's own horizontal scroller keeps the columns aligned to the top
    so a long column doesn't stretch its neighbours' backgrounds. */
 .t-board{align-items:flex-start}
+
+/* ---------- Selected states, stated explicitly ----------
+   Given enough specificity to survive any surface rule above them. */
+html[data-theme="dark"] .dose-btn.on{
+  /* Green, not the theme accent. --accent is red in this theme and red
+     already means "overdue" on every board and date in the app — a red
+     "taken" marker would read as a warning. Green matches the completed
+     checkbox, so one colour means done throughout. */
+  background:#5B9E6E;border-color:#5B9E6E;color:#0F1A13;font-weight:800;
+}
+html[data-theme="dark"] .dose-btn{color:var(--muted)}
+html[data-theme="dark"] .dose-btn:hover:not(.on){border-color:#8E8B88;color:var(--ink)}
+html[data-theme="dark"] .dose-btn:disabled{opacity:.45}
+
+html[data-theme="dark"] :is(.fin-month-tab,.wb-eraser-size-btn,.cal-scribble-toggle).active,
+html[data-theme="dark"] :is(.fin-month-tab,.wb-eraser-size-btn,.cal-scribble-toggle).on{
+  background:var(--accent);border-color:var(--accent);color:#1A0F0E;font-weight:700;
+}
+
+/* The day column highlighted as "today" was a pale wash tuned for a light
+   grid; on this background it barely reads. */
+html[data-theme="dark"] :is(.med-today-col,.med-col.today,.dose-col.today){
+  background:rgba(255,255,255,.05);
+}
