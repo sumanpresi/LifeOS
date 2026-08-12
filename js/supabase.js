@@ -67,6 +67,45 @@ function reportOauthUrlError() {
   return true;
 }
 
+/* A leftover #access_token in the address bar is diagnostic gold.
+
+   Supabase's redirect delivers the session as a URL fragment, and
+   detectSessionInUrl consumes it and strips it from the address bar. So
+   if that fragment is STILL there, the sign-in itself worked perfectly —
+   GitHub authorised, Supabase issued a token — and the failure is
+   entirely local: the supabase-js library never ran to pick it up.
+
+   It also needs clearing on sight. A URL carrying a bearer token and a
+   refresh token is a credential: it sits in history, gets copied into
+   chat windows, and is enough for anyone holding it to read the account
+   until it expires. */
+function handleStrandedAuthFragment() {
+  const h = new URLSearchParams((location.hash || "").replace(/^#/, ""));
+  if (!h.get("access_token")) return false;
+  authDiag("found an unconsumed access_token in the URL — the library never processed it");
+
+  // Strip it immediately, whatever else happens next.
+  try {
+    history.replaceState(null, "", location.origin + location.pathname + location.search);
+  } catch (_) {}
+
+  const box = document.getElementById("ghErr");
+  if (box) {
+    openGhModal();
+    box.innerHTML =
+      "<b>Sign-in worked, but this page couldn't finish it.</b>" +
+      "<br><br>GitHub authorised you and Supabase issued a session — the address bar came back " +
+      "carrying it. But the Supabase library never loaded here, so nothing picked it up." +
+      "<br><br>That points at the library being blocked rather than anything wrong with your account: " +
+      "check any ad-blocker, script-blocker or strict privacy mode for <code>cdn.jsdelivr.net</code> " +
+      "on this site, then reload and sign in once more." +
+      "<br><br>The credentials have been cleared from the address bar. If you copied that URL anywhere, " +
+      "treat it as a password and sign out of GitHub&rsquo;s authorised apps to invalidate it.";
+    box.style.display = "block";
+  }
+  return true;
+}
+
 /* Sign-in bounced you back but you're still signed out. Without this the
    app looks exactly as it did before you clicked — which invites clicking
    again, and repeated authorization attempts are what make GitHub show
@@ -660,18 +699,22 @@ function trySetupClient() {
      line of our code changing. Pinning the behaviour here means a
      sign-in that works today still works after the library moves.
 
-     flowType "pkce" stores a code verifier in localStorage when sign-in
-     starts and reads it back on return. That is worth knowing when
-     debugging: if the redirect comes back to a DIFFERENT origin than the
-     one sign-in began on, the verifier isn't there and the session fails
-     silently — which is the single most common cause of "it redirects,
-     then I'm still signed out". */
+     detectSessionInUrl is what consumes the #access_token fragment that
+     Supabase sends back and turns it into a stored session. If that
+     fragment is still sitting in the address bar after a sign-in, this
+     never ran — which almost always means the library itself failed to
+     load, not that the sign-in failed. */
   sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
-      flowType: "pkce",
+      /* "implicit", not "pkce". This project's Supabase returns tokens in
+         the URL fragment (#access_token=...), which is the implicit flow —
+         switching the client to PKCE would make it request a ?code= that
+         the project isn't set up to return. Matching what the backend
+         actually does is the safe default here. */
+      flowType: "implicit",
       storageKey: "lifeos-auth"
     }
   });
@@ -705,6 +748,10 @@ export function initSupabase() {
   });
   if (!configured()) { setSyncPill("", "Local only · set up sync"); return; }
   reportOauthUrlError();
+  /* Only meaningful if the library genuinely isn't here — when it IS
+     present, detectSessionInUrl consumes the fragment itself and this
+     would race it. */
+  if (!window.supabase) handleStrandedAuthFragment();
   checkReturnedWithoutSession();
   if (!storageWritable()) {
     authDiag("localStorage is BLOCKED in this browser — a session can't be saved, so sign-in will not stick. Turn off Private Browsing / allow cookies & site data for this site.");
