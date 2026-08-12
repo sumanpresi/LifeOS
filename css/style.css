@@ -2909,3 +2909,109 @@ html[data-theme="dark"] :is(input,textarea,select):not(
   -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
   border-color:var(--glass-border);
 }
+
+/* ============================================================
+   DARK THEME — list view (GSI and Personal task lists)
+   ============================================================
+   The list-view row is `background:#fff` as a literal, while its title
+   uses `color:var(--ink)`. In dark mode that is #EDE9E0 on white: a
+   1.21:1 contrast ratio, i.e. invisible. Everything inside the row was
+   in the same position — dates at 2.90:1, links at 2.10:1.
+
+   Board view escaped this because it reads --t-card; the list view
+   predates those tokens and paints its own surface. Rather than rewrite
+   the base rules and risk the light theme, the surfaces and their
+   contents are restated here for dark. */
+html[data-theme="dark"]{
+  --gsi-row:rgba(255,255,255,.055);
+  --gsi-row-line:rgba(255,255,255,.10);
+  --gsi-field:rgba(255,255,255,.06);
+}
+html[data-theme="dark"] .gsi-card{
+  background:var(--gsi-row);
+  border-color:var(--gsi-row-line);
+  box-shadow:0 1px 2px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.04);
+}
+html[data-theme="dark"] .gsi-card:hover{
+  box-shadow:0 6px 18px -6px rgba(0,0,0,.55),inset 0 1px 0 rgba(255,255,255,.06);
+}
+/* .62 opacity on a dark row drops completed text below readable. */
+html[data-theme="dark"] .gsi-card.done{opacity:.75}
+
+/* Checkbox: white fill and a pale grey rim both disappear here. */
+html[data-theme="dark"] .gsi-chk{background:transparent;border-color:rgba(255,255,255,.30)}
+html[data-theme="dark"] .gsi-chk.on{background:#3F9E62;border-color:#3F9E62}
+html[data-theme="dark"] .gsi-chk svg{stroke:#0F1A13}
+
+/* Controls that painted themselves white. */
+html[data-theme="dark"] :is(.gsi-project-sel,.gsi-sort-sel,.gsi-add-row input){
+  background:var(--gsi-field);
+  border-color:var(--gsi-row-line);
+  color:var(--ink);
+}
+html[data-theme="dark"] .gsi-add-row input:focus{
+  border-color:var(--accent);box-shadow:0 0 0 3px rgba(143,168,130,.20);
+}
+html[data-theme="dark"] .gsi-add-btn{background:var(--accent);color:#12180F}
+html[data-theme="dark"] .gsi-add-btn:hover{background:var(--accent-ink)}
+
+/* Status pills were pastel-on-pastel, tuned for a white row. Each keeps
+   its hue but inverts: a dark tinted chip with a light label. */
+html[data-theme="dark"] .gsi-status-sel.s-todo{background:rgba(255,255,255,.09);color:#C8C3B6;border-color:rgba(255,255,255,.14)}
+html[data-theme="dark"] .gsi-status-sel.s-progress{background:rgba(96,150,235,.20);color:#A9C8F5;border-color:rgba(96,150,235,.36)}
+html[data-theme="dark"] .gsi-status-sel.s-blocked{background:rgba(226,124,66,.20);color:#F0B58A;border-color:rgba(226,124,66,.38)}
+html[data-theme="dark"] .gsi-status-sel.s-done{background:rgba(90,180,120,.18);color:#95D6AC;border-color:rgba(90,180,120,.34)}
+
+/* Secondary text inside a list row needs to be lighter than --muted.
+   The row is a translucent white wash over an already-light frosted card,
+   so it sits higher in value than a normal card surface — --muted lands
+   at 4.19:1 there, just under AA. */
+html[data-theme="dark"] :is(
+  .gsi-card .gsi-date-display, .gsi-card .gsi-add-date,
+  .gsi-card .gsi-link-edit-btn, .gsi-card .gsi-del, .gsi-card .hint
+){ color:#ABA492 }
+
+/* ---------- Dark theme: remaining literal-white surfaces ----------
+   Everything below was written as `background:#fff` before a dark theme
+   existed. Each becomes a white panel carrying near-white text once the
+   palette flips. Grouped by what they are, because the right answer
+   differs: most should become translucent surfaces, a few must stay
+   light because what sits on them is inherently dark. */
+
+/* Controls and small panels -> translucent surfaces. */
+html[data-theme="dark"] :is(
+  .gsi-archive-btn, .gsi-add-opts-btn, .fin-month-tab, .fin-month-nav,
+  .dose-btn, .cal-scribble-toggle, .wb-eraser-size-btn, .map-fullscreen-btn,
+  .t-chk, .ql-lineheight-select, .wb-tab-name[contenteditable="true"]
+){
+  background:rgba(255,255,255,.07);
+  border-color:rgba(255,255,255,.13);
+  color:var(--ink);
+}
+html[data-theme="dark"] :is(.expand-btn:hover, .mm-grammar-btn:hover, .t-archived-trigger:hover){
+  background:rgba(255,255,255,.11);
+}
+
+/* Floating panels sit above other content, so they need to be opaque
+   enough to read against whatever they cover. */
+html[data-theme="dark"] :is(.date-popover, .freehand-toolbar, .wb-sfmt-color-pop, .grammar-item){
+  background:var(--glass-bg-strong);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  border-color:var(--glass-border);
+  color:var(--ink);
+}
+
+/* The Meeting-minutes rich editor is a writing surface — treat it like
+   the note editors, which are already handled. */
+html[data-theme="dark"] .mm-rich-editor{
+  background:rgba(255,255,255,.05);border-color:rgba(255,255,255,.12);color:var(--ink);
+}
+
+/* Deliberately NOT flipped: drawing canvases and sticky notes.
+   Strokes are stored with explicit colours and sticky notes carry their
+   own saved fill, so a dark canvas would hide every black stroke ever
+   drawn and dark-on-dark note text. These stay light in both themes,
+   consistent with the earlier whiteboard decision.
+     .whiteboard-canvas, .scribble-canvas, .wb-sticky-node
+   The .t-section-count inside .t-archived-trigger and the .jcal-cell
+   marker dot are small light-on-dark accents that read correctly as-is. */
