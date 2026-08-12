@@ -2650,15 +2650,17 @@ html[data-theme="dark"] .nav-item[data-page="personal"].active{
 /* The lit top edge. Real glass catches light along its upper rim, and
    this one detail does more for the illusion than extra transparency —
    it is what stops a translucent panel reading as merely faded. */
-/* isolation:isolate is deliberately NOT on .card. It would create a
-   stacking context that traps any position:fixed descendant inside the
-   card's bounds — and the whiteboard's fallback fullscreen mode
-   (.wb-fallback-fullscreen, position:fixed inset:0) lives inside a card.
-   Isolating would have silently confined "fullscreen" to a card-sized
-   box. The sheen below uses z-index:-1 without it; the panel's own
-   background still paints above the negative layer because .card
-   establishes a paint context via its own background and border-radius. */
-.card, .sidebar, .modal, .search-panel{position:relative}
+/* The sheen is a background layer, so nothing here needs positioning —
+   and .sidebar must NOT be listed.
+
+   It was, briefly, as `.card, .sidebar, .modal, .search-panel{position:relative}`.
+   Media queries carry no extra specificity, so that plain rule sitting
+   later in the file silently beat the mobile breakpoint's
+   `.sidebar{position:fixed; transform:translateX(-100%)}`. The sidebar
+   stopped being off-canvas, stayed in the flex flow, and ate 232px of a
+   phone screen — leaving the page squeezed into a sliver and overflowing
+   off the right edge. A late blanket rule is an easy way to break a
+   responsive layout from a long way away. */
 /* ::before, not ::after, and z-index:-1 — the sheen has to sit BETWEEN
    the panel's background and its content. As an ::after with no z-index
    it painted on top of the text, washing every card out. `isolation:isolate`
@@ -2716,4 +2718,24 @@ html[data-theme="dark"] :is(.card,.sidebar,.modal){
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
   :root{--glass-bg:var(--card); --glass-bg-strong:var(--card)}
   html[data-theme="dark"]{--glass-bg:var(--card); --glass-bg-strong:var(--card)}
+}
+
+/* ---------- Mobile: keep the layout honest ----------
+   A safety net, not a fix for any one element. Horizontal overflow on a
+   phone is uniquely nasty: the page slides sideways under a fixed
+   background, so content appears shoved off to one side and the cause is
+   never where the symptom is. Clamping the root prevents the whole class
+   of problem regardless of which child misbehaves. */
+@media (max-width:767px){
+  html,body{max-width:100%;overflow-x:hidden}
+  .shell{max-width:100%}
+  .main{min-width:0;max-width:100%}
+  /* Wide children scroll inside themselves rather than stretching the page. */
+  .emi-table-wrap,.t-board,.wb-canvas-area,.t-cal-grid{max-width:100%;overflow-x:auto}
+  /* The greeting is a display serif at a size tuned for desktop; at phone
+     widths it wraps to three lines and pushes everything down. */
+  .greet h1{font-size:23px;line-height:1.15}
+  .top{padding:14px;gap:12px}
+  /* Header controls wrap into a tidy grid instead of a ragged pile. */
+  .top .btn,.top .pill{font-size:13px;padding:7px 11px}
 }
