@@ -67,6 +67,48 @@ function reportOauthUrlError() {
   return true;
 }
 
+/* Sign-in bounced you back but you're still signed out. Without this the
+   app looks exactly as it did before you clicked — which invites clicking
+   again, and repeated authorization attempts are what make GitHub show
+   "Reauthorization required / unusually high number of requests". Explain
+   it once, and clear the marker so it says so only after a real attempt. */
+function checkReturnedWithoutSession() {
+  let started = null;
+  try { started = sessionStorage.getItem("lifeos-signin-started"); } catch (_) { return; }
+  if (!started) return;
+  // Only meaningful for a few minutes; a stale marker shouldn't nag.
+  if (Date.now() - Number(started) > 5 * 60 * 1000) {
+    try { sessionStorage.removeItem("lifeos-signin-started"); } catch (_) {}
+    return;
+  }
+  setTimeout(async () => {
+    // initSupabase() can run before the CDN script has finished, so the
+    // client may not exist yet. No client means no verdict — leave the
+    // marker in place and let a later pass decide.
+    if (!sb) return;
+    try {
+      const { data } = await sb.auth.getSession();
+      if (data?.session) { try { sessionStorage.removeItem("lifeos-signin-started"); } catch (_) {} return; }
+    } catch (_) {}
+    try { sessionStorage.removeItem("lifeos-signin-started"); } catch (_) {}
+    const box = document.getElementById("ghErr");
+    if (!box) return;
+    const here = location.origin + location.pathname;
+    authDiag("returned from sign-in with no session at " + here);
+    openGhModal();
+    box.innerHTML =
+      "You came back from GitHub, but no session was created — so you're still signed out." +
+      "<br><br><b>Check these two, in order:</b>" +
+      "<br>1. In Supabase &rarr; <b>Authentication &rarr; URL Configuration</b>, is <code>" + esc(here) +
+      "</code> listed under <b>Redirect URLs</b>? If Supabase sent you back to a different address than the one " +
+      "you started from, the sign-in cannot complete." +
+      "<br>2. On the GitHub screen, was the green <b>Authorize</b> button actually clicked? " +
+      "GitHub sometimes asks again and simply returns you here if it isn't." +
+      "<br><br>Please don't retry repeatedly &mdash; GitHub temporarily blocks apps that ask too often.";
+    box.style.display = "block";
+  }, 1500); // give detectSessionInUrl time to finish
+}
+
 export async function getAccessToken() {
   if (!sb) return null;
   try { const { data } = await sb.auth.getSession(); return data?.session?.access_token || null; }
@@ -129,6 +171,11 @@ export async function signIn() {
   try {
     const back = location.origin + location.pathname;
     authDiag("starting GitHub sign-in, will return to: " + back);
+    /* Remember that a sign-in was actually attempted from this page, so
+       the code that runs after the redirect can tell "came back from
+       GitHub with no session" (a real failure worth explaining) apart
+       from "just opened the app signed out" (completely normal). */
+    try { sessionStorage.setItem("lifeos-signin-started", String(Date.now())); } catch (_) {}
     /* signInWithOAuth RESOLVES with { data, error } — it does not throw.
        The error was previously only handled by the catch below, which
        therefore never ran: a rejected provider, a redirect URL missing
@@ -606,7 +653,28 @@ function stopRealtime() {
 /* ---------- init ---------- */
 function trySetupClient() {
   if (sb || !window.supabase) return; // already set up, or the library genuinely isn't available yet
-  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  /* Auth options are set explicitly rather than left to defaults. The CDN
+     tag loads "@supabase/supabase-js@2", which floats to the latest v2 —
+     so the default flow type, storage key and URL-detection behaviour can
+     change under this app between one page load and the next, without a
+     line of our code changing. Pinning the behaviour here means a
+     sign-in that works today still works after the library moves.
+
+     flowType "pkce" stores a code verifier in localStorage when sign-in
+     starts and reads it back on return. That is worth knowing when
+     debugging: if the redirect comes back to a DIFFERENT origin than the
+     one sign-in began on, the verifier isn't there and the session fails
+     silently — which is the single most common cause of "it redirects,
+     then I'm still signed out". */
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: "pkce",
+      storageKey: "lifeos-auth"
+    }
+  });
   setRemoteSaver(saveRemote);
   sb.auth.onAuthStateChange((event, session) => {
     user = session ? session.user : null;
@@ -637,6 +705,7 @@ export function initSupabase() {
   });
   if (!configured()) { setSyncPill("", "Local only · set up sync"); return; }
   reportOauthUrlError();
+  checkReturnedWithoutSession();
   if (!storageWritable()) {
     authDiag("localStorage is BLOCKED in this browser — a session can't be saved, so sign-in will not stick. Turn off Private Browsing / allow cookies & site data for this site.");
     setSyncPill("err", "Browser storage blocked");
@@ -663,7 +732,11 @@ export function initSupabase() {
   const retry = setInterval(() => {
     attempts++;
     trySetupClient();
-    if (sb) { clearInterval(retry); setSyncPill("", "Local only"); finishSetup(); }
+    if (sb) {
+      clearInterval(retry); setSyncPill("", "Local only"); finishSetup();
+      // The first attempt may have run before the client existed.
+      checkReturnedWithoutSession();
+    }
     else if (attempts >= 6) { clearInterval(retry); setSyncPill("err", "Couldn't load Supabase library"); }
   }, 500);
 }

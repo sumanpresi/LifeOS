@@ -7,7 +7,10 @@
 <!-- defer: these no longer block parsing or first paint. Execution order
      is still document order, so app.js (a module, deferred by default)
      still runs after all of them. -->
-<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Pinned to a specific minor. "@2" floats to whatever the latest v2 is,
+     which means the auth flow can change between two loads of the same
+     deployed build — a genuinely hard class of bug to diagnose. -->
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <meta name="theme-color" content="#F3EEE4">
 <!-- Deliberately inline and blocking, before any stylesheet. If the theme
      were applied from a module it would run after first paint, so a dark-mode
