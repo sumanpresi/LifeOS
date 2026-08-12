@@ -8,6 +8,26 @@
      is still document order, so app.js (a module, deferred by default)
      still runs after all of them. -->
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<meta name="theme-color" content="#F3EEE4">
+<!-- Deliberately inline and blocking, before any stylesheet. If the theme
+     were applied from a module it would run after first paint, so a dark-mode
+     user would get a full-brightness flash of cream on every single load.
+     This is the one case where a blocking script in <head> is correct. -->
+<script>
+  (function () {
+    try {
+      var v = localStorage.getItem("lifeos-theme");
+      if (v !== "light" && v !== "dark") {
+        v = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+      }
+      document.documentElement.setAttribute("data-theme", v);
+      if (v === "dark") {
+        var m = document.querySelector('meta[name="theme-color"]');
+        if (m) m.setAttribute("content", "#1A1917");
+      }
+    } catch (e) { /* private browsing — fall through to light */ }
+  })();
+</script>
 <link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet">
 <script defer src="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/sortablejs@1/Sortable.min.js"></script>
@@ -78,6 +98,9 @@
         <button class="pill" onclick="openSearch()" title="Search everything">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
           Search <span class="kbd">Ctrl K</span>
+        </button>
+        <button class="pill theme-toggle" id="themeToggle" onclick="toggleTheme()" aria-pressed="false" title="Switch to dark theme">
+          <span class="theme-icon" aria-hidden="true">&#9790;</span><span class="theme-label">Dark</span>
         </button>
         <span class="pill dot" id="syncPill">Local only</span>
         <button class="btn btn-ghost" onclick="syncNow()" id="syncBtn" title="Sync with GitHub">

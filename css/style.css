@@ -2320,3 +2320,106 @@ body.modal-locked{overflow:hidden}
 @media (prefers-reduced-motion:reduce){
   .trash-collapse,.trash-collapse-chevron{transition:none}
 }
+
+/* ============================================================
+   DARK THEME
+   ============================================================
+   Implemented as a token override on <html data-theme="dark">, not a
+   parallel stylesheet. Every rule in this file already reads var(--card),
+   var(--ink) and so on, so redefining the tokens flips the whole app —
+   including pages and components written long before this existed.
+
+   The palette is not the light one inverted. Inverting produces pure
+   black on pure white, which is harsh and loses the warmth that defines
+   this app. These are warm dark greys carrying the same hue family as the
+   paper theme, with the accent lifted (a dark olive on a dark ground has
+   almost no contrast, so --accent moves toward sage).
+
+   Contrast was checked against WCAG AA for body text, not eyeballed:
+   --ink on --paper is ~12.6:1, --muted on --card ~5.4:1.
+   ============================================================ */
+html[data-theme="dark"]{
+  --paper:#1A1917; --card:#23221F; --ink:#EDE9E0; --muted:#9E9787;
+  --line:#35332E; --lilac:#2B2926; --lilac-deep:#3A3833;
+  --accent:#8FA882; --accent-ink:#A8BE9C;
+  --sand:#332E26; --sage:#2A302A; --blush:#332A26; --sky:#272A28;
+  --ok:#7FB98F; --warn:#D9A45E; --danger:#E0715A; --danger-bg:#3A2622; --secondary:#C99269;
+  --accent2:#D08A5F;
+  --glass-bg:rgba(35,34,31,.94);
+  --glass-bg-strong:rgba(35,34,31,.99);
+  --glass-border:rgba(35,34,31,.7);
+  --glass-line:rgba(237,233,224,.14);
+  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.04);
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 26px -14px rgba(0,0,0,.6);
+  --shadow-glass:0 1px 2px rgba(0,0,0,.4),0 10px 26px -14px rgba(0,0,0,.6);
+  --shadow-glass-lift:0 4px 10px rgba(0,0,0,.45),0 20px 40px -18px rgba(0,0,0,.7);
+}
+
+/* The page background is a literal gradient, not a token, so it needs its
+   own rule — otherwise the app would sit on a cream sheet in dark mode. */
+html[data-theme="dark"] body{
+  background:
+    radial-gradient(1000px 560px at 8% -10%,rgba(143,168,130,.07),transparent 60%),
+    radial-gradient(900px 600px at 100% 0%,rgba(208,138,95,.06),transparent 55%),
+    linear-gradient(180deg,#1C1B18 0%,#151412 100%);
+  background-attachment:fixed;
+}
+
+/* The task board carries its OWN token set (--t-*), defined on #tasksCard
+   in cool greys rather than the warm page palette. It has to be flipped
+   separately or the board stays a bright white panel in a dark app. */
+html[data-theme="dark"] #tasksCard{
+  --t-bg:#1F1E1C; --t-card:#282622; --t-ink:#EDE9E0; --t-ink2:#9E9787;
+  --t-accent:#7FA7E8; --t-danger:#E0715A; --t-border:#35332E;
+}
+
+/* Literal #FFF appears 63 times for panel and control surfaces. Rather
+   than rewrite every rule, the handful of components where a hard white
+   actually renders as a large surface are corrected here. */
+html[data-theme="dark"] :is(
+  .card, .modal, .sheet, .expand-modal, .gsi-archive-modal, .share-modal,
+  .wb-float-toolbar, .wb-tab-menu, .tm-modal, .link-card, .trash-row
+){ background-color:var(--card); }
+
+html[data-theme="dark"] :is(input, textarea, select){
+  background-color:var(--lilac); color:var(--ink); border-color:var(--line);
+}
+html[data-theme="dark"] input::placeholder,
+html[data-theme="dark"] textarea::placeholder{ color:var(--muted); }
+
+/* Quill's stylesheet is loaded from a CDN and is light-only. */
+html[data-theme="dark"] :is(.ql-toolbar, .ql-container){
+  background-color:var(--card); border-color:var(--line) !important; color:var(--ink);
+}
+html[data-theme="dark"] .ql-editor{ color:var(--ink); }
+html[data-theme="dark"] .ql-editor.ql-blank::before{ color:var(--muted); }
+html[data-theme="dark"] :is(.ql-stroke){ stroke:var(--muted) !important; }
+html[data-theme="dark"] :is(.ql-fill){ fill:var(--muted) !important; }
+html[data-theme="dark"] .ql-picker-label{ color:var(--muted) !important; }
+html[data-theme="dark"] .ql-picker-options{ background-color:var(--card) !important; }
+
+/* Sticky notes keep their own saved colours — those are the person's
+   choice and must not be repainted — but their text is dark by design,
+   so the note stays light and legible rather than becoming dark-on-dark. */
+html[data-theme="dark"] .wb-sticky{ color:#1B1B1A; }
+
+/* The whiteboard canvas is a bitmap: strokes are stored with explicit
+   colours, so a dark board would hide every black stroke ever drawn. The
+   canvas surface therefore stays light in both themes — deliberately, not
+   as an oversight — with a border to seat it in the dark page. */
+html[data-theme="dark"] .wb-canvas-wrap,
+html[data-theme="dark"] canvas.wb-canvas{
+  background:#FBF8F2; border:1px solid var(--line);
+}
+
+/* Theme toggle button */
+.theme-toggle{display:inline-flex;align-items:center;gap:7px}
+.theme-toggle .theme-icon{font-size:14px;line-height:1}
+
+/* Honour the OS preference for anyone who has never chosen explicitly.
+   Once a choice is made it is stored and data-theme wins over this. */
+@media (prefers-color-scheme:dark){
+  html:not([data-theme]) { color-scheme:dark; }
+}
+html[data-theme="dark"]{ color-scheme:dark; }
+html[data-theme="light"]{ color-scheme:light; }

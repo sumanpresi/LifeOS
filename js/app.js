@@ -9,6 +9,7 @@ import * as sections from './sections.js';
 import * as gsi from './gsi.js';
 import * as personal from './personal.js';
 import * as share from './share.js';
+import * as theme from './theme.js';
 import * as finance from './finance.js';
 import * as health from './health.js';
 import * as travel from './travel.js';
@@ -140,6 +141,7 @@ Object.assign(window,
     editPwDoc: personal.editPwDoc, addPwDoc: personal.addPwDoc, delPwDoc: personal.delPwDoc,
     editPwProjectDoc: personal.editPwProjectDoc, addPwProjectDoc: personal.addPwProjectDoc,
     delPwProjectDoc: personal.delPwProjectDoc },
+  { toggleTheme: theme.toggleTheme },
   { copyShareLink: share.copyShareLink, shareLinkViaSheet: share.shareLinkViaSheet,
     closeShareBoardDialog: share.closeShareBoardDialog },
   { saveFinanceNotes: finance.saveFinanceNotes, addFinanceLink: finance.addFinanceLink, delFinanceLink: finance.delFinanceLink,
@@ -247,6 +249,10 @@ initNgdrTrackerBridge();
 cloud.initSupabase();
 backup.backupReminderIfDue();
 // A page loaded with ?task=… reopens that task's detail view.
+/* The pre-paint script in index.html already set data-theme. This
+   re-applies it (so the toggle button's icon/label match), and attaches
+   the OS-preference listener that only a module can hold. */
+theme.initTheme();
 taskModal.syncModalFromUrl();
 // A page loaded with ?board=… opens that board, once the account it
 // belongs to has finished loading. Wired with callbacks rather than
