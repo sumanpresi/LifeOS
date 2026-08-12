@@ -157,24 +157,30 @@ export const configured = () =>
   SUPABASE_URL.startsWith("https://") && SUPABASE_ANON_KEY.length > 20;
 
 /* ---------- modal ---------- */
+/* Same defensive treatment as renderIdentity: a missing element in the
+   markup must not throw and take the sign-in flow down with it. */
+const el = id => document.getElementById(id);
+const show = (id, v) => { const n = el(id); if (n) n.style.display = v; };
+
 export function openGhModal() {
-  document.getElementById("ghModal").classList.add("open");
-  document.getElementById("ghErr").style.display = "none";
-  const diagEl = document.getElementById("ghDiag");
+  el("ghModal")?.classList.add("open");
+  show("ghErr", "none");
+  const diagEl = el("ghDiag");
   if (diagEl && authLog.length) { diagEl.textContent = authLog.join("\n"); diagEl.style.display = "block"; }
-  document.getElementById("ghModalSetup").style.display = configured() ? "none" : "block";
-  document.getElementById("ghModalSignin").style.display = (configured() && !user) ? "block" : "none";
-  document.getElementById("ghModalAccount").style.display = user ? "block" : "none";
-  document.getElementById("signInBtn").style.display = (configured() && !user) ? "" : "none";
-  document.getElementById("signOutBtn").style.display = user ? "" : "none";
+  show("ghModalSetup", configured() ? "none" : "block");
+  show("ghModalSignin", (configured() && !user) ? "block" : "none");
+  show("ghModalAccount", user ? "block" : "none");
+  show("signInBtn", (configured() && !user) ? "" : "none");
+  show("signOutBtn", user ? "" : "none");
   if (user) {
     const m = user.user_metadata || {};
-    document.getElementById("accountInfo").innerHTML =
+    const info = el("accountInfo");
+    if (info) info.innerHTML =
       "Signed in as <b>" + esc(m.full_name || m.user_name || user.email || "you") + "</b>" +
       (m.user_name ? " (@" + esc(m.user_name) + ")" : "");
   }
 }
-export function closeGhModal() { document.getElementById("ghModal").classList.remove("open"); }
+export function closeGhModal() { el("ghModal")?.classList.remove("open"); }
 
 /* header button: sign in directly when possible, otherwise open the modal */
 export function ghButton() {
@@ -261,19 +267,30 @@ export async function signOut() {
   toast("Signed out — data stays safe in the cloud");
 }
 
+/* Every element is optional here, deliberately.
+
+   renderIdentity() is the FIRST thing initSupabase() calls. When the
+   sidebar's #ghChip was accidentally removed from index.html, this threw
+   a TypeError on chip.innerHTML — which aborted initSupabase() before the
+   Supabase client was ever created. The visible result was an app stuck
+   on "Local only" with a sign-in button that did nothing, and a valid
+   session left stranded in the URL, none of which points anywhere near a
+   missing <div>. A rendering helper must never be able to take down
+   authentication. */
 function renderIdentity() {
   const chip = document.getElementById("ghChip");
   const btnT = document.getElementById("ghBtnText");
+  if (!chip && !btnT) { authDiag("identity elements missing from the page — skipping identity render"); return; }
   if (user) {
     const m = user.user_metadata || {};
-    chip.innerHTML = (m.avatar_url ? '<img src="' + esc(m.avatar_url) + '" alt="">' : GH_SVG) +
+    if (chip) chip.innerHTML = (m.avatar_url ? '<img src="' + esc(m.avatar_url) + '" alt="">' : GH_SVG) +
       '<span><span class="gh-name">' + esc(m.full_name || m.user_name || "Signed in") + '</span><br>' +
       '<span class="gh-sub">@' + esc(m.user_name || "github") + ' · synced</span></span>';
-    btnT.textContent = "@" + (m.user_name || "account");
+    if (btnT) btnT.textContent = "@" + (m.user_name || "account");
   } else {
-    chip.innerHTML = GH_SVG +
+    if (chip) chip.innerHTML = GH_SVG +
       '<span><span class="gh-name">Sign in with GitHub</span><br><span class="gh-sub">Sync across devices</span></span>';
-    btnT.textContent = "GitHub Login";
+    if (btnT) btnT.textContent = "GitHub Login";
   }
 }
 
@@ -690,33 +707,54 @@ function stopRealtime() {
 }
 
 /* ---------- init ---------- */
+/* jsDelivr is not the only way to get the library, and it is the single
+   point of failure that strands a perfectly good sign-in: Supabase hands
+   back a valid session in the URL, and with no library there is nothing
+   to catch it. Ad-blockers, corporate DNS filtering and campus networks
+   all block individual CDN hosts routinely — GSI's network is exactly the
+   sort of place that happens.
+
+   So if the primary tag hasn't produced window.supabase, try the same
+   package from other hosts before declaring failure. Each attempt is a
+   fresh <script> tag; the first that defines window.supabase wins. */
+const LIB_FALLBACKS = [
+  "https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js",
+  "https://cdn.skypack.dev/pin/@supabase/supabase-js@v2.45.4/mode=raw/dist/umd/supabase.js"
+];
+let fallbackIndex = 0;
+let fallbackPending = false;
+
+function tryNextLibrarySource() {
+  if (window.supabase || fallbackPending) return;
+  if (fallbackIndex >= LIB_FALLBACKS.length) return;
+  const url = LIB_FALLBACKS[fallbackIndex++];
+  fallbackPending = true;
+  authDiag("primary CDN didn't provide the library — trying " + new URL(url).host);
+  const tag = document.createElement("script");
+  tag.src = url;
+  tag.async = true;
+  tag.onload = () => {
+    fallbackPending = false;
+    authDiag("loaded the library from " + new URL(url).host);
+    trySetupClient();
+  };
+  tag.onerror = () => {
+    fallbackPending = false;
+    authDiag("blocked or unreachable: " + new URL(url).host);
+    tryNextLibrarySource();
+  };
+  document.head.appendChild(tag);
+}
+
 function trySetupClient() {
   if (sb || !window.supabase) return; // already set up, or the library genuinely isn't available yet
-  /* Auth options are set explicitly rather than left to defaults. The CDN
-     tag loads "@supabase/supabase-js@2", which floats to the latest v2 —
-     so the default flow type, storage key and URL-detection behaviour can
-     change under this app between one page load and the next, without a
-     line of our code changing. Pinning the behaviour here means a
-     sign-in that works today still works after the library moves.
-
-     detectSessionInUrl is what consumes the #access_token fragment that
-     Supabase sends back and turns it into a stored session. If that
-     fragment is still sitting in the address bar after a sign-in, this
-     never ran — which almost always means the library itself failed to
-     load, not that the sign-in failed. */
+  /* Options left at supabase-js defaults, matching the build that was
+     working. flowType and storageKey were briefly forced here while
+     debugging a sign-in failure; that failure turned out to be a missing
+     DOM element (see renderIdentity below), and forcing the flow risked
+     mismatching whatever this project is actually configured for. */
   sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-      /* "implicit", not "pkce". This project's Supabase returns tokens in
-         the URL fragment (#access_token=...), which is the implicit flow —
-         switching the client to PKCE would make it request a ?code= that
-         the project isn't set up to return. Matching what the backend
-         actually does is the safe default here. */
-      flowType: "implicit",
-      storageKey: "lifeos-auth"
-    }
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
   });
   setRemoteSaver(saveRemote);
   sb.auth.onAuthStateChange((event, session) => {
@@ -743,15 +781,18 @@ function trySetupClient() {
 }
 export function initSupabase() {
   renderIdentity();
-  document.getElementById("ghModal").addEventListener("click", e => {
+  const ghModalEl = document.getElementById("ghModal");
+  if (ghModalEl) ghModalEl.addEventListener("click", e => {
     if (e.target.id === "ghModal") closeGhModal();
   });
   if (!configured()) { setSyncPill("", "Local only · set up sync"); return; }
   reportOauthUrlError();
-  /* Only meaningful if the library genuinely isn't here — when it IS
-     present, detectSessionInUrl consumes the fragment itself and this
-     would race it. */
-  if (!window.supabase) handleStrandedAuthFragment();
+  /* Deliberately NOT stripping a stranded #access_token here. The library
+     may simply be arriving late — from the primary tag or from a fallback
+     host — and detectSessionInUrl needs that fragment intact to complete
+     the sign-in. Clearing it early would throw away a perfectly valid
+     session to tidy the address bar. It is only cleared once every source
+     has failed, in the give-up branch below. */
   checkReturnedWithoutSession();
   if (!storageWritable()) {
     authDiag("localStorage is BLOCKED in this browser — a session can't be saved, so sign-in will not stick. Turn off Private Browsing / allow cookies & site data for this site.");
@@ -784,6 +825,25 @@ export function initSupabase() {
       // The first attempt may have run before the client existed.
       checkReturnedWithoutSession();
     }
-    else if (attempts >= 6) { clearInterval(retry); setSyncPill("err", "Couldn't load Supabase library"); }
+    else if (attempts === 2) { tryNextLibrarySource(); }
+    else if (attempts >= 12) {
+      clearInterval(retry);
+      setSyncPill("err", "Sign-in library blocked");
+      /* Say which host to unblock rather than leaving a dead-end pill.
+         The session may also be sitting unclaimed in the URL right now,
+         which handleStrandedAuthFragment() explains and cleans up. */
+      authDiag("gave up loading the library from every source");
+      if (!handleStrandedAuthFragment()) {
+        const box = document.getElementById("ghErr");
+        if (box) {
+          box.innerHTML = "The Supabase sign-in library couldn't be loaded from any source, so syncing is " +
+            "unavailable and LifeOS is running locally on this device only." +
+            "<br><br>This is almost always a blocker or a filtered network. Allow " +
+            "<code>cdn.jsdelivr.net</code> or <code>unpkg.com</code> for this site, then reload." +
+            "<br><br>Your data is safe — it's stored on this device and will sync once the library loads.";
+          box.style.display = "block";
+        }
+      }
+    }
   }, 500);
 }
