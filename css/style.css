@@ -4,6 +4,11 @@
   --accent:#4B5C42; --accent-ink:#37452F;
   --sand:#EFE4D0; --sage:#DCE3D3; --blush:#F2E1D6; --sky:#E4E7DC;
   --ok:#4F7A5C; --warn:#C08A3E; --danger:#B5533F; --danger-bg:#F3E2DC; --secondary:#8A5A3B;
+  /* Sidebar navigation. Separate from --ink/--muted because the sidebar
+     is a distinct surface in both themes and its text needs to be tuned
+     against that, not against the page. */
+  --nav-ink:#4A4539; --nav-ink-strong:#2B2A24; --nav-label:#78715B;
+  --nav-hover:rgba(255,255,255,.6);
   --accent2:#B9714A; /* warm terracotta — secondary accent, used sparingly, matching how restrained the source site's own accent use is */
   --r:20px; --shadow:0 1px 2px rgba(43,42,36,.05),0 10px 26px -14px rgba(43,42,36,.16);
   /* Reused across cards, sidebar, top bar, buttons, inputs, modals,
@@ -52,11 +57,19 @@ h1,h2,.display{font-family:'Fraunces',serif}
 .brand-mark{width:34px;height:34px;border-radius:11px;background:var(--accent2);color:#fff;display:grid;place-items:center;
   font-family:'Fraunces',serif;font-weight:700;font-size:19px;transform:rotate(-4deg);box-shadow:0 6px 14px -4px rgba(185,113,74,.45)}
 .brand-name{font-family:'Fraunces',serif;font-weight:700;font-size:20px;letter-spacing:.2px}
-.nav-label{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:10px 8px 4px}
-.nav-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;padding:8px 10px;border-radius:12px;
-  font-weight:600;font-size:14px;color:#5C5748;transition:background .18s var(--ease),color .18s var(--ease),transform .18s var(--ease)}
-.nav-item svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;flex-shrink:0}
-.nav-item:hover{background:rgba(255,255,255,.6);transform:translateX(2px)}
+.nav-label{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--nav-label);padding:12px 8px 5px}
+/* Colour comes from a token, not a literal. It used to be a hard-coded
+   #5C5748 — a dark grey chosen for the cream sidebar, which on the dark
+   sidebar measured 2.20:1 against the background. That is roughly half
+   the 4.5:1 minimum for body text, and is why the whole menu read as
+   greyed-out/disabled rather than merely subdued. */
+.nav-item{display:flex;align-items:center;gap:11px;width:100%;text-align:left;padding:9px 10px;border-radius:12px;
+  font-weight:600;font-size:14.5px;color:var(--nav-ink);transition:background .18s var(--ease),color .18s var(--ease),transform .18s var(--ease)}
+/* Icons sit at the same weight as the label rather than out-inking it. */
+.nav-item svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:1.8;flex-shrink:0;opacity:.85}
+.nav-item:hover{background:var(--nav-hover);color:var(--nav-ink-strong);transform:translateX(2px)}
+.nav-item:hover svg{opacity:1}
+.nav-item.active svg{opacity:1}
 .nav-item.active{background:linear-gradient(135deg,rgba(75,92,66,.16),rgba(75,92,66,.07));color:var(--accent-ink);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.6),0 1px 4px rgba(75,92,66,.15)}
 .sidebar-foot{margin-top:auto;padding-top:14px;border-top:1px solid var(--glass-line)}
@@ -2422,6 +2435,8 @@ html[data-theme="dark"]{
   --shadow:0 1px 2px rgba(0,0,0,.4),0 10px 26px -14px rgba(0,0,0,.6);
   --shadow-glass:0 1px 2px rgba(0,0,0,.4),0 10px 26px -14px rgba(0,0,0,.6);
   --shadow-glass-lift:0 4px 10px rgba(0,0,0,.45),0 20px 40px -18px rgba(0,0,0,.7);
+  --nav-ink:#C4BDAB; --nav-ink-strong:#EDE9E0; --nav-label:#9E9787;
+  --nav-hover:rgba(255,255,255,.07);
 }
 
 /* The page background is a literal gradient, not a token, so it needs its
@@ -2583,3 +2598,24 @@ html[data-theme="dark"] .t-board-card.done{opacity:.72}
 .day-overdue-line:hover{color:var(--ink)}
 .day-overdue-line span:last-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .day-overdue-line:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:8px}
+
+/* ---------- Dark theme: literals that can't follow a token ----------
+   These rules set a colour chosen for a light background directly, so
+   they don't inherit the dark palette and end up between 1.8:1 and 4.4:1
+   against their dark surface — technically visible, practically not.
+   Each is lifted to the same hue at a luminance that clears 4.5:1.
+   (.wb-sticky-text and .link-preview-title are deliberately excluded:
+   sticky notes and link previews keep light backgrounds in both themes,
+   so their dark text is correct there.) */
+html[data-theme="dark"] .modal .steps{color:#C9C4DA}
+html[data-theme="dark"] .due-pill.duetoday{color:#E3B266}
+html[data-theme="dark"] .task-project-tag{color:#D9A86A}
+html[data-theme="dark"] .t-due{color:#EE8C7E}
+html[data-theme="dark"] .t-completed-note{color:#6FCB8C}
+html[data-theme="dark"] .t-archived-flag{color:#EE8C7E}
+html[data-theme="dark"] .gsi-link-display,
+html[data-theme="dark"] .gsi-date-row.gsi-today .gsi-date-display{color:#8FB4F2}
+html[data-theme="dark"] .nav-item[data-page="personal"].active{
+  background:linear-gradient(135deg,rgba(208,138,95,.20),rgba(208,138,95,.09));
+  color:#E0A87F;
+}
