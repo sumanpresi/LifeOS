@@ -1170,10 +1170,19 @@
     <section class="page" id="page-trash">
       <h1 class="display" style="font-size:28px;margin-bottom:14px">Trash</h1>
       <div class="card">
-        <div class="card-head"><h2>Deleted items</h2><span class="hint" id="trashCount"></span></div>
-        <div class="card-body">
-          <p class="hint" style="margin-top:0">Anything deleted anywhere in LifeOS lands here first. Restore it any time within 30 days, or delete it for good.</p>
-          <div id="trashList"></div>
+        <div class="card-head">
+          <button class="trash-collapse-btn" id="trashCollapseBtn" onclick="toggleTrashList()"
+            aria-expanded="true" aria-controls="trashCollapse">
+            <span class="trash-collapse-chevron" aria-hidden="true">&#9662;</span>
+            <h2>Deleted items</h2>
+          </button>
+          <span class="hint" id="trashCount"></span>
+        </div>
+        <div class="card-body trash-collapse" id="trashCollapse">
+          <div class="trash-collapse-inner">
+            <p class="hint" style="margin-top:0">Anything deleted anywhere in LifeOS lands here first. Restore it any time within 30 days, or delete it for good.</p>
+            <div id="trashList"></div>
+          </div>
         </div>
       </div>
 

@@ -2297,3 +2297,26 @@ body.modal-locked{overflow:hidden}
   .share-actions{flex-direction:column}
   .share-actions .btn{width:100%}
 }
+
+/* ---------- Trash: collapsible "Deleted items" ---------- */
+/* The whole heading is the control, not a separate icon — a 20px chevron
+   is a poor target on a phone, and the heading is the thing you'd reach
+   for anyway. It's a real <button>, so it's keyboard- and
+   screen-reader-reachable rather than a click handler on a <div>. */
+.trash-collapse-btn{display:flex;align-items:center;gap:10px;background:none;border:none;
+  padding:0;margin:0;cursor:pointer;color:inherit;font:inherit;text-align:left}
+.trash-collapse-btn h2{margin:0}
+.trash-collapse-btn:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:8px}
+.trash-collapse-chevron{color:var(--muted);font-size:12px;transition:transform 200ms var(--ease,ease)}
+.trash-collapse-btn[aria-expanded="false"] .trash-collapse-chevron{transform:rotate(-90deg)}
+
+/* Same 1fr -> 0fr grid technique the task sections already use: it
+   animates to the content's natural height without measuring anything in
+   JS, and needs no max-height guess that would clip a long list. */
+.trash-collapse{display:grid;grid-template-rows:1fr;
+  transition:grid-template-rows 220ms var(--ease,ease),padding 220ms var(--ease,ease)}
+.trash-collapse-inner{overflow:hidden;min-height:0}
+.trash-collapse.collapsed{grid-template-rows:0fr;padding-top:0;padding-bottom:0}
+@media (prefers-reduced-motion:reduce){
+  .trash-collapse,.trash-collapse-chevron{transition:none}
+}

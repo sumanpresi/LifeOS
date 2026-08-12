@@ -93,6 +93,39 @@ function timeAgo(ts) {
   return days + "d ago";
 }
 
+/* Collapsed state lives in localStorage, not in `state`.
+
+   It is a per-device view preference: collapsing the list on a phone
+   should not reach across and collapse it on the desktop. Keeping it out
+   of `state` also means toggling it never marks the document dirty, so it
+   cannot bump updatedAt and cannot win — or lose — a sync conflict on
+   behalf of your actual data. Same reasoning as taskViewPref living in
+   localStorage rather than the synced document. */
+const TRASH_COLLAPSED_KEY = "lifeos-trash-collapsed";
+
+function trashCollapsed() {
+  try { return localStorage.getItem(TRASH_COLLAPSED_KEY) === "1"; } catch (_) { return false; }
+}
+
+export function toggleTrashList() {
+  const next = !trashCollapsed();
+  try { localStorage.setItem(TRASH_COLLAPSED_KEY, next ? "1" : "0"); } catch (_) { /* private browsing */ }
+  applyTrashCollapsed();
+}
+
+/* Called on render too, so the preference survives a re-render — a delete
+   or restore rebuilds this card, and without this the list would spring
+   back open every time you removed an item from it. */
+function applyTrashCollapsed() {
+  const box = document.getElementById("trashCollapse");
+  const btn = document.getElementById("trashCollapseBtn");
+  if (!box || !btn) return;
+  const collapsed = trashCollapsed();
+  box.classList.toggle("collapsed", collapsed);
+  btn.setAttribute("aria-expanded", String(!collapsed));
+  btn.title = collapsed ? "Show deleted items" : "Hide deleted items";
+}
+
 export function renderTrash() {
   const list = document.getElementById("trashList");
   if (!list) return;
@@ -105,6 +138,7 @@ export function renderTrash() {
       <button class="btn btn-ghost" style="padding:6px 12px;font-size:12.5px" onclick="restoreFromTrash('${t.id}')">Restore</button>
       <button class="del" onclick="permanentlyDeleteFromTrash('${t.id}')" title="Delete forever">✕</button>
     </div>`).join("") || `<p class="hint">Nothing in the trash. Deleted items stay here for ${RETENTION_DAYS} days before they're cleared for good.</p>`;
+  applyTrashCollapsed();
   const count = document.getElementById("trashCount");
   if (count) count.textContent = items.length ? items.length + (items.length === 1 ? " item" : " items") : "";
   const navCount = document.getElementById("trashNavCount");
