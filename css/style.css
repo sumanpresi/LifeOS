@@ -969,12 +969,10 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
 .t-board-col-head.t-board-overdue .t-board-col-title{color:var(--warn)}
 .t-board-col-head.t-board-today .t-board-col-title{color:var(--t-accent)}
 .t-board-col-body{padding:10px;display:flex;flex-direction:column;gap:8px;overflow-y:auto}
-.t-board-quickadd{display:flex;gap:6px;padding:8px 10px;border-top:1px solid var(--t-border);flex-shrink:0}
-.t-board-quickadd input[type=text]{flex:1;min-width:0;border:1px solid var(--t-border);border-radius:8px;
-  padding:6px 9px;font-size:12.5px;background:var(--t-card)}
-.t-board-quickadd input[type=date]{flex-shrink:0;width:118px;border:1px solid var(--t-border);border-radius:8px;
-  padding:6px 6px;font-size:11.5px;background:var(--t-card)}
-.t-board-quickadd .btn{padding:6px 10px;font-size:12px;flex-shrink:0}
+/* The text and date inputs these rules styled are gone — the Overview
+   board's columns now open the shared composer, same as every other
+   board. What remains is the wrapper and its "+ Add task" button. */
+.t-board-quickadd{padding:8px 10px;border-top:1px solid var(--t-border);flex-shrink:0}
 .t-board-card{background:var(--t-card);border:1px solid var(--t-border);border-radius:10px;padding:10px;cursor:pointer;
   transition:box-shadow 150ms ease,border-color 150ms ease}
 .t-board-card:hover{border-color:var(--t-accent);box-shadow:0 2px 8px rgba(43,42,36,.08)}
@@ -2806,3 +2804,8 @@ html[data-theme="dark"] .composer{box-shadow:0 2px 8px rgba(0,0,0,.5),inset 0 1p
   .composer-hint{display:none}   /* no physical Enter key to explain */
   .composer-actions .btn{flex:1}
 }
+
+/* The Overview board's add button sits inside .t-board-quickadd, which
+   already supplies the padding and the top rule, so it doesn't need the
+   margin the column-body version carries. */
+.t-board-quickadd .t-board-col-add{width:100%;margin:0}

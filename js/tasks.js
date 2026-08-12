@@ -7,6 +7,7 @@
    (a 4-state status, not a simple done/not-done) — this only merges them
    for DISPLAY, routing edits back to the correct underlying data. */
 import { state, uid, esc, persist, rerender } from './state.js';
+import { isComposerOpen, composerHtml, openComposer, nativeColumnAccepts } from './composer.js';
 import { toast, autoGrow } from './ui.js';
 import { moveToTrash } from './trash.js';
 import { syncTaskToGoogle } from './google-calendar.js';
@@ -663,23 +664,21 @@ function boardCardHtml(t) {
       </div>
     </div>`;
 }
+/* The two bespoke quick-add rows here — a bare text box for Today, and a
+   text box plus a raw dd-mm-yyyy date field for Upcoming — are replaced by
+   the same composer the GSI and Personal boards use. They could not set a
+   priority or a link, and the date input squeezed into a column was the
+   widest, least readable control on the board.
+
+   "No Date" gains an add button it never had, which was an odd gap: it is
+   a perfectly reasonable place to capture something undated. */
 function boardQuickAddHtml(key) {
-  if (key === "today") {
-    return `
-      <div class="t-board-quickadd">
-        <input type="text" id="boardQuickAdd-today" placeholder="Add a task…" onkeydown="if(event.key==='Enter')quickAddBoardTask('today')">
-        <button class="btn btn-ghost" onclick="quickAddBoardTask('today')">+ Add</button>
-      </div>`;
-  }
-  if (key === "upcoming") {
-    return `
-      <div class="t-board-quickadd">
-        <input type="text" id="boardQuickAdd-upcoming" placeholder="Add a task…" onkeydown="if(event.key==='Enter')quickAddBoardTask('upcoming')">
-        <input type="date" id="boardQuickAddDate-upcoming" class="t-board-quickadd-date" title="Optional due date">
-        <button class="btn btn-ghost" onclick="quickAddBoardTask('upcoming')">+ Add</button>
-      </div>`;
-  }
-  return "";
+  if (!nativeColumnAccepts(key)) return "";
+  if (isComposerOpen("native", key)) return composerHtml("native", key);
+  return `
+    <div class="t-board-quickadd">
+      <button class="t-board-col-add" onclick="openComposer('native','${key}')">+ Add task</button>
+    </div>`;
 }
 function boardColumnHtml(key, label, tasks, accentClass) {
   return `
@@ -694,18 +693,10 @@ function boardColumnHtml(key, label, tasks, accentClass) {
       ${boardQuickAddHtml(key)}
     </div>`;
 }
+/* Kept as a thin redirect: the old inline inputs are gone, but a stale
+   cached page or a bookmarklet could still call this. */
 export function quickAddBoardTask(key) {
-  const textEl = document.getElementById(`boardQuickAdd-${key}`);
-  if (!textEl) return;
-  const v = textEl.value.trim();
-  if (!v) return;
-  const dueDate = key === "today" ? new Date().toISOString().slice(0, 10)
-    : (document.getElementById("boardQuickAddDate-upcoming")?.value || "");
-  createNativeTask(v, dueDate);
-  textEl.value = "";
-  const dateEl = document.getElementById("boardQuickAddDate-upcoming");
-  if (dateEl) dateEl.value = "";
-  persist(); rerender();
+  if (nativeColumnAccepts(key)) openComposer("native", key);
 }
 function renderBoardView(overdueGroup, todayGroup, upcomingGroup, noDateGroup, done) {
   return `<div class="t-board">
@@ -1035,7 +1026,9 @@ export function setTaskFilter(f) { taskFilter = f; renderTasks(); }
 function nextManualPosition() {
   return state.tasks.reduce((m, t) => Math.min(m, t.position ?? 0), 0) - 1000;
 }
-function createNativeTask(text, dueDate) {
+/* Exported so the shared board composer can create a native task without
+   duplicating the category/position rules that live here. */
+export function createNativeTask(text, dueDate) {
   const defaultCategory = (taskFilter === "work" || taskFilter === "personal") ? taskFilter : "work";
   const task = { id: uid(), text, done: false, category: defaultCategory, flag: false, link: "", dueDate: dueDate || "", googleEventId: null, position: nextManualPosition() };
   state.tasks.push(task);

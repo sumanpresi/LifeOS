@@ -21,12 +21,28 @@
    ============================================================ */
 
 import { state, uid, esc, persist, rerender, todayKey } from './state.js';
+import { createNativeTask } from './tasks.js';
 
 /* Which column, on which board, currently has the composer open.
    Null means closed. Kept here rather than in state: it is transient UI,
    must never sync, and must never mark the document dirty. */
 let openAt = null;      // { board: "gsi" | "personal", status: "todo" | ... }
 let draft = { text: "", date: "", link: "", flag: false };
+
+/* The Overview board is different in kind: its columns are date buckets
+   (Overdue / Today / Upcoming / No Date / Completed), not workflow
+   statuses. So for board "native" the column decides the DUE DATE rather
+   than a status, and two columns get no composer at all — you don't
+   deliberately create a task that is already overdue, or one that is
+   already finished. */
+const NATIVE_DATE_FOR = {
+  today: () => todayKey(new Date()),
+  upcoming: () => { const d = new Date(); d.setDate(d.getDate() + 1); return todayKey(d); },
+  nodate: () => ""
+};
+export function nativeColumnAccepts(key) {
+  return Object.prototype.hasOwnProperty.call(NATIVE_DATE_FOR, key);
+}
 
 export function isComposerOpen(board, status) {
   return !!openAt && openAt.board === board && openAt.status === status;
@@ -35,6 +51,9 @@ export function isComposerOpen(board, status) {
 export function openComposer(board, status) {
   openAt = { board, status };
   draft = { text: "", date: "", link: "", flag: false };
+  // Pre-fill the date the column implies, so "Today" needs no extra tap
+  // and "Upcoming" starts somewhere sensible rather than blank.
+  if (board === "native") draft.date = (NATIVE_DATE_FOR[status] || (() => ""))();
   rerender();
   // After the re-render paints, put the cursor in the new field.
   requestAnimationFrame(() => {
@@ -106,7 +125,11 @@ export function composerSubmit(keepOpen) {
     googleEventId: null
   };
 
-  if (board === "personal") {
+  if (board === "native") {
+    const t = createNativeTask(text, draft.date || "");
+    t.flag = !!draft.flag;
+    t.link = (draft.link || "").trim();
+  } else if (board === "personal") {
     const p = (state.personal?.projects || []).find(x => x.id === state.personal.activeProject);
     if (!p) return;
     (p.tasks = p.tasks || []).push(task);
@@ -150,9 +173,11 @@ function prettyDate(iso) {
 }
 
 export function composerHtml(board, status) {
-  const projName = board === "personal"
-    ? ((state.personal?.projects || []).find(p => p.id === state.personal.activeProject)?.name || "Personal")
-    : ((state.gsi?.projects || []).find(p => p.id === state.gsi.activeProject)?.name || "Project");
+  const projName = board === "native"
+    ? "Inbox"
+    : board === "personal"
+      ? ((state.personal?.projects || []).find(p => p.id === state.personal.activeProject)?.name || "Personal")
+      : ((state.gsi?.projects || []).find(p => p.id === state.gsi.activeProject)?.name || "Project");
 
   return `
     <div class="composer" onclick="event.stopPropagation()">
