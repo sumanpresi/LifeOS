@@ -181,10 +181,23 @@ export function renderDayOf() {
     link: t.link || "", dueDate: t.date || "", completedAt: null,
     isPersonal: true, source: t.projectName
   }));
-  const dayTaskList = [...personal, ...gsi, ...pw].filter(t => {
+  /* Strictly the day being viewed.
+
+     Two rules used to widen this well past "today":
+       - `if (t.flag) return true` put every flagged task here forever,
+         whatever its date and even with no date at all. Flagging marks a
+         task important, not due — those two are different things, and
+         conflating them meant a handful of permanently-flagged items
+         crowded out the day's actual work.
+       - `t.dueDate <= k` swept in everything overdue as well.
+
+     Overdue tasks still matter, so they are not simply dropped: they are
+     counted and surfaced as a line beneath the list, which keeps a missed
+     deadline visible without letting it fill the card. */
+  const all = [...personal, ...gsi, ...pw];
+  const dayTaskList = all.filter(t => {
     if (t.done) return t.completedAt && todayKey(new Date(t.completedAt)) === k;
-    if (t.flag) return true;
-    return t.dueDate && t.dueDate <= k;
+    return t.dueDate === k;
   }).sort((a, b) => {
     if (a.done !== b.done) return a.done ? 1 : -1; // completed sinks to the bottom
     if (!!a.flag !== !!b.flag) return a.flag ? -1 : 1; // flagged/important first
@@ -198,8 +211,21 @@ export function renderDayOf() {
       <textarea class="${t.link ? "task-text-linked" : ""}" rows="1" onclick="event.stopPropagation()" onchange="editTask('${t.id}',this.value)" oninput="autoGrow(this)">${esc(t.text)}</textarea>
       ${t.source ? `<span class="task-source-badge">${esc(t.source)}</span>` : ""}
       ${t.link ? `<a href="${esc(t.link.startsWith("http")?t.link:"https://"+t.link)}" target="_blank" rel="noopener" class="task-link-go-inline" title="Open link">🔗</a>` : ""}
-      ${!t.done && t.dueDate && t.dueDate < k ? `<span class="due-pill overdue">Overdue</span>` : ""}
-    </div>`).join("") || `<p class="hint">Nothing due today — give a task a due date on Overview to see it here.</p>`;
+    </div>`).join("") || `<p class="hint">Nothing due today.</p>`;
+
+  /* Anything still open with a date before the day being viewed. Shown as
+     a single line rather than as rows, so it informs without competing
+     with today's list. */
+  const overdue = all.filter(t => !t.done && t.dueDate && t.dueDate < k);
+  const overdueEl = document.getElementById("dayOverdue");
+  if (overdueEl) {
+    overdueEl.innerHTML = overdue.length
+      ? `<button class="day-overdue-line" onclick="go('overview')">
+           <span class="due-pill overdue">${overdue.length} overdue</span>
+           <span>${esc(overdue.slice(0, 2).map(t => t.text).join(" · "))}${overdue.length > 2 ? " …" : ""}</span>
+         </button>`
+      : "";
+  }
   // Same "measure after render" requirement as everywhere else this
   // input→textarea fix has been applied — see go() in ui.js for the
   // re-run when this page was hidden at the moment this render happened.
