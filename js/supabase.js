@@ -47,8 +47,24 @@ function reportOauthUrlError() {
   const h = new URLSearchParams(location.hash.replace(/^#/, ""));
   const err = q.get("error") || h.get("error");
   const desc = q.get("error_description") || h.get("error_description");
-  if (err) authDiag("OAuth error from Supabase: " + err + (desc ? " — " + decodeURIComponent(desc) : ""));
-  return !!err;
+  if (!err) return false;
+  const detail = desc ? decodeURIComponent(desc).replace(/\+/g, " ") : "";
+  authDiag("OAuth error from Supabase: " + err + (detail ? " — " + detail : ""));
+  /* Previously this only wrote to the in-memory diagnostic log, which is
+     hidden unless the modal happens to be opened afterwards. So a failed
+     sign-in returned you to a normal-looking page with no indication that
+     anything had gone wrong. Show it. */
+  setTimeout(() => {
+    const box = document.getElementById("ghErr");
+    if (!box) return;
+    openGhModal();
+    box.innerHTML = "GitHub sign-in didn't complete: <b>" + esc(detail || err) + "</b>" +
+      "<br><br>If this says the redirect isn't allowed, add <code>" +
+      esc(location.origin + location.pathname) + "</code> to <b>Redirect URLs</b> in " +
+      "Supabase → Authentication → URL Configuration.";
+    box.style.display = "block";
+  }, 0);
+  return true;
 }
 
 export async function getAccessToken() {
@@ -113,11 +129,41 @@ export async function signIn() {
   try {
     const back = location.origin + location.pathname;
     authDiag("starting GitHub sign-in, will return to: " + back);
-    await sb.auth.signInWithOAuth({
+    /* signInWithOAuth RESOLVES with { data, error } — it does not throw.
+       The error was previously only handled by the catch below, which
+       therefore never ran: a rejected provider, a redirect URL missing
+       from Supabase's allow-list, or a disabled GitHub provider all made
+       the button appear to do nothing at all. Check the returned error
+       explicitly and say what happened. */
+    const { data, error } = await sb.auth.signInWithOAuth({
       provider: "github",
       options: { redirectTo: back }
     });
+    if (error) {
+      authDiag("sign-in refused: " + (error.message || error));
+      openGhModal();
+      err.innerHTML = "GitHub sign-in was refused: <b>" + esc(error.message || String(error)) + "</b>" +
+        "<br><br>The usual cause is that this address isn't on the allow-list. In Supabase → " +
+        "<b>Authentication → URL Configuration</b>, add <code>" + esc(back) + "</code> to " +
+        "<b>Redirect URLs</b> (and set <b>Site URL</b> if it's blank).";
+      err.style.display = "block";
+      return;
+    }
+    /* A successful call navigates away. If we're still here a moment
+       later, the redirect was blocked — by a popup/redirect blocker, or
+       by an extension — and silence would look identical to a dead
+       button. */
+    setTimeout(() => {
+      if (document.visibilityState !== "visible") return;
+      authDiag("still on the page after sign-in call — redirect likely blocked");
+      openGhModal();
+      err.innerHTML = "The sign-in redirect didn't happen. If a browser extension or " +
+        "pop-up blocker is active for this site, allow redirects and try again — " +
+        "or use the <b>Sign in with GitHub</b> button below.";
+      err.style.display = "block";
+    }, 2500);
   } catch (e) {
+    authDiag("sign-in threw: " + (e.message || e));
     openGhModal();
     err.textContent = "Sign-in failed: " + (e.message || e);
     err.style.display = "block";
