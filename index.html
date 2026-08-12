@@ -36,7 +36,11 @@
      that appear on two pages. They are now loaded on first map open by
      js/lazy-libs.js. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Karla:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Inter only. Fraunces (serif display) and Karla are dropped: the
+     reference uses one clean sans throughout, and a serif heading beside
+     sans body text is the single most obvious departure from it. Fewer
+     files also means less to block first paint. -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
