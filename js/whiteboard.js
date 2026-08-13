@@ -230,6 +230,52 @@ export function initWhiteboard(boardId) {
 // Same "measured while hidden" concern as everywhere else a canvas or
 // textarea gets sized in this app — call this again once the board's
 // page is actually visible, not just once at initial construction.
+/* Legacy whiteboard storage left behind by the move to tabs.
+
+   Board content used to live in state.whiteboards, keyed by surface —
+   whiteboards.overview, whiteboards.gsi and so on. Every surface is
+   tabbed now, so board() resolves through TAB_SURFACES into commBoards /
+   brainstormBoards / dayofBoards and never touches state.whiteboards for
+   those keys at all. The old entries are still saved and uploaded on
+   every sync while being read by nothing.
+
+   The migration deliberately left them as a rollback path. That was the
+   right call at the time and is no longer worth 37% of the payload.
+
+   Only keys that are BOTH a known tab surface AND already present in the
+   corresponding tab list are removed: an entry for some surface that was
+   never migrated is real data and must survive untouched. */
+export function findOrphanedWhiteboards() {
+  const out = [];
+  Object.keys(state.whiteboards || {}).forEach(key => {
+    if (!isTabSurface(key)) return;                 // not migrated — still live
+    const list = state[TAB_SURFACES[key].list];
+    if (!Array.isArray(list) || !list.length) return; // no tab list to have moved into
+    const legacy = state.whiteboards[key] || {};
+    const strokes = (legacy.strokes || []).length;
+    const objects = (legacy.objects || []).length;
+    if (!strokes && !objects) { out.push({ key, kb: 0, strokes, objects, safe: true }); return; }
+    /* Content is only redundant if the tab list actually holds it. Compare
+       stroke and note counts rather than trusting the migration ran. */
+    const inTabs = list.reduce((n, b) => n + ((b.strokes || []).length), 0);
+    const notesInTabs = list.reduce((n, b) => n + ((b.objects || []).filter(o => !o.deleted).length), 0);
+    out.push({
+      key,
+      kb: Math.round(JSON.stringify(legacy).length / 1024),
+      strokes, objects,
+      safe: inTabs >= strokes && notesInTabs >= objects
+    });
+  });
+  return out;
+}
+
+export function dropOrphanedWhiteboards() {
+  const found = findOrphanedWhiteboards().filter(o => o.safe);
+  let kb = 0;
+  found.forEach(o => { kb += o.kb; delete state.whiteboards[o.key]; });
+  return { removed: found.map(o => o.key), kb };
+}
+
 export function resizeWhiteboardIfVisible(boardId) {
   const s = inst(boardId);
   if (s.canvas && s.canvas.offsetParent !== null) sizeCanvas(boardId);

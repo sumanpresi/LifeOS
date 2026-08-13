@@ -1230,8 +1230,18 @@
         <!-- Why saves take as long as they do, and what to remove. -->
         <div class="card-body" id="sizeBreakdown" style="padding-top:0"></div>
         <div class="card-body" style="padding-top:0">
-          <button class="btn btn-ghost" onclick="shrinkDrawings()">Shrink drawings</button>
-          <p class="hint" style="margin:8px 0 0">Removes redundant points from pen strokes. The drawings look the same; undo from Restore.</p>
+          <div class="reclaim-box">
+            <div class="reclaim-head">
+              <span class="reclaim-title">Reclaim space</span>
+              <button class="btn btn-primary" onclick="reclaimSpace()">Reclaim space</button>
+            </div>
+            <p class="hint reclaim-est" id="reclaimEstimate"></p>
+            <p class="hint" style="margin:6px 0 0">
+              Removes whiteboard copies left behind by earlier updates, and redundant points from pen
+              strokes. <b>Your drawings look exactly the same.</b> A snapshot is taken first, so this
+              is fully undoable from Restore.
+            </p>
+          </div>
         </div>
         <div class="card-body">
           <p class="hint" style="margin-top:0">A backup is a file that leaves this device. Download one regularly and keep it in Google Drive, OneDrive, or on a disk &mdash; Supabase and this browser can both fail, and a copy you hold cannot.</p>

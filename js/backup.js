@@ -17,6 +17,7 @@
 
 import { state, replaceState, persist, rerender, esc } from './state.js';
 import { toast } from './ui.js';
+import { findOrphanedWhiteboards, dropOrphanedWhiteboards } from './whiteboard.js';
 
 const SNAP_KEY = "lifeos-snapshots";
 const LAST_BACKUP_KEY = "lifeos-last-backup";
@@ -297,6 +298,19 @@ export function renderSizeBreakdown() {
   if (!el) return;
   const { rows, total } = sizeBreakdown();
   const big = total > 1200;
+  /* Show what a cleanup would actually recover, before it is run. A button
+     that says "Reclaim space" without a number asks for blind trust; one
+     that says "about 1,019 KB" is a decision someone can make. */
+  let recoverable = 0;
+  try {
+    findOrphanedWhiteboards().filter(o => o.safe).forEach(o => { recoverable += o.kb; });
+  } catch (_) {}
+  const el2 = document.getElementById("reclaimEstimate");
+  if (el2) {
+    el2.innerHTML = recoverable
+      ? `<b>About ${recoverable} KB</b> of superseded whiteboard copies can be removed outright, plus roughly 40% of the remaining pen data.`
+      : "";
+  }
   el.innerHTML = `
     <p class="hint" style="margin:0 0 8px">
       Every save uploads all ${Math.round(total)} KB, so this is what "Saving…" is waiting for.
@@ -352,12 +366,35 @@ function eachBoard(fn) {
   Object.values(state.whiteboards || {}).forEach(b => fn(b));
 }
 
-export function shrinkDrawings() {
-  const before = JSON.stringify(state).length;
-  let strokes = 0, ptsBefore = 0, ptsAfter = 0;
-  try { takeSnapshot("before-shrink-drawings"); }
-  catch (e) { console.warn("[shrink] snapshot failed", e); }
+/* One action, two jobs, because they solve the same problem and asking
+   someone to run two separate cleanups in the right order is a worse
+   experience than doing both correctly once.
 
+   Order matters: drop the dead copies FIRST, then simplify what remains.
+   Simplifying first would spend time thinning strokes that are about to
+   be deleted, and would make the reported saving misleading. */
+export function reclaimSpace() {
+  const before = JSON.stringify(state).length;
+  try { takeSnapshot("before-reclaim-space"); }
+  catch (e) { console.warn("[reclaim] snapshot failed", e); }
+
+  const dropped = dropOrphanedWhiteboards();
+  const shrunk = shrinkStrokes();
+
+  const after = JSON.stringify(state).length;
+  const savedKb = Math.max(0, Math.round((before - after) / 1024));
+  persist(); rerender(); renderBackupPanel();
+
+  const parts = [];
+  if (dropped.kb) parts.push(`${dropped.kb} KB of superseded whiteboard copies removed`);
+  if (shrunk.points) parts.push(`${shrunk.points} redundant pen points removed from ${shrunk.strokes} strokes`);
+  toast(parts.length
+    ? `Freed ${savedKb} KB — ${parts.join("; ")}. Undo from Restore.`
+    : "Nothing to reclaim — already as compact as it can be.");
+}
+
+function shrinkStrokes() {
+  let strokes = 0, ptsBefore = 0, ptsAfter = 0;
   eachBoard(b => {
     if (!Array.isArray(b?.strokes)) return;
     b.strokes.forEach(st => {
@@ -369,13 +406,7 @@ export function shrinkDrawings() {
     });
   });
 
-  const after = JSON.stringify(state).length;
-  const savedKb = Math.max(0, Math.round((before - after) / 1024));
-  persist(); rerender();
-  toast(savedKb
-    ? `Saved ${savedKb} KB — ${ptsBefore - ptsAfter} redundant points removed from ${strokes} strokes. Undo from Restore.`
-    : "Drawings are already as compact as they can be.");
-  renderBackupPanel();
+  return { strokes, points: ptsBefore - ptsAfter };
 }
 
 export function renderBackupPanel() {

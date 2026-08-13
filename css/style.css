@@ -3323,3 +3323,13 @@ html[data-theme="dark"] :is(.med-today-col,.med-col.today,.dose-col.today){
   .size-row{grid-template-columns:1fr 54px}
   .size-bar{display:none}
 }
+
+/* ---------- Reclaim space panel ---------- */
+.reclaim-box{border:1px solid var(--line);border-radius:12px;padding:14px;background:var(--lilac)}
+.reclaim-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.reclaim-title{font-weight:700;font-size:15px;color:var(--ink)}
+.reclaim-est{margin:8px 0 0;color:var(--ink)}
+@media(max-width:520px){
+  .reclaim-head{align-items:stretch}
+  .reclaim-head .btn{width:100%}
+}
