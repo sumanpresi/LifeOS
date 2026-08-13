@@ -3298,19 +3298,28 @@ html[data-theme="dark"] :is(.med-today-col,.med-col.today,.dose-col.today){
 .t-board-col-toggle:hover .t-board-col-burger{color:var(--t-ink);background:rgba(255,255,255,.09)}
 .t-board-col-toggle[aria-expanded="false"] .t-board-col-burger{transform:rotate(90deg)}
 
-/* A collapsed column keeps its heading and count visible and shrinks to
-   the width of that heading, so it stays reachable without occupying a
-   full column of space. flex:0 0 auto stops it sharing the row equally
-   with the expanded columns. */
-.t-board-col.t-col-collapsed{flex:0 0 auto;min-width:0}
+/* A collapsed column keeps its full width — only its contents are hidden.
+
+   The first version shrank it to the width of its heading (flex:0 0 auto),
+   which meant folding one column silently resized every other column on
+   the board: cards reflowed, titles rewrapped, and the whole layout moved
+   under the pointer. Hiding something should not rearrange everything
+   around it. The column now holds its place in the row exactly as before,
+   so collapsing is a purely vertical change. */
 .t-board-col.t-col-collapsed .t-board-col-body,
 .t-board-col.t-col-collapsed .t-board-quickadd,
 .t-board-col.t-col-collapsed .t-board-col-add,
 .t-board-col.t-col-collapsed .composer{display:none}
 .t-board-col.t-col-collapsed .t-board-col-head{padding-bottom:14px}
 
-@media(max-width:767px){
-  /* Columns stack on a phone, so a collapsed one should span the row
-     rather than shrink to a stub in the middle of the list. */
-  .t-board-col.t-col-collapsed{flex:1 1 auto;width:100%}
+/* ---------- Document size breakdown (Backup panel) ---------- */
+.size-row{display:grid;grid-template-columns:1fr 90px 62px;align-items:center;gap:10px;
+  padding:5px 0;font-size:13px}
+.size-label{color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.size-bar{height:6px;background:var(--lilac);border-radius:3px;overflow:hidden}
+.size-bar i{display:block;height:100%;background:var(--accent);border-radius:3px}
+.size-kb{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted);font-size:12.5px}
+@media(max-width:520px){
+  .size-row{grid-template-columns:1fr 54px}
+  .size-bar{display:none}
 }

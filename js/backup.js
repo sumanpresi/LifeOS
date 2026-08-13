@@ -15,7 +15,7 @@
    until one does. The file is a plain .json anyone can read, on purpose:
    a backup you can only restore with the app that broke is a weak one. */
 
-import { state, replaceState, persist, rerender } from './state.js';
+import { state, replaceState, persist, rerender, esc } from './state.js';
 import { toast } from './ui.js';
 
 const SNAP_KEY = "lifeos-snapshots";
@@ -261,7 +261,61 @@ function relative(ts) {
   return `${Math.round(hrs / 24)} days ago`;
 }
 
+/* What is actually making the document big.
+
+   Saving uploads the whole document every time, so its size IS the save
+   time — 1.6 MB on a slow uplink is several seconds of "Saving…". Until
+   now that number was only visible as a tooltip, with no indication of
+   what to do about it. This breaks it down so the largest contributor is
+   obvious and can be acted on: an old brainstorm board with hundreds of
+   pen strokes is usually the answer, and archiving or deleting it is a
+   one-click fix that nothing else would have suggested. */
+function sizeBreakdown() {
+  const kb = v => { try { return JSON.stringify(v ?? null).length / 1024; } catch (_) { return 0; } };
+  const boards = (list) => (list || []).reduce((n, b) => n + kb(b), 0);
+  const rows = [
+    ["Brainstorm boards", boards(state.brainstormBoards)],
+    ["Scratch boards", boards(state.dayofBoards)],
+    ["Whiteboard (Communication)", boards(state.commBoards) + kb(state.whiteboards)],
+    ["Tasks", kb(state.tasks)],
+    ["Work · GSI", kb(state.gsi)],
+    ["Personal Workspace", kb(state.personal)],
+    ["Notes and sections", kb(state.sections)],
+    ["Finance", kb(state.finance)],
+    ["Health", kb(state.health)],
+    ["Travel", kb(state.travel)],
+    ["Entertainment", kb(state.entertainment)],
+    ["Journal", kb(state.journal)],
+    ["Trash (deleted items kept 30 days)", kb(state.trash)]
+  ].filter(([, n]) => n > 1).sort((a, b) => b[1] - a[1]);
+  const total = kb(state);
+  return { rows, total };
+}
+
+export function renderSizeBreakdown() {
+  const el = document.getElementById("sizeBreakdown");
+  if (!el) return;
+  const { rows, total } = sizeBreakdown();
+  const big = total > 1200;
+  el.innerHTML = `
+    <p class="hint" style="margin:0 0 8px">
+      Every save uploads all ${Math.round(total)} KB, so this is what "Saving…" is waiting for.
+      ${big ? "<b>Anything above about 1 MB will feel slow on mobile data.</b>" : ""}
+    </p>
+    ${rows.map(([label, n]) => `
+      <div class="size-row">
+        <span class="size-label">${esc(label)}</span>
+        <span class="size-bar"><i style="width:${Math.max(2, (n / (rows[0][1] || 1)) * 100)}%"></i></span>
+        <span class="size-kb">${Math.round(n)} KB</span>
+      </div>`).join("")}
+    <p class="hint" style="margin:10px 0 0">
+      Pen drawings are usually the largest part. Archiving a board you have finished with,
+      or emptying Trash, removes it from every future upload.
+    </p>`;
+}
+
 export function renderBackupPanel() {
+  renderSizeBreakdown();
   const status = document.getElementById("backupStatus");
   if (status) {
     const days = daysSinceBackup();

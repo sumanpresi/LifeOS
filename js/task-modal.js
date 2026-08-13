@@ -101,9 +101,37 @@ export function openTaskModal(id, siblings) {
   setTimeout(() => document.getElementById("taskModalTitle")?.focus(), 60);
 }
 
+/* Reads the title and link fields back before the modal goes away.
+
+   Both commit through onchange, which fires on blur — so closing with
+   Escape, or with the backdrop, never gave them the chance: the handler
+   ran, openId was cleared, and whatever had just been typed was gone.
+   Only the description was flushed, because Quill needed it; the two
+   plain fields were overlooked, which is why a retitled task could show
+   its old text on the card while the modal showed the new one.
+
+   Reading the DOM rather than trusting an event is the reliable move for
+   anything that must survive an abrupt close. */
+function commitOpenFields() {
+  if (!openId) return;
+  const found = taskOf(openId);
+  if (!found) return;
+  const titleEl = document.getElementById("taskModalTitle");
+  if (titleEl) {
+    const v = titleEl.value.trim();
+    if (v && v !== found.task.text) editTask(openId, v);
+  }
+  const linkEl = document.querySelector("#taskModalBg .tm-link-input");
+  if (linkEl) {
+    const v = linkEl.value.trim();
+    if (v !== (found.task.link || "")) editTaskMeta(openId, "link", v);
+  }
+}
+
 export function closeTaskModal(skipUrl) {
   const bg = document.getElementById("taskModalBg");
   if (!bg || !bg.classList.contains("open")) return;
+  commitOpenFields();
   flushDescription();
   unmountRichEditor(DESC_EDITOR_ID);
   bg.classList.remove("open");
