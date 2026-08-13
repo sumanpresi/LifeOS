@@ -690,6 +690,23 @@ export async function loadRemote(preferRemote = false) {
    so a table that does not exist or a policy that rejects the write
    produces an endless loop of the same failure with no clue why. Each
    cause below needs a completely different fix, so the message names it. */
+/* A persistent banner for a document that has grown past the point where
+   saves are reliable. Deliberately not a toast: this is a condition, not
+   an event, and it stays relevant until something is done about it. */
+function showSizeBanner(kb) {
+  if (document.getElementById("sizeBanner")) return;
+  const bar = document.createElement("div");
+  bar.id = "sizeBanner";
+  bar.className = "size-banner";
+  bar.innerHTML =
+    `<span><b>This account holds ${kb} KB.</b> Every save uploads all of it, and above about 1 MB uploads start to fail.</span>` +
+    `<span class="size-banner-actions">` +
+      `<button class="btn btn-primary" onclick="go('trash');setTimeout(()=>reclaimSpace(),150)">Reclaim space</button>` +
+      `<button class="btn btn-ghost" onclick="this.closest('.size-banner').remove()">Dismiss</button>` +
+    `</span>`;
+  document.body.appendChild(bar);
+}
+
 function explainSaveError(e) {
   const msg = String(e?.message || e || "");
   const code = String(e?.code || "");
@@ -723,10 +740,16 @@ function explainSaveError(e) {
        "check your connection" sends you to look in the wrong place. */
     const big = lastPayloadBytes > 1_000_000;
     if (big && realtimeConnected) {
+      /* The fix is one button, and it lives on the Trash page under Backup —
+         somewhere nobody looks when a save fails. Put it in the message
+         itself rather than describing where to find it. */
       return { pill: "Save failed — document too large",
         detail: "The upload is <b>" + Math.round(lastPayloadBytes / 1024) + " KB</b>, and the live connection to Supabase is working — so this isn't the network. " +
-          "Supabase closes the request when the body is too big, which the browser can only report as a generic fetch failure. " +
-          "Open <b>Backup</b> to see what's largest and use <b>Shrink drawings</b>, or archive a board you've finished with." };
+          "Supabase closes the request when the body is too big, which the browser can only report as a generic fetch failure." +
+          "<br><br><b>Reclaim space</b> removes whiteboard copies left behind by earlier updates and thins redundant pen points. " +
+          "Your drawings look identical, and a restore point is written first." +
+          "<br><br><button class=\"btn btn-primary\" onclick=\"closeGhModal();go('trash');setTimeout(()=>reclaimSpace(),150)\">Reclaim space now</button>" +
+          " <button class=\"btn btn-ghost\" onclick=\"exportBackup()\">Download a backup first</button>" };
     }
     return { pill: "Save failed — no connection",
       detail: "The request never reached Supabase. That's usually the network, or a blocker stopping requests to the Supabase domain. Your data is safe on this device and will upload once the connection is back." };
@@ -783,7 +806,10 @@ export async function saveRemote() {
     if (payloadBytes > BIG_PAYLOAD_BYTES && !bigPayloadWarned) {
       bigPayloadWarned = true;
       authDiag("payload is " + Math.round(payloadBytes / 1024) + " KB — every save uploads all of it");
-      toast("Saves are slow because this account holds " + Math.round(payloadBytes / 1024) + " KB — see Backup for what's largest");
+      /* A toast that names a page the person then has to go and find is
+         easy to dismiss and easy to forget. Show the banner instead: it
+         stays until acted on, and carries the button. */
+      showSizeBanner(Math.round(payloadBytes / 1024));
     }
     const { error } = await sb.from("lifeos_data").upsert({
       user_id: user.id, data: payload, updated_at: new Date().toISOString()
