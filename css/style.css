@@ -3345,3 +3345,21 @@ html[data-theme="dark"] :is(.med-today-col,.med-col.today,.dose-col.today){
   .size-banner{flex-direction:column;align-items:stretch;left:10px;right:10px;bottom:10px}
   .size-banner-actions .btn{flex:1}
 }
+
+/* ---------- Sticky note with more text than fits ----------
+   A note that simply stops mid-sentence looks like data loss. A soft fade
+   at the bottom edge says "there is more here" without covering anything,
+   and the badge gives a one-click way to make it all visible. */
+.wb-sticky-clipped::after{
+  content:"";position:absolute;left:1px;right:1px;bottom:1px;height:26px;
+  border-radius:0 0 11px 11px;pointer-events:none;
+  background:linear-gradient(to bottom,transparent,rgba(0,0,0,.10));
+}
+.wb-sticky-fit{
+  position:absolute;right:8px;bottom:6px;z-index:7;display:none;
+  border:none;border-radius:6px;padding:2px 7px;cursor:pointer;
+  font-size:10.5px;font-weight:700;letter-spacing:.02em;
+  background:rgba(0,0,0,.55);color:#fff;line-height:1.5;
+}
+.wb-sticky-clipped .wb-sticky-fit{display:block}
+.wb-sticky-fit:hover{background:rgba(0,0,0,.75)}

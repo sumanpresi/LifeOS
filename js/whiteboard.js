@@ -900,11 +900,21 @@ function renderObjects(boardId) {
       const textEl = el.querySelector(".wb-sticky-text");
       if (textEl && document.activeElement !== textEl) {
         const safeHtml = sanitizeStickyHtml(getStickyHtml(o));
-        if (textEl.innerHTML !== safeHtml) textEl.innerHTML = safeHtml; // never touch the note currently being edited
+        if (textEl.innerHTML !== safeHtml) {
+          textEl.innerHTML = safeHtml; // never touch the note currently being edited
+          /* A note whose text is taller than its box scrolls internally.
+             While editing, the browser scrolls to keep the caret visible,
+             and that scroll position survives the re-render — so the note
+             is left showing its middle with the first lines hidden above,
+             which reads as the text having been truncated. Reset to the
+             top whenever the content is replaced and nobody is typing. */
+          textEl.scrollTop = 0;
+        }
       }
       el.querySelectorAll(".wb-sticky-color").forEach(b => b.classList.toggle("on", b.dataset.color === o.color));
     }
     el.classList.toggle("selected", o.id === selectedStickyId);
+    markStickyOverflow(el);
   });
 
   // Only notes that are gone (deleted, or dropped entirely) still need
@@ -1165,6 +1175,46 @@ export function deleteStickyNotePermanently(boardId, objId) {
   toast("Deleted permanently");
 }
 
+/* Flags a note whose text doesn't fit, so it can show that there is more
+   to read rather than simply ending mid-sentence. Measured after layout,
+   and cheap — a single scrollHeight read per note. */
+function markStickyOverflow(el) {
+  const t = el?.querySelector(".wb-sticky-text");
+  if (!t) return;
+  requestAnimationFrame(() => {
+    const clipped = t.scrollHeight > t.clientHeight + 1;
+    el.classList.toggle("wb-sticky-clipped", clipped);
+    if (clipped) el.title = "This note has more text than fits — double-click its edge to fit it to the content";
+    else if (el.title) el.removeAttribute("title");
+  });
+}
+
+/* Grows a note until its text fits, and persists the new height so it
+   stays that way. Deliberately user-initiated: doing it automatically on
+   every render would rewrite note geometry behind the person's back and
+   push those changes at every other device on every sync. */
+export function fitStickyToContent(boardId, objId) {
+  const b = board(boardId);
+  const o = (b.objects || []).find(x => x.id === objId && !x.deleted);
+  const el = document.querySelector(`[data-obj-id="${objId}"]`);
+  const t = el?.querySelector(".wb-sticky-text");
+  if (!o || !t) return;
+  const st = inst(boardId);
+  const w = st?.canvas ? st.canvas.width / st.dpr : 0;  // the same basis every note's x/y/w/h uses
+  if (!w) return;
+  const needed = t.scrollHeight + (el.offsetHeight - t.clientHeight); // text + chrome
+  const grown = Math.min(needed / w, 3 - o.y);                        // never past the board
+  if (grown > o.h) {
+    o.h = grown;
+    o.updatedAt = Date.now();
+    persist();
+    renderObjects(boardId);
+    toast("Note resized to fit its text");
+  } else {
+    toast("The note already fits its text");
+  }
+}
+
 function stickyHtml(o, w) {
   const px = o.x * w, py = o.y * w, pw = o.w * w, ph = o.h * w;
   const selected = o.id === selectedStickyId;
@@ -1174,6 +1224,7 @@ function stickyHtml(o, w) {
       <div class="wb-sticky-drag-handle" title="Drag to move"></div>
       <div class="wb-sticky-text" contenteditable="true" data-placeholder="Type something…">${sanitizeStickyHtml(getStickyHtml(o))}</div>
       <button class="wb-sticky-delete" title="Delete note">✕</button>
+      <button class="wb-sticky-fit" title="Resize this note so all its text is visible">Fit text</button>
       <div class="wb-sticky-toolbar">
         ${STICKY_COLORS.map(c => `<button class="wb-sticky-color ${o.color === c ? "on" : ""}" data-color="${c}" style="background:${c}"></button>`).join("")}
       </div>
@@ -1242,6 +1293,13 @@ function closeAllStickyColorPops() {
 }
 
 function attachStickyHandlers(boardId, objId, canvasWidth) {
+  const fitBtn = document.querySelector(`[data-obj-id="${objId}"] .wb-sticky-fit`);
+  if (fitBtn) fitBtn.addEventListener("click", evt => {
+    evt.stopPropagation();      // don't select or start a drag
+    evt.preventDefault();
+    fitStickyToContent(boardId, objId);
+  });
+
   /* The board width passed in is the one measured when this note's
      element was first created — and that is not safe to keep using.
 
