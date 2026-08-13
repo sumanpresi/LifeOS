@@ -71,6 +71,48 @@ const ALLOWED_ATTRS = {
 // anything else that could let one note cover the rest of the interface.
 const ALLOWED_STYLE_PROPS = /^(color|background-color|font-size|font-family|font-weight|font-style|text-align|text-decoration|line-height)\s*:/i;
 
+/* Parses a CSS colour into RGB. Only the forms an editor actually
+   produces — hex and rgb()/rgba() — since anything else was never written
+   by the toolbar. */
+function parseColor(v) {
+  const s = String(v || "").trim();
+  let m = /^#([0-9a-f]{3})$/i.exec(s);
+  if (m) return [0, 1, 2].map(i => parseInt(m[1][i] + m[1][i], 16));
+  m = /^#([0-9a-f]{6})$/i.exec(s);
+  if (m) return [0, 2, 4].map(i => parseInt(m[1].substr(i, 2), 16));
+  m = /^rgba?\(([^)]+)\)/i.exec(s);
+  if (m) {
+    const p = m[1].split(",").map(x => parseFloat(x));
+    if (p.length >= 3 && p.every(n => !isNaN(n))) return [p[0], p[1], p[2]];
+  }
+  return null;
+}
+
+/* Is this colour a THEME DEFAULT rather than a deliberate choice?
+
+   Text typed with no colour applied carries no inline colour at all — but
+   text that was pasted, or coloured back to "black" using the toolbar,
+   ends up with something like `color: rgb(27,27,26)` baked in. That was
+   correct on a cream page and is nearly invisible on a dark one, which is
+   why old notes can read as black-on-black after switching themes.
+
+   The test is saturation, not lightness alone: a near-neutral colour at
+   either extreme is a default, while anything with real hue — the reds
+   and blues from the colour picker — was chosen on purpose and must
+   survive. Removing a default lets the text inherit --ink, which is
+   correct in BOTH themes, so this is a repair rather than a dark-mode
+   special case. */
+function isThemeDefaultColor(v) {
+  const rgb = parseColor(v);
+  if (!rgb) return false;
+  const [r, g, b] = rgb;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const saturation = max === 0 ? 0 : (max - min) / max;
+  if (saturation > 0.22) return false;          // has real hue — deliberate
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return lum < 0.30 || lum > 0.85;              // near-black or near-white
+}
+
 function cleanStyle(el) {
   const safe = (el.getAttribute("style") || "").split(";")
     .map(s => s.trim())
@@ -78,6 +120,17 @@ function cleanStyle(el) {
     // url(...) can reference remote resources; expression() is a legacy
     // IE script vector. Neither belongs in a note's formatting.
     .filter(s => !/url\s*\(|expression\s*\(/i.test(s))
+    // Drop colours that are only restating the theme's own text colour.
+    .filter(s => {
+      const m = /^(color|background-color)\s*:\s*(.+)$/i.exec(s);
+      if (!m) return true;
+      if (m[1].toLowerCase() === "background-color") {
+        // A near-white highlight is invisible on paper and blinding on a
+        // dark page; a deliberate yellow or green highlight is kept.
+        return !isThemeDefaultColor(m[2]);
+      }
+      return !isThemeDefaultColor(m[2]);
+    })
     .join("; ");
   if (safe) el.setAttribute("style", safe); else el.removeAttribute("style");
 }
