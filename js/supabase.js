@@ -614,7 +614,13 @@ export async function loadRemote(preferRemote = false) {
       .select("data, updated_at").eq("user_id", user.id).maybeSingle();
     if (error) throw error;
     if (data && data.data && Object.keys(data.data).length) {
-      const remote = data.data;
+      const remote = await decodeCloudRow(data.data);
+      /* A decode that yields nothing usable must never reach the merges:
+         they would read absent keys as "the other side deleted everything"
+         and this device would then helpfully write that emptiness back. */
+      if (!remote || typeof remote !== "object" || !Object.keys(remote).length) {
+        throw new Error("cloud data could not be read");
+      }
       checkClockSkew(data.updated_at);
       mergeIncomingWhiteboards(remote);
       mergeIncomingBrainstormBoards(remote);
@@ -776,6 +782,67 @@ function explainSaveError(e) {
     detail: "Supabase rejected the upload: <b>" + esc(msg || "unknown error") + "</b>" + (code ? " (code " + esc(code) + ")" : "") };
 }
 
+/* ---------- Cloud transport: gzip ----------
+   The document is sent whole on every save, so its wire size is the thing
+   that decides whether a save is fast, slow, or rejected. JSON of this
+   shape — repeated keys, coordinate arrays — compresses extremely well,
+   typically to a third or less. Compressing the transport attacks the
+   real constraint without asking anyone to delete drawings they still
+   want.
+
+   THE MIGRATION HAZARD, AND WHY THE GUARD BELOW IS NOT OPTIONAL.
+
+   A device running an older build reads the compressed row, doesn't
+   recognise the envelope, and merge() quietly turns it into an EMPTY
+   LifeOS — no error, no warning. If that device then saves, it writes
+   that emptiness over the real cloud data. Silent total loss.
+
+   Nothing can be changed in an old build. What CAN be done is refuse to
+   put the account into a state where that is possible until it is safe:
+   this build writes the compressed format only once the cloud row shows
+   that the account has already seen a compression-capable client, and it
+   records that fact in plain, readable JSON that an old build ignores
+   harmlessly. Until then it keeps writing plain JSON, which every build
+   understands. */
+const CLOUD_TRANSPORT = "lifeos-gzip-v1";
+
+async function gzipBytes(text) {
+  if (typeof CompressionStream === "undefined") return null;
+  try {
+    const cs = new CompressionStream("gzip");
+    const stream = new Blob([new TextEncoder().encode(text)]).stream().pipeThrough(cs);
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  } catch (_) { return null; }
+}
+async function gunzipText(bytes) {
+  const ds = new DecompressionStream("gzip");
+  const stream = new Blob([bytes]).stream().pipeThrough(ds);
+  return new TextDecoder().decode(await new Response(stream).arrayBuffer());
+}
+function bytesToB64(bytes) {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+function b64ToBytes(b64) {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+/* Reading is unconditional: this build understands both formats, so it can
+   always open an account whichever way the last device wrote it. */
+async function decodeCloudRow(data) {
+  if (!data || typeof data !== "object") return data;
+  if (data._transport !== CLOUD_TRANSPORT) return data;      // plain JSON
+  if (typeof data.z !== "string" || !data.z) throw new Error("compressed cloud data is incomplete");
+  if (typeof DecompressionStream === "undefined") throw new Error("this browser cannot read compressed cloud data");
+  const decoded = JSON.parse(await gunzipText(b64ToBytes(data.z)));
+  if (!decoded || typeof decoded !== "object") throw new Error("compressed cloud data could not be decoded");
+  return decoded;
+}
+
 export async function saveRemote() {
   /* Nothing to send if this device holds exactly what the cloud already
      has. rev is the same counter the reconcile uses, so this is the same
@@ -827,12 +894,43 @@ export async function saveRemote() {
       /* A toast that names a page the person then has to go and find is
          easy to dismiss and easy to forget. Show the banner instead: it
          stays until acted on, and carries the button. */
-      showSizeBanner(Math.round(payloadBytes / 1024));
+      /* Only meaningful before compression is active — afterwards the
+         wire size is what matters and it is reported on each save. */
+      if (!state.compressionReady) showSizeBanner(Math.round(payloadBytes / 1024));
     }
+    /* Compressed only when the account has been seen by a compression-capable
+       client at least once — recorded by `compressionReady`, which is written
+       as ordinary readable JSON so an old build simply ignores it. The very
+       first save from this build therefore stays plain (safe for every
+       device) and merely announces the capability; from the next save
+       onward the wire payload is gzipped.
+
+       That one-save delay is the whole safety mechanism: it gives every
+       other device a chance to be updated before the format changes, and
+       it means an account is never silently switched into a format some
+       device in daily use cannot read. */
+    payload.compressionReady = true;
+    let wireBytes = payloadBytes;
+    let body = payload;
+    if (state.compressionReady) {
+      const gz = await gzipBytes(JSON.stringify(payload));
+      if (gz) {
+        body = { _transport: CLOUD_TRANSPORT, z: bytesToB64(gz) };
+        wireBytes = JSON.stringify(body).length;
+      }
+    }
+    state.compressionReady = true;
+
     const { error } = await sb.from("lifeos_data").upsert({
-      user_id: user.id, data: payload, updated_at: new Date().toISOString()
+      user_id: user.id, data: body, updated_at: new Date().toISOString()
     });
     if (error) throw error;
+    /* Report the WIRE size, not the raw document. Once the transport is
+       compressed those are very different numbers, and warning about the
+       uncompressed one would keep alarming people about a constraint that
+       no longer applies. */
+    lastPayloadBytes = wireBytes;
+    lastSizeCheck = Date.now();
     saveErrorShown = false; // a success re-arms the explanation for any future failure
     markAgreed(token); // this device and the cloud now hold the same thing
     const pill = document.getElementById("syncPill");
@@ -925,21 +1023,28 @@ function startRealtime() {
   rtChannel = sb.channel("lifeos-" + user.id)
     .on("postgres_changes",
       { event: "*", schema: "public", table: "lifeos_data", filter: "user_id=eq." + user.id },
-      payload => {
+      async payload => {
         const row = payload.new;
-        if (!row || !row.data || row.data._client === CLIENT_ID) return;
-        if (!cloudChangedSinceLastSync(row.data)) return; // already have it
+        if (!row || !row.data) return;
+        /* A compressed row can't be inspected without decoding it first,
+           so the cheap early-outs move after the decode. */
+        let remote;
+        try { remote = await decodeCloudRow(row.data); }
+        catch (e) { authDiag("realtime decode failed: " + (e.message || e)); return; }
+        if (!remote || typeof remote !== "object" || !Object.keys(remote).length) return;
+        if (remote._client === CLIENT_ID) return;
+        if (!cloudChangedSinceLastSync(remote)) return; // already have it
         if (hasLocalEdits()) {
           // Don't overwrite something being typed right now. loadRemote()
           // handles it properly on the next sync, conflict warning included.
           setSyncPill("busy", "Changes waiting — tap Sync");
           return;
         }
-        mergeIncomingWhiteboards(row.data);
-        mergeIncomingBrainstormBoards(row.data);
-        mergeIncomingSectionNotes(row.data);
-        mergeIncomingTasks(row.data);
-        applyRemote(row.data);
+        mergeIncomingWhiteboards(remote);
+        mergeIncomingBrainstormBoards(remote);
+        mergeIncomingSectionNotes(remote);
+        mergeIncomingTasks(remote);
+        applyRemote(remote);
         toast("Updated from another device");
       })
     .subscribe(status => {

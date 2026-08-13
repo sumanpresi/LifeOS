@@ -571,6 +571,11 @@ function merge(saved) {
      synced document so every device learns the deletion; without it the
      merge treats a missing key as "the other device has something new"
      and restores it. */
+  /* Set once an account has been written by a build that can read the
+     compressed transport. Plain boolean in ordinary JSON, so older builds
+     carry it along harmlessly without understanding it. */
+  s.compressionReady = !!saved.compressionReady;
+
   s.removedWhiteboards = Array.isArray(saved.removedWhiteboards) ? saved.removedWhiteboards : [];
   if (s.removedWhiteboards.length && s.whiteboards) {
     s.removedWhiteboards.forEach(k => { delete s.whiteboards[k]; });
