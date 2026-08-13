@@ -306,6 +306,14 @@ let saveErrorShown = false;
 /* Whether the realtime socket is currently up. Used to tell a genuine
    network failure apart from a rejected over-sized request. */
 let realtimeConnected = false;
+let lastSizeCheck = 0;
+/* Set while an upload is in flight. A second save arriving mid-upload
+   used to start its own request, so a burst of edits could put several
+   full-document uploads on the wire at once — each slowing the others,
+   and the last to finish deciding what the cloud holds. Now the newer
+   edit simply re-arms a single follow-up save. */
+let saveInFlight = false;
+let saveAgainAfter = false;
 let pendingSaveAfterReconcile = false;
 
 /* ---------- deciding who is newer ----------
@@ -745,21 +753,33 @@ export async function saveRemote() {
      device. Queue the save; it fires automatically once loadRemote() has
      run at least once this session. */
   if (!hasReconciled) { pendingSaveAfterReconcile = true; return; }
+  if (saveInFlight) { saveAgainAfter = true; return; }
+  saveInFlight = true;
   setSyncPill("busy", "Saving…");
   try {
     const token = newSyncToken();
     state.syncToken = token; // stored in state so every device sees the same value
     const payload = Object.assign({}, state, { _client: CLIENT_ID });
 
-    /* Every save uploads the ENTIRE document — there are no partial
-       writes — so how long "Saving…" lasts is mostly a function of this
-       number. It was previously only ever reported when a save FAILED,
-       which is the one moment it can't help you. Reported on every save
-       now, and called out once when it crosses the point where the upload
-       stops being instant on a normal connection. */
-    let payloadBytes = 0;
-    try { payloadBytes = JSON.stringify(payload).length; } catch (_) {}
-    lastPayloadBytes = payloadBytes;
+    /* Every save uploads the ENTIRE document, so its size is most of what
+       "Saving…" is waiting for — worth reporting, but NOT worth measuring
+       on every single save.
+
+       Measuring means JSON.stringify() over the whole state, and
+       supabase-js then serialises the same object again for the request
+       body. That is two full passes over 1.6 MB per save, around 120 ms
+       of pure CPU on a phone, purely so a tooltip can show a number. This
+       was my own addition and it made every save slower.
+
+       Measured at most once a minute now, and always after a failure,
+       where the number actually matters. */
+    let payloadBytes = lastPayloadBytes;
+    const now = Date.now();
+    if (now - lastSizeCheck > 60_000) {
+      lastSizeCheck = now;
+      try { payloadBytes = JSON.stringify(payload).length; } catch (_) {}
+      lastPayloadBytes = payloadBytes;
+    }
     if (payloadBytes > BIG_PAYLOAD_BYTES && !bigPayloadWarned) {
       bigPayloadWarned = true;
       authDiag("payload is " + Math.round(payloadBytes / 1024) + " KB — every save uploads all of it");
@@ -794,6 +814,19 @@ export async function saveRemote() {
             esc(String(e.message || "")) + (e.code ? " (code " + esc(String(e.code)) + ")" : "") + "</span>" : "");
         box.style.display = "block";
       }
+    }
+    /* Failures re-measure: this is the one moment the size matters, and
+       it is what the "document too large" diagnosis reads. */
+    try { lastPayloadBytes = JSON.stringify(state).length; lastSizeCheck = Date.now(); } catch (_) {}
+  } finally {
+    /* Released on every path — an early return or a thrown error leaving
+       this set would stop the app saving for the rest of the session, a
+       far worse failure than the one it is guarding against. */
+    saveInFlight = false;
+    if (saveAgainAfter) {
+      saveAgainAfter = false;
+      // Edits arrived mid-upload; send one follow-up rather than a queue.
+      setTimeout(() => saveRemote(), 0);
     }
   }
 }
