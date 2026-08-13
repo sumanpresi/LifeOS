@@ -567,6 +567,15 @@ function merge(saved) {
      content is lifted into the first tab rather than stranded. The flat entry
      is left in place: it costs nothing, and removing it would make a rollback
      to an older build lose the drawing. */
+  /* Whiteboard keys deliberately removed by Reclaim space. Kept in the
+     synced document so every device learns the deletion; without it the
+     merge treats a missing key as "the other device has something new"
+     and restores it. */
+  s.removedWhiteboards = Array.isArray(saved.removedWhiteboards) ? saved.removedWhiteboards : [];
+  if (s.removedWhiteboards.length && s.whiteboards) {
+    s.removedWhiteboards.forEach(k => { delete s.whiteboards[k]; });
+  }
+
   s.commBoards = Array.isArray(saved.commBoards) && saved.commBoards.length
     ? saved.commBoards
     : structuredClone(DEFAULT_STATE.commBoards);

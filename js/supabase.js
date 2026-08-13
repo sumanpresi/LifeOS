@@ -299,7 +299,12 @@ let hasReconciled = false;      // has this session checked the cloud at least o
 /* Saving is whole-document, so payload size IS the save time. Tracked so
    it can be surfaced rather than guessed at. */
 export let lastPayloadBytes = 0;
-const BIG_PAYLOAD_BYTES = 1_500_000;
+/* 1.0 MB, not 1.5. The warning existed to say "this is getting large",
+   but the number that actually matters is the ~1 MB request-body limit
+   where uploads start being rejected outright — and the banner text says
+   1 MB. Warning after the point of failure, in different words from the
+   message itself, is worse than not warning at all. */
+const BIG_PAYLOAD_BYTES = 1_000_000;
 let bigPayloadWarned = false;
 /* One explanation per session; the pill keeps showing the short reason. */
 let saveErrorShown = false;
@@ -384,8 +389,21 @@ function checkClockSkew(serverStampIso) {
 // means it doesn't matter afterward which side "wins" — board data
 // from both is already combined by that point.
 function mergeIncomingWhiteboards(remote) {
+  /* Keys either side has recorded as deliberately removed. Without this
+     the union below resurrects them: a device that still holds the old
+     legacy copy re-adds it, and "Reclaim space" is undone by the next
+     sync. Both sides' tombstones are honoured, so it doesn't matter which
+     device ran the cleanup. */
+  const removed = new Set([
+    ...(Array.isArray(state.removedWhiteboards) ? state.removedWhiteboards : []),
+    ...(Array.isArray(remote.removedWhiteboards) ? remote.removedWhiteboards : [])
+  ]);
+  state.removedWhiteboards = [...removed];
+  remote.removedWhiteboards = [...removed];
+
   const mergedBoards = {};
   Object.keys(Object.assign({}, state.whiteboards, remote.whiteboards)).forEach(boardId => {
+    if (removed.has(boardId)) return;   // deleted on purpose — never revive
     mergedBoards[boardId] = mergeBoardData(state.whiteboards[boardId], remote.whiteboards?.[boardId]);
   });
   state.whiteboards = mergedBoards;

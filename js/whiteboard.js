@@ -157,7 +157,18 @@ export function mergeBoardData(a, b) {
   if (!b) return a;
   const strokes = [], seenStrokes = new Set();
   [...(a.strokes || []), ...(b.strokes || [])].forEach(s => {
-    const key = s.id || JSON.stringify(s.points[0]) + s.color + s.points.length; // fallback for strokes saved before ids existed
+    /* The fallback key for id-less strokes must not depend on anything
+       that legitimate maintenance can change. It used to include
+       points.length — which "Reclaim space" alters by design when it
+       thins redundant points. A thinned stroke and its unthinned copy on
+       another device therefore hashed differently, so the merge treated
+       them as two separate strokes and kept BOTH. Every sync after a
+       cleanup re-added the dense originals alongside the simplified ones,
+       which is why a reclaimed 625 KB document grew back past 1.4 MB.
+
+       First point, last point and colour identify the same drawn line
+       regardless of how many intermediate points survive. */
+    const key = s.id || (JSON.stringify(s.points[0]) + JSON.stringify(s.points[s.points.length - 1]) + s.color);
     if (!seenStrokes.has(key)) { seenStrokes.add(key); strokes.push(s); }
   });
   // Strokes are add-only and immutable once drawn (an eraser stroke is
@@ -316,7 +327,21 @@ export function findOrphanedWhiteboards() {
 export function dropOrphanedWhiteboards() {
   const found = findOrphanedWhiteboards().filter(o => o.safe);
   let kb = 0;
-  found.forEach(o => { kb += o.kb; delete state.whiteboards[o.key]; });
+  /* Deleting the key locally is not enough. The cloud, and every other
+     device, still holds it — and mergeIncomingWhiteboards unions the two
+     key sets, so "we don't have it, they do" reads as "they added it" and
+     the 607 KB comes straight back on the next sync. That is exactly what
+     happened: a reclaimed 625 KB document grew back to 1,445 KB.
+
+     A deletion has to be recorded as a fact that syncs, not as an absence.
+     This list is part of the state, so it reaches every device, and the
+     merge treats a listed key as deleted no matter who still has a copy. */
+  state.removedWhiteboards = Array.isArray(state.removedWhiteboards) ? state.removedWhiteboards : [];
+  found.forEach(o => {
+    kb += o.kb;
+    delete state.whiteboards[o.key];
+    if (!state.removedWhiteboards.includes(o.key)) state.removedWhiteboards.push(o.key);
+  });
   return { removed: found.map(o => o.key), kb };
 }
 
