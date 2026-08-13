@@ -154,11 +154,15 @@ function handleBoardDragEnd(evt) {
     return;
   }
   const ok = moveTaskToColumn(draggedId, toCol);
-  // Always re-render regardless of outcome — this is what makes a
-  // rejected move (e.g. dropping into Overdue without a qualifying
-  // date) visually snap back to wherever the task actually belongs,
-  // since the board is rebuilt fresh from real data rather than
-  // trying to manually undo whatever SortableJS already did to the DOM.
+  /* Always re-render regardless of outcome. The board is rebuilt from
+     real data rather than trying to unpick whatever SortableJS already
+     did to the DOM, so a task always lands where its data says it
+     belongs.
+
+     No column rejects a drop any more — Overdue was the last one, and it
+     now dates the task yesterday instead of refusing. The `ok === false`
+     branch is kept as a backstop in case a future column needs to decline
+     one, since silently swallowing a refused move would look like a bug. */
   renderTasks();
   if (ok === false) toast("That task can't move there");
 }
@@ -250,8 +254,24 @@ function moveTaskToColumn(id, targetCol) {
     return true;
   }
   if (targetCol === "overdue") {
-    if (!curDate || curDate >= todayStr) { toast("Overdue needs a due date before today"); return false; }
-    return true; // already qualifies, nothing to change
+    /* Overdue used to be the only column that REFUSED a drop, on the
+       reasoning that the app shouldn't invent a date in the past. But
+       every other column here sets the date the drop implies — Today sets
+       today, Upcoming sets tomorrow — so Overdue was inconsistent, and a
+       column you can drag out of but never into reads as broken rather
+       than as principled.
+
+       Dropping here states an intent plainly: this was due and it is late.
+       Yesterday is the smallest date that satisfies it, which keeps the
+       invention to a minimum, and the date is editable on the card. A task
+       already dated in the past is left exactly as it is, so dragging a
+       genuinely old item between columns never rewrites its history. */
+    if (curDate && curDate < todayStr) return true;   // already overdue — change nothing
+    const d = new Date(); d.setDate(d.getDate() - 1);
+    const iso = d.toISOString().slice(0, 10);
+    editTaskMeta(id, "dueDate", iso);
+    toast("Marked overdue — due yesterday. Tap the date on the card to set the real one.");
+    return true;
   }
   return true;
 }
