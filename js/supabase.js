@@ -301,6 +301,8 @@ let hasReconciled = false;      // has this session checked the cloud at least o
 export let lastPayloadBytes = 0;
 const BIG_PAYLOAD_BYTES = 1_500_000;
 let bigPayloadWarned = false;
+/* One explanation per session; the pill keeps showing the short reason. */
+let saveErrorShown = false;
 let pendingSaveAfterReconcile = false;
 
 /* ---------- deciding who is newer ----------
@@ -669,6 +671,43 @@ export async function loadRemote(preferRemote = false) {
     setSyncPill("err", "Sync failed — tap Sync");
   }
 }
+/* Turns a Supabase/PostgREST failure into something actionable.
+
+   The save error was previously written only to the in-memory diagnostic
+   log and the pill just said "Save failed — tap Sync". That is the least
+   useful thing it could say: tapping Sync retries the identical upload,
+   so a table that does not exist or a policy that rejects the write
+   produces an endless loop of the same failure with no clue why. Each
+   cause below needs a completely different fix, so the message names it. */
+function explainSaveError(e) {
+  const msg = String(e?.message || e || "");
+  const code = String(e?.code || "");
+  const m = msg.toLowerCase();
+
+  if (code === "42P01" || m.includes("does not exist") || m.includes("relation")) {
+    return { pill: "Save failed — table missing",
+      detail: "The <code>lifeos_data</code> table isn't in this Supabase project. Open the Supabase dashboard → SQL Editor and run the contents of <code>supabase-setup.sql</code> from the project files. Having the file in the repo doesn't create the table." };
+  }
+  if (code === "42501" || m.includes("row-level security") || m.includes("violates") || m.includes("permission denied")) {
+    return { pill: "Save failed — permission denied",
+      detail: "The row-level security policies are rejecting this write. Re-run the policy section of <code>supabase-setup.sql</code>, and check that RLS is enabled on <code>lifeos_data</code> with an <b>insert</b> and an <b>update</b> policy for <code>auth.uid() = user_id</code>." };
+  }
+  if (m.includes("jwt") || m.includes("expired") || code === "PGRST301") {
+    return { pill: "Save failed — session expired",
+      detail: "Your sign-in has expired. Sign out and back in with GitHub; nothing is lost, this device still holds your data." };
+  }
+  if (m.includes("payload") || m.includes("too large") || m.includes("413")) {
+    return { pill: "Save failed — document too large",
+      detail: "The upload exceeded the size the server accepts. Open <b>Backup</b> to see what's largest — pen drawings are usually the cause — and archive or delete a board you've finished with." };
+  }
+  if (m.includes("failed to fetch") || m.includes("networkerror") || m.includes("load failed")) {
+    return { pill: "Save failed — no connection",
+      detail: "The request never reached Supabase. That's usually the network, or a blocker stopping requests to the Supabase domain. Your data is safe on this device and will upload once the connection is back." };
+  }
+  return { pill: "Save failed — tap Sync",
+    detail: "Supabase rejected the upload: <b>" + esc(msg || "unknown error") + "</b>" + (code ? " (code " + esc(code) + ")" : "") };
+}
+
 export async function saveRemote() {
   /* Nothing to send if this device holds exactly what the cloud already
      has. rev is the same counter the reconcile uses, so this is the same
@@ -711,6 +750,7 @@ export async function saveRemote() {
       user_id: user.id, data: payload, updated_at: new Date().toISOString()
     });
     if (error) throw error;
+    saveErrorShown = false; // a success re-arms the explanation for any future failure
     markAgreed(token); // this device and the cloud now hold the same thing
     const pill = document.getElementById("syncPill");
     if (pill) pill.title = "Last upload " + Math.round(payloadBytes / 1024) + " KB — every save sends the whole document";
@@ -719,7 +759,23 @@ export async function saveRemote() {
     let size = "?";
     try { size = Math.round(JSON.stringify(state).length / 1024) + " KB"; } catch (_) {}
     authDiag("SAVE failed (payload " + size + "): " + (e.message || e) + (e.code ? " [code " + e.code + "]" : "") + (e.hint ? " — " + e.hint : ""));
-    setSyncPill("err", "Save failed — tap Sync");
+    const why = explainSaveError(e);
+    setSyncPill("err", why.pill);
+    /* Shown once per session, not on every retry: a modal that reopens on
+       each failed save would be its own problem. */
+    if (!saveErrorShown) {
+      saveErrorShown = true;
+      const box = document.getElementById("ghErr");
+      if (box) {
+        openGhModal();
+        box.innerHTML = "<b>Changes aren't reaching the cloud.</b><br><br>" + why.detail +
+          "<br><br>Your data is safe on this device — nothing has been lost. Until this is fixed, " +
+          "treat other devices as out of date, and take a <b>Backup</b> before signing out anywhere." +
+          (e && (e.message || e.code) ? "<br><br><span class='hint'>Reported by Supabase: " +
+            esc(String(e.message || "")) + (e.code ? " (code " + esc(String(e.code)) + ")" : "") + "</span>" : "");
+        box.style.display = "block";
+      }
+    }
   }
 }
 export async function syncNow() {
