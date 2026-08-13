@@ -232,38 +232,82 @@ export function initWhiteboard(boardId) {
 // page is actually visible, not just once at initial construction.
 /* Legacy whiteboard storage left behind by the move to tabs.
 
-   Board content used to live in state.whiteboards, keyed by surface —
-   whiteboards.overview, whiteboards.gsi and so on. Every surface is
-   tabbed now, so board() resolves through TAB_SURFACES into commBoards /
-   brainstormBoards / dayofBoards and never touches state.whiteboards for
-   those keys at all. The old entries are still saved and uploaded on
-   every sync while being read by nothing.
+   Board content used to live in state.whiteboards, keyed by surface.
+   Those surfaces are tabbed now, so board() resolves through TAB_SURFACES
+   into commBoards / brainstormBoards / dayofBoards and never reads the old
+   entries for them — yet they are still saved and uploaded on every sync.
 
-   The migration deliberately left them as a rollback path. That was the
-   right call at the time and is no longer worth 37% of the payload.
+   NOT all of state.whiteboards is dead: board() still falls back to it for
+   any surface that ISN'T tabbed, so an entry like `personal` is live data
+   and must never be touched.
 
-   Only keys that are BOTH a known tab surface AND already present in the
-   corresponding tab list are removed: an entry for some surface that was
-   never migrated is real data and must survive untouched. */
+   HOW "ALREADY MIGRATED" IS PROVED.
+
+   The first version of this compared counts — 227 legacy strokes, 227 live
+   strokes, therefore safe. That proves nothing: two boards can hold the
+   same number of completely different drawings.
+
+   Comparing full content is the obvious correction and is also wrong, just
+   in the other direction. A sticky note is editable: the live copy of a
+   migrated note has usually been changed since — in this project's own
+   data every legacy note lacks the `html` field its live counterpart has,
+   because the text was edited after the migration. Demanding equality
+   would refuse to clean up boards that migrated perfectly well.
+
+   Identity is the right test, and both records carry a stable id. Every
+   legacy stroke and note must have a counterpart WITH THE SAME ID in the
+   live board. That proves the item made the journey; whatever happened to
+   it afterwards is the live copy's business, and the live copy is the one
+   that wins. If a single legacy id is unaccounted for, nothing is removed. */
 export function findOrphanedWhiteboards() {
   const out = [];
   Object.keys(state.whiteboards || {}).forEach(key => {
-    if (!isTabSurface(key)) return;                 // not migrated — still live
+    if (!isTabSurface(key)) return;                   // not a tabbed surface — live data
     const list = state[TAB_SURFACES[key].list];
-    if (!Array.isArray(list) || !list.length) return; // no tab list to have moved into
+    if (!Array.isArray(list) || !list.length) return; // nothing to have migrated into
+
     const legacy = state.whiteboards[key] || {};
-    const strokes = (legacy.strokes || []).length;
-    const objects = (legacy.objects || []).length;
-    if (!strokes && !objects) { out.push({ key, kb: 0, strokes, objects, safe: true }); return; }
-    /* Content is only redundant if the tab list actually holds it. Compare
-       stroke and note counts rather than trusting the migration ran. */
-    const inTabs = list.reduce((n, b) => n + ((b.strokes || []).length), 0);
-    const notesInTabs = list.reduce((n, b) => n + ((b.objects || []).filter(o => !o.deleted).length), 0);
+    const legacyStrokes = legacy.strokes || [];
+    const legacyObjects = legacy.objects || [];
+
+    /* Strokes and notes need different proofs.
+
+       A STROKE is immutable — once drawn it is never edited — so identical
+       content IS proof of the same stroke. That matters because 100 of the
+       227 strokes in this project's own data predate stroke ids entirely;
+       requiring an id would refuse to clean up a board that migrated
+       perfectly, purely because the drawing is old.
+
+       A NOTE is editable, so its content legitimately drifts after
+       migration and only the id can prove identity. A note with no id
+       cannot be proved and therefore blocks removal. */
+    const liveStrokeIds = new Set();
+    const liveStrokeFingerprints = new Set();
+    const liveObjectIds = new Set();
+    const fingerprint = st => JSON.stringify([st.color, st.width, !!st.erase, st.points]);
+    list.forEach(b => {
+      (b.strokes || []).forEach(st => {
+        if (!st) return;
+        if (st.id != null) liveStrokeIds.add(st.id);
+        try { liveStrokeFingerprints.add(fingerprint(st)); } catch (_) {}
+      });
+      (b.objects || []).forEach(o => { if (o && o.id != null) liveObjectIds.add(o.id); });
+    });
+
+    const missingStrokes = legacyStrokes.filter(st => {
+      if (!st) return true;
+      if (st.id != null) return !liveStrokeIds.has(st.id);
+      try { return !liveStrokeFingerprints.has(fingerprint(st)); } catch (_) { return true; }
+    });
+    const missingObjects = legacyObjects.filter(o => o?.id == null || !liveObjectIds.has(o.id));
+
     out.push({
       key,
       kb: Math.round(JSON.stringify(legacy).length / 1024),
-      strokes, objects,
-      safe: inTabs >= strokes && notesInTabs >= objects
+      strokes: legacyStrokes.length,
+      objects: legacyObjects.length,
+      missing: missingStrokes.length + missingObjects.length,
+      safe: missingStrokes.length === 0 && missingObjects.length === 0
     });
   });
   return out;

@@ -277,7 +277,12 @@ function sizeBreakdown() {
   const rows = [
     ["Brainstorm boards", boards(state.brainstormBoards)],
     ["Scratch boards", boards(state.dayofBoards)],
-    ["Whiteboard (Communication)", boards(state.commBoards) + kb(state.whiteboards)],
+    ["Whiteboard (Communication)", boards(state.commBoards)],
+    /* Listed separately, not folded into the Communication whiteboard.
+       Lumping the two together made that row look far bigger than the
+       board actually is, and hid the fact that most of it is superseded
+       data Reclaim space can delete outright. */
+    ["Superseded whiteboard copies", kb(state.whiteboards)],
     ["Tasks", kb(state.tasks)],
     ["Work · GSI", kb(state.gsi)],
     ["Personal Workspace", kb(state.personal)],
