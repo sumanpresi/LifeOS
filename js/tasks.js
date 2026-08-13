@@ -711,20 +711,43 @@ export function toggleBoardCol(board, key) {
   rerender();
 }
 
-/* The head becomes a button so it is keyboard reachable; the count stays
-   outside it so it reads as a label rather than part of the control. */
+/* The head is a button so it is keyboard reachable; the count sits outside
+   it so it reads as a label rather than part of the control.
+
+   The click is handled by ONE delegated listener on document (below)
+   rather than an inline onclick attribute. Inline handlers resolve against
+   the global scope at click time, so they depend on app.js having attached
+   the function to window — a single unrelated error during boot silently
+   turns every such control into a dead element, with no clue at the point
+   of failure. Delegation binds once, from inside the module that owns the
+   behaviour, and cannot be broken that way. */
 export function boardColHeadHtml(board, key, label, count) {
   const collapsed = isColCollapsed(board, key);
   return `
     <div class="t-board-col-head">
-      <button class="t-board-col-toggle" onclick="toggleBoardCol('${board}','${key}')"
+      <button type="button" class="t-board-col-toggle"
+        data-col-board="${board}" data-col-key="${key}"
         aria-expanded="${!collapsed}" title="${collapsed ? "Show" : "Hide"} ${esc(label)}">
-        <span class="t-board-col-chev" aria-hidden="true">${collapsed ? "&#9656;" : "&#9662;"}</span>
+        <span class="t-board-col-burger" aria-hidden="true">
+          <svg viewBox="0 0 16 16" width="14" height="14">
+            <path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+          </svg>
+        </span>
         <span class="t-board-col-title">${esc(label)}</span>
       </button>
       <span class="t-section-count t-board-col-count">${count}</span>
     </div>`;
 }
+
+/* Bound once, at module load. Capture phase so it runs before any drag
+   library that might otherwise swallow the event on its way up. */
+document.addEventListener("click", (evt) => {
+  const btn = evt.target.closest?.(".t-board-col-toggle");
+  if (!btn) return;
+  evt.preventDefault();
+  evt.stopPropagation();
+  toggleBoardCol(btn.dataset.colBoard, btn.dataset.colKey);
+}, true);
 
 /* accentClass is gone: the per-column heading colours it carried were
    dropped when the boards moved to the reference's white headings, so it

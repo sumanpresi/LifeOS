@@ -3288,8 +3288,15 @@ html[data-theme="dark"] :is(.med-today-col,.med-col.today,.dose-col.today){
 .t-board-col-toggle{display:flex;align-items:center;gap:7px;background:none;border:none;
   padding:0;margin:0;cursor:pointer;color:inherit;font:inherit;text-align:left;flex:1;min-width:0}
 .t-board-col-toggle:focus-visible{outline:2px solid var(--t-accent);outline-offset:3px;border-radius:8px}
-.t-board-col-chev{font-size:11px;color:var(--t-ink2);flex-shrink:0;transition:color 120ms ease}
-.t-board-col-toggle:hover .t-board-col-chev{color:var(--t-ink)}
+/* Hamburger, not a caret. It sits in a fixed square so the heading text
+   never shifts between states, and rotates a quarter turn when collapsed —
+   the icon itself is the same in both states, so the rotation is what
+   carries "this is folded". */
+.t-board-col-burger{display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;flex-shrink:0;color:var(--t-ink2);border-radius:5px;
+  transition:color 120ms ease,background 120ms ease,transform 160ms ease}
+.t-board-col-toggle:hover .t-board-col-burger{color:var(--t-ink);background:rgba(255,255,255,.09)}
+.t-board-col-toggle[aria-expanded="false"] .t-board-col-burger{transform:rotate(90deg)}
 
 /* A collapsed column keeps its heading and count visible and shrinks to
    the width of that heading, so it stays reachable without occupying a
