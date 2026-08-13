@@ -868,6 +868,22 @@ function renderObjects(boardId) {
   const s = inst(boardId);
   if (!s.layer || !s.canvas) return;
   const w = s.canvas.width / s.dpr; // same basis as strokes
+
+  /* Text scales with the board, exactly as the note's box already does.
+
+     A note's x/y/w/h are fractions of the board width, so the BOX grows
+     and shrinks with the view. The text inside it was a fixed 13px, so it
+     did not — which meant the same note held roughly 21 characters per
+     line in the normal view and 48 in fullscreen. Its content genuinely
+     reflowed depending on where you looked at it, so a note that fitted
+     perfectly on one screen was clipped on the other, and switching tabs
+     or entering fullscreen appeared to truncate text at random.
+
+     Tying the font to the board width makes a note's contents identical
+     everywhere: same wrapping, same number of lines, same fit. 1000px is
+     an arbitrary reference width at which the text renders at its natural
+     13px; every other width scales proportionally. */
+  if (s.layer) s.layer.style.setProperty("--wb-text-scale", (w / 1000).toFixed(4));
   const objs = board(boardId).objects.filter(o => !o.deleted); // tombstones stay in state for sync, never in the DOM
 
   // Reconcile against the existing DOM instead of the previous
@@ -1194,31 +1210,6 @@ function markStickyOverflow(el) {
   });
 }
 
-/* Grows a note until its text fits, and persists the new height so it
-   stays that way. Deliberately user-initiated: doing it automatically on
-   every render would rewrite note geometry behind the person's back and
-   push those changes at every other device on every sync. */
-export function fitStickyToContent(boardId, objId, opts = {}) {
-  const b = board(boardId);
-  const o = (b.objects || []).find(x => x.id === objId && !x.deleted);
-  const el = document.querySelector(`[data-obj-id="${objId}"]`);
-  const t = el?.querySelector(".wb-sticky-text");
-  if (!o || !t) return;
-  const st = inst(boardId);
-  const w = st?.canvas ? st.canvas.width / st.dpr : 0;  // the same basis every note's x/y/w/h uses
-  if (!w) return;
-  const needed = t.scrollHeight + (el.offsetHeight - t.clientHeight); // text + chrome
-  const grown = Math.min(needed / w, 3 - o.y);                        // never past the board
-  if (grown > o.h) {
-    o.h = grown;
-    o.updatedAt = Date.now();
-    persist();
-    renderObjects(boardId);
-    if (!opts.quiet) toast("Note resized to fit its text");
-  } else if (!opts.quiet) {
-    toast("The note already fits its text");
-  }
-}
 
 function stickyHtml(o, w) {
   const px = o.x * w, py = o.y * w, pw = o.w * w, ph = o.h * w;
@@ -1863,15 +1854,10 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
   textEl.addEventListener("input", saveHtml);
   textEl.addEventListener("blur", () => {
     autoLinkOnBlur(); saveHtml(); refreshLinkPreviews();
-    /* Grow the note if what was just typed no longer fits.
-
-       This is the natural moment: the content has definitively changed,
-       the person has finished with it, and it is their own edit that
-       caused the change — so it is not the app quietly rearranging a
-       board behind their back. Doing it on every render instead would
-       rewrite note geometry continuously and push those changes to every
-       device on every sync. */
-    fitStickyToContent(boardId, objId, { quiet: true });
+    /* No auto-fit here any more. Growing a note to fit its text looked
+       right in whichever view it was measured in and wrong everywhere
+       else — see the note on --wb-text-scale in renderObjects. Scaling the
+       text with the board removes the need for it entirely. */
   });
   const openStickyLink = (evt) => {
     const a = evt.target.closest("a");
@@ -2050,6 +2036,13 @@ export function switchBrainstormBoard(tabId, surface = "gsi") {
   if (!b) return;
   state[TAB_SURFACES[surface].active] = tabId;
   selectedStickyId = null; // a note selected on the previous tab shouldn't carry over
+  /* Notes are reconciled against the existing DOM rather than rebuilt, so
+     an element can be reused for a note that happens to share an id across
+     tabs — carrying its scroll position with it and showing the new note
+     from the middle. Clearing here means every tab opens at the top of
+     each note. */
+  const layer = inst(surface).layer;
+  if (layer) layer.querySelectorAll(".wb-sticky-text").forEach(t => { t.scrollTop = 0; });
   persist(false); // which tab is active is local UI state, not a content edit — see persist()'s own note on this distinction
   renderBrainstormTabs(surface);
   setZoom(surface, b.zoom || 100); // also runs sizeCanvas, which repaints strokes + sticky notes from the newly active board

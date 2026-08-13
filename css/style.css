@@ -1765,7 +1765,12 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
 .wb-sticky.wb-connect-target{outline:3px solid var(--accent);outline-offset:3px;box-shadow:0 0 0 6px rgba(75,92,66,.15)}
 .wb-sticky-drag-handle{height:14px;flex-shrink:0;cursor:grab;border-radius:11px 11px 0 0;touch-action:none;background:rgba(255,255,255,.25)}
 .wb-sticky-drag-handle:active{cursor:grabbing}
-.wb-sticky-text{flex:1;padding:4px 9px 9px;font-size:13px;line-height:1.45;color:#1B1B1A;letter-spacing:.1px;
+/* font-size follows --wb-text-scale, set on the layer from the board's
+   measured width, so a note wraps identically at every zoom level and in
+   fullscreen. clamp() keeps it legible on a small phone board and stops
+   it becoming absurd on a very wide screen. */
+.wb-sticky-text{flex:1;padding:calc(4px * var(--wb-text-scale,1)) calc(9px * var(--wb-text-scale,1)) calc(9px * var(--wb-text-scale,1));
+  font-size:clamp(9px, calc(13px * var(--wb-text-scale, 1)), 22px);line-height:1.45;color:#1B1B1A;letter-spacing:.1px;
   overflow-y:auto;-webkit-overflow-scrolling:touch;outline:none;word-break:break-word;cursor:text;overscroll-behavior:contain;
   scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.28) transparent}
 .wb-sticky-text::-webkit-scrollbar{width:7px}
