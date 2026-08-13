@@ -314,6 +314,70 @@ export function renderSizeBreakdown() {
     </p>`;
 }
 
+/* ---------- Shrink drawings ----------
+   Pen capture records far more points than a line's shape needs. The
+   editor thins them a little as you draw, but that only limits how close
+   two points may be — it cannot tell that forty points along a gentle
+   curve are describing something four points would describe identically.
+
+   Ramer-Douglas-Peucker drops any point that lies within a tolerance of
+   the line between its neighbours. At an epsilon of roughly one pixel the
+   result is visually the same stroke.
+
+   Deliberately manual, not automatic on save: it rewrites stored data, so
+   it should happen when someone asks for it and can see what it did —
+   not silently in the background. A snapshot is taken first, so Restore
+   undoes it completely. */
+function rdp(points, eps) {
+  if (!Array.isArray(points) || points.length < 3) return points;
+  const a = points[0], b = points[points.length - 1];
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const den = Math.hypot(dx, dy) || 1e-9;
+  let idx = 0, dmax = 0;
+  for (let i = 1; i < points.length - 1; i++) {
+    const d = Math.abs(dy * points[i].x - dx * points[i].y + b.x * a.y - b.y * a.x) / den;
+    if (d > dmax) { dmax = d; idx = i; }
+  }
+  if (dmax > eps) {
+    const left = rdp(points.slice(0, idx + 1), eps);
+    const right = rdp(points.slice(idx), eps);
+    return [...left.slice(0, -1), ...right];
+  }
+  return [a, b];
+}
+
+function eachBoard(fn) {
+  [state.brainstormBoards, state.dayofBoards, state.commBoards].forEach(list =>
+    (list || []).forEach(b => fn(b)));
+  Object.values(state.whiteboards || {}).forEach(b => fn(b));
+}
+
+export function shrinkDrawings() {
+  const before = JSON.stringify(state).length;
+  let strokes = 0, ptsBefore = 0, ptsAfter = 0;
+  try { takeSnapshot("before-shrink-drawings"); }
+  catch (e) { console.warn("[shrink] snapshot failed", e); }
+
+  eachBoard(b => {
+    if (!Array.isArray(b?.strokes)) return;
+    b.strokes.forEach(st => {
+      if (!Array.isArray(st.points) || st.points.length < 3) return;
+      strokes++;
+      ptsBefore += st.points.length;
+      st.points = rdp(st.points, 0.0012);
+      ptsAfter += st.points.length;
+    });
+  });
+
+  const after = JSON.stringify(state).length;
+  const savedKb = Math.max(0, Math.round((before - after) / 1024));
+  persist(); rerender();
+  toast(savedKb
+    ? `Saved ${savedKb} KB — ${ptsBefore - ptsAfter} redundant points removed from ${strokes} strokes. Undo from Restore.`
+    : "Drawings are already as compact as they can be.");
+  renderBackupPanel();
+}
+
 export function renderBackupPanel() {
   renderSizeBreakdown();
   const status = document.getElementById("backupStatus");

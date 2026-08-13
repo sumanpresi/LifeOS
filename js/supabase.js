@@ -303,6 +303,9 @@ const BIG_PAYLOAD_BYTES = 1_500_000;
 let bigPayloadWarned = false;
 /* One explanation per session; the pill keeps showing the short reason. */
 let saveErrorShown = false;
+/* Whether the realtime socket is currently up. Used to tell a genuine
+   network failure apart from a rejected over-sized request. */
+let realtimeConnected = false;
 let pendingSaveAfterReconcile = false;
 
 /* ---------- deciding who is newer ----------
@@ -701,6 +704,22 @@ function explainSaveError(e) {
       detail: "The upload exceeded the size the server accepts. Open <b>Backup</b> to see what's largest — pen drawings are usually the cause — and archive or delete a board you've finished with." };
   }
   if (m.includes("failed to fetch") || m.includes("networkerror") || m.includes("load failed")) {
+    /* "Failed to fetch" is ambiguous and was previously reported as a
+       connection problem, which is wrong whenever the realtime websocket
+       is up: that proves the network reaches Supabase and the domain is
+       not blocked. fetch() throws the SAME TypeError when the server
+       closes the connection mid-request — which is what a proxy does to
+       an over-sized body. No status code ever reaches the browser, so it
+       cannot present as a 413. When the document is already large and the
+       socket is live, size is by far the likelier cause, and saying
+       "check your connection" sends you to look in the wrong place. */
+    const big = lastPayloadBytes > 1_000_000;
+    if (big && realtimeConnected) {
+      return { pill: "Save failed — document too large",
+        detail: "The upload is <b>" + Math.round(lastPayloadBytes / 1024) + " KB</b>, and the live connection to Supabase is working — so this isn't the network. " +
+          "Supabase closes the request when the body is too big, which the browser can only report as a generic fetch failure. " +
+          "Open <b>Backup</b> to see what's largest and use <b>Shrink drawings</b>, or archive a board you've finished with." };
+    }
     return { pill: "Save failed — no connection",
       detail: "The request never reached Supabase. That's usually the network, or a blocker stopping requests to the Supabase domain. Your data is safe on this device and will upload once the connection is back." };
   }
@@ -851,6 +870,7 @@ function startRealtime() {
       // authDiag. "CHANNEL_ERROR"/"TIMED_OUT" here means realtime isn't
       // enabled for the table, and the poll above is doing the work.
       authDiag("realtime: " + status);
+      realtimeConnected = (status === "SUBSCRIBED");
     });
 }
 function stopRealtime() {
