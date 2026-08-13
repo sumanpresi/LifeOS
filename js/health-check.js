@@ -16,7 +16,7 @@
 
 import { state, uid, persist, rerender } from './state.js';
 import { toast } from './ui.js';
-import { takeSnapshot, renderBackupPanel } from './backup.js';
+import { renderBackupPanel, requireSnapshot } from './backup.js';
 
 /* Each check returns { problem, detail, count, fix } — fix is omitted when
    the only safe action is for a person to look at it themselves. */
@@ -204,7 +204,7 @@ export function repairDataProblems() {
     `Nothing you've written will be deleted. A snapshot is taken first, so this can be undone from Snapshot history.`
   )) return;
 
-  takeSnapshot("before-repair");
+  if (!requireSnapshot("before-repair", "Nothing was repaired")) return;
   let repaired = 0;
   fixable.forEach(f => {
     try { f.fix(); repaired += f.count; }

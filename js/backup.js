@@ -92,6 +92,20 @@ function countItems(s) {
    The sync path needs that: when a conflict discards the CLOUD's version,
    the thing worth preserving is the payload that just came down, not what
    this device happens to be holding. */
+/* For destructive actions that PROMISE a restore point in their
+   confirmation text. Each of these told the person "a snapshot is taken
+   first" and then proceeded whether or not one actually was — which turns
+   a stated guarantee into a hope. Returns true only when the restore
+   point really exists. */
+export function requireSnapshot(reason, whatFailed) {
+  let snap = null;
+  try { snap = takeSnapshot(reason); }
+  catch (e) { console.warn("[snapshot] " + reason + " threw", e); }
+  if (snap) return true;
+  toast(`${whatFailed} — a safety snapshot couldn't be saved. Download a backup first, then try again.`);
+  return false;
+}
+
 export function takeSnapshot(reason = "manual", data = null) {
   const json = JSON.stringify(data || state);
   const snap = {
@@ -128,7 +142,7 @@ export function restoreSnapshot(id) {
 
   // Taken BEFORE the overwrite, so a restore to the wrong point is
   // recoverable rather than being the mistake that loses the day's work.
-  takeSnapshot("before-restore");
+  if (!requireSnapshot("before-restore", "Nothing was restored")) return;
 
   let parsed;
   try { parsed = JSON.parse(snap.data); }
@@ -219,7 +233,7 @@ export function importBackupFile(inputOrEvent) {
       `A snapshot of the current state is taken first.`
     )) return;
 
-    takeSnapshot("before-import");
+    if (!requireSnapshot("before-import", "Nothing was imported")) return;
     applyRestoredState(data);
     toast("Backup restored");
   };
@@ -380,8 +394,30 @@ function eachBoard(fn) {
    be deleted, and would make the reported saving misleading. */
 export function reclaimSpace() {
   const before = JSON.stringify(state).length;
-  try { takeSnapshot("before-reclaim-space"); }
-  catch (e) { console.warn("[reclaim] snapshot failed", e); }
+
+  /* The snapshot is a PRECONDITION, not a courtesy.
+
+     takeSnapshot() returns null when the write fails — localStorage is
+     shared with the live state, and at this payload size a snapshot is
+     roughly 1.6 MB, so a quota failure here is realistic rather than
+     theoretical. The previous version caught exceptions, ignored the null
+     return, and deleted anyway. That is the wrong way round: a cleanup
+     whose whole safety story is "undo from Restore" must not run when
+     there is no Restore point to undo to.
+
+     If it can't be written, the operation stops and says why, and offers
+     the one thing that always works — downloading a backup file, which
+     doesn't touch localStorage at all. */
+  if (!requireSnapshot("before-reclaim-space", "Nothing was changed")) {
+    const box = document.getElementById("reclaimEstimate");
+    if (box) {
+      box.innerHTML = "<b>Reclaim space did not run.</b> A restore point could not be written — " +
+        "this browser's storage is full, which is likely at the current document size. " +
+        "Download a backup with the <b>Backup</b> button (that writes a file, not browser storage), " +
+        "then run this again.";
+    }
+    return;
+  }
 
   const dropped = dropOrphanedWhiteboards();
   const shrunk = shrinkStrokes();
