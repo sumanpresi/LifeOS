@@ -1182,10 +1182,15 @@ function markStickyOverflow(el) {
   const t = el?.querySelector(".wb-sticky-text");
   if (!t) return;
   requestAnimationFrame(() => {
-    const clipped = t.scrollHeight > t.clientHeight + 1;
+    /* clientHeight is 0 until the element has actually been laid out, and
+       a freshly inserted note is measured before that happens — which made
+       "scrollHeight > clientHeight" true for every note on the board,
+       including empty ones. Requiring a real measured height, and a
+       tolerance wider than a rounding error, keeps the marker for notes
+       that genuinely have more text than fits. */
+    if (!t.clientHeight) return;
+    const clipped = t.scrollHeight > t.clientHeight + 6;
     el.classList.toggle("wb-sticky-clipped", clipped);
-    if (clipped) el.title = "This note has more text than fits — double-click its edge to fit it to the content";
-    else if (el.title) el.removeAttribute("title");
   });
 }
 
@@ -1193,7 +1198,7 @@ function markStickyOverflow(el) {
    stays that way. Deliberately user-initiated: doing it automatically on
    every render would rewrite note geometry behind the person's back and
    push those changes at every other device on every sync. */
-export function fitStickyToContent(boardId, objId) {
+export function fitStickyToContent(boardId, objId, opts = {}) {
   const b = board(boardId);
   const o = (b.objects || []).find(x => x.id === objId && !x.deleted);
   const el = document.querySelector(`[data-obj-id="${objId}"]`);
@@ -1209,8 +1214,8 @@ export function fitStickyToContent(boardId, objId) {
     o.updatedAt = Date.now();
     persist();
     renderObjects(boardId);
-    toast("Note resized to fit its text");
-  } else {
+    if (!opts.quiet) toast("Note resized to fit its text");
+  } else if (!opts.quiet) {
     toast("The note already fits its text");
   }
 }
@@ -1224,7 +1229,6 @@ function stickyHtml(o, w) {
       <div class="wb-sticky-drag-handle" title="Drag to move"></div>
       <div class="wb-sticky-text" contenteditable="true" data-placeholder="Type something…">${sanitizeStickyHtml(getStickyHtml(o))}</div>
       <button class="wb-sticky-delete" title="Delete note">✕</button>
-      <button class="wb-sticky-fit" title="Resize this note so all its text is visible">Fit text</button>
       <div class="wb-sticky-toolbar">
         ${STICKY_COLORS.map(c => `<button class="wb-sticky-color ${o.color === c ? "on" : ""}" data-color="${c}" style="background:${c}"></button>`).join("")}
       </div>
@@ -1293,13 +1297,6 @@ function closeAllStickyColorPops() {
 }
 
 function attachStickyHandlers(boardId, objId, canvasWidth) {
-  const fitBtn = document.querySelector(`[data-obj-id="${objId}"] .wb-sticky-fit`);
-  if (fitBtn) fitBtn.addEventListener("click", evt => {
-    evt.stopPropagation();      // don't select or start a drag
-    evt.preventDefault();
-    fitStickyToContent(boardId, objId);
-  });
-
   /* The board width passed in is the one measured when this note's
      element was first created — and that is not safe to keep using.
 
@@ -1864,7 +1861,18 @@ function attachStickyHandlers(boardId, objId, canvasWidth) {
   });
 
   textEl.addEventListener("input", saveHtml);
-  textEl.addEventListener("blur", () => { autoLinkOnBlur(); saveHtml(); refreshLinkPreviews(); });
+  textEl.addEventListener("blur", () => {
+    autoLinkOnBlur(); saveHtml(); refreshLinkPreviews();
+    /* Grow the note if what was just typed no longer fits.
+
+       This is the natural moment: the content has definitively changed,
+       the person has finished with it, and it is their own edit that
+       caused the change — so it is not the app quietly rearranging a
+       board behind their back. Doing it on every render instead would
+       rewrite note geometry continuously and push those changes to every
+       device on every sync. */
+    fitStickyToContent(boardId, objId, { quiet: true });
+  });
   const openStickyLink = (evt) => {
     const a = evt.target.closest("a");
     if (a && a.href) { evt.preventDefault(); evt.stopPropagation(); window.open(a.href, "_blank", "noopener,noreferrer"); }

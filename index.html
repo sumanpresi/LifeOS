@@ -41,7 +41,13 @@
      sans body text is the single most obvious departure from it. Fewer
      files also means less to block first paint. -->
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="css/style.css">
+<!-- Versioned so a deploy can never pair NEW JavaScript with the browser's
+     CACHED OLD stylesheet. Without it the two files expire independently:
+     markup and behaviour update while the rules that style them do not,
+     which shows up as new controls rendering completely unstyled — and is
+     nearly impossible to diagnose from a screenshot, because the code on
+     disk is correct. Bump on every release. -->
+<link rel="stylesheet" href="css/style.css?v=202608131001">
 </head>
 <body>
 <div class="shell">
@@ -1533,6 +1539,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script type="module" src="js/app.js"></script>
+<script type="module" src="js/app.js?v=202608131001"></script>
 </body>
 </html>
