@@ -899,11 +899,7 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
 /* SortableJS state classes — "lift, scale up, shadow increases" while
    actively dragging; the ghost is the drop-target placeholder shown in
    the list at the position the card would land. */
-/* No transform here on purpose: with forceFallback, SortableJS's clone
-   is positioned with its own translate(x,y) tracking the pointer 1:1.
-   Adding a scale/translate on top of that would shift the card away
-   from the finger instead of just decorating it. */
-.t-row-dragging{box-shadow:0 10px 28px -8px rgba(31,41,55,.28);opacity:.96;z-index:1000}
+.t-row-dragging{transform:scale(1.03);box-shadow:0 10px 28px -8px rgba(31,41,55,.28);z-index:5}
 .t-row-chosen{cursor:grabbing}
 .t-row-ghost{background:var(--lilac);border:2px dashed var(--accent);opacity:.6}
 
