@@ -2,13 +2,29 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>LifeOS</title>
 <!-- defer: these no longer block parsing or first paint. Execution order
      is still document order, so app.js (a module, deferred by default)
      still runs after all of them. -->
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <meta name="theme-color" content="#F3EEE4">
+<!-- Installable to the iOS/iPadOS Home Screen and to Android launchers.
+     Deliberately NO service worker: one would cache the app shell for
+     offline use, but this project has already been bitten twice by stale
+     cached assets, and a service worker makes that failure mode both
+     stickier and much harder to clear from a phone. The manifest alone
+     gives the standalone window, the icon and the splash screen, which is
+     what actually changes how the app feels on a device. -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<!-- black-translucent lets the page colour run under the status bar, so
+     the dark theme reaches the top of the screen instead of leaving a
+     white strip. -->
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LifeOS">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <!-- Deliberately inline and blocking, before any stylesheet. If the theme
      were applied from a module it would run after first paint, so a dark-mode
      user would get a full-brightness flash of cream on every single load.
@@ -47,7 +63,7 @@
      which shows up as new controls rendering completely unstyled — and is
      nearly impossible to diagnose from a screenshot, because the code on
      disk is correct. Bump on every release. -->
-<link rel="stylesheet" href="css/style.css?v=202608131012">
+<link rel="stylesheet" href="css/style.css?v=202608140043">
 </head>
 <body>
 <div class="shell">
@@ -1539,6 +1555,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script type="module" src="js/app.js?v=202608131012"></script>
+<script type="module" src="js/app.js?v=202608140043"></script>
 </body>
 </html>

@@ -3361,3 +3361,24 @@ html[data-theme="dark"] :is(.med-today-col,.med-col.today,.dose-col.today){
   background:linear-gradient(to bottom,transparent,rgba(0,0,0,.10));
 }
 
+
+/* ---------- Installed to the Home Screen ----------
+   Standalone mode has no browser chrome, so the page runs edge to edge —
+   straight under the notch and the home indicator. These insets are zero
+   in a normal browser tab, so the rules are harmless there and only take
+   effect once the app is installed. */
+@supports (padding: env(safe-area-inset-top)) {
+  .sidebar{ padding-top: calc(20px + env(safe-area-inset-top)); }
+  .main{ padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
+  .size-banner{ bottom: calc(16px + env(safe-area-inset-bottom)); }
+  .wb-float-toolbar{ padding-bottom: env(safe-area-inset-bottom); }
+}
+@media (display-mode: standalone) {
+  /* Text selection on a long-press feels wrong in an installed app; it
+     should behave like a native surface. Inputs and editable areas are
+     excluded, or typing would break. */
+  body{ -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  :is(input, textarea, [contenteditable="true"], .ql-editor, .sec-notes, .wb-sticky-text){
+    -webkit-user-select: text; user-select: text; -webkit-touch-callout: default;
+  }
+}
