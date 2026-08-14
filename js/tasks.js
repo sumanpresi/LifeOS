@@ -73,6 +73,7 @@ function initTaskSorting() {
       animation: 150,
       delay: 150, delayOnTouchOnly: true, touchStartThreshold: 6, // short intentional hold to start on touch; no delay for mouse
       forceFallback: true, fallbackOnBody: true, fallbackTolerance: 4, // use SortableJS's own drag clone instead of the browser's native HTML5 drag, so the card tracks the finger 1:1 with no coordinate-space offset
+      forceAutoScrollFallback: true, // edge auto-scroll (both the column's vertical scroll and the board's horizontal scroll) relies on native dragover events, which forceFallback does not fire — without this flag, holding a card near the screen edge while dragging did nothing
       ghostClass: "t-row-ghost", dragClass: "t-row-dragging", chosenClass: "t-row-chosen",
       scroll: true, scrollSensitivity: 90, scrollSpeed: 12,
       onEnd: handleTaskDragEnd,
@@ -131,6 +132,7 @@ function initBoardSorting() {
       animation: 150,
       delay: 150, delayOnTouchOnly: true, touchStartThreshold: 6,
       forceFallback: true, fallbackOnBody: true, fallbackTolerance: 4, // use SortableJS's own drag clone instead of the browser's native HTML5 drag, so the card tracks the finger 1:1 with no coordinate-space offset
+      forceAutoScrollFallback: true, // edge auto-scroll (both the column's vertical scroll and the board's horizontal scroll) relies on native dragover events, which forceFallback does not fire — without this flag, holding a card near the screen edge while dragging did nothing
       ghostClass: "t-row-ghost", dragClass: "t-row-dragging", chosenClass: "t-row-chosen",
       scroll: true, scrollSensitivity: 90, scrollSpeed: 12,
       onEnd: handleBoardDragEnd,
