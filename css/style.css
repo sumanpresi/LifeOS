@@ -106,7 +106,7 @@ h1,h2,.display{font-family:'Fraunces',serif}
 .gh-chip .gh-name{font-weight:700;font-size:13px}
 .gh-chip .gh-sub{font-size:11.5px;color:var(--muted)}
 
-.main{flex:1;min-width:0;padding:26px 34px 60px}
+.main{flex:1;min-width:0;--main-pad-y:26px;--main-pad-x:34px;padding:26px 34px 60px}
 
 /* ---------- header ---------- */
 .top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap;
@@ -310,7 +310,7 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
   .sidebar{position:fixed;z-index:40;left:0;top:0;margin:0;height:100vh;border-radius:0 22px 22px 0;
     transform:translateX(-100%);transition:transform .22s var(--ease);box-shadow:var(--shadow-glass-lift)}
   .sidebar.open{transform:translateX(0)}
-  .main{padding:18px 16px 60px}
+  .main{--main-pad-y:18px;--main-pad-x:16px;padding:18px 16px 60px}
   .mob-toggle{display:inline-flex}
   .greet h1{font-size:26px}
 }
@@ -3368,10 +3368,41 @@ html[data-theme="dark"] :is(.med-today-col,.med-col.today,.dose-col.today){
    in a normal browser tab, so the rules are harmless there and only take
    effect once the app is installed. */
 @supports (padding: env(safe-area-inset-top)) {
+  /* The TOP inset is the one that matters most and was missing.
+
+     apple-mobile-web-app-status-bar-style: black-translucent lets the page
+     colour run right up under the status bar — which is what makes an
+     installed app look native instead of leaving a white strip. The cost
+     is that the clock and battery now sit ON the page, so the first thing
+     in the layout has to be pushed clear of them or it is simply covered.
+     On a phone the sidebar is off-canvas, so `.main` IS the page, and it
+     was still starting at y=0: the greeting rendered underneath the status
+     bar rather than below it.
+
+     env() resolves to 0 in a browser tab, so these rules change nothing
+     until the app is actually installed. */
+  /* Written as an ADDITION to whatever padding the current breakpoint
+     already sets, rather than replacing it. Hard-coding 18px/16px here
+     would have quietly overridden the desktop layout's 26px/34px at every
+     width, since this block sits far below the breakpoint in the file. */
+  .main{
+    padding-top: calc(var(--main-pad-y, 26px) + env(safe-area-inset-top));
+    padding-bottom: calc(60px + env(safe-area-inset-bottom));
+    padding-left: calc(var(--main-pad-x, 34px) + env(safe-area-inset-left));
+    padding-right: calc(var(--main-pad-x, 34px) + env(safe-area-inset-right));
+  }
   .sidebar{ padding-top: calc(20px + env(safe-area-inset-top)); }
-  .main{ padding-bottom: calc(60px + env(safe-area-inset-bottom)); }
   .size-banner{ bottom: calc(16px + env(safe-area-inset-bottom)); }
   .wb-float-toolbar{ padding-bottom: env(safe-area-inset-bottom); }
+  /* .mob-toggle is deliberately NOT adjusted here: it is an inline item in
+     the header, not a floating one, so it moves down with .main's padding
+     already. A `top` offset on a statically positioned element does
+     nothing at all. */
+  /* Modals and the search panel are fixed to the viewport, not the page. */
+  .modal-bg, .expand-modal-bg, .share-modal-bg, .gsi-archive-modal-bg{
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 @media (display-mode: standalone) {
   /* Text selection on a long-press feels wrong in an installed app; it
