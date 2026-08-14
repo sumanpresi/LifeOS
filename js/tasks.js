@@ -67,13 +67,12 @@ function initTaskSorting() {
   if (taskView !== "list" || sortByDate || typeof Sortable === "undefined") return;
   document.querySelectorAll("#taskList .t-section-rows-inner").forEach(container => {
     sortableInstances.push(Sortable.create(container, {
-      filter: "button, input, select, textarea, a, .t-chk",
-      preventOnFilter: false,
-      filter: ".t-drag-handle-spacer", // the GSI-row placeholder isn't a handle at all, so grabbing it (or a GSI row generally) never starts a drag
+      filter: "button, input, select, textarea, a, .t-chk, .t-drag-handle-spacer", // the GSI-row placeholder isn't a handle at all, so grabbing it (or a GSI row generally) never starts a drag
       draggable: ".t-row[data-is-gsi='0']", // only native rows are ever pick-up-able
       preventOnFilter: false, // a tap that misses the (non-existent) handle on a GSI row should still behave as a normal click, not get swallowed
-      animation: 200,
-      delay: 300, delayOnTouchOnly: true, touchStartThreshold: 5, // long-press to start on touch; no delay for mouse
+      animation: 150,
+      delay: 150, delayOnTouchOnly: true, touchStartThreshold: 6, // short intentional hold to start on touch; no delay for mouse
+      forceFallback: true, fallbackOnBody: true, fallbackTolerance: 4, // use SortableJS's own drag clone instead of the browser's native HTML5 drag, so the card tracks the finger 1:1 with no coordinate-space offset
       ghostClass: "t-row-ghost", dragClass: "t-row-dragging", chosenClass: "t-row-chosen",
       scroll: true, scrollSensitivity: 90, scrollSpeed: 12,
       onEnd: handleTaskDragEnd,
@@ -129,8 +128,9 @@ function initBoardSorting() {
       preventOnFilter: false,
       draggable: ".t-board-card", // GSI cards are pick-up-able here too — moveTaskToColumn routes them through setGsiTaskStatus/editProjectTask/archiveGsiTaskEntry instead of the native task functions
       preventOnFilter: false,
-      animation: 200,
-      delay: 300, delayOnTouchOnly: true, touchStartThreshold: 5,
+      animation: 150,
+      delay: 150, delayOnTouchOnly: true, touchStartThreshold: 6,
+      forceFallback: true, fallbackOnBody: true, fallbackTolerance: 4, // use SortableJS's own drag clone instead of the browser's native HTML5 drag, so the card tracks the finger 1:1 with no coordinate-space offset
       ghostClass: "t-row-ghost", dragClass: "t-row-dragging", chosenClass: "t-row-chosen",
       scroll: true, scrollSensitivity: 90, scrollSpeed: 12,
       onEnd: handleBoardDragEnd,
