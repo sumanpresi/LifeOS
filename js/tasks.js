@@ -8,7 +8,7 @@
    for DISPLAY, routing edits back to the correct underlying data. */
 import { state, uid, esc, persist, rerender, touch } from './state.js';
 import { isComposerOpen, composerHtml, openComposer, nativeColumnAccepts } from './composer.js';
-import { toast, autoGrow } from './ui.js';
+import { toast, autoGrow, preserveBoardScroll } from './ui.js';
 import { moveToTrash } from './trash.js';
 import { syncTaskToGoogle } from './google-calendar.js';
 import { getAllGsiTasksFlat, findProjectTask, editProjectTask, setTaskStatus as setGsiTaskStatus,
@@ -67,13 +67,40 @@ function initTaskSorting() {
   if (taskView !== "list" || sortByDate || typeof Sortable === "undefined") return;
   document.querySelectorAll("#taskList .t-section-rows-inner").forEach(container => {
     sortableInstances.push(Sortable.create(container, {
-      filter: "button, input, select, textarea, a, .t-chk, .t-drag-handle-spacer", // the GSI-row placeholder isn't a handle at all, so grabbing it (or a GSI row generally) never starts a drag
+      filter: "button, input, select, textarea, a, .t-chk",
+      preventOnFilter: false,
+      filter: ".t-drag-handle-spacer", // the GSI-row placeholder isn't a handle at all, so grabbing it (or a GSI row generally) never starts a drag
       draggable: ".t-row[data-is-gsi='0']", // only native rows are ever pick-up-able
-      preventOnFilter: false, // a tap that misses the (non-existent) handle on a GSI row should still behave as a normal click, not get swallowed
-      animation: 150,
-      delay: 150, delayOnTouchOnly: true, touchStartThreshold: 6, // short intentional hold to start on touch; no delay for mouse
-      forceFallback: true, fallbackOnBody: true, fallbackTolerance: 4, // use SortableJS's own drag clone instead of the browser's native HTML5 drag, so the card tracks the finger 1:1 with no coordinate-space offset
-      forceAutoScrollFallback: true, // edge auto-scroll (both the column's vertical scroll and the board's horizontal scroll) relies on native dragover events, which forceFallback does not fire — without this flag, holding a card near the screen edge while dragging did nothing
+      preventOnFilter: false, // a tap that misses the (non-existent) handle on a GSI row should still behave as a normal click, not get swallowed // long-press to start on touch; no delay for mouse
+      /* The dragged clone is appended to <body> and forced onto Sortable's
+         own fallback renderer.
+
+         Without fallbackOnBody the clone stays inside the column, and the
+         column sits inside a .card that carries backdrop-filter — which
+         makes that card the containing block for position:fixed. The clone
+         is then positioned relative to the card rather than the screen, so
+         it trails the finger by the card's offset from the viewport. That
+         is the visible gap between finger and card on touch.
+
+         forceFallback keeps desktop and touch on the same code path, so
+         the two behave identically instead of desktop using native HTML5
+         drag with its own quirks. */
+      forceFallback: true,
+      fallbackOnBody: true,
+      fallbackTolerance: 4,
+      /* Long-press to lift, so a plain swipe still scrolls the board.
+         200ms rather than 300 — Todoist feels immediate because the lift
+         happens before you have consciously waited for it. */
+      delay: 200, delayOnTouchOnly: true, touchStartThreshold: 6,
+      /* Faster than the previous 200ms: the reflow animation is what makes
+         a board feel sluggish once several cards shuffle at once. */
+      animation: 140,
+      easing: "cubic-bezier(0.2, 0, 0.2, 1)",
+      /* Marks the whole document while a lift is in progress so the CSS
+         can drop the board's blur for the duration. Cleared in onEnd —
+         and also on cancel, since a drag abandoned off-screen would
+         otherwise leave the board unblurred until the next reload. */
+      onStart: () => document.body.classList.add("is-dragging"),
       ghostClass: "t-row-ghost", dragClass: "t-row-dragging", chosenClass: "t-row-chosen",
       scroll: true, scrollSensitivity: 90, scrollSpeed: 12,
       onEnd: handleTaskDragEnd,
@@ -129,17 +156,24 @@ function initBoardSorting() {
       preventOnFilter: false,
       draggable: ".t-board-card", // GSI cards are pick-up-able here too — moveTaskToColumn routes them through setGsiTaskStatus/editProjectTask/archiveGsiTaskEntry instead of the native task functions
       preventOnFilter: false,
-      animation: 150,
-      delay: 150, delayOnTouchOnly: true, touchStartThreshold: 6,
-      forceFallback: true, fallbackOnBody: true, fallbackTolerance: 4, // use SortableJS's own drag clone instead of the browser's native HTML5 drag, so the card tracks the finger 1:1 with no coordinate-space offset
-      forceAutoScrollFallback: true, // edge auto-scroll (both the column's vertical scroll and the board's horizontal scroll) relies on native dragover events, which forceFallback does not fire — without this flag, holding a card near the screen edge while dragging did nothing
+      animation: 140,
+      easing: "cubic-bezier(0.2, 0, 0.2, 1)",
+      delay: 200, delayOnTouchOnly: true, touchStartThreshold: 6,
+      /* Same fallback treatment as the other boards: the clone goes on
+         <body> so a .card's backdrop-filter can't become its containing
+         block and offset it from the finger. */
+      forceFallback: true,
+      fallbackOnBody: true,
+      fallbackTolerance: 4,
       ghostClass: "t-row-ghost", dragClass: "t-row-dragging", chosenClass: "t-row-chosen",
       scroll: true, scrollSensitivity: 90, scrollSpeed: 12,
+      onStart: () => document.body.classList.add("is-dragging"),
       onEnd: handleBoardDragEnd,
     }));
   });
 }
 function handleBoardDragEnd(evt) {
+  document.body.classList.remove("is-dragging");
   markDragJustEnded(); // a drop lands a click on the card — don't let it open the task
   const draggedId = evt.item.dataset.taskId;
   const fromCol = evt.from.closest(".t-board-col")?.dataset.boardCol;
@@ -155,7 +189,7 @@ function handleBoardDragEnd(evt) {
     handleTaskDragEnd(evt);
     return;
   }
-  const ok = moveTaskToColumn(draggedId, toCol);
+  const ok = preserveBoardScroll(() => moveTaskToColumn(draggedId, toCol));
   /* Always re-render regardless of outcome. The board is rebuilt from
      real data rather than trying to unpick whatever SortableJS already
      did to the DOM, so a task always lands where its data says it
@@ -983,25 +1017,6 @@ export function renderTasks() {
     if (switcher) switcher.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.view === taskView));
   }
   const list = document.getElementById("taskList");
-  /* Every branch below rebuilds via list.innerHTML (a couple of them
-     with +=), which replaces the DOM outright rather than patching it —
-     and a fresh element always starts scrolled to 0. That's invisible
-     most of the time, but a drag-and-drop ends by calling this function,
-     so on mobile every drop was snapping the view back to the very start
-     (Board view's leftmost column / List view's topmost section, both of
-     which are Overdue) regardless of where the card actually landed.
-     Capture whatever was scrolled before touching the DOM and put it
-     back once the new DOM is in place, at the bottom of this function. */
-  const savedScrollY = window.scrollY;
-  const prevBoard = list?.querySelector(":scope > .t-board");
-  const savedBoardScrollLeft = prevBoard ? prevBoard.scrollLeft : null;
-  const savedColScrollTops = {};
-  if (prevBoard) {
-    prevBoard.querySelectorAll(".t-board-col").forEach(col => {
-      const body = col.querySelector(".t-board-col-body");
-      if (body && col.dataset.boardCol) savedColScrollTops[col.dataset.boardCol] = body.scrollTop;
-    });
-  }
   let visible = state.tasks.filter(t => taskFilter === "all" || (t.category || "work") === taskFilter);
 
   // GSI project tasks are inherently work — merge them in for "Work"/"All"
@@ -1125,23 +1140,6 @@ export function renderTasks() {
   initTaskSorting();
   initBoardSorting();
   initCalendarSorting();
-
-  // Put back whatever was scrolled before this render tore the DOM down
-  // (see the note by savedScrollY above). Board view's horizontal scroll
-  // and each column's own vertical scroll are restored first since they
-  // live inside #taskList and only exist in Board view; the page's own
-  // scroll position is restored last and applies to every view.
-  if (taskView === "board") {
-    if (savedBoardScrollLeft != null) {
-      const board = list.querySelector(":scope > .t-board");
-      if (board) board.scrollLeft = savedBoardScrollLeft;
-    }
-    Object.entries(savedColScrollTops).forEach(([col, top]) => {
-      const body = list.querySelector(`.t-board-col[data-board-col="${col}"] .t-board-col-body`);
-      if (body) body.scrollTop = top;
-    });
-  }
-  window.scrollTo(0, savedScrollY);
 }
 
 export function setTaskFilter(f) { taskFilter = f; renderTasks(); }

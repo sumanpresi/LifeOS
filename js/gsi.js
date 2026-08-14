@@ -6,7 +6,7 @@ import { isComposerOpen, composerHtml, openComposer } from './composer.js';
    neither module touches the other's bindings while modules are being
    evaluated, only inside functions called later at runtime. */
 import { markDragJustEnded, boardColHeadHtml, isColCollapsed } from './tasks.js';
-import { toast, autoGrow } from './ui.js';
+import { toast, autoGrow, preserveBoardScroll } from './ui.js';
 import { moveToTrash } from './trash.js';
 import { checkGrammar } from './text-tools.js';
 import { mountRichEditor, unmountRichEditor, getRichEditor } from './rich-text.js';
@@ -353,16 +353,49 @@ function initGsiBoardSorting() {
          their click/change events through rather than swallowing them. */
       filter: "button, input, select, textarea, a, .t-chk, .composer",
       preventOnFilter: false,
-      animation: 200,
-      delay: 300, delayOnTouchOnly: true, touchStartThreshold: 5,
+      /* The dragged clone is appended to <body> and forced onto Sortable's
+         own fallback renderer.
+
+         Without fallbackOnBody the clone stays inside the column, and the
+         column sits inside a .card that carries backdrop-filter — which
+         makes that card the containing block for position:fixed. The clone
+         is then positioned relative to the card rather than the screen, so
+         it trails the finger by the card's offset from the viewport. That
+         is the visible gap between finger and card on touch.
+
+         forceFallback keeps desktop and touch on the same code path, so
+         the two behave identically instead of desktop using native HTML5
+         drag with its own quirks. */
+      forceFallback: true,
+      fallbackOnBody: true,
+      fallbackTolerance: 4,
+      /* Long-press to lift, so a plain swipe still scrolls the board.
+         200ms rather than 300 — Todoist feels immediate because the lift
+         happens before you have consciously waited for it. */
+      delay: 200, delayOnTouchOnly: true, touchStartThreshold: 6,
+      /* Faster than the previous 200ms: the reflow animation is what makes
+         a board feel sluggish once several cards shuffle at once. */
+      animation: 140,
+      easing: "cubic-bezier(0.2, 0, 0.2, 1)",
+      /* Marks the whole document while a lift is in progress so the CSS
+         can drop the board's blur for the duration. Cleared in onEnd —
+         and also on cancel, since a drag abandoned off-screen would
+         otherwise leave the board unblurred until the next reload. */
+      onStart: () => document.body.classList.add("is-dragging"),
       ghostClass: "t-row-ghost", dragClass: "t-row-dragging", chosenClass: "t-row-chosen",
       scroll: true, scrollSensitivity: 90, scrollSpeed: 12,
       onEnd: (evt) => {
+        document.body.classList.remove("is-dragging");
         markDragJustEnded(); // so the click that trails a drop doesn't open the task
         const taskId = evt.item.dataset.taskId;
         const toStatus = evt.to.closest(".t-board-col")?.dataset.boardCol;
-        if (taskId && toStatus) setTaskStatus(taskId, toStatus); // already persists, syncs, and re-renders
-        else renderProjects();
+        /* setTaskStatus re-renders internally, so the whole call is
+           wrapped rather than the render — otherwise the scroll would be
+           restored before the DOM it applies to has been rebuilt. */
+        preserveBoardScroll(() => {
+          if (taskId && toStatus) setTaskStatus(taskId, toStatus); // already persists, syncs, and re-renders
+          else renderProjects();
+        });
       },
     }));
   });

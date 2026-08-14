@@ -87,3 +87,42 @@ export function renderHeader() {
    snapshot-before-restore, file validation and last-backup tracking.
    app.js still exposes the same two global names, so the sidebar
    buttons in index.html are unchanged. */
+
+/* Keeps a board where the person left it across a re-render.
+
+   Every board is one horizontal flex row with `overflow-x:auto`. On a
+   phone a column is 78vw wide, so the row genuinely scrolls; on a desktop
+   all the columns fit and scrollLeft is always 0. Dropping a card
+   re-renders the board by rewriting innerHTML, which resets scrollLeft to
+   0 — invisible on a desktop, but on a phone it throws you back to the
+   first column every single time you move a task. That is why this only
+   ever showed up on mobile.
+
+   Vertical page scroll is captured too: a board rebuilt below the fold can
+   change height and shift the page under the person's thumb.
+
+   Boards are keyed by their container id rather than by position, so the
+   right scroll offset is restored even when several boards are on screen
+   at once. */
+export function preserveBoardScroll(render) {
+  const boards = [...document.querySelectorAll(".t-board")];
+  const saved = boards.map(el => [el.closest("[id]")?.id || "", el.scrollLeft]);
+  const pageY = window.scrollY;
+
+  const result = render();   // pass the render's own return value through
+
+  const restore = () => {
+    document.querySelectorAll(".t-board").forEach(el => {
+      const key = el.closest("[id]")?.id || "";
+      const hit = saved.find(([k]) => k === key);
+      if (hit && hit[1]) el.scrollLeft = hit[1];
+    });
+    if (Math.abs(window.scrollY - pageY) > 1) window.scrollTo({ top: pageY });
+  };
+  /* Once synchronously, so there is no visible flash, and once after the
+     next paint, because a board whose columns were re-created can clamp
+     scrollLeft to 0 until it has been laid out. */
+  restore();
+  requestAnimationFrame(restore);
+  return result;
+}

@@ -258,6 +258,12 @@ backup.backupReminderIfDue();
 /* The pre-paint script in index.html already set data-theme. This
    re-applies it (so the toggle button's icon/label match), and attaches
    the OS-preference listener that only a module can hold. */
+/* Safety net for the drag flag: if a lift is abandoned in a way Sortable
+   does not report — the app backgrounded mid-drag, a cancelled pointer —
+   the board would keep its blur disabled until the next reload. */
+["pointerup", "pointercancel", "touchend", "touchcancel", "blur"].forEach(evt =>
+  window.addEventListener(evt, () => document.body.classList.remove("is-dragging")));
+
 theme.initTheme();
 taskModal.syncModalFromUrl();
 // A page loaded with ?board=… opens that board, once the account it

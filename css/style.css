@@ -899,19 +899,7 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
 /* SortableJS state classes — "lift, scale up, shadow increases" while
    actively dragging; the ghost is the drop-target placeholder shown in
    the list at the position the card would land. */
-/* No transform here on purpose: with forceFallback, SortableJS's clone
-   is positioned with its own translate(x,y) tracking the pointer 1:1.
-   Adding a scale/translate on top of that would shift the card away
-   from the finger instead of just decorating it. */
-.t-row-dragging{box-shadow:0 10px 28px -8px rgba(31,41,55,.28);opacity:.96;z-index:1000}
-/* .sortable-fallback is SortableJS's own class on the actual clone that
-   follows the pointer (forceFallback mode). It inherits .t-board-card's
-   `transition: transform 160ms` (a hover-lift effect, unrelated to
-   dragging) via cloneNode, which made every pointer-move position
-   update animate instead of applying instantly — the "stuck, lagging
-   behind the cursor" feel. Kill it only on the clone; the card's own
-   hover/press transition is untouched everywhere else. */
-.sortable-fallback,.sortable-fallback.t-board-card,.sortable-fallback.t-row-dragging{transition:none!important}
+.t-row-dragging{transform:scale(1.03);box-shadow:0 10px 28px -8px rgba(31,41,55,.28);z-index:5}
 .t-row-chosen{cursor:grabbing}
 .t-row-ghost{background:var(--lilac);border:2px dashed var(--accent);opacity:.6}
 
@@ -3425,3 +3413,54 @@ html[data-theme="dark"] :is(.med-today-col,.med-col.today,.dose-col.today){
     -webkit-user-select: text; user-select: text; -webkit-touch-callout: default;
   }
 }
+
+/* ---------- Dragging a task card ----------
+   The clone Sortable renders is appended to <body>, so it needs its own
+   styling: it inherits nothing from the column it came from. */
+body > .t-board-card.t-row-dragging{
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  width: auto;
+  box-shadow: 0 12px 32px -8px rgba(0,0,0,.35), 0 2px 8px rgba(0,0,0,.2);
+  transform: rotate(1.5deg) scale(1.02);
+  opacity: .96;
+  /* No transition on the clone. It is repositioned every pointer move, and
+     a transition on transform makes it visibly chase the finger instead of
+     tracking it — the single biggest cause of a drag feeling laggy. */
+  transition: none !important;
+  /* backdrop-filter on something that moves every frame forces the
+     compositor to re-sample the page behind it continuously. On a phone
+     that is the difference between 60fps and a stutter. */
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background: var(--t-card);
+  will-change: transform;
+}
+
+/* The gap left behind: a quiet outline rather than a solid card, so the
+   eye follows what is being moved rather than what was left. */
+.t-row-ghost{
+  opacity: .35;
+  background: transparent !important;
+  border: 1.5px dashed var(--t-accent) !important;
+  box-shadow: none !important;
+}
+.t-row-ghost > *{ visibility: hidden; }
+
+/* The card under the finger before the lift completes. */
+.t-row-chosen{ cursor: grabbing; }
+
+/* While any drag is in progress, drop the board's blur. Cards reflow with
+   an animation and every frame would otherwise re-sample the frosted
+   backdrop underneath them. */
+body.is-dragging :is(.t-board-col, .t-board-card, #tasksCard){
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* A drag abandoned by the browser (app backgrounded mid-lift, pointer
+   cancelled) can leave the flag set, so the blur is also restored on the
+   next pointerup regardless of how the drag ended. Belt and braces —
+   losing the frosted effect until a reload would be a strange bug to
+   inherit from a fixed one. */
