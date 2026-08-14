@@ -983,6 +983,25 @@ export function renderTasks() {
     if (switcher) switcher.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.view === taskView));
   }
   const list = document.getElementById("taskList");
+  /* Every branch below rebuilds via list.innerHTML (a couple of them
+     with +=), which replaces the DOM outright rather than patching it —
+     and a fresh element always starts scrolled to 0. That's invisible
+     most of the time, but a drag-and-drop ends by calling this function,
+     so on mobile every drop was snapping the view back to the very start
+     (Board view's leftmost column / List view's topmost section, both of
+     which are Overdue) regardless of where the card actually landed.
+     Capture whatever was scrolled before touching the DOM and put it
+     back once the new DOM is in place, at the bottom of this function. */
+  const savedScrollY = window.scrollY;
+  const prevBoard = list?.querySelector(":scope > .t-board");
+  const savedBoardScrollLeft = prevBoard ? prevBoard.scrollLeft : null;
+  const savedColScrollTops = {};
+  if (prevBoard) {
+    prevBoard.querySelectorAll(".t-board-col").forEach(col => {
+      const body = col.querySelector(".t-board-col-body");
+      if (body && col.dataset.boardCol) savedColScrollTops[col.dataset.boardCol] = body.scrollTop;
+    });
+  }
   let visible = state.tasks.filter(t => taskFilter === "all" || (t.category || "work") === taskFilter);
 
   // GSI project tasks are inherently work — merge them in for "Work"/"All"
@@ -1106,6 +1125,23 @@ export function renderTasks() {
   initTaskSorting();
   initBoardSorting();
   initCalendarSorting();
+
+  // Put back whatever was scrolled before this render tore the DOM down
+  // (see the note by savedScrollY above). Board view's horizontal scroll
+  // and each column's own vertical scroll are restored first since they
+  // live inside #taskList and only exist in Board view; the page's own
+  // scroll position is restored last and applies to every view.
+  if (taskView === "board") {
+    if (savedBoardScrollLeft != null) {
+      const board = list.querySelector(":scope > .t-board");
+      if (board) board.scrollLeft = savedBoardScrollLeft;
+    }
+    Object.entries(savedColScrollTops).forEach(([col, top]) => {
+      const body = list.querySelector(`.t-board-col[data-board-col="${col}"] .t-board-col-body`);
+      if (body) body.scrollTop = top;
+    });
+  }
+  window.scrollTo(0, savedScrollY);
 }
 
 export function setTaskFilter(f) { taskFilter = f; renderTasks(); }
