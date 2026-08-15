@@ -431,6 +431,34 @@ function drawSegment(ctx, p1, p2, scaleBasis, stroke) {
    roughly doubling the size of the largest thing in it for no visible
    gain. Only new points are affected; existing strokes keep whatever
    precision they were saved with and render the same. */
+/* Ramer-Douglas-Peucker, iterative rather than recursive: a long pen
+   stroke on a tablet can carry several thousand points, and the recursive
+   form overflows the stack on exactly the strokes that most need
+   simplifying. */
+function simplifyStroke(points, eps) {
+  const n = points.length;
+  if (n < 3) return points;
+  const keep = new Uint8Array(n);
+  keep[0] = keep[n - 1] = 1;
+  const stack = [[0, n - 1]];
+  while (stack.length) {
+    const [lo, hi] = stack.pop();
+    if (hi - lo < 2) continue;
+    const a = points[lo], b = points[hi];
+    const dx = b.x - a.x, dy = b.y - a.y;
+    const den = Math.hypot(dx, dy) || 1e-9;
+    let idx = -1, dmax = eps;
+    for (let i = lo + 1; i < hi; i++) {
+      const d = Math.abs(dy * points[i].x - dx * points[i].y + b.x * a.y - b.y * a.x) / den;
+      if (d > dmax) { dmax = d; idx = i; }
+    }
+    if (idx !== -1) { keep[idx] = 1; stack.push([lo, idx], [idx, hi]); }
+  }
+  const out = [];
+  for (let i = 0; i < n; i++) if (keep[i]) out.push(points[i]);
+  return out;
+}
+
 function pointToNorm(canvas, evt) {
   const box = canvas.getBoundingClientRect();
   const r = n => Math.round(n * 1e4) / 1e4;
@@ -548,6 +576,23 @@ function onPointerUp(boardId, evt, canvas) {
   const lastStored = s.currentStroke.points[s.currentStroke.points.length - 1];
   if (finalPoint.x !== lastStored.x || finalPoint.y !== lastStored.y) s.currentStroke.points.push(finalPoint);
   if (s.currentStroke.points.length > 1) {
+    /* Simplify before storing, not later.
+
+       The capture filter only rejects points that are physically close to
+       the previous one. It cannot tell that forty points running along a
+       gentle curve describe a shape four points describe identically, so a
+       stroke arrives with roughly five times the points its shape needs —
+       a single short pen stroke costs about 2 KB where 0.4 KB would do.
+       That is why a little drawing moved the sync size so much.
+
+       Ramer-Douglas-Peucker drops any point lying within a tolerance of
+       the line between its neighbours. At an epsilon of roughly one pixel
+       the rendered line is indistinguishable. Doing it here means the
+       saving applies to every stroke from the moment it is drawn, instead
+       of accumulating until someone remembers to run Reclaim space.
+
+       The endpoints are always preserved, so a stroke never shortens. */
+    s.currentStroke.points = simplifyStroke(s.currentStroke.points, 0.0012);
     board(boardId).strokes.push(s.currentStroke);
     persist(); // auto-save on every completed stroke
   }
