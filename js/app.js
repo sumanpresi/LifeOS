@@ -11,6 +11,7 @@ import * as personal from './personal.js';
 import * as share from './share.js';
 import * as theme from './theme.js';
 import * as composer from './composer.js';
+import { initDropToAttach, handleIncomingShare } from './attach.js';
 import * as finance from './finance.js';
 import * as health from './health.js';
 import * as travel from './travel.js';
@@ -264,6 +265,8 @@ backup.backupReminderIfDue();
 ["pointerup", "pointercancel", "touchend", "touchcancel", "blur"].forEach(evt =>
   window.addEventListener(evt, () => document.body.classList.remove("is-dragging")));
 
+initDropToAttach();
+handleIncomingShare();
 theme.initTheme();
 taskModal.syncModalFromUrl();
 // A page loaded with ?board=… opens that board, once the account it

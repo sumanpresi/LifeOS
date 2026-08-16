@@ -23,6 +23,7 @@
 import { state, uid, esc, persist, rerender, touch } from './state.js';
 import { isComposerOpen, composerHtml, openComposer } from './composer.js';
 import { toast, autoGrow, preserveBoardScroll } from './ui.js';
+import { describeLink } from './attach.js';
 import { moveToTrash } from './trash.js';
 import { markDragJustEnded, boardColHeadHtml, isColCollapsed } from './tasks.js';
 import { syncTaskToGoogle } from './google-calendar.js';
@@ -142,7 +143,7 @@ function pwCardHtml(item) {
         <textarea class="gsi-title" rows="1" onchange="editPwProjectTask('${item.id}','text',this.value)" oninput="autoGrow(this)">${esc(item.text)}</textarea>
         <div class="gsi-link-row">
           ${item.link
-            ? `<a href="${esc(item.link.startsWith("http")?item.link:"https://"+item.link)}" target="_blank" rel="noopener" class="gsi-link-display">🔗 ${esc(item.link.replace(/^https?:\/\//,""))}</a>
+            ? `<a href="${esc(item.link.startsWith("http")?item.link:"https://"+item.link)}" target="_blank" rel="noopener" class="gsi-link-display">${describeLink(item.link).icon} ${esc(describeLink(item.link).label)}</a>
                <button class="gsi-link-edit-btn" onclick="togglePwTaskLinkEdit(event,'${item.id}')" title="Edit link">✎</button>`
             : `<button class="gsi-add-link" onclick="togglePwTaskLinkEdit(event,'${item.id}')">+ Add link</button>`}
           <input type="text" class="gsi-link-input" id="pw-link-edit-${item.id}" placeholder="Paste a link…" value="${esc(item.link||"")}"
