@@ -644,14 +644,27 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
    The width is capped at 794px, which is A4 at 96dpi — the width a
    browser would print it at. Below that the page simply narrows, keeping
    the proportion. */
+/* The page look belongs on .ql-container, not on this wrapper.
+
+   Quill nests #editor > .ql-container > .ql-editor. Putting the border and
+   background on the outer wrapper while the fixed height sits on .ql-editor
+   two levels down left the wrapper taller than the sheet — a blank strip
+   hanging below the bordered page. Styling the container makes the visible
+   page and the sized element the same box. */
 .sec-note-editor{
   --a4-w: min(794px, 100%);
   width: var(--a4-w);
   margin: 0 auto;
+  background: none;
+  border: none;
+}
+.sec-note-editor .ql-container{
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1px solid var(--line) !important;
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0,0,0,.06);
+  height: auto;          /* the height lives on .ql-editor below */
+  font-size: inherit;
 }
 .sec-note-editor .ql-editor{
   /* 1.414 x the rendered width, so the page keeps A4 proportions at any

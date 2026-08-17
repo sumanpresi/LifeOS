@@ -82,7 +82,37 @@ export function toggleNoteFullscreen(btn) {
   document.body.classList.toggle("note-fullscreen-open", on);
   btn.textContent = on ? "⤡" : "⤢";
   btn.title = on ? "Exit full screen (Esc)" : "Full screen (Esc to exit)";
-  if (on) note.querySelector(".ql-editor")?.focus();
+
+  if (on) { note.querySelector(".ql-editor")?.focus(); return; }
+
+  /* Coming back OUT, rebuild the note rather than trusting the classes to
+     unwind cleanly.
+
+     Going full screen changes the element from a block in a column into a
+     fixed-position flex container, and Quill measures and caches layout as
+     it goes. Removing the classes restores the CSS but not whatever the
+     editor worked out while it was in the other shape — which left the
+     toolbar clipped and the page collapsed to a strip.
+
+     renderSectionNotes reads each editor's content back before it unmounts,
+     so nothing typed is lost; it is the same path a normal re-render takes.
+     Deferred a frame so the class removal has been painted first. */
+  const box = note.closest("[id^='secNotes-']");
+  const key = box?.id.replace("secNotes-", "");
+  if (!key) return;
+  /* renderSectionNotes skips work when its cache key is unchanged — and
+     leaving full screen changes only the layout, never the content, so the
+     key is identical and the rebuild would be skipped precisely when it is
+     needed. Clearing the key forces the pass to run. */
+  delete box.dataset.sig;
+  /* The caret is normally still inside the editor on the way out, and
+     renderSectionNotes deliberately defers a rebuild while someone is
+     typing — so without dropping focus first, the rebuild would be
+     postponed until the next click and the broken layout would persist
+     until then. Blurring commits the content through the editor's own
+     change handler, exactly as clicking away would. */
+  if (box.contains(document.activeElement)) document.activeElement.blur();
+  requestAnimationFrame(() => renderSectionNotes(key));
 }
 
 /* Esc is what people reach for, and there is no browser chrome here to
