@@ -286,6 +286,16 @@ share.initBoardDeepLink({ go: ui.go, switchBoard: whiteboard.switchBrainstormBoa
    signed-out session can't lose the last few hundred milliseconds of
    work. pagehide is the reliable one on iOS, where visibilitychange
    often doesn't fire before an actual close. */
-document.addEventListener("visibilitychange", () => { if (document.hidden) flushLocalSave(); });
-window.addEventListener("pagehide", flushLocalSave);
+/* The journal editor's own debounce has to be forced out FIRST, or the
+   flush below writes a copy of state that doesn't yet contain the last
+   sentence typed into it. */
+function flushEverything() {
+  try { widgets.flushJournalEditor(); } catch (e) { console.warn("[journal] flush failed", e); }
+  flushLocalSave();
+}
+document.addEventListener("visibilitychange", () => { if (document.hidden) flushEverything(); });
+window.addEventListener("pagehide", flushEverything);
+// A phone rotating, the keyboard closing, switching to another app — all
+// blur the window without necessarily hiding the document.
+window.addEventListener("blur", flushEverything);
 gcal.handleGoogleCalendarCallback();

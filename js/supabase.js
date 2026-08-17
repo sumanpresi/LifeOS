@@ -6,7 +6,9 @@ import { pushCommunicationUpdate } from './communication-bridge.js';
 import { pushNgdrTrackerUpdate } from './ngdr-tracker-bridge.js';
 import { mergeBoardData } from './whiteboard.js';
 import { takeSnapshot } from './backup.js';
+import { moveToTrash } from './trash.js';
 import { hasUnsavedComposerDraft } from './composer.js';
+import { flushJournalEditor } from './widgets.js';
 
 const CLIENT_ID = uid() + uid();
 const GH_SVG = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.54-3.87-1.54-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.26.72-1.55-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12v3.14c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>';
@@ -656,6 +658,94 @@ function mergeProjectTrees(localProjects, remoteProjects, gone, remoteWins) {
   return [...byId.values()];
 }
 
+/* ============================================================
+   Item-level merge for the journal
+   ============================================================
+   The journal was the last thing in LifeOS still resolved by replacing
+   one device's copy wholesale. state.journal is a flat map of date → HTML
+   with no per-entry timestamps, so applyRemote() simply swapped in the
+   cloud's map: a day written on the phone and a day written on the
+   desktop could not both survive, and the losing day vanished from view
+   with nothing on screen to say so. Writing today's entry on one device
+   and finding it absent on the other is exactly that.
+
+   Merged per DATE instead:
+     - a day only one side has is kept, unless the other side's trash log
+       holds that same text as a deliberate deletion (widgets.js records
+       one on "journalEntry" whenever an entry is emptied);
+     - a day both sides have with identical text needs no decision;
+     - a day where one text CONTAINS the other is an append — the longer,
+       newer-by-construction version wins. This is the ordinary case for a
+       running daily log continued on a second device;
+     - anything genuinely divergent keeps the document-level winner and
+       files the other version in Trash, so a conflict costs a click to
+       recover rather than the text itself.
+   ============================================================ */
+function journalPlainForCompare(html) {
+  return String(html || "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+function mergeIncomingJournal(remote) {
+  const localJ = state.journal || {};
+  const remoteJ = remote.journal = (remote.journal && typeof remote.journal === "object") ? remote.journal : {};
+  const remoteWins = (remote.updatedAt || 0) >= (state.updatedAt || 0);
+
+  /* Deliberate deletions, by date. Compared on text as well as date so a
+     day that was deleted and then written afresh isn't mistaken for the
+     old deletion and thrown away again. */
+  const deletedText = new Map(); // date -> Set of plain texts trashed for that date
+  (remote.trash || []).forEach(e => {
+    if (!e || e.type !== "journalEntry" || !e.payload || !e.payload.date) return;
+    const key = e.payload.date;
+    if (!deletedText.has(key)) deletedText.set(key, new Set());
+    deletedText.get(key).add(journalPlainForCompare(e.payload.html));
+  });
+  const wasDeleted = (date, html) => {
+    const set = deletedText.get(date);
+    return !!set && set.has(journalPlainForCompare(html));
+  };
+
+  const merged = {};
+  const conflicts = [];
+  new Set([...Object.keys(localJ), ...Object.keys(remoteJ)]).forEach(date => {
+    const mine = localJ[date], theirs = remoteJ[date];
+    const hasMine = !!(mine && journalPlainForCompare(mine));
+    const hasTheirs = !!(theirs && journalPlainForCompare(theirs));
+
+    if (hasMine && !hasTheirs) { if (!wasDeleted(date, mine)) merged[date] = mine; return; }
+    if (hasTheirs && !hasMine) { if (!wasDeleted(date, theirs)) merged[date] = theirs; return; }
+    if (!hasMine && !hasTheirs) return;
+
+    const a = journalPlainForCompare(mine), b = journalPlainForCompare(theirs);
+    if (a === b) { merged[date] = remoteWins ? theirs : mine; return; }
+    if (a.includes(b)) { merged[date] = mine; return; }   // this device continued the day
+    if (b.includes(a)) { merged[date] = theirs; return; } // the other device did
+
+    merged[date] = remoteWins ? theirs : mine;
+    conflicts.push({ date, losing: remoteWins ? mine : theirs });
+  });
+
+  /* Nothing is dropped silently: the version that didn't win goes to
+     Trash, where Restore appends it under that day's text rather than
+     replacing it (see trash.js). */
+  conflicts.forEach(c => {
+    try {
+      moveToTrash("journalEntry", { id: "journal-conflict-" + c.date + "-" + uid(), date: c.date, html: c.losing }, { date: c.date });
+    } catch (e) { console.warn("[sync] could not file journal conflict copy", e); }
+  });
+  if (conflicts.length) {
+    toast(conflicts.length === 1
+      ? "Two versions of one journal day — the other copy is in Trash"
+      : conflicts.length + " journal days had two versions — the other copies are in Trash");
+  }
+
+  state.journal = merged;
+  remote.journal = merged;
+}
+
 function mergeIncomingTasks(remote) {
   const gone = mergeTrashLog(remote);
   const remoteWins = (remote.updatedAt || 0) >= (state.updatedAt || 0);
@@ -697,6 +787,11 @@ function applyRemote(remote) {
 }
 export async function loadRemote(preferRemote = false) {
   if (!sb || !user) return;
+  /* Anything still sitting in the journal editor's debounce belongs in
+     `state` before a pull reads it — otherwise the merge below compares
+     the cloud against a local copy that is a sentence out of date, and
+     that sentence loses. */
+  try { flushJournalEditor(); } catch (e) { /* editor not mounted */ }
   setSyncPill("busy", "Syncing…");
   try {
     const { data, error } = await sb.from("lifeos_data")
@@ -715,6 +810,7 @@ export async function loadRemote(preferRemote = false) {
       mergeIncomingBrainstormBoards(remote);
       mergeIncomingSectionNotes(remote);
       mergeIncomingTasks(remote);
+      mergeIncomingJournal(remote); // after the trash log has been merged, which mergeIncomingTasks does
       // The merge just changed local state (possibly pulling in board
       // data from the remote side) independent of whatever the win/lose
       // branching below decides — make sure that's actually reflected
@@ -1137,6 +1233,7 @@ function startRealtime() {
         mergeIncomingBrainstormBoards(remote);
         mergeIncomingSectionNotes(remote);
         mergeIncomingTasks(remote);
+        mergeIncomingJournal(remote); // after the trash log has been merged, which mergeIncomingTasks does
         applyRemote(remote);
         toast("Updated from another device");
       })

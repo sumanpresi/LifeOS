@@ -253,7 +253,13 @@ function fmtJournalDate(k) {
 const JOURNAL_EDITOR_ID = "dayJournalEditor";
 let journalLoadedDate = null;
 
-function flushJournalEditor() {
+/* Exported so the app can force a pending edit out to `state` before the
+   tab backgrounds, closes, or pulls from the cloud. Quill's change event
+   is debounced by 500ms (see rich-text.js); on mobile a tab that goes
+   into the background can have its timers frozen before that fires, so
+   the last thing typed would never reach `state` at all — not saved, not
+   synced, and invisible to Undo and Trash because nothing ever saw it. */
+export function flushJournalEditor() {
   // Quill's change events are debounced, so a pending edit can still be
   // in flight when the date changes. Writing the current contents back
   // to the date they belong to *before* swapping avoids that edit
