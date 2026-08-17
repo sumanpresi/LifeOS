@@ -63,11 +63,6 @@ onStateReplaced(() => {
   // Force the next pass to re-evaluate rather than trust a stale cache key.
   document.querySelectorAll(".sec-notes").forEach(box => delete box.dataset.sig);
 });
-function notePreview(html) {
-  const text = String(html || "").replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
-  return text ? text.slice(0, 90) + (text.length > 90 ? "…" : "") : "Empty note";
-}
-
 /* Full screen for a single note.
 
    Implemented by toggling a class on the note's own element rather than
@@ -130,6 +125,20 @@ export function renderSectionNotes(key) {
   const list = noteList(key);
   if (!box || !list) return;
 
+  /* Notes behave like tabs: exactly one is ever "open" (active) at a time,
+     shown in a single content area below a row of tab buttons, instead of
+     every open note stacking full-height cards down the page. Older data
+     (or a state merge from another device) can still carry more than one
+     note flagged open — collapse down to the most recently touched one so
+     the tab bar has a single active tab. */
+  const openOnes = list.filter(n => n.open);
+  if (openOnes.length > 1) {
+    const keep = openOnes.reduce((a, b) => (b.updated || 0) > (a.updated || 0) ? b : a);
+    openOnes.forEach(n => { if (n !== keep) n.open = false; });
+  } else if (openOnes.length === 0 && list.length) {
+    list[0].open = true;
+  }
+
   /* Quill lives in a real DOM node, so rebuilding this container under a
      mounted editor would silently orphan it — and renderAll() reaches here
      on every unrelated state change. Rebuild only when what's on screen
@@ -141,8 +150,12 @@ export function renderSectionNotes(key) {
      signature — so this returned early, the editor was never re-read, and
      the screen kept showing the local copy indefinitely. The sync had in
      fact succeeded; only the UI never caught up. That is why two devices
-     could both report "Synced" while displaying different text. */
-  const signature = list.map(n => `${n.id}:${n.open ? 1 : 0}:${hash(n.html)}`).join(",");
+     could both report "Synced" while displaying different text.
+
+     Tab titles are always on screen now (in the tab bar), not just for the
+     open note, so the signature has to include every title, not only the
+     active note's body. */
+  const signature = list.map(n => `${n.id}:${n.open ? 1 : 0}:${hash(n.title)}:${hash(n.html)}`).join(",");
   if (box.dataset.sig === signature) return;
 
   /* Never yank the DOM out from under someone mid-sentence. If the caret
@@ -177,22 +190,32 @@ export function renderSectionNotes(key) {
   list.forEach(n => unmountRichEditor(noteEditorId(key, n.id)));
   box.dataset.sig = signature;
 
-  box.innerHTML = list.map(n => `
-    <div class="sec-note ${n.open ? "open" : ""}">
+  const active = list.find(n => n.open) || null;
+
+  const tabBar = list.length ? `<div class="sec-notes-tabbar">
+    ${list.map(n => `
+      <button type="button" class="sec-note-tab ${n.id === active?.id ? "active" : ""}"
+        onclick="selectSectionNote('${key}','${n.id}')" title="${esc(n.title || "Untitled note")}">
+        <span class="sec-note-tab-title">${esc(n.title || "Untitled note")}</span>
+        <span class="sec-note-tab-close" onclick="event.stopPropagation();delSectionNote('${key}','${n.id}')"
+          title="Delete note">✕</span>
+      </button>`).join("")}
+  </div>` : "";
+
+  const activeCard = active ? `
+    <div class="sec-note open">
       <div class="sec-note-head">
-        <button class="sec-note-toggle" onclick="toggleSectionNoteOpen('${key}','${n.id}')"
-          title="${n.open ? "Collapse" : "Expand"}">${n.open ? "▾" : "▸"}</button>
-        <input type="text" class="sec-note-title" value="${esc(n.title || "")}" placeholder="Untitled note"
-          onchange="editSectionNoteTitle('${key}','${n.id}',this.value)">
-        ${n.open ? "" : `<span class="sec-note-preview">${esc(notePreview(n.html))}</span>`}
-        ${n.open ? `<button class="sec-note-full" onclick="toggleNoteFullscreen(this)"
-          title="Full screen (Esc to exit)" aria-label="Full screen">⤢</button>` : ""}
-        <button class="del sec-note-del" onclick="delSectionNote('${key}','${n.id}')" title="Delete note">✕</button>
+        <input type="text" class="sec-note-title" value="${esc(active.title || "")}" placeholder="Untitled note"
+          onchange="editSectionNoteTitle('${key}','${active.id}',this.value)">
+        <button class="sec-note-full" onclick="toggleNoteFullscreen(this)"
+          title="Full screen (Esc to exit)" aria-label="Full screen">⤢</button>
       </div>
-      ${n.open ? `<div class="sec-note-body">
-        <div id="${noteEditorId(key, n.id)}" class="mm-rich-editor sec-note-editor"></div>
-      </div>` : ""}
-    </div>`).join("") || `<p class="hint">No notes yet — "+ New note" starts one.</p>`;
+      <div class="sec-note-body">
+        <div id="${noteEditorId(key, active.id)}" class="mm-rich-editor sec-note-editor"></div>
+      </div>
+    </div>` : `<p class="hint">No notes yet — "+ New note" starts one.</p>`;
+
+  box.innerHTML = tabBar + activeCard;
 
   list.filter(n => n.open).forEach(n => {
     /* Resolved by id on every read and every write, never captured.
@@ -217,17 +240,22 @@ export function renderSectionNotes(key) {
 export function addSectionNote(key) {
   const list = noteList(key);
   if (!list) return;
+  list.forEach(n => { n.open = false; }); // only the new tab should be active
   const note = { id: uid(), title: "", html: "", open: true, updated: Date.now() };
-  list.unshift(note); // newest first — a new note shouldn't be a scroll away
+  list.push(note); // appended after existing notes — a new tab lands beside the old ones, not stacked on top
   persist();
   renderSectionNotes(key);
   document.querySelector(`#secNotes-${key} .sec-note-title`)?.focus();
 }
-export function toggleSectionNoteOpen(key, id) {
-  const n = (noteList(key) || []).find(x => x.id === id);
+/* Switches which note's tab is active. Notes behave like browser tabs: only
+   one is ever open, so selecting one closes whichever was open before it —
+   renderSectionNotes reads that note's editor back before unmounting it. */
+export function selectSectionNote(key, id) {
+  const list = noteList(key);
+  if (!list) return;
+  const n = list.find(x => x.id === id);
   if (!n) return;
-  n.open = !n.open; // renderSectionNotes reads the editor back before unmounting it
-
+  list.forEach(x => { x.open = (x.id === id); });
   persist(false);
   renderSectionNotes(key);
 }
@@ -249,7 +277,13 @@ export function delSectionNote(key, id) {
   if (q) n.html = q.root.innerHTML;
   unmountRichEditor(noteEditorId(key, id));
   moveToTrash("sectionNote", n, { sectionKey: key });
-  state.sections[key].noteList = list.filter(x => x.id !== id);
+  const idx = list.findIndex(x => x.id === id);
+  const remaining = list.filter(x => x.id !== id);
+  // Deleting the active tab should hand activeness to a neighboring tab
+  // (preferring the one that slides into its old spot) instead of leaving
+  // no tab open.
+  if (n.open && remaining.length) remaining[Math.min(idx, remaining.length - 1)].open = true;
+  state.sections[key].noteList = remaining;
   persist(); rerender();
 }
 

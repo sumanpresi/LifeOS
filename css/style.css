@@ -617,21 +617,29 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
    map instead of panning it. */
 .leaflet-container.freehand-active,.leaflet-container.eraser-active{touch-action:none}
 
-/* ---------- Section notes: a list of collapsible rich-text notes ---------- */
+/* ---------- Section notes: a tab bar of rich-text notes ----------
+   One note is ever "open" (active) at a time. Its editor renders once,
+   below a row of tab buttons — adding a note grows the tab bar sideways,
+   it never stacks another full-height card under the page. */
 .sec-note-add{font-size:12.5px;padding:6px 12px;margin-left:auto;white-space:nowrap}
-.sec-notes{display:flex;flex-direction:column;gap:10px}
+.sec-notes{display:flex;flex-direction:column;gap:0}
+.sec-notes-tabbar{display:flex;flex-wrap:wrap;gap:6px;padding-bottom:8px;margin-bottom:10px;
+  border-bottom:1px solid var(--line)}
+.sec-note-tab{display:flex;align-items:center;gap:7px;max-width:200px;padding:6px 10px;
+  border:1px solid var(--line);border-radius:9px;background:var(--paper);color:var(--muted);
+  cursor:pointer;font-family:inherit;font-size:12.5px}
+.sec-note-tab:hover{color:var(--ink);border-color:var(--lilac-deep)}
+.sec-note-tab.active{background:var(--card);border-color:var(--lilac-deep);color:var(--ink);font-weight:700}
+.sec-note-tab-title{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sec-note-tab-close{flex-shrink:0;line-height:1;opacity:.45;font-size:11px}
+.sec-note-tab-close:hover{opacity:1;color:var(--warn)}
 .sec-note{border:1px solid var(--line);border-radius:12px;background:var(--card);overflow:hidden}
 .sec-note.open{border-color:var(--lilac-deep)}
 .sec-note-head{display:flex;align-items:center;gap:8px;padding:8px 10px;min-width:0}
-.sec-note-toggle{border:none;background:none;cursor:pointer;font-size:12px;color:var(--muted);
-  padding:4px 6px;flex-shrink:0;line-height:1}
-.sec-note-toggle:hover{color:var(--ink)}
-.sec-note-title{flex:0 1 auto;min-width:120px;max-width:280px;border:1px solid transparent;border-radius:8px;
+.sec-note-title{flex:1;min-width:120px;border:1px solid transparent;border-radius:8px;
   padding:6px 8px;font-family:inherit;font-size:13.5px;font-weight:700;background:transparent;color:var(--ink)}
 .sec-note-title:hover{border-color:var(--line)}
 .sec-note-title:focus{outline:none;border-color:var(--ink);background:var(--paper)}
-.sec-note-preview{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  font-size:12px;color:var(--muted)}
 .sec-note-del{flex-shrink:0;margin-left:auto}
 .sec-note-body{padding:0 10px 10px}
 /* ---------- Note editor as an A4 page ----------
@@ -766,8 +774,12 @@ body.note-fullscreen-open .card{ overflow: visible; }
 @media(max-width:640px){
   .sec-note-head{flex-wrap:wrap}
   .sec-note-title{flex:1;max-width:none;min-height:38px}
-  .sec-note-preview{flex-basis:100%;order:5}
-  .sec-note-toggle,.sec-note-del{min-width:34px;min-height:34px}
+  .sec-note-del{min-width:34px;min-height:34px}
+  /* Tabs wrapping on a narrow screen still reads fine, but a scrolling
+     row keeps the bar to one line and avoids eating vertical space that's
+     already tight on mobile. */
+  .sec-notes-tabbar{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .sec-note-tab{flex-shrink:0}
 }
 
 /* ---------- Trash ---------- */
