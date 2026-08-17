@@ -107,7 +107,7 @@ export function toggleNoteFullscreen(btn) {
      until then. Blurring commits the content through the editor's own
      change handler, exactly as clicking away would. */
   if (box.contains(document.activeElement)) document.activeElement.blur();
-  requestAnimationFrame(() => renderSectionNotes(key));
+  requestAnimationFrame(() => renderSectionNotes(key, { force: true }));
 }
 
 /* Esc is what people reach for, and there is no browser chrome here to
@@ -120,7 +120,7 @@ document.addEventListener("keydown", evt => {
   open.querySelector(".sec-note-full")?.click();
 });
 
-export function renderSectionNotes(key) {
+export function renderSectionNotes(key, opts = {}) {
   const box = document.getElementById("secNotes-" + key);
   const list = noteList(key);
   if (!box || !list) return;
@@ -156,12 +156,23 @@ export function renderSectionNotes(key) {
      open note, so the signature has to include every title, not only the
      active note's body. */
   const signature = list.map(n => `${n.id}:${n.open ? 1 : 0}:${hash(n.title)}:${hash(n.html)}`).join(",");
-  if (box.dataset.sig === signature) return;
+  if (!opts.force && box.dataset.sig === signature) return;
 
-  /* Never yank the DOM out from under someone mid-sentence. If the caret
-     is inside this card, defer the rebuild until they click away — the
-     newer text is applied then, instead of eating the words being typed. */
-  if (box.contains(document.activeElement) && document.activeElement !== document.body) {
+  /* Never yank the DOM out from under someone mid-sentence — but ONLY for
+     a passive rebuild (a background sync tick, another module's render
+     pass). An explicit action the user just took in THIS box — clicking a
+     tab, hitting "+ New note", deleting a note — is opts.force, and must
+     always take effect immediately.
+
+     Without that distinction, clicking a tab was itself the problem:
+     click focuses the clicked button before its onclick handler runs, so
+     by the time selectSectionNote() called back in here, the tab button
+     was already document.activeElement and *inside* this box — the guard
+     read that as "the user is mid-edit" and silently deferred the switch
+     until a later focusout. The tab's `open` flag in state was already
+     correct; only the visible editor never caught up, which is exactly
+     what looked like "clicking a tab does nothing". */
+  if (!opts.force && box.contains(document.activeElement) && document.activeElement !== document.body) {
     if (!box.dataset.deferred) {
       box.dataset.deferred = "1";
       box.addEventListener("focusout", () => {
@@ -171,6 +182,7 @@ export function renderSectionNotes(key) {
     }
     return;
   }
+  delete box.dataset.deferred; // a forced render (or one with no focus inside it) makes any pending deferral moot
 
   /* A rebuild is happening, so every live editor is about to be thrown
      away. Quill's change handler is debounced — an edit from the last half
@@ -244,20 +256,24 @@ export function addSectionNote(key) {
   const note = { id: uid(), title: "", html: "", open: true, updated: Date.now() };
   list.push(note); // appended after existing notes — a new tab lands beside the old ones, not stacked on top
   persist();
-  renderSectionNotes(key);
+  renderSectionNotes(key, { force: true }); // explicit user action — must switch immediately, not wait on the typing guard
   document.querySelector(`#secNotes-${key} .sec-note-title`)?.focus();
 }
 /* Switches which note's tab is active. Notes behave like browser tabs: only
    one is ever open, so selecting one closes whichever was open before it —
-   renderSectionNotes reads that note's editor back before unmounting it. */
+   renderSectionNotes reads that note's editor back before unmounting it.
+   Forced, because clicking a tab focuses the tab button first (browsers
+   focus a clicked button before its onclick fires), which would otherwise
+   make renderSectionNotes think someone is still mid-edit and defer the
+   switch indefinitely. */
 export function selectSectionNote(key, id) {
   const list = noteList(key);
   if (!list) return;
   const n = list.find(x => x.id === id);
-  if (!n) return;
+  if (!n || n.open) return; // already the active tab — nothing to do
   list.forEach(x => { x.open = (x.id === id); });
   persist(false);
-  renderSectionNotes(key);
+  renderSectionNotes(key, { force: true });
 }
 export function editSectionNoteTitle(key, id, v) {
   const n = (noteList(key) || []).find(x => x.id === id);
@@ -265,6 +281,10 @@ export function editSectionNoteTitle(key, id, v) {
   n.title = v.trim();
   n.updated = Date.now();
   persist();
+  // The tab label is a separate element from this input, so it needs an
+  // explicit (forced) render to pick up the rename — otherwise the tab
+  // still shows the old title until some unrelated render pass touches it.
+  renderSectionNotes(key, { force: true });
 }
 export function delSectionNote(key, id) {
   const list = noteList(key);
@@ -284,7 +304,9 @@ export function delSectionNote(key, id) {
   // no tab open.
   if (n.open && remaining.length) remaining[Math.min(idx, remaining.length - 1)].open = true;
   state.sections[key].noteList = remaining;
-  persist(); rerender();
+  persist();
+  renderSectionNotes(key, { force: true }); // explicit action — swap the tab bar/editor immediately
+  rerender(); // also refreshes Trash and anything else watching this state
 }
 
 /* Pages hand-written in index.html rather than generated from SECTION_META,

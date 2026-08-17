@@ -642,29 +642,24 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
 .sec-note-title:focus{outline:none;border-color:var(--ink);background:var(--paper)}
 .sec-note-del{flex-shrink:0;margin-left:auto}
 .sec-note-body{padding:0 10px 10px}
-/* ---------- Note editor as an A4 page ----------
-   A4 is 210 x 297mm, a 1 : 1.414 ratio. Sizing the writing area to that
-   gives a page that behaves like the documents this content ends up in,
-   and — more usefully — a FIXED height, so the editor no longer grows
-   without limit as a note gets longer. A note is a page you scroll, not a
-   column that pushes everything below it further down the screen.
-
-   The width is capped at 794px, which is A4 at 96dpi — the width a
-   browser would print it at. Below that the page simply narrows, keeping
-   the proportion. */
-/* The page look belongs on .ql-container, not on this wrapper.
-
-   Quill nests #editor > .ql-container > .ql-editor. Putting the border and
-   background on the outer wrapper while the fixed height sits on .ql-editor
-   two levels down left the wrapper taller than the sheet — a blank strip
-   hanging below the bordered page. Styling the container makes the visible
-   page and the sized element the same box. */
+/* ---------- Note editor: fixed-height writing area ----------
+   Width and height are independent, deliberately. The editor used to size
+   its height off its own rendered width (an A4-proportions calc), which
+   put the height at the mercy of whatever the surrounding layout did to
+   the width on that render pass — including transiently collapsing to
+   near nothing when the width briefly resolved small (e.g. right after a
+   tab switch, before layout settled). A flat height has no such
+   dependency: it's the same box whether the note is 300px or 700px wide.
+   It's still fixed rather than growing with content, so a long note is a
+   page you scroll, not a column that pushes everything below it down the
+   screen. */
 .sec-note-editor{
-  --a4-w: min(794px, 100%);
-  width: var(--a4-w);
+  width: min(794px, 100%);
+  max-width: 100%;
   margin: 0 auto;
   background: none;
   border: none;
+  box-sizing: border-box;
 }
 .sec-note-editor .ql-container{
   background: var(--card);
@@ -673,12 +668,13 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
   box-shadow: 0 1px 3px rgba(0,0,0,.06);
   height: auto;          /* the height lives on .ql-editor below */
   font-size: inherit;
+  box-sizing: border-box;
 }
 .sec-note-editor .ql-editor{
-  /* 1.414 x the rendered width, so the page keeps A4 proportions at any
-     size. min() stops a very wide screen producing an absurdly tall box. */
-  height: min(calc(var(--a4-w) * 1.414), 70vh);
-  min-height: 320px;
+  height: 320px;
+  min-height: 280px;
+  max-height: 60vh;
+  box-sizing: border-box;
   /* `scroll`, not `auto`.
 
      With `auto` the track only exists while the content overflows, and
