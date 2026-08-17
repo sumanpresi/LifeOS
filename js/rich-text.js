@@ -82,7 +82,11 @@ function addLineHeightControl(quill) {
    only consulted the FIRST time (new instance) so re-render passes never
    clobber what's currently being typed. `onChange(html)` fires debounced
    as the user edits. */
-export function mountRichEditor(containerId, getInitialHtml, onChange) {
+/* `onDirty` (optional) fires on the FIRST user keystroke of an edit,
+   before the 500ms debounce — the window where the text exists only
+   inside Quill and nothing else in the app knows it is there. Sync uses
+   it to hold off; without it that window looks identical to idle. */
+export function mountRichEditor(containerId, getInitialHtml, onChange, onDirty) {
   if (instances[containerId]) return instances[containerId];
   const el = document.getElementById(containerId);
   if (!el || typeof Quill === "undefined") return null;
@@ -107,6 +111,7 @@ export function mountRichEditor(containerId, getInitialHtml, onChange) {
     // been edited, which is exactly the mechanism behind the multi-device
     // sync bug fixed earlier in this project. Only 'user' should count.
     if (source !== "user") return;
+    if (onDirty) { try { onDirty(); } catch (e) { console.warn("[editor] onDirty failed", e); } }
     clearTimeout(timer);
     timer = setTimeout(() => onChange(sanitizeHtml(quill.root.innerHTML)), 500);
   });

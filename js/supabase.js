@@ -1227,10 +1227,17 @@ export async function syncNow() {
    subscription below silently delivers nothing forever and cross-device
    updates only ever arrive when a tab is re-focused. Rather than depend
    on a setting that can't be verified from here, poll gently as well:
-   once a minute, only while the tab is actually visible, and only when
-   this device has nothing unsaved to lose. */
+   only while the tab is actually visible, and only when this device has
+   nothing unsaved to lose.
+
+   Was once a minute, which is a long time to sit looking at a stale
+   journal entry on the other device — and it was the ONLY route in
+   whenever realtime isn't actually publishing. 15s is still trivial
+   traffic for one row on a personal account, and loadRemote() compares
+   revisions before it applies anything, so an unchanged cloud costs one
+   small read and nothing else. */
 let pollTimer = null;
-const POLL_MS = 60_000;
+const POLL_MS = 15_000;
 function startPolling() {
   stopPolling();
   pollTimer = setInterval(() => {

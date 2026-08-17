@@ -1,6 +1,6 @@
 /* Links, news feeds, quotes, meditation, Day Of page + journal. */
 import { state, uid, esc, persist, rerender, todayKey } from './state.js';
-import { toast, autoGrow } from './ui.js';
+import { toast, autoGrow, registerBusyCheck, markFieldClean } from './ui.js';
 import { moveToTrash } from './trash.js';
 import { isLogged, streak } from './habits.js';
 import { getAllGsiTasksFlat } from './gsi.js';
@@ -253,6 +253,25 @@ function fmtJournalDate(k) {
 const JOURNAL_EDITOR_ID = "dayJournalEditor";
 let journalLoadedDate = null;
 
+/* ---------- the journal editor's unsaved state ----------
+
+   True from the first keystroke until the text has been written into
+   `state`. This is the ONLY thing that should stop a background pull on
+   the journal page: the editor holding focus must not, or parking the
+   cursor here — the normal way to sit on this page — would switch off
+   cross-device sync for as long as the tab is open.
+
+   `journalApplyingRemote` guards the other direction: while a merged
+   remote entry is being loaded into Quill, that must not be mistaken for
+   the user editing, or reading someone else's update would stamp the day
+   and push it straight back. Quill's own 'api' source handles this for
+   text-change (see rich-text.js) — this is belt and braces for anything
+   reading the flag directly. */
+let journalEditorDirty = false;
+let journalApplyingRemote = false;
+export function hasUnsavedJournalEdit() { return journalEditorDirty; }
+registerBusyCheck(hasUnsavedJournalEdit);
+
 /* Exported so the app can force a pending edit out to `state` before the
    tab backgrounds, closes, or pulls from the cloud. Quill's change event
    is debounced by 500ms (see rich-text.js); on mobile a tab that goes
@@ -265,8 +284,10 @@ export function flushJournalEditor() {
   // to the date they belong to *before* swapping avoids that edit
   // landing on the day being switched to.
   const q = getRichEditor(JOURNAL_EDITOR_ID);
-  if (!q || !journalLoadedDate) return;
+  if (!q || !journalLoadedDate) { journalEditorDirty = false; return; }
   const html = q.root.innerHTML;
+  journalEditorDirty = false; // whatever is in the editor is about to be in `state`
+  markFieldClean(q.root);
   if (isEmptyRichText(html)) {
     if (state.journal[journalLoadedDate]) {
       delete state.journal[journalLoadedDate];
@@ -320,15 +341,36 @@ function renderJournalEditor(viewDate) {
       state.journal[d] = html;
     }
     stampJournalDay(d);
+    journalEditorDirty = false; // committed — a pull is safe again
+    // The editor still holds this text and may still have focus; without
+    // this it would read as permanently modified against its focus-time
+    // baseline and go on blocking sync long after it was saved.
+    const q = getRichEditor(JOURNAL_EDITOR_ID);
+    if (q) markFieldClean(q.root);
     persist();
     renderJournalList(d);
-  });
+  }, () => { journalEditorDirty = true; });
   if (!quill) return; // Quill CDN unavailable — nothing to load into
   // Quill renders .ql-blank::before from this attribute, so the original
   // textarea's prompt survives the switch to a rich-text editor.
   quill.root.dataset.placeholder = "How did that day go?";
   if (journalLoadedDate === null) { journalLoadedDate = viewDate; return; } // just mounted with this date's content
-  if (journalLoadedDate === viewDate) return; // same day, don't disturb the cursor
+
+  if (journalLoadedDate === viewDate) {
+    /* The day on screen is the day already loaded. Normally there is
+       nothing to do — reloading it would throw the cursor to the start on
+       every repaint.
+
+       But a repaint is also how a merged remote entry announces itself,
+       and returning unconditionally here meant the editor kept showing
+       its old text after a pull had already updated `state`. The Past
+       entries list beside it (rebuilt from `state` every time) showed the
+       new version, the editor showed the old one, and whichever was
+       typed into next overwrote the other. Cloud, state and screen have
+       to agree; two out of three is how a good merge still loses text. */
+    adoptRemoteJournalContent(quill, viewDate);
+    return;
+  }
 
   flushJournalEditor();
   journalLoadedDate = viewDate;
@@ -340,6 +382,50 @@ function renderJournalEditor(viewDate) {
   if (html) quill.clipboard.dangerouslyPasteHTML(sanitizeHtml(html));
   else quill.setText("");
 }
+/* Compared on visible text, not markup. Quill rewrites HTML as it
+   normalises it, so `state` and `quill.root.innerHTML` routinely differ
+   by a wrapper or an attribute while reading identically — comparing raw
+   HTML would repaste on every single repaint and throw the cursor to the
+   start each time. The trade-off is that a remote change of formatting
+   alone (same words, newly bolded) waits for the next date switch. */
+function journalVisibleText(html) {
+  return String(html || "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/* Loads a remotely-merged entry into the editor that is already open on
+   that date. Deliberately does NOT persist, stamp journalUpdated, or
+   touch the revision: this is displaying someone else's edit, not making
+   one. Quill's 'api' source keeps text-change from firing as a user
+   edit, so nothing here can bounce back to the cloud. */
+function adoptRemoteJournalContent(quill, date) {
+  if (!quill || journalApplyingRemote) return;
+  // Never overwrite an edit in progress. The merge in supabase.js has
+  // already resolved the day; the version being typed here reaches it on
+  // the next flush, and a genuine conflict is preserved in Trash.
+  if (journalEditorDirty) return;
+
+  const want = state.journal[date] || "";
+  const shown = quill.root.innerHTML;
+  if (journalVisibleText(want) === journalVisibleText(shown)) return;
+
+  journalApplyingRemote = true;
+  try {
+    const hadFocus = quill.hasFocus();
+    if (want) quill.clipboard.dangerouslyPasteHTML(sanitizeHtml(want));
+    else quill.setText("");
+    // Put the caret back at the end of the adopted text rather than
+    // letting it snap to position 0 under someone's hands.
+    if (hadFocus) { try { quill.setSelection(quill.getLength(), 0, "silent"); } catch (e) {} }
+    markFieldClean(quill.root); // adopted text is the new baseline, not a pending edit
+  } finally {
+    journalApplyingRemote = false;
+  }
+}
+
 let journalFilterFrom = "", journalFilterTo = "";
 let journalSearchQuery = "";
 let journalSortDesc = true; // newest first by default

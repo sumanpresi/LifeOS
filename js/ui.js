@@ -39,27 +39,91 @@ export function autoGrow(el) {
    state.rev only moves once something is actually SAVED, so an in-progress
    entry — the "Add a task" box at the top of Tasks, a task title being
    edited in place (those commit on change/blur, not per keystroke), a
-   section note — looks exactly like "nothing going on here". A pull then
-   lands, renderAll() rebuilds the DOM under the caret, the keyboard drops,
-   the page jumps, and whatever was typed is gone with nothing for Undo or
-   Trash to have ever seen.
+   journal entry inside Quill — looks exactly like "nothing going on
+   here". A pull then lands, renderAll() rebuilds the DOM under the caret,
+   the keyboard drops, the page jumps, and whatever was typed is gone with
+   nothing for Undo or Trash to have ever seen.
 
-   composer.js already solved this for the inline board composer only.
-   This is the general version: don't pull while a text field has focus,
-   and don't pull while an unsubmitted quick-add box still holds text even
-   if it has lost focus (a tapped date chip, a closed keyboard). */
+   The first version of this asked only "does a text field have focus?".
+   That is too blunt in both directions, and the false positive is the
+   damaging one: Quill's editor is a contenteditable that keeps focus
+   after you stop writing, so leaving the cursor parked in the journal —
+   which is the normal state of that page — made this return true
+   indefinitely and silently switched OFF every background pull on the
+   device. Cross-device sync then appeared to be broken when in fact it
+   was being suppressed here, on purpose, forever.
+
+   Focus is not the question. The question is whether there is unsaved
+   text that a repaint would destroy, which is exactly two things:
+
+     1. keystrokes in the last few seconds — someone is mid-thought and
+        even a perfectly restored caret is disruptive;
+     2. a focused field whose content has diverged from what it held when
+        it was focused — a real pending edit, however long ago it was
+        typed. Editors that commit on blur (task titles) live here.
+
+   A field that is focused, unmodified and quiet is not typing, and a pull
+   during it is completely safe. */
 const TEXTUAL_INPUT_TYPES = new Set(
   ["text", "search", "url", "email", "tel", "password", "number", "date", "time", "datetime-local", ""]);
 const PENDING_ENTRY_BOXES = ["newTask", "composerText", "composerLink"];
+const TYPING_QUIET_MS = 2500;
+
+function isTextField(el) {
+  if (!el || el === document.body || el.disabled || el.readOnly) return false;
+  if (el.isContentEditable) return true;
+  if (el.tagName === "TEXTAREA") return true;
+  return el.tagName === "INPUT" &&
+    TEXTUAL_INPUT_TYPES.has((el.getAttribute("type") || "text").toLowerCase());
+}
+function fieldContent(el) {
+  return el.isContentEditable ? el.innerHTML : (el.value || "");
+}
+
+let lastKeystrokeAt = 0;
+/* What each field held when it was focused, so "has this been edited?"
+   can be answered without every editor having to report in. WeakMap so a
+   field destroyed by a re-render takes its entry with it. */
+const fieldBaseline = new WeakMap();
+
+document.addEventListener("keydown", () => { lastKeystrokeAt = Date.now(); }, true);
+document.addEventListener("input", () => { lastKeystrokeAt = Date.now(); }, true);
+document.addEventListener("focusin", e => {
+  if (isTextField(e.target)) fieldBaseline.set(e.target, fieldContent(e.target));
+}, true);
+
+/* Call after a field's contents have been written into `state` — the
+   pending edit is no longer pending, so the field stops counting as
+   dirty even though it still holds the text and still has focus. */
+export function markFieldClean(el) {
+  if (el && isTextField(el)) fieldBaseline.set(el, fieldContent(el));
+}
+
+/* Editors that manage their own commit cycle (the journal's Quill) can
+   report their unsaved state directly rather than being inferred from
+   the DOM. Registered rather than imported: ui.js is imported by nearly
+   everything, so it must not import back. */
+const busyChecks = new Set();
+export function registerBusyCheck(fn) { if (typeof fn === "function") busyChecks.add(fn); }
 
 export function isUserTyping() {
+  if (Date.now() - lastKeystrokeAt < TYPING_QUIET_MS) return true;
+
+  /* Only editors that commit on blur are judged this way. A search or
+     filter box is also a focused, modified text field, but its contents
+     are throwaway UI state that no repaint can destroy — blocking sync
+     on a half-typed search term would recreate the exact bug this
+     replaced, just in a smaller room. */
   const el = document.activeElement;
-  if (el && el !== document.body && !el.disabled && !el.readOnly) {
-    if (el.isContentEditable) return true;
-    if (el.tagName === "TEXTAREA") return true;
-    if (el.tagName === "INPUT" &&
-        TEXTUAL_INPUT_TYPES.has((el.getAttribute("type") || "text").toLowerCase())) return true;
+  const commitsOnBlur = el && (el.tagName === "TEXTAREA" || el.isContentEditable);
+  if (commitsOnBlur && isTextField(el) && fieldBaseline.has(el) && fieldBaseline.get(el) !== fieldContent(el)) return true;
+
+  for (const check of busyChecks) {
+    try { if (check()) return true; } catch (e) { /* a broken check must not wedge sync */ }
   }
+
+  // Text left sitting in a quick-add box that has lost focus (a tapped
+  // date chip, a closed keyboard) is still unsubmitted work.
   return PENDING_ENTRY_BOXES.some(id => {
     const box = document.getElementById(id);
     return !!box && (box.value || "").trim().length > 0;
