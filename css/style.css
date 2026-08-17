@@ -658,7 +658,15 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
      size. min() stops a very wide screen producing an absurdly tall box. */
   height: min(calc(var(--a4-w) * 1.414), 70vh);
   min-height: 320px;
-  overflow-y: auto;
+  /* `scroll`, not `auto`.
+
+     With `auto` the track only exists while the content overflows, and
+     recent Chrome paints it as an overlay that fades out as soon as the
+     pointer moves away — so on a page that happens to fit there is no
+     scrollbar at all, and on one that doesn't it vanishes the moment you
+     stop scrolling. On a fixed-height page the bar is the main signal that
+     there is more text below, so it is worth reserving permanently. */
+  overflow-y: scroll;
   padding: 28px 34px;
   /* Generous margins, as on a real page. */
   scrollbar-gutter: stable;
@@ -666,8 +674,11 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
 /* A visible scrollbar on the right, rather than the overlay one that
    appears only while scrolling — with a fixed-height page it is the main
    signal that there is more text below. */
+/* An explicit width and a solid thumb opt this element out of Chrome's
+   overlay scrollbars entirely — a styled ::-webkit-scrollbar is always
+   laid out, never overlaid. */
 .sec-note-editor .ql-editor::-webkit-scrollbar{width:10px}
-.sec-note-editor .ql-editor::-webkit-scrollbar-track{background:transparent;margin:4px 0}
+.sec-note-editor .ql-editor::-webkit-scrollbar-track{background:var(--lilac);border-radius:5px;margin:4px 2px}
 .sec-note-editor .ql-editor::-webkit-scrollbar-thumb{
   background:var(--lilac-deep);border-radius:5px;border:2px solid var(--card)}
 .sec-note-editor .ql-editor::-webkit-scrollbar-thumb:hover{background:var(--muted)}
@@ -690,13 +701,34 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
   padding-top:env(safe-area-inset-top);
   padding-bottom:env(safe-area-inset-bottom);
 }
-.sec-note.note-fullscreen .sec-note-body{flex:1;min-height:0;display:flex;align-items:flex-start;justify-content:center;overflow:auto}
+/* COLUMN, not row.
+
+   Quill inserts .ql-toolbar as a sibling immediately before the editor
+   container, so .sec-note-body holds two children: the toolbar and the
+   page. Laying that out as a flex row put them side by side — toolbar
+   pinned left, page shoved to the right edge. A column stacks them the
+   way they read, with each centred on its own line. */
+.sec-note.note-fullscreen .sec-note-body{
+  flex:1;min-height:0;
+  display:flex;flex-direction:column;align-items:center;
+  overflow:auto;gap:10px;padding:14px;
+}
+/* The toolbar tracks the page width so the two line up as one document
+   rather than a wide bar above a narrow sheet. */
+.sec-note.note-fullscreen .ql-toolbar{
+  width:var(--fs-page-w, min(794px, 100%));
+  box-sizing:border-box;border-radius:8px;
+}
+/* Declared on the note, not the editor, so the toolbar — which is a
+   sibling of the editor — can use the same number. Height-driven, so the
+   whole sheet always fits: 220px covers the title row, the toolbar and
+   the padding above and below. */
+.sec-note.note-fullscreen{
+  --fs-page-w: min(794px, calc((100vh - 220px) / 1.414), calc(100vw - 32px));
+}
 .sec-note.note-fullscreen .sec-note-editor{
-  /* Full screen is where the A4 shape earns its keep: the page is as tall
-     as the viewport allows and the width follows from the ratio, so it
-     looks like the document it will become. */
-  --a4-w: min(794px, calc((100vh - 160px) / 1.414), 100%);
-  margin-top:8px;
+  --a4-w: var(--fs-page-w);
+  margin:0;
 }
 .sec-note.note-fullscreen .sec-note-editor .ql-editor{
   height: calc(var(--a4-w) * 1.414);
