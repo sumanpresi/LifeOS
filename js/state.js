@@ -121,6 +121,12 @@ export const DEFAULT_STATE = {
   quoteOffset: 0,
   meditation: {},            // { "2026-07-19": minutes }
   journal: {},               // { "2026-07-19": "text" }
+  /* When each day's entry was last edited, per date, so two devices that
+     both wrote the same day can be reconciled on that day alone instead
+     of on whichever whole document happens to be newer. Written by
+     widgets.js on every journal save; absent for entries created before
+     this existed, which fall back to the older comparison. */
+  journalUpdated: {},        // { "2026-07-19": 1755436800000 }
   // Personal catalogue of books, music and video.
   // items: [{id, type, title, creator, url, note, tag, rating, progress, featured, addedAt}]
   entertainment: { items: [] },
@@ -299,6 +305,7 @@ function merge(saved) {
     });
     s.journal = fixed;
   }
+  if (!s.journalUpdated || typeof s.journalUpdated !== "object") s.journalUpdated = {};
   s.entertainment = Object.assign({ items: [] }, saved.entertainment || {});
   if (!Array.isArray(s.entertainment.items)) s.entertainment.items = [];
   /* One-time migration: a single free-text `tag` becomes a list, and every

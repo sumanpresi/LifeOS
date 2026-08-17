@@ -708,24 +708,61 @@ function mergeIncomingJournal(remote) {
     return !!set && set.has(journalPlainForCompare(html));
   };
 
+  /* Per-day edit times (state.journalUpdated, written by widgets.js).
+     This is what lets one day be settled on its own merits rather than by
+     which whole document is newer — the difference between "the newest
+     version of Monday wins" and "whichever device saved last wins
+     everything", which is how two devices end up taking turns replacing
+     each other's copy of the same day. */
+  const localStamps = (state.journalUpdated && typeof state.journalUpdated === "object") ? state.journalUpdated : {};
+  const remoteStamps = (remote.journalUpdated && typeof remote.journalUpdated === "object") ? remote.journalUpdated : {};
+
+  /* A day one side has never seen at all is not a deletion: a stamp only
+     beats the other side's CONTENT when that side actually has a stamp of
+     its own, or when the day is present on both. Otherwise a device that
+     has simply never opened that day could erase it. */
+  const mergedStamps = {};
   const merged = {};
   const conflicts = [];
-  new Set([...Object.keys(localJ), ...Object.keys(remoteJ)]).forEach(date => {
+  new Set([...Object.keys(localJ), ...Object.keys(remoteJ), ...Object.keys(localStamps), ...Object.keys(remoteStamps)]).forEach(date => {
     const mine = localJ[date], theirs = remoteJ[date];
     const hasMine = !!(mine && journalPlainForCompare(mine));
     const hasTheirs = !!(theirs && journalPlainForCompare(theirs));
+    const ts = Math.max(localStamps[date] || 0, remoteStamps[date] || 0);
+    if (ts) mergedStamps[date] = ts;
 
-    if (hasMine && !hasTheirs) { if (!wasDeleted(date, mine)) merged[date] = mine; return; }
-    if (hasTheirs && !hasMine) { if (!wasDeleted(date, theirs)) merged[date] = theirs; return; }
     if (!hasMine && !hasTheirs) return;
+
+    if (hasMine && !hasTheirs) {
+      if (wasDeleted(date, mine)) return;
+      // The other side stamped this day more recently while holding no
+      // text for it — that is a deliberate clear, not a device that has
+      // never seen it. Only an explicit stamp can win this way.
+      if ((remoteStamps[date] || 0) > (localStamps[date] || 0)) return;
+      merged[date] = mine;
+      return;
+    }
+    if (hasTheirs && !hasMine) {
+      if (wasDeleted(date, theirs)) return;
+      if ((localStamps[date] || 0) > (remoteStamps[date] || 0)) return;
+      merged[date] = theirs;
+      return;
+    }
 
     const a = journalPlainForCompare(mine), b = journalPlainForCompare(theirs);
     if (a === b) { merged[date] = remoteWins ? theirs : mine; return; }
+    // One text containing the other is an append — keeping the longer
+    // loses nothing, and is right regardless of what the clocks say.
     if (a.includes(b)) { merged[date] = mine; return; }   // this device continued the day
     if (b.includes(a)) { merged[date] = theirs; return; } // the other device did
 
-    merged[date] = remoteWins ? theirs : mine;
-    conflicts.push({ date, losing: remoteWins ? mine : theirs });
+    // Genuinely different text on both sides. Settle on this day's own
+    // edit time where both are known; fall back to the document-level
+    // verdict for entries written before stamps existed.
+    const lt = localStamps[date] || 0, rt = remoteStamps[date] || 0;
+    const takeRemote = (lt || rt) ? (rt > lt) : remoteWins;
+    merged[date] = takeRemote ? theirs : mine;
+    conflicts.push({ date, losing: takeRemote ? mine : theirs });
   });
 
   /* Nothing is dropped silently: the version that didn't win goes to
@@ -744,6 +781,8 @@ function mergeIncomingJournal(remote) {
 
   state.journal = merged;
   remote.journal = merged;
+  state.journalUpdated = mergedStamps;
+  remote.journalUpdated = mergedStamps;
 }
 
 function mergeIncomingTasks(remote) {

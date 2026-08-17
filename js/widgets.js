@@ -268,15 +268,32 @@ export function flushJournalEditor() {
   if (!q || !journalLoadedDate) return;
   const html = q.root.innerHTML;
   if (isEmptyRichText(html)) {
-    if (state.journal[journalLoadedDate]) { delete state.journal[journalLoadedDate]; persist(); }
+    if (state.journal[journalLoadedDate]) {
+      delete state.journal[journalLoadedDate];
+      stampJournalDay(journalLoadedDate);
+      persist();
+    }
   } else if (state.journal[journalLoadedDate] !== html) {
     state.journal[journalLoadedDate] = html;
+    stampJournalDay(journalLoadedDate);
     persist();
   }
 }
 // Quill never leaves its root truly empty — an untouched editor still
 // holds "<p><br></p>" — so a blank day has to be recognised by content,
 // not by string length, or every date visited would gain an entry.
+/* Records WHEN this day was last touched on this device. The sync merge
+   reads it to settle a day that was written on two devices — without it
+   the only tiebreak is which whole document is newer, which is why an
+   entry written on the phone and an entry written at the desk could take
+   turns replacing each other instead of settling. Deletions are stamped
+   too: "cleared at 19:10" has to be able to beat "written at 18:40". */
+function stampJournalDay(date) {
+  if (!date) return;
+  if (!state.journalUpdated || typeof state.journalUpdated !== "object") state.journalUpdated = {};
+  state.journalUpdated[date] = Date.now();
+}
+
 function isEmptyRichText(html) {
   return !String(html || "").replace(/<[^>]*>/g, "").replace(/&nbsp;|\s/g, "").trim();
 }
@@ -302,6 +319,7 @@ function renderJournalEditor(viewDate) {
     } else {
       state.journal[d] = html;
     }
+    stampJournalDay(d);
     persist();
     renderJournalList(d);
   });
