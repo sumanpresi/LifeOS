@@ -48,6 +48,29 @@ export function isComposerOpen(board, status) {
   return !!openAt && openAt.board === board && openAt.status === status;
 }
 
+/* Whether there's typed-but-not-yet-submitted text sitting in the open
+   composer right now. The composer's fields are deliberately uncontrolled
+   (see the note on `draft` above — re-rendering on every keystroke would
+   fight the caret), so what's on screen can outrun `draft` by a
+   keystroke or two; read the live DOM value rather than `draft` itself.
+
+   This exists so background sync (js/supabase.js's poll and realtime
+   paths) can tell the difference between "nothing happening here" and
+   "someone is mid-sentence" before deciding it's safe to pull in remote
+   state and re-render the board. Composing a task never touches `state`
+   until Add/Enter is pressed, so state.rev-based edit detection is blind
+   to it — without this, an ordinary background sync tick (once a minute,
+   or the instant another device saves something) could — and did —
+   silently blow away everything typed into an open composer, with no
+   error and nothing recoverable, because nothing had been "saved" for
+   Undo/Trash to have ever seen. */
+export function hasUnsavedComposerDraft() {
+  if (!openAt) return false;
+  const t = document.getElementById("composerText");
+  const text = (t ? t.value : draft.text) || "";
+  return text.trim().length > 0;
+}
+
 export function openComposer(board, status) {
   openAt = { board, status };
   draft = { text: "", date: "", link: "", flag: false };
@@ -150,6 +173,16 @@ export function composerSubmit(keepOpen) {
   if (keepOpen) requestAnimationFrame(() => document.getElementById("composerText")?.focus());
 }
 
+/* Cheap per-keystroke sync — just captures the value into `draft`, no
+   rerender. This doesn't replace syncDraft() (still called before any
+   action that reads the draft for real), it's a second line of defence:
+   if a render ever does happen while the composer is open (any bug, now
+   or in the future, in exactly the class this was just fixed for), the
+   rebuilt textarea comes back pre-filled with what was actually typed
+   instead of silently reverting to whatever `draft.text` was at the last
+   explicit sync point. */
+export function composerSyncText(v) { draft.text = v; }
+
 export function composerKey(evt) {
   if (evt.key === "Escape") { evt.preventDefault(); closeComposer(); return; }
   // Enter submits, Shift+Enter makes a new line — the convention people
@@ -183,6 +216,7 @@ export function composerHtml(board, status) {
     <div class="composer" onclick="event.stopPropagation()">
       <textarea id="composerText" class="composer-text" rows="2"
         placeholder="Task name"
+        oninput="composerSyncText(this.value)"
         onkeydown="composerKey(event)">${esc(draft.text)}</textarea>
 
       <div class="composer-chips">

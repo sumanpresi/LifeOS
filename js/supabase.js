@@ -6,6 +6,7 @@ import { pushCommunicationUpdate } from './communication-bridge.js';
 import { pushNgdrTrackerUpdate } from './ngdr-tracker-bridge.js';
 import { mergeBoardData } from './whiteboard.js';
 import { takeSnapshot } from './backup.js';
+import { hasUnsavedComposerDraft } from './composer.js';
 
 const CLIENT_ID = uid() + uid();
 const GH_SVG = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.54-3.87-1.54-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.26.72-1.55-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12v3.14c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>';
@@ -355,7 +356,13 @@ function agreedWithCloud() { return readSyncMeta().rev !== undefined; }
 function hasLocalEdits() {
   const meta = readSyncMeta();
   if (meta.rev === undefined) return true; // never synced — assume local work matters
-  return (state.rev || 0) !== meta.rev;
+  // state.rev only moves once something is actually saved. An open task
+  // composer with typed text hasn't been saved yet by design (see
+  // composer.js) — without this it looks exactly like "nothing going on
+  // here" and a background sync is free to pull in remote state and
+  // redraw the board mid-sentence, discarding whatever was typed with no
+  // trace left for Undo or Trash to recover.
+  return (state.rev || 0) !== meta.rev || hasUnsavedComposerDraft();
 }
 function cloudChangedSinceLastSync(remote) {
   const meta = readSyncMeta();
@@ -1206,7 +1213,12 @@ export function initSupabase() {
   const finishSetup = () => {
     document.addEventListener("visibilitychange", () => {
       if (document.hidden) flushPendingSave();
-      else if (user) loadRemote();
+      // Same reasoning as the poll/realtime gates above: an open composer
+      // with typed text hasn't touched `state` yet, so without this check
+      // the tab simply coming back into view (switching apps for a
+      // second, a keyboard or notification-shade visibility blip on
+      // mobile) pulls in remote state and redraws the board mid-sentence.
+      else if (user && !hasLocalEdits()) loadRemote();
     });
     /* A second, independent safety net: on some platforms (especially
        mobile) visibilitychange doesn't fire reliably right before an
