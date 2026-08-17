@@ -68,6 +68,33 @@ function notePreview(html) {
   return text ? text.slice(0, 90) + (text.length > 90 ? "…" : "") : "Empty note";
 }
 
+/* Full screen for a single note.
+
+   Implemented by toggling a class on the note's own element rather than
+   moving it into a modal: Quill holds live references to its DOM, so
+   relocating a mounted editor tears down its selection and undo history.
+   A fixed-position class keeps the same element exactly where it is in
+   the tree and only changes how it is painted. */
+export function toggleNoteFullscreen(btn) {
+  const note = btn.closest(".sec-note");
+  if (!note) return;
+  const on = note.classList.toggle("note-fullscreen");
+  document.body.classList.toggle("note-fullscreen-open", on);
+  btn.textContent = on ? "⤡" : "⤢";
+  btn.title = on ? "Exit full screen (Esc)" : "Full screen (Esc to exit)";
+  if (on) note.querySelector(".ql-editor")?.focus();
+}
+
+/* Esc is what people reach for, and there is no browser chrome here to
+   offer a way out. Attached once, at module load. */
+document.addEventListener("keydown", evt => {
+  if (evt.key !== "Escape") return;
+  const open = document.querySelector(".sec-note.note-fullscreen");
+  if (!open) return;
+  evt.preventDefault();
+  open.querySelector(".sec-note-full")?.click();
+});
+
 export function renderSectionNotes(key) {
   const box = document.getElementById("secNotes-" + key);
   const list = noteList(key);
@@ -128,6 +155,8 @@ export function renderSectionNotes(key) {
         <input type="text" class="sec-note-title" value="${esc(n.title || "")}" placeholder="Untitled note"
           onchange="editSectionNoteTitle('${key}','${n.id}',this.value)">
         ${n.open ? "" : `<span class="sec-note-preview">${esc(notePreview(n.html))}</span>`}
+        ${n.open ? `<button class="sec-note-full" onclick="toggleNoteFullscreen(this)"
+          title="Full screen (Esc to exit)" aria-label="Full screen">⤢</button>` : ""}
         <button class="del sec-note-del" onclick="delSectionNote('${key}','${n.id}')" title="Delete note">✕</button>
       </div>
       ${n.open ? `<div class="sec-note-body">
