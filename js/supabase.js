@@ -1,7 +1,7 @@
 /* GitHub sign-in (via Supabase Auth), cloud storage, live sync. */
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 import { state, replaceState, persist, setRemoteSaver, uid, esc, rerender, flushPendingSave } from './state.js';
-import { setSyncPill, nowTime, toast } from './ui.js';
+import { setSyncPill, nowTime, toast, isUserTyping } from './ui.js';
 import { pushCommunicationUpdate } from './communication-bridge.js';
 import { pushNgdrTrackerUpdate } from './ngdr-tracker-bridge.js';
 import { mergeBoardData } from './whiteboard.js';
@@ -364,6 +364,37 @@ function hasLocalEdits() {
   // trace left for Undo or Trash to recover.
   return (state.rev || 0) !== meta.rev || hasUnsavedComposerDraft();
 }
+/* Whether it is safe for a BACKGROUND pull (the poll, a realtime push, the
+   tab coming back into view) to replace state and repaint right now.
+
+   Two separate questions, deliberately kept apart:
+     - hasLocalEdits(): is there saved-but-not-yet-uploaded work here?
+       That is a data question, and it also gates saveRemote().
+     - isUserTyping(): is a person mid-entry this instant? That is a UI
+       question, and it must never make saveRemote() think there is
+       something to upload — nothing has been typed into `state` yet.
+
+   Anything a person triggers on purpose (the Sync button, sign-in) still
+   pulls unconditionally; only unprompted background pulls defer. */
+function safeToPullNow() {
+  return !hasLocalEdits() && !isUserTyping();
+}
+
+/* A deferred pull must not simply be dropped — otherwise a realtime push
+   that arrives while you're typing is silently skipped and the poll then
+   waits out a whole minute before trying again. Re-check every few
+   seconds instead, so the update lands moments after typing stops. */
+let deferredPullTimer = null;
+function scheduleDeferredPull() {
+  if (deferredPullTimer) return;
+  deferredPullTimer = setInterval(() => {
+    if (!user || !sb) { clearInterval(deferredPullTimer); deferredPullTimer = null; return; }
+    if (document.hidden || !safeToPullNow()) return; // still busy — wait for the next tick
+    clearInterval(deferredPullTimer); deferredPullTimer = null;
+    loadRemote();
+  }, 4000);
+}
+
 function cloudChangedSinceLastSync(remote) {
   const meta = readSyncMeta();
   if (meta.token === undefined) return true;
@@ -1069,7 +1100,7 @@ function startPolling() {
   stopPolling();
   pollTimer = setInterval(() => {
     if (document.hidden || !user || !sb) return;
-    if (hasLocalEdits()) return; // loadRemote would handle it, but don't interrupt typing
+    if (!safeToPullNow()) { scheduleDeferredPull(); return; } // never repaint under a caret
     loadRemote();
   }, POLL_MS);
 }
@@ -1092,10 +1123,14 @@ function startRealtime() {
         if (!remote || typeof remote !== "object" || !Object.keys(remote).length) return;
         if (remote._client === CLIENT_ID) return;
         if (!cloudChangedSinceLastSync(remote)) return; // already have it
-        if (hasLocalEdits()) {
-          // Don't overwrite something being typed right now. loadRemote()
-          // handles it properly on the next sync, conflict warning included.
+        if (!safeToPullNow()) {
+          /* Don't overwrite something being typed right now. If it's only
+             that a field has focus, the deferred pull below picks it up as
+             soon as the person stops; if there are genuine unsaved local
+             edits, loadRemote() reconciles them properly (conflict warning
+             included) rather than one side quietly winning. */
           setSyncPill("busy", "Changes waiting — tap Sync");
+          scheduleDeferredPull();
           return;
         }
         mergeIncomingWhiteboards(remote);
@@ -1218,7 +1253,8 @@ export function initSupabase() {
       // the tab simply coming back into view (switching apps for a
       // second, a keyboard or notification-shade visibility blip on
       // mobile) pulls in remote state and redraws the board mid-sentence.
-      else if (user && !hasLocalEdits()) loadRemote();
+      else if (user && safeToPullNow()) loadRemote();
+      else if (user) scheduleDeferredPull();
     });
     /* A second, independent safety net: on some platforms (especially
        mobile) visibilitychange doesn't fire reliably right before an

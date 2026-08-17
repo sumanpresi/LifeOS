@@ -1133,10 +1133,14 @@ export function renderTasks() {
   const dragHint = document.getElementById("taskDragHint");
   if (dragHint) dragHint.style.display = (sortByDate && (taskView === "list" || taskView === "board")) ? "" : "none";
   const projSel = document.getElementById("newTaskProject");
-  if (projSel) {
+  /* Rebuilding the list while it is the focused control closes an open
+     dropdown mid-choice — and the options can't have changed if the
+     person is standing in it. Leave it alone until they step away. */
+  if (projSel && projSel !== document.activeElement) {
     const current = projSel.value;
     projSel.innerHTML = `<option value="">No project</option>${projectOptionsHtml(current)}`;
   }
+  restoreNewTaskDraft();
   initTaskSorting();
   initBoardSorting();
   initCalendarSorting();
@@ -1159,6 +1163,37 @@ export function createNativeTask(text, dueDate) {
   state.tasks.push(task);
   return task;
 }
+/* ---------- the "Add a task" box keeps what you typed ----------
+
+   The box lives outside every rendered region, so a repaint doesn't clear
+   it — but a reload does, and on mobile a PWA that has been backgrounded
+   for a while gets reloaded by the OS without warning. Half a task typed
+   and then lost that way is invisible to Undo and Trash, because it never
+   reached `state` at all.
+
+   Kept in localStorage, deliberately NOT in state: an unsubmitted draft
+   is this device's business, must never sync, and must never bump
+   updatedAt (which would make a stale device look "newer" — see the note
+   on persist() in state.js). */
+const NEWTASK_DRAFT_KEY = "lifeos-newtask-draft";
+export function saveNewTaskDraft(v) {
+  try {
+    if ((v || "").trim()) localStorage.setItem(NEWTASK_DRAFT_KEY, v);
+    else localStorage.removeItem(NEWTASK_DRAFT_KEY);
+  } catch (e) { /* private browsing — the draft just isn't kept */ }
+}
+function clearNewTaskDraft() {
+  try { localStorage.removeItem(NEWTASK_DRAFT_KEY); } catch (e) {}
+}
+function restoreNewTaskDraft() {
+  const el = document.getElementById("newTask");
+  if (!el || el.value || el === document.activeElement) return; // never overwrite what's on screen
+  try {
+    const draft = localStorage.getItem(NEWTASK_DRAFT_KEY);
+    if (draft) el.value = draft;
+  } catch (e) {}
+}
+
 export function addTask() {
   const el = document.getElementById("newTask"); const v = el.value.trim(); if (!v) return;
   const projSel = document.getElementById("newTaskProject");
@@ -1176,6 +1211,7 @@ export function addTask() {
     persist(); rerender();
   }
   el.value = "";
+  clearNewTaskDraft();
 }
 export function toggleTask(id) {
   const t = state.tasks.find(x => x.id === id);

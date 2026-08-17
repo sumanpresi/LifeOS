@@ -33,7 +33,43 @@ export function autoGrow(el) {
   el.style.height = el.scrollHeight + "px";
 }
 
+/* ---------- "is someone mid-sentence right now?" ----------
+
+   A background sync tick has no idea a person is halfway through typing.
+   state.rev only moves once something is actually SAVED, so an in-progress
+   entry — the "Add a task" box at the top of Tasks, a task title being
+   edited in place (those commit on change/blur, not per keystroke), a
+   section note — looks exactly like "nothing going on here". A pull then
+   lands, renderAll() rebuilds the DOM under the caret, the keyboard drops,
+   the page jumps, and whatever was typed is gone with nothing for Undo or
+   Trash to have ever seen.
+
+   composer.js already solved this for the inline board composer only.
+   This is the general version: don't pull while a text field has focus,
+   and don't pull while an unsubmitted quick-add box still holds text even
+   if it has lost focus (a tapped date chip, a closed keyboard). */
+const TEXTUAL_INPUT_TYPES = new Set(
+  ["text", "search", "url", "email", "tel", "password", "number", "date", "time", "datetime-local", ""]);
+const PENDING_ENTRY_BOXES = ["newTask", "composerText", "composerLink"];
+
+export function isUserTyping() {
+  const el = document.activeElement;
+  if (el && el !== document.body && !el.disabled && !el.readOnly) {
+    if (el.isContentEditable) return true;
+    if (el.tagName === "TEXTAREA") return true;
+    if (el.tagName === "INPUT" &&
+        TEXTUAL_INPUT_TYPES.has((el.getAttribute("type") || "text").toLowerCase())) return true;
+  }
+  return PENDING_ENTRY_BOXES.some(id => {
+    const box = document.getElementById(id);
+    return !!box && (box.value || "").trim().length > 0;
+  });
+}
+
 export function go(page) {
+  // A page change is *supposed* to jump to the top; don't let a render
+  // queued by this navigation restore the old page's scroll position.
+  skipScrollRestoreBriefly();
   document.querySelectorAll(".page").forEach(p => p.classList.remove("visible"));
   document.querySelectorAll(".nav-item").forEach(n => n.classList.toggle("active", n.dataset.page === page));
   const el = document.getElementById("page-" + page);
@@ -122,6 +158,64 @@ export function preserveBoardScroll(render) {
   /* Once synchronously, so there is no visible flash, and once after the
      next paint, because a board whose columns were re-created can clamp
      scrollLeft to 0 until it has been laid out. */
+  restore();
+  requestAnimationFrame(restore);
+  return result;
+}
+
+/* ---------- keep the page still across ANY re-render ----------
+
+   preserveBoardScroll above only wraps drag-and-drop. Every other
+   re-render — a cloud pull landing, a Google Calendar sync finishing, a
+   timer, an edit made in a completely different card — went through
+   renderAll() unprotected, which rewrites innerHTML across the whole
+   interface. Anything above the viewport that changes height drags the
+   page out from under you, which is what "the page suddenly moved while I
+   was typing" actually is.
+
+   Focus and caret position are restored too, for elements that carry an
+   id (the Add-a-task box, the composer fields). Elements rebuilt without
+   an id can't be re-found, which is exactly why isUserTyping() above
+   stops most of these renders from happening mid-entry in the first
+   place — this is the second line of defence, not the first. */
+let skipScrollUntil = 0;
+export function skipScrollRestoreBriefly(ms = 500) { skipScrollUntil = Date.now() + ms; }
+
+export function preserveScrollAndFocus(render) {
+  const savedBoards = [...document.querySelectorAll(".t-board")]
+    .map(el => [el.closest("[id]")?.id || "", el.scrollLeft]);
+  const pageY = window.scrollY;
+
+  const active = document.activeElement;
+  const focusId = (active && active.id) ? active.id : "";
+  let selStart = null, selEnd = null;
+  if (focusId) {
+    try { selStart = active.selectionStart; selEnd = active.selectionEnd; } catch (e) { /* not a text field */ }
+  }
+
+  const result = render();
+
+  const restore = () => {
+    document.querySelectorAll(".t-board").forEach(el => {
+      const key = el.closest("[id]")?.id || "";
+      const hit = savedBoards.find(([k]) => k === key);
+      if (hit && hit[1]) el.scrollLeft = hit[1];
+    });
+    if (Date.now() > skipScrollUntil && Math.abs(window.scrollY - pageY) > 1) {
+      window.scrollTo({ top: pageY });
+    }
+    if (focusId) {
+      const el = document.getElementById(focusId);
+      // preventScroll matters on mobile: re-focusing without it scrolls
+      // the field into view all over again, which is its own page jump.
+      if (el && el !== document.activeElement && typeof el.focus === "function") {
+        try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
+        if (selStart !== null && typeof el.setSelectionRange === "function") {
+          try { el.setSelectionRange(selStart, selEnd); } catch (e) { /* type doesn't support selection */ }
+        }
+      }
+    }
+  };
   restore();
   requestAnimationFrame(restore);
   return result;

@@ -37,6 +37,12 @@ import { initNgdrTrackerBridge } from './ngdr-tracker-bridge.js';
 /* One render pass repaints everything — the app is small enough
    that this keeps every module fully decoupled. */
 function renderAll() {
+  // Every repaint rewrites innerHTML across the app. Wrapping the whole
+  // pass keeps the scroll position, the board's horizontal offset and the
+  // caret exactly where the person left them, whatever triggered it.
+  return ui.preserveScrollAndFocus(renderEverything);
+}
+function renderEverything() {
   ui.renderHeader();
   gcal.renderGoogleCalendarStatus();
   tasks.renderTasks();
@@ -71,7 +77,7 @@ function renderAll() {
 /* The markup uses plain onclick="…" handlers; expose them globally. */
 Object.assign(window,
   { go: ui.go, scrollToEl: ui.scrollToEl },
-  { addTask: tasks.addTask, toggleTask: tasks.toggleTask, editTask: tasks.editTask, delTask: tasks.delTask,
+  { addTask: tasks.addTask, saveNewTaskDraft: tasks.saveNewTaskDraft, toggleTask: tasks.toggleTask, editTask: tasks.editTask, delTask: tasks.delTask,
     toggleFlag: tasks.toggleFlag, editTaskMeta: tasks.editTaskMeta, setTaskFilter: tasks.setTaskFilter,
     toggleSortByDate: tasks.toggleSortByDate, toggleTaskSection: tasks.toggleTaskSection, toggleTaskExpanded: tasks.toggleTaskExpanded,
     setTaskView: tasks.setTaskView, calendarPrevMonth: tasks.calendarPrevMonth, calendarNextMonth: tasks.calendarNextMonth, calendarGoToday: tasks.calendarGoToday, toggleCalendarDay: tasks.toggleCalendarDay, toggleBoardCol: tasks.toggleBoardCol,
