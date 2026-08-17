@@ -550,6 +550,55 @@ function mergeTaskArray(localArr, remoteArr, gone, remoteWins) {
   return [...out.values()];
 }
 
+/* workDocGroups ("Work documents" tabs, and the links inside each) used
+   to be entirely absent from this merge — mergeProjectTrees only ever
+   touched tasks/archivedTasks/name/workDocsLabel on the matched project,
+   so a same-id project kept whichever workDocGroups it already had
+   locally, forever, no matter which device actually added or edited a
+   tab or a link. A device that had never touched Work documents (or
+   whose local copy predates them) would sit on its own stale/default
+   groups indefinitely, even after every other field of the same project
+   synced correctly. That's the exact shape of the bug: same project,
+   same tasks, but a completely different (usually empty, default
+   "General") set of Work-document tabs on one device.
+
+   Merged per tab by id, and per link within a tab by id — the same
+   union-by-id shape mergeTaskArray already uses — so a tab or link added
+   on either device survives, instead of one side's whole list silently
+   replacing the other's. Neither carries an updatedAt yet, so a tab/link
+   edited (renamed, archived) on both sides falls back to the same
+   document-level `remoteWins` verdict used for the project's own name. */
+function mergeWorkDocGroups(lp, rp, gone, remoteWins) {
+  const byId = new Map();
+  (lp.workDocGroups || []).forEach(g => g && g.id && byId.set(g.id, g));
+  (rp.workDocGroups || []).forEach(rg => {
+    if (!rg || !rg.id || gone.has(rg.id)) return;
+    const lg = byId.get(rg.id);
+    if (!lg) { byId.set(rg.id, rg); return; }
+    const docsById = new Map();
+    (lg.docs || []).forEach(d => d && d.id && docsById.set(d.id, d));
+    (rg.docs || []).forEach(rd => { if (rd && rd.id && !gone.has(rd.id)) docsById.set(rd.id, rd); });
+    const mergedGroup = remoteWins ? Object.assign({}, lg, rg) : lg;
+    mergedGroup.docs = [...docsById.values()].filter(d => !gone.has(d.id));
+    byId.set(rg.id, mergedGroup);
+  });
+  const merged = [...byId.values()].filter(g => !gone.has(g.id));
+  lp.workDocGroups = merged;
+  rp.workDocGroups = merged;
+}
+/* Personal-workspace projects don't have workDocGroups at all — they use
+   a flat p.workDocs list instead (a different, older shape that was
+   never migrated for that page). Same bug, same fix: union by id rather
+   than one side's whole array silently replacing the other's. */
+function mergeFlatDocList(lp, rp, gone) {
+  if (!Array.isArray(lp.workDocs) && !Array.isArray(rp.workDocs)) return;
+  const byId = new Map();
+  (lp.workDocs || []).forEach(d => d && d.id && byId.set(d.id, d));
+  (rp.workDocs || []).forEach(d => { if (d && d.id && !gone.has(d.id)) byId.set(d.id, d); });
+  const merged = [...byId.values()].filter(d => !gone.has(d.id));
+  lp.workDocs = merged;
+  rp.workDocs = merged;
+}
 function mergeProjectTrees(localProjects, remoteProjects, gone, remoteWins) {
   const byId = new Map();
   (localProjects || []).forEach(p => p && p.id && byId.set(p.id, p));
@@ -561,6 +610,8 @@ function mergeProjectTrees(localProjects, remoteProjects, gone, remoteWins) {
     // picking one project object and discarding the other's tasks.
     lp.tasks = mergeTaskArray(lp.tasks, rp.tasks, gone, remoteWins);
     lp.archivedTasks = mergeTaskArray(lp.archivedTasks, rp.archivedTasks, gone, remoteWins);
+    mergeWorkDocGroups(lp, rp, gone, remoteWins);
+    mergeFlatDocList(lp, rp, gone);
     if (remoteWins) { lp.name = rp.name ?? lp.name; lp.workDocsLabel = rp.workDocsLabel ?? lp.workDocsLabel; }
     byId.set(rp.id, lp);
   });
