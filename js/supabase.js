@@ -7,6 +7,7 @@ import { pushNgdrTrackerUpdate } from './ngdr-tracker-bridge.js';
 import { mergeBoardData } from './whiteboard.js';
 import { takeSnapshot } from './backup.js';
 import { moveToTrash } from './trash.js';
+import { mergeNoteInk, redrawAllInk } from './note-ink.js';
 import { hasUnsavedComposerDraft } from './composer.js';
 import { flushJournalEditor } from './widgets.js';
 
@@ -518,7 +519,15 @@ function mergeIncomingSectionNotes(remote) {
     (remoteSec.noteList || []).forEach(rn => {
       const ln = byId.get(rn.id);
       if (!ln) { byId.set(rn.id, rn); return; }
-      byId.set(rn.id, (rn.updated || 0) >= (ln.updated || 0) ? rn : ln);
+      const winner = (rn.updated || 0) >= (ln.updated || 0) ? rn : ln;
+      /* The note's TEXT has a winner — one device's prose replaces the
+         other's. Its INK does not: marks from both devices are additions
+         to the same page, so they're unioned, with tombstones keeping an
+         erased stroke erased. Letting the newer note win outright would
+         throw away everything drawn on the other device. */
+      const ink = mergeNoteInk(ln, rn);
+      if (ink) winner.ink = ink;
+      byId.set(rn.id, winner);
     });
     /* Remote order first — it is the more recently agreed view — with any
        note this device has that the cloud hasn't seen yet appended. */
@@ -855,6 +864,7 @@ export async function loadRemote(preferRemote = false) {
       // branching below decides — make sure that's actually reflected
       // here, not just in the payload that eventually gets pushed back.
       persist(false); rerender();
+      redrawAllInk(); // merged strokes are in state; the canvases still show the old set
 
       const mine = hasLocalEdits();
       const theirs = cloudChangedSinceLastSync(remote);

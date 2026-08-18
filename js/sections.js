@@ -4,6 +4,7 @@ import { state, uid, esc, persist, rerender, onStateReplaced, SECTION_META } fro
 import { toast } from './ui.js';
 import { moveToTrash } from './trash.js';
 import { mountRichEditor, unmountRichEditor, getRichEditor } from './rich-text.js';
+import { attachNoteInk, detachNoteInk, noteHasInk } from './note-ink.js';
 
 export function buildSectionPages() {
   document.getElementById("sectionPages").innerHTML =
@@ -200,6 +201,8 @@ export function renderSectionNotes(key, opts = {}) {
     });
   }
   list.forEach(n => unmountRichEditor(noteEditorId(key, n.id)));
+  // The ink canvas points at DOM nodes this rebuild is about to discard.
+  box.querySelectorAll(".sec-note").forEach(detachNoteInk);
   box.dataset.sig = signature;
 
   const active = list.find(n => n.open) || null;
@@ -246,6 +249,17 @@ export function renderSectionNotes(key, opts = {}) {
         live.updated = Date.now();
         persist(); // rich-text.js already debounced this; rerender() here would destroy the editor mid-edit
       });
+
+    /* The ink layer sits over the mounted editor and reads its strokes
+       from state by id on every draw — never from a captured note object,
+       for the same reason the editor above resolves by id: a sync
+       replaces the whole object graph, and a captured reference would
+       quietly become an orphan that saves nowhere. */
+    const noteEl = box.querySelector(".sec-note");
+    if (noteEl) {
+      if (noteHasInk(noteById(key, nid))) noteEl.classList.add("ink-locked");
+      attachNoteInk(noteEl, () => noteById(key, nid));
+    }
   });
 }
 
