@@ -91,15 +91,16 @@ export function noteHasInk(note) {
    the anchor survive editing: a paragraph's INDEX changes the moment one
    is inserted or deleted above it, so an index alone would leave the ink
    sitting on whichever paragraph inherited the number. */
-function paraBoxes(editor) {
+function paraBoxes(editor, zoom) {
+  const z = zoom || 1;
   const er = editor.getBoundingClientRect();
   return [...editor.children].map(el => {
     const r = el.getBoundingClientRect();
     return {
-      left: r.left - er.left + editor.scrollLeft,
-      top: r.top - er.top + editor.scrollTop,
-      width: r.width || 1,
-      height: r.height,
+      left: (r.left - er.left) / z + editor.scrollLeft,
+      top: (r.top - er.top) / z + editor.scrollTop,
+      width: (r.width || 1) / z,
+      height: r.height / z,
       t: paraKey(el.textContent),
     };
   });
@@ -252,7 +253,7 @@ function redraw(layer) {
   const penCtx = sizeCanvas(penCanvas, w, h, dpr);
 
   const top = editor.scrollTop;
-  const boxes = paraBoxes(editor);
+  const boxes = paraBoxes(editor, layer.zoom);
   /* Resolved once per repaint and kept: the eraser has to hit-test against
      where strokes actually ARE on screen, not where they were drawn. */
   layer.boxes = boxes;
@@ -295,18 +296,39 @@ export function attachNoteInk(noteEl, getNote) {
   const note = getNote();
   if (!note) return null;
 
+  /* One wrapper holding the text AND both ink canvases, so a zoom is a
+     single CSS transform over the lot. That is what makes zooming behave
+     the way OneNote's does: text and handwriting scale in exact lockstep
+     because they are the same transformed subtree, with no reflow and no
+     stroke arithmetic — a mark sitting between two words stays between
+     those two words at every zoom level. */
+  let zoomWrap = editorWrap.querySelector(":scope > .ink-zoom");
+  if (!zoomWrap) {
+    zoomWrap = document.createElement("div");
+    zoomWrap.className = "ink-zoom";
+    /* Move whatever Quill put here, rather than looking for a
+       `.ql-container` child — there isn't one. Quill 2 turns the element
+       you hand it INTO the container, so `.sec-note-editor` IS
+       `.ql-container`, and its children are the editor root, the
+       off-screen clipboard and the link tooltip. Taking all of them keeps
+       the tooltip positioned against the same box as the text it points
+       at, at any zoom. */
+    while (editorWrap.firstChild) zoomWrap.appendChild(editorWrap.firstChild);
+    editorWrap.appendChild(zoomWrap);
+  }
   const hlCanvas = document.createElement("canvas");
   hlCanvas.className = "note-ink-canvas note-ink-hl";
   const penCanvas = document.createElement("canvas");
   penCanvas.className = "note-ink-canvas note-ink-pen";
-  editorWrap.appendChild(hlCanvas);
-  editorWrap.appendChild(penCanvas); // pen above highlighter
+  zoomWrap.appendChild(hlCanvas);
+  zoomWrap.appendChild(penCanvas); // pen above highlighter
   // Only the top canvas takes the pointer; the highlighter layer stays
   // inert so a stroke isn't captured twice.
   const canvas = penCanvas;
 
   const layer = {
-    noteEl, editor, canvas, hlCanvas, penCanvas,
+    noteEl, editor, canvas, hlCanvas, penCanvas, zoomWrap,
+    zoom: loadZoom(note.id),
     mode: "text",           // text | pen | hl | eraser
     color: PEN_COLORS[0],
     hlColor: HL_COLORS[0],
@@ -316,9 +338,17 @@ export function attachNoteInk(noteEl, getNote) {
     strokes: () => inkOf(getNote() || { }).strokes,
   };
 
+  /* Client coordinates arrive already multiplied by the zoom (they are
+     post-transform), while the canvas is painted in unscaled layout
+     units. Dividing here keeps one coordinate space for strokes whatever
+     the zoom, so a note drawn on at 150% and viewed at 80% is identical. */
   const toContent = e => {
     const r = editor.getBoundingClientRect();
-    return { x: e.clientX - r.left + editor.scrollLeft, y: e.clientY - r.top + editor.scrollTop };
+    const z = layer.zoom || 1;
+    return {
+      x: (e.clientX - r.left) / z + editor.scrollLeft,
+      y: (e.clientY - r.top) / z + editor.scrollTop,
+    };
   };
 
   let drawing = false, penActive = false, erased = false;
@@ -387,7 +417,7 @@ export function attachNoteInk(noteEl, getNote) {
       return;
     }
     if (live && live.pts.length >= 2) {
-      inkOf(n).strokes.push(anchorStroke(live, paraBoxes(editor)));
+      inkOf(n).strokes.push(anchorStroke(live, paraBoxes(editor, layer.zoom)));
       n.updated = Date.now();
       persist();
       syncPageLock(noteEl, n);
@@ -399,7 +429,7 @@ export function attachNoteInk(noteEl, getNote) {
     const n = getNote();
     if (!n) return;
     const ink = inkOf(n);
-    const boxes = layer.boxes || paraBoxes(editor);
+    const boxes = layer.boxes || paraBoxes(editor, layer.zoom);
     const keep = [];
     ink.strokes.forEach((s, i) => {
       const pts = (layer.resolved && layer.resolved[i]) || resolvePoints(s, boxes);
@@ -436,6 +466,7 @@ export function attachNoteInk(noteEl, getNote) {
 
   layers.set(noteEl, layer);
   buildToolbar(noteEl, layer, getNote);
+  setNoteZoom(layer, layer.zoom, null); // apply the remembered zoom, don't re-save it
   syncPageLock(noteEl, note);
   redraw(layer);
   return layer;
@@ -506,6 +537,40 @@ function setMode(layer, mode) {
   if (!drawing) layer.editor.focus();
 }
 
+/* ---------- zoom ---------- */
+
+export const ZOOM_STEPS = [0.5, 0.67, 0.8, 1, 1.25, 1.5, 2, 3];
+const ZOOM_KEY = "lifeos-note-zoom";
+
+/* Per note, per device, and NEVER synced: how far someone has zoomed in
+   is view state, like a scroll position or which tab is open. The desktop
+   at 80% and the phone at 150% are both right, and neither should be
+   telling the other what to do. */
+function loadZoom(noteId) {
+  try {
+    const all = JSON.parse(localStorage.getItem(ZOOM_KEY) || "{}");
+    const z = Number(all[noteId]);
+    return z >= 0.25 && z <= 4 ? z : 1;
+  } catch (e) { return 1; }
+}
+function saveZoom(noteId, z) {
+  try {
+    const all = JSON.parse(localStorage.getItem(ZOOM_KEY) || "{}");
+    if (z === 1) delete all[noteId]; else all[noteId] = z;
+    localStorage.setItem(ZOOM_KEY, JSON.stringify(all));
+  } catch (e) { /* private browsing — the zoom just doesn't persist */ }
+}
+
+export function setNoteZoom(layer, z, noteId) {
+  z = Math.max(0.25, Math.min(4, z));
+  layer.zoom = z;
+  layer.zoomWrap.style.setProperty("--z", z);
+  const label = layer.noteEl.querySelector(".ink-zoom-level");
+  if (label) label.textContent = Math.round(z * 100) + "%";
+  if (noteId) saveZoom(noteId, z);
+  redraw(layer);
+}
+
 /* The note's width is no longer touched by the presence of ink — strokes
    follow their paragraph instead of demanding a fixed column, so the page
    stays a normal responsive one on every device. Kept as a no-op hook and
@@ -543,6 +608,31 @@ function renderSwatches(host, layer, mode) {
 function buildToolbar(noteEl, layer, getNote) {
   const head = noteEl.querySelector(".sec-note-head");
   if (!head || head.querySelector(".ink-toggle")) return;
+
+  /* In the head rather than the pen bar: zooming is for reading as much as
+     for drawing, and shouldn't require picking up a pen first. */
+  const zoomBox = document.createElement("span");
+  zoomBox.className = "ink-zoom-ctl";
+  zoomBox.innerHTML = `
+    <button type="button" class="ink-zoom-btn" data-zoom="out" title="Zoom out" aria-label="Zoom out">−</button>
+    <button type="button" class="ink-zoom-level" title="Reset to 100%" aria-label="Reset zoom">100%</button>
+    <button type="button" class="ink-zoom-btn" data-zoom="in" title="Zoom in" aria-label="Zoom in">+</button>`;
+  head.insertBefore(zoomBox, head.querySelector(".sec-note-full"));
+
+  zoomBox.addEventListener("click", e => {
+    const n = getNote();
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    if (btn.classList.contains("ink-zoom-level")) { setNoteZoom(layer, 1, n?.id); return; }
+    const dir = btn.dataset.zoom === "in" ? 1 : -1;
+    // Step through fixed stops rather than multiplying, so the readout is
+    // always a round number and repeated clicks can't drift.
+    const i = ZOOM_STEPS.findIndex(z => Math.abs(z - layer.zoom) < 0.001);
+    const next = i === -1
+      ? (dir > 0 ? ZOOM_STEPS.find(z => z > layer.zoom) : [...ZOOM_STEPS].reverse().find(z => z < layer.zoom))
+      : ZOOM_STEPS[Math.max(0, Math.min(ZOOM_STEPS.length - 1, i + dir))];
+    if (next) setNoteZoom(layer, next, n?.id);
+  });
 
   const toggle = document.createElement("button");
   toggle.className = "sec-note-full ink-toggle";
