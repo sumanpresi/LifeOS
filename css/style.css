@@ -3673,3 +3673,81 @@ body.is-dragging :is(.t-board-col, .t-board-card, #tasksCard){
 /* The whole card is the target, so nothing inside it should be able to
    swallow the drop by being the actual event target. */
 .t-board-card.drop-target *, .gsi-card.drop-target *{ pointer-events: none; }
+
+/* ---------- Ink over a note ---------- */
+/* The canvas covers the editor's visible box and is painted in content
+   coordinates offset by scrollTop, so marks scroll with the words rather
+   than floating over them. `pointer-events:none` until a tool is picked:
+   in text mode the layer has to be completely invisible to the caret. */
+.sec-note-editor{position:relative}
+.note-ink-canvas{
+  position:absolute;left:0;top:0;
+  pointer-events:none;
+  border-radius:8px;
+}
+/* The highlighter layer blends with the words behind it; the pen layer
+   sits above and paints normally so ink stays crisp over both text and
+   highlight. `multiply` is what makes a highlight read as ink ON the
+   page rather than a coloured film over it: dark text multiplied by pale
+   yellow stays dark text, white paper becomes yellow. */
+.note-ink-hl{z-index:2;mix-blend-mode:multiply}
+.note-ink-pen{z-index:3}
+/* Quill's pickers — colour, highlight, font, size, line spacing — open
+   DOWNWARD, so an expanded dropdown hangs over the editor and therefore
+   over the ink canvas. With a tool live that canvas has
+   pointer-events:auto and was swallowing the clicks: the dropdown opened
+   and then refused to accept a choice. The toolbar and any expanded
+   picker have to sit above the ink layers, not below them. */
+.sec-note .ql-toolbar{position:relative;z-index:5}
+.sec-note .ql-toolbar .ql-picker.ql-expanded,
+.sec-note .ql-toolbar .ql-picker-options{z-index:20}
+/* Multiply against a dark page would drive the highlight to black and
+   swallow the text with it. `screen` is the mirror image — it lightens,
+   so the wash appears and the pale text stays legible through it. */
+html[data-theme="dark"] .note-ink-hl{mix-blend-mode:screen}
+.note-ink-canvas.drawing{
+  pointer-events:auto;
+  /* A crosshair, not a caret — the pointer is a pen here. `touch-action:
+     none` is what stops a finger-drag from scrolling the page out from
+     under the stroke being drawn. */
+  cursor:crosshair;touch-action:none;
+}
+.ink-bar{
+  display:none;align-items:center;gap:6px;flex-wrap:wrap;
+  padding:6px 10px;border-bottom:1px solid var(--line);background:var(--card);
+}
+.sec-note.ink-open .ink-bar{display:flex}
+.ink-tool{
+  border:1px solid var(--glass-line);background:rgba(255,255,255,.6);
+  border-radius:7px;padding:4px 9px;font-size:14px;line-height:1.2;cursor:pointer;color:var(--ink);
+  min-width:34px;min-height:32px;
+}
+.ink-tool:hover{background:var(--lilac)}
+.ink-tool.active{background:var(--lilac-deep);border-color:var(--lilac-deep)}
+.ink-done{margin-left:auto;font-size:12px;font-weight:600}
+.ink-colors{display:none;align-items:center;gap:5px;margin-left:4px}
+.ink-colors.show{display:inline-flex}
+.ink-color{
+  width:20px;height:20px;border-radius:50%;border:2px solid transparent;
+  cursor:pointer;padding:0;box-shadow:0 0 0 1px rgba(0,0,0,.15) inset;
+}
+.ink-color.active{border-color:var(--ink);transform:scale(1.12)}
+/* The canvas above already swallows every pointer event while a tool is
+   live, so the text can't be clicked into or drag-selected. All that is
+   left to do is hide the caret, which would otherwise sit blinking under
+   the ink. Deliberately NOT user-select:none — that would drop a
+   selection made before picking up the pen, and the formatting toolbar
+   needs it to still be there. */
+.sec-note.ink-drawing .ql-editor{caret-color:transparent}
+
+/* THE LOCKED PAGE.
+
+   Once a note carries ink its column stops reflowing — see the header of
+   note-ink.js. Every device and both view modes wrap the text at the same
+   794px, so a mark drawn beside a word stays beside that word. A viewport
+   narrower than the page scrolls sideways instead of rewrapping, which is
+   the only alternative that doesn't move the text under the ink. */
+.sec-note.ink-locked .sec-note-editor{width:794px;max-width:none;flex:none}
+.sec-note.ink-locked .sec-note-body{overflow-x:auto}
+.sec-note.note-fullscreen.ink-locked .sec-note-editor{width:794px;max-width:none;flex:1;min-height:0}
+.sec-note.note-fullscreen.ink-locked .ql-toolbar{width:794px;max-width:none}
