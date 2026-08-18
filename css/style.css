@@ -3732,6 +3732,19 @@ html[data-theme="dark"] .note-ink-hl{mix-blend-mode:screen}
   cursor:pointer;padding:0;box-shadow:0 0 0 1px rgba(0,0,0,.15) inset;
 }
 .ink-color.active{border-color:var(--ink);transform:scale(1.12)}
+/* Line weight. The button shows the stroke it will draw, in the colour it
+   will draw it — the same idea as the colour swatches beside it. */
+.ink-widths{display:none;align-items:center;gap:4px;margin-left:6px;
+  padding-left:8px;border-left:1px solid var(--glass-line)}
+.ink-widths.show{display:inline-flex}
+.ink-width{
+  display:flex;align-items:center;justify-content:center;
+  width:30px;height:26px;padding:0 4px;cursor:pointer;
+  border:1px solid var(--glass-line);border-radius:6px;background:rgba(255,255,255,.6);
+}
+.ink-width:hover{background:var(--lilac)}
+.ink-width.active{background:var(--lilac-deep);border-color:var(--ink)}
+.ink-width i{display:block;width:100%;border-radius:5px}
 /* The canvas above already swallows every pointer event while a tool is
    live, so the text can't be clicked into or drag-selected. All that is
    left to do is hide the caret, which would otherwise sit blinking under
