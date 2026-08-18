@@ -5,26 +5,37 @@
    inside the text. You circle a word, underline a phrase, draw an arrow
    in the margin, and the marks stay exactly where you put them.
 
-   THE COORDINATE PROBLEM, and the deal this makes with it.
+   THE COORDINATE PROBLEM, and how strokes survive a reflow.
 
-   Ink is absolute; text is relative. Marks are stored at fixed positions
-   in the note's own page space, but the words underneath move whenever
-   the text rewraps — and text rewraps whenever the column width changes.
-   The same note is 794px in a card and 1100px in full screen, so a circle
-   drawn around "Marcus Aurelius" on the desktop would land around a
-   different phrase on the phone, or nothing at all.
+   Ink is absolute; text is relative. A mark stored at a fixed position in
+   the page becomes wrong the moment the words move — and the words move
+   whenever the column width changes. The same note is 1100px in full
+   screen on a desktop, ~790px in a card, ~360px on a phone.
 
-   No amount of cleverness fixes that: an arrow pointing at the gap
-   between two words has no anchor in the text to attach to. So the deal
-   is the one OneNote itself makes — THE PAGE HAS A FIXED WIDTH. Once a
-   note contains ink its column locks to PAGE_W and stops reflowing, on
-   every device and in full screen too. The text wraps identically
-   everywhere, so the ink keeps meaning what it meant. A screen narrower
-   than the page scrolls sideways rather than rewrapping.
+   The first version of this dealt with that by refusing to reflow: once a
+   note had ink its column locked to 794px everywhere. That keeps the ink
+   honest and makes the note unusable on a phone, which is what the iPhone
+   screenshot showed — a 794px page in a 390px viewport, text running off
+   both edges and the toolbar cut in half.
 
-   The consequence to be honest about: editing text ABOVE existing ink
-   pushes the words down and leaves the marks behind. OneNote behaves the
-   same way for the same reason. Ink annotates a page as it was.
+   So strokes are ANCHORED TO A PARAGRAPH instead of to the page. Each one
+   records which paragraph it was drawn over, its offset from that
+   paragraph's top-left corner, and how wide that paragraph was at the
+   time. To draw it, the paragraph is found where it lives NOW and the
+   stroke is placed relative to it, scaled by how much the column has
+   changed width. Text can reflow freely: a circle round a word in
+   paragraph 7 stays over paragraph 7 at any width, and the page is a
+   normal responsive column again on every device.
+
+   What this buys and what it doesn't: vertical position is exact, because
+   the anchor moves with its paragraph however the text above reflows.
+   Horizontal position is proportional — at half the width a mark sits at
+   half the distance across — which keeps a mark over the same region of
+   the same paragraph but cannot keep it over the same WORD, since at a
+   different width that word is somewhere else entirely. Nothing can, short
+   of refusing to reflow. Marks in the margin, underlines, circles round a
+   phrase and arrows all survive; a caret wedged between two specific
+   letters is approximate.
 
    WHERE THE STROKES LIVE
    In the note itself (`note.ink`), never in its HTML. The sanitizer's
@@ -73,6 +84,105 @@ export function noteHasInk(note) {
   return !!(note && note.ink && Array.isArray(note.ink.strokes) && note.ink.strokes.length);
 }
 
+/* ---------- anchoring ---------- */
+
+/* Paragraph boxes in the editor's scroll-content coordinate space, each
+   carrying a short fingerprint of its text. The fingerprint is what makes
+   the anchor survive editing: a paragraph's INDEX changes the moment one
+   is inserted or deleted above it, so an index alone would leave the ink
+   sitting on whichever paragraph inherited the number. */
+function paraBoxes(editor) {
+  const er = editor.getBoundingClientRect();
+  return [...editor.children].map(el => {
+    const r = el.getBoundingClientRect();
+    return {
+      left: r.left - er.left + editor.scrollLeft,
+      top: r.top - er.top + editor.scrollTop,
+      width: r.width || 1,
+      height: r.height,
+      t: paraKey(el.textContent),
+    };
+  });
+}
+function paraKey(text) {
+  return String(text || "").replace(/\s+/g, " ").trim().slice(0, 48);
+}
+
+/* Find the paragraph an anchor refers to NOW. The stored index is a hint,
+   not an answer: check it first, then walk outwards for the nearest
+   paragraph with the same text. Nearest rather than first, so that when a
+   note has several identical paragraphs (blank lines, repeated headings)
+   the ink lands on the one closest to where it was, instead of jumping to
+   the top of the note. */
+function anchorIndex(a, boxes) {
+  if (!a || a.p == null || !boxes.length) return -1;
+  const p = Math.min(a.p, boxes.length - 1);
+  if (a.t == null) return p;                    // drawn before fingerprints existed
+  if (boxes[p] && boxes[p].t === a.t) return p; // unmoved: the common case
+  for (let d = 1; d < boxes.length; d++) {
+    if (boxes[p - d] && boxes[p - d].t === a.t) return p - d;
+    if (boxes[p + d] && boxes[p + d].t === a.t) return p + d;
+  }
+  return p; // the paragraph was deleted or rewritten — hold the position
+}
+
+/* Which paragraph a point belongs to: the one it lands in, or the nearest
+   one vertically when it lands in the gap between two (or out in the
+   margin, where annotations often go). */
+function anchorFor(boxes, x, y) {
+  if (!boxes.length) return -1;
+  let best = 0, bestD = Infinity;
+  for (let i = 0; i < boxes.length; i++) {
+    const b = boxes[i];
+    if (y >= b.top && y <= b.top + b.height) return i;
+    const d = y < b.top ? b.top - y : y - (b.top + b.height);
+    if (d < bestD) { bestD = d; best = i; }
+  }
+  return best;
+}
+
+/* Where a stroke's points sit on screen right now. Anchored strokes are
+   resolved against their paragraph's current position and width; strokes
+   from before anchoring existed keep their absolute coordinates. */
+function resolvePoints(s, boxes) {
+  const a = s.a;
+  const i = anchorIndex(a, boxes);
+  if (i < 0 || !boxes[i]) return s.pts;
+  const b = boxes[i];
+  const k = b.width / (a.w || b.width); // how much the column has changed
+
+  /* X scales with the column, Y does NOT.
+
+     It is tempting to scale both by the same factor, but width and height
+     move in OPPOSITE directions under reflow: narrow the column and a
+     paragraph gets taller, because its text wraps onto more lines. Scaling
+     the vertical offset down alongside the horizontal one dragged every
+     mark up towards the top of its paragraph and squashed it flat — a
+     circle round a phrase ended up a small ellipse floating above the
+     first line, which is what the phone render showed.
+
+     Only the horizontal axis reflows, so only the horizontal axis is
+     scaled — both the anchor offset AND the stroke's own points. Vertical
+     geometry is reproduced exactly as drawn, because nothing about it
+     changed: the font is the same size on a phone as on a desktop, so a
+     line of text is the same height and a mark spanning one line must
+     still span one line. Scaling the shape vertically shrank a circle
+     round a phrase into a flat sliver hovering above it.
+
+     The cost is that a circle becomes an ellipse on a much narrower
+     column. That is the right trade: it still encloses the same words on
+     the same line, which is what the mark was for. */
+  const ox = b.left + a.x * k, oy = b.top + a.y;
+  const out = new Array(s.pts.length);
+  for (let i = 0; i < s.pts.length; i += 2) {
+    out[i] = ox + s.pts[i] * k;
+    out[i + 1] = oy + s.pts[i + 1];
+  }
+  return out;
+}
+/* Line weight does not scale either: a 2.5px pen line is a 2.5px pen line
+   against text that is the same size on every device. */
+
 /* ---------- drawing ---------- */
 
 function strokePath(ctx, pts, scrollTop) {
@@ -93,14 +203,14 @@ function strokePath(ctx, pts, scrollTop) {
   ctx.lineTo(pts[pts.length - 2], pts[pts.length - 1] - scrollTop);
 }
 
-function drawStroke(ctx, s, scrollTop) {
-  const pts = s.pts;
+function drawStroke(ctx, s, scrollTop, pts, width) {
+  pts = pts || s.pts;
   if (!pts || pts.length < 2) return;
   ctx.save();
   ctx.lineCap = s.mode === "hl" ? "butt" : "round"; // a real highlighter has a flat chisel end
   ctx.lineJoin = "round";
   ctx.strokeStyle = s.color;
-  ctx.lineWidth = s.w;
+  ctx.lineWidth = Math.max(0.5, width == null ? s.w : width);
   strokePath(ctx, pts, scrollTop);
   ctx.stroke();
   ctx.restore();
@@ -142,15 +252,22 @@ function redraw(layer) {
   const penCtx = sizeCanvas(penCanvas, w, h, dpr);
 
   const top = editor.scrollTop;
-  const strokes = layer.strokes();
-  strokes.forEach(s => drawStroke(s.mode === "hl" ? hlCtx : penCtx, s, top));
+  const boxes = paraBoxes(editor);
+  /* Resolved once per repaint and kept: the eraser has to hit-test against
+     where strokes actually ARE on screen, not where they were drawn. */
+  layer.boxes = boxes;
+  layer.resolved = layer.strokes().map(s => resolvePoints(s, boxes));
+
+  layer.strokes().forEach((s, i) => drawStroke(
+    s.mode === "hl" ? hlCtx : penCtx, s, top, layer.resolved[i], s.w));
+  // The stroke under the pen is already in current coordinates.
   if (layer.live) drawStroke(layer.live.mode === "hl" ? hlCtx : penCtx, layer.live, top);
 }
 
 /* ---------- erasing ---------- */
 
-function strokeNear(s, x, y, r) {
-  const pts = s.pts;
+function strokeNear(s, x, y, r, pts) {
+  pts = pts || s.pts;
   const pad = r + (s.w || 2) / 2;
   /* A tap leaves a one-point stroke, and a segment loop never runs on
      one. Without this a dot could be drawn but never erased. */
@@ -270,7 +387,7 @@ export function attachNoteInk(noteEl, getNote) {
       return;
     }
     if (live && live.pts.length >= 2) {
-      inkOf(n).strokes.push(live);
+      inkOf(n).strokes.push(anchorStroke(live, paraBoxes(editor)));
       n.updated = Date.now();
       persist();
       syncPageLock(noteEl, n);
@@ -282,9 +399,11 @@ export function attachNoteInk(noteEl, getNote) {
     const n = getNote();
     if (!n) return;
     const ink = inkOf(n);
+    const boxes = layer.boxes || paraBoxes(editor);
     const keep = [];
-    ink.strokes.forEach(s => {
-      if (strokeNear(s, x, y, ERASER_R)) {
+    ink.strokes.forEach((s, i) => {
+      const pts = (layer.resolved && layer.resolved[i]) || resolvePoints(s, boxes);
+      if (strokeNear(s, x, y, ERASER_R, pts)) {
         erased = true;
         /* A tombstone, not just a removal. Without it the next sync's
            union with a device that still has the stroke simply puts it
@@ -320,6 +439,25 @@ export function attachNoteInk(noteEl, getNote) {
   syncPageLock(noteEl, note);
   redraw(layer);
   return layer;
+}
+
+/* Rewrites a just-drawn stroke from page coordinates into
+   paragraph-relative ones. Done at the END of the stroke rather than the
+   start: drawing in live page coordinates keeps the hot path trivial, and
+   the anchor only has to be right once, when it is stored. */
+function anchorStroke(s, boxes) {
+  const p = anchorFor(boxes, s.pts[0], s.pts[1]);
+  if (p < 0) return s; // an empty note has nothing to anchor to
+  const b = boxes[p];
+  const x0 = s.pts[0], y0 = s.pts[1];
+  const out = new Array(s.pts.length);
+  for (let i = 0; i < s.pts.length; i += 2) {   // points become origin-relative
+    out[i] = s.pts[i] - x0;
+    out[i + 1] = s.pts[i + 1] - y0;
+  }
+  s.a = { p, t: b.t, x: x0 - b.left, y: y0 - b.top, w: b.width };
+  s.pts = out;
+  return s;
 }
 
 export function detachNoteInk(noteEl) {
@@ -368,12 +506,12 @@ function setMode(layer, mode) {
   if (!drawing) layer.editor.focus();
 }
 
-/* ---------- the locked page ---------- */
-
-/* Adding the first stroke is the moment the note's width stops being
-   negotiable — see the header. Removing the last one gives it back. */
+/* The note's width is no longer touched by the presence of ink — strokes
+   follow their paragraph instead of demanding a fixed column, so the page
+   stays a normal responsive one on every device. Kept as a no-op hook and
+   a class that CSS uses only for cursor affordances. */
 function syncPageLock(noteEl, note) {
-  noteEl.classList.toggle("ink-locked", noteHasInk(note));
+  noteEl.classList.toggle("has-ink", noteHasInk(note));
 }
 
 /* ---------- toolbar ---------- */
@@ -429,9 +567,7 @@ function buildToolbar(noteEl, layer, getNote) {
     const on = !noteEl.classList.contains("ink-open");
     noteEl.classList.toggle("ink-open", on);
     setMode(layer, on ? "pen" : "text");
-    if (on && !noteHasInk(getNote())) {
-      toast("Drawing locks this note's page width so the ink stays put");
-    }
+
   });
 
   bar.addEventListener("click", e => {

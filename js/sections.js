@@ -257,7 +257,7 @@ export function renderSectionNotes(key, opts = {}) {
        quietly become an orphan that saves nowhere. */
     const noteEl = box.querySelector(".sec-note");
     if (noteEl) {
-      if (noteHasInk(noteById(key, nid))) noteEl.classList.add("ink-locked");
+      if (noteHasInk(noteById(key, nid))) noteEl.classList.add("has-ink");
       attachNoteInk(noteEl, () => noteById(key, nid));
     }
   });
