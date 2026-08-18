@@ -48,8 +48,15 @@ const PEN_COLORS = ["#2b2a24", "#c0392b", "#1f6feb", "#1d8348", "#b7791f"];
    the opposite — dark, saturated — and reusing it turned a highlight into
    a black bar over the words. */
 const HL_COLORS = ["#ffe066", "#a7f3d0", "#bfdbfe", "#fbcfe8", "#fed7aa"];
-const PEN_W = 2.5;
-const HL_W = 16;
+/* Four weights per tool, with the previous single default kept as the
+   middle one so existing strokes and habits are unchanged: two finer for
+   annotating between lines of text, one heavier for emphasis. The
+   highlighter's set is scaled to its own job — its "fine" is still wide
+   enough to cover a word. */
+const PEN_WIDTHS = [1, 1.75, 2.5, 4];
+const HL_WIDTHS  = [8, 12, 16, 24];
+const PEN_W = PEN_WIDTHS[2]; // the long-standing default
+const HL_W  = HL_WIDTHS[2];
 const ERASER_R = 14;
 
 /* One live layer per mounted editor, keyed by the editor's element id.
@@ -186,6 +193,8 @@ export function attachNoteInk(noteEl, getNote) {
     mode: "text",           // text | pen | hl | eraser
     color: PEN_COLORS[0],
     hlColor: HL_COLORS[0],
+    penW: PEN_W,
+    hlW: HL_W,
     live: null,
     strokes: () => inkOf(getNote() || { }).strokes,
   };
@@ -219,7 +228,7 @@ export function attachNoteInk(noteEl, getNote) {
     layer.live = {
       id: uid(), mode: layer.mode,
       color: hl ? layer.hlColor : layer.color,
-      w: hl ? HL_W : PEN_W,
+      w: hl ? layer.hlW : layer.penW,
       pts: [p.x, p.y],
     };
     redraw(layer);
@@ -350,7 +359,12 @@ function setMode(layer, mode) {
   swatches?.classList.toggle("show", mode === "pen" || mode === "hl");
   // The two tools have separate palettes and separate current colours, so
   // the row is rebuilt for whichever is live rather than shared.
-  if (mode === "pen" || mode === "hl") renderSwatches(swatches, layer, mode);
+  const widths = layer.noteEl.querySelector(".ink-widths");
+  widths?.classList.toggle("show", mode === "pen" || mode === "hl");
+  if (mode === "pen" || mode === "hl") {
+    renderSwatches(swatches, layer, mode);
+    renderWidths(widths, layer, mode);
+  }
   if (!drawing) layer.editor.focus();
 }
 
@@ -363,6 +377,21 @@ function syncPageLock(noteEl, note) {
 }
 
 /* ---------- toolbar ---------- */
+
+function renderWidths(host, layer, mode) {
+  if (!host) return;
+  const widths = mode === "hl" ? HL_WIDTHS : PEN_WIDTHS;
+  const current = mode === "hl" ? layer.hlW : layer.penW;
+  const ink = mode === "hl" ? layer.hlColor : layer.color;
+  host.innerHTML = widths.map(w =>
+    /* The swatch shows the actual weight rather than a label: a picker
+       for a line thickness should look like the line. Capped in display
+       so the heaviest still fits the bar. */
+    `<button type="button" class="ink-width${w === current ? " active" : ""}" data-w="${w}"
+       title="${w <= 2 ? "Fine" : w <= 4 ? "Medium" : "Thick"} (${w}px)">
+       <i style="height:${Math.min(w, 10)}px;background:${ink}"></i>
+     </button>`).join("");
+}
 
 function renderSwatches(host, layer, mode) {
   if (!host) return;
@@ -392,6 +421,7 @@ function buildToolbar(noteEl, layer, getNote) {
     <button type="button" class="ink-tool" data-tool="hl" title="Highlighter">▮</button>
     <button type="button" class="ink-tool" data-tool="eraser" title="Eraser">⌫</button>
     <span class="ink-colors"></span>
+    <span class="ink-widths"></span>
     <button type="button" class="ink-tool ink-done" data-tool="text" title="Back to typing">Done</button>`;
   noteEl.insertBefore(bar, noteEl.querySelector(".sec-note-body"));
 
@@ -417,6 +447,15 @@ function buildToolbar(noteEl, layer, getNote) {
       if (layer.mode === "hl") layer.hlColor = col.dataset.color;
       else { layer.color = col.dataset.color; if (layer.mode !== "pen") setMode(layer, "pen"); }
       bar.querySelectorAll(".ink-color").forEach(b => b.classList.toggle("active", b === col));
+      // the weight swatches are drawn in the live colour, so they follow it
+      renderWidths(bar.querySelector(".ink-widths"), layer, layer.mode === "hl" ? "hl" : "pen");
+      return;
+    }
+    const wq = e.target.closest(".ink-width");
+    if (wq) {
+      const w = parseFloat(wq.dataset.w);
+      if (layer.mode === "hl") layer.hlW = w; else layer.penW = w;
+      bar.querySelectorAll(".ink-width").forEach(b => b.classList.toggle("active", b === wq));
     }
   });
 }
