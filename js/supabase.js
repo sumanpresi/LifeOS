@@ -514,6 +514,22 @@ function mergeIncomingSectionNotes(remote) {
     if (!localSec && !remoteSec) return;
     if (!remoteSec) { remote.sections[key] = localSec; return; }
     if (!localSec) return;
+    /* WHICH TAB IS OPEN IS THIS DEVICE'S BUSINESS, NOT THE CLOUD'S.
+
+       `open` lives on the note object, so it rides along with everything
+       else that syncs — and because selecting a tab doesn't change the
+       note's content, it doesn't bump `updated` either. The winner rule
+       below hands ties to the remote copy, so every sync re-imported
+       whichever tab happened to be open on the other device (or on this
+       one before the switch) and the tab silently changed underneath
+       whoever was reading. On a 15s poll that reads as "it jumps back to
+       Goals after a while".
+
+       Nobody wants the phone deciding which note the desktop is looking
+       at. The open tab is view state, like a scroll position: noted
+       before the merge, reasserted after it. */
+    const localOpenId = (localSec.noteList || []).find(n => n.open)?.id || null;
+
     const byId = new Map();
     (localSec.noteList || []).forEach(n => byId.set(n.id, n));
     (remoteSec.noteList || []).forEach(rn => {
@@ -534,8 +550,18 @@ function mergeIncomingSectionNotes(remote) {
     const order = [];
     (remoteSec.noteList || []).forEach(n => order.push(byId.get(n.id)));
     (localSec.noteList || []).forEach(n => { if (!order.includes(byId.get(n.id))) order.push(byId.get(n.id)); });
-    remoteSec.noteList = order.filter(Boolean);
-    localSec.noteList = remoteSec.noteList;
+    const merged = order.filter(Boolean);
+
+    /* Reassert the local tab. Falls back to whatever the cloud had open
+       only when this device had nothing open at all — a first sync on a
+       new device, where the remote's choice is better than none. */
+    const keepId = merged.some(n => n.id === localOpenId)
+      ? localOpenId
+      : (merged.find(n => n.open)?.id || merged[0]?.id || null);
+    merged.forEach(n => { n.open = (n.id === keepId); });
+
+    remoteSec.noteList = merged;
+    localSec.noteList = merged;
   });
 }
 
