@@ -3753,14 +3753,25 @@ html[data-theme="dark"] .note-ink-hl{mix-blend-mode:screen}
    needs it to still be there. */
 .sec-note.ink-drawing .ql-editor{caret-color:transparent}
 
-/* THE LOCKED PAGE.
+/* An inked note is a NORMAL responsive note.
 
-   Once a note carries ink its column stops reflowing — see the header of
-   note-ink.js. Every device and both view modes wrap the text at the same
-   794px, so a mark drawn beside a word stays beside that word. A viewport
-   narrower than the page scrolls sideways instead of rewrapping, which is
-   the only alternative that doesn't move the text under the ink. */
-.sec-note.ink-locked .sec-note-editor{width:794px;max-width:none;flex:none}
-.sec-note.ink-locked .sec-note-body{overflow-x:auto}
-.sec-note.note-fullscreen.ink-locked .sec-note-editor{width:794px;max-width:none;flex:1;min-height:0}
-.sec-note.note-fullscreen.ink-locked .ql-toolbar{width:794px;max-width:none}
+   It used to lock its column to 794px so the text couldn't reflow under
+   the ink. That made a phone unusable — a 794px page in a 390px viewport,
+   text off both edges, toolbar cut in half. Strokes now anchor to their
+   paragraph and scale with the column (see note-ink.js), so the width can
+   go back to being whatever the screen allows and the ink follows.
+
+   The toolbar has to wrap rather than overflow at these widths — a
+   formatting bar you have to scroll sideways to reach is a formatting bar
+   you don't use. */
+.sec-note .ql-toolbar{flex-wrap:wrap}
+@media (max-width: 820px){
+  .sec-note-editor{width:100%}
+  .sec-note-editor .ql-editor{max-height:56vh}
+  /* Enough of a tap target for a finger, without eating the toolbar row */
+  .ink-tool{min-width:38px;min-height:36px}
+  .ink-color{width:24px;height:24px}
+  .ink-width{width:34px;height:30px}
+  .ink-bar{gap:5px;padding:6px}
+  .ink-widths{margin-left:2px;padding-left:5px}
+}
