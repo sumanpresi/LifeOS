@@ -728,42 +728,105 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
 .sec-note.note-fullscreen .sec-note-body{
   flex:1;min-height:0;
   display:flex;flex-direction:column;align-items:center;
-  overflow:auto;gap:10px;padding:14px;
+  /* hidden, not auto: scrolling belongs to the editor so the toolbar
+     stays put. With `auto` a tall page scrolled the whole column and took
+     the formatting controls off screen with it. */
+  overflow:hidden;gap:10px;padding:14px;
 }
-/* The toolbar tracks the page width so the two line up as one document
-   rather than a wide bar above a narrow sheet. */
+/* The width every part of the full-screen document shares.
+
+   This used to be A4, derived from the viewport height so a whole sheet
+   would fit: min(794px, (100vh - 220px)/1.414, 100vw - 32px). Two things
+   were wrong with it, and both were visible on screen.
+
+   First, it never actually applied. The page width is set by
+   `.sec-note-editor{width:min(794px,100%)}` in the base rules; the
+   full-screen block only assigned `--a4-w`, a variable nothing reads.
+   So the sheet stayed 794px wide no matter how much room there was —
+   measured at 794px inside a 1901px area, leaving ~1100px unused — while
+   the toolbar, which DID read `--fs-page-w`, came out 552px. A 552px bar
+   above a 794px sheet: the misalignment in the screenshots.
+
+   Second, the A4 aspect is the wrong shape for a landscape screen. A
+   sheet tall enough to be A4 at a usable width doesn't fit the viewport,
+   so it gets clipped anyway — paying in wasted width for a proportion
+   nobody sees. Full screen is for reading and writing a long note, not
+   for previewing print.
+
+   Now: one number, read by the toolbar AND the page, capped at a
+   comfortable measure for prose rather than at a paper size. */
+.sec-note.note-fullscreen{
+  --fs-page-w: min(1100px, calc(100vw - 48px));
+}
 .sec-note.note-fullscreen .ql-toolbar{
-  width:var(--fs-page-w, min(794px, 100%));
+  width:var(--fs-page-w);max-width:100%;flex:none;
   box-sizing:border-box;border-radius:8px;
 }
-/* Declared on the note, not the editor, so the toolbar — which is a
-   sibling of the editor — can use the same number. Height-driven, so the
-   whole sheet always fits: 220px covers the title row, the toolbar and
-   the padding above and below. */
-.sec-note.note-fullscreen{
-  --fs-page-w: min(794px, calc((100vh - 220px) / 1.414), calc(100vw - 32px));
-}
+/* The page fills the height left over below the toolbar instead of
+   standing at a fixed A4 height. `min-height:0` on each level is what
+   lets a flex child actually shrink — without it the default
+   `min-height:auto` keeps the box at its content height and the overflow
+   escapes the viewport instead of scrolling inside the editor. */
 .sec-note.note-fullscreen .sec-note-editor{
-  --a4-w: var(--fs-page-w);
-  margin:0;
+  width:var(--fs-page-w);max-width:100%;margin:0;
+  flex:1;min-height:0;display:flex;flex-direction:column;
 }
+.sec-note.note-fullscreen .sec-note-editor .ql-container{
+  flex:1;min-height:0;height:auto;display:flex;flex-direction:column;
+}
+/* `max-height:none` is the load-bearing part: the base rule caps the
+   editor at 60vh, which full screen never overrode. That cap — not the
+   A4 calculation — is what actually decided the height, clamping the
+   page to 600px of a 948px area and leaving the band of empty paper
+   underneath it. */
 .sec-note.note-fullscreen .sec-note-editor .ql-editor{
-  height: calc(var(--a4-w) * 1.414);
+  flex:1;min-height:0;height:auto;max-height:none;
+  overflow-y:auto;
 }
 /* Nothing behind a full-screen note should scroll or be reachable. */
 body.note-fullscreen-open{overflow:hidden}
 
-/* A .card carries backdrop-filter, and an element with a filter becomes
-   the containing block for its position:fixed descendants. Left alone,
-   "full screen" would mean "as large as the Notes card", which is the
-   same trap that offset the dragged task clone. Suspending the blur on
-   the ancestors while a note is open restores the viewport as the
-   containing block — and the blur is invisible anyway behind a full
-   screen page. */
+/* Anything that makes an ancestor a containing block for fixed-position
+   descendants has to be suspended here, or "full screen" quietly means
+   "as large as the Notes card" — the same trap that offset the dragged
+   task clone.
+
+   backdrop-filter was the known one. It was not the only one, and it was
+   not the one doing the damage:
+
+   `.card:hover{transform:translateY(-2px)}` — a TRANSFORMED ancestor is
+   also a containing block, and the pointer is by definition over the
+   card at the moment you click the expand button inside it. So the note
+   went full screen against the card, then snapped to the real viewport a
+   moment later when the pointer moved away and the .22s transition
+   finished. That is the intermittency: it depended on where the mouse
+   went next. Measured here at 11 correct out of 20 entries.
+
+   `container-type:inline-size` (line ~140) applies layout containment,
+   which makes the card a containing block too — permanently, not just
+   while hovered. Suspending it costs only the one @container rule for
+   .fin-add, on cards that are hidden behind a full-screen note anyway.
+
+   `animation` covers the cardEnter keyframes, which also animate
+   transform and would catch a note expanded immediately after a page
+   switch. */
 body.note-fullscreen-open :is(.card, .sidebar, .main){
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   filter: none !important;
+  transform: none !important;
+  /* Without this the card is still transformed for .22s AFTER the rule
+     above lands: `transition:transform .22s` interpolates from the hover
+     offset towards none, and every frame of that interpolation is a
+     non-none matrix — so the containing block persists for exactly as
+     long as the transition, which is exactly long enough to size the
+     note wrongly. Cutting the transition makes it take effect on the
+     frame it is applied. */
+  transition: none !important;
+  animation: none !important;
+  perspective: none !important;
+  container-type: normal !important;
+  will-change: auto !important;
 }
 /* The card must also stop clipping, or the note is cut to its bounds. */
 body.note-fullscreen-open .card{ overflow: visible; }
