@@ -661,6 +661,9 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
   border: none;
   box-sizing: border-box;
 }
+/* Pan across a magnified page. `auto` rather than hidden: at >100% the
+   content is deliberately wider than the note. */
+.sec-note-editor{overflow-x:auto;overflow-y:hidden}
 .sec-note-editor .ql-container{
   background: var(--card);
   border: 1px solid var(--line) !important;
@@ -3680,6 +3683,45 @@ body.is-dragging :is(.t-board-col, .t-board-card, #tasksCard){
    than floating over them. `pointer-events:none` until a tool is picked:
    in text mode the layer has to be completely invisible to the caret. */
 .sec-note-editor{position:relative}
+/* THE ZOOM SUBTREE.
+
+   Text and both ink canvases live in here together, so `scale()` moves
+   them as one — which is the whole trick. Ink needs no zoom arithmetic to
+   stay registered with the words: it cannot drift from them, because it
+   is the same transformed subtree.
+
+   WIDTH IS NOT COMPENSATED, AND THAT IS THE POINT. Laying the subtree out
+   at 100%/z first would make it fit the note at any zoom — but the text
+   would then be wrapping at a narrower and narrower layout width, so
+   zooming in would REFLOW the words. OneNote's zoom doesn't reflow: line
+   breaks are identical at 50% and 300%, the page simply gets bigger and
+   you pan across it. That is what keeps handwriting meaningful, and it is
+   what the reference screenshots show — the table runs off the right edge
+   when zoomed rather than rewrapping.
+
+   So the layout width stays at 100%, the subtree overflows when magnified,
+   and the note scrolls sideways to follow it. Height IS compensated, so
+   the note keeps its shape on the page and the editor goes on scrolling
+   vertically the way it always did. */
+.ink-zoom{
+  position:relative;
+  transform-origin:top left;
+  transform:scale(var(--z,1));
+  width:100%;
+  height:calc(100% / var(--z,1));
+}
+.ink-zoom-ctl{
+  display:inline-flex;align-items:center;gap:1px;margin-right:8px;
+  border:1px solid var(--glass-line);border-radius:7px;overflow:hidden;
+  background:rgba(255,255,255,.55);
+}
+.ink-zoom-btn,.ink-zoom-level{
+  border:0;background:transparent;cursor:pointer;color:var(--ink);
+  font-size:13px;line-height:1;padding:5px 8px;min-height:28px;
+}
+.ink-zoom-level{min-width:52px;font-variant-numeric:tabular-nums;font-size:12px}
+.ink-zoom-btn{font-size:15px;font-weight:600;min-width:28px}
+.ink-zoom-btn:hover,.ink-zoom-level:hover{background:var(--lilac)}
 .note-ink-canvas{
   position:absolute;left:0;top:0;
   pointer-events:none;
