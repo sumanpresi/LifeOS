@@ -392,7 +392,11 @@ function sizeCanvas(canvas, w, h, dpr, left, top) {
    order — you highlight a phrase, then circle it. */
 function redraw(layer) {
   const { hlCanvas, penCanvas, editor } = layer;
-  const dpr = window.devicePixelRatio || 1;
+  /* Backing-store scale, folding in the zoom so ink is as sharp as the
+     text beside it. Capped at 3x: at 300% on a 3x-density phone an
+     uncapped multiplier asks for a canvas several thousand pixels on a
+     side, per layer, which mobile Safari simply refuses. */
+  const dpr = Math.min(3, (window.devicePixelRatio || 1) * (layer.zoom || 1));
   const w = editor.clientWidth, h = editor.clientHeight;
   const offL = editor.offsetLeft, offT = editor.offsetTop;
   const hlCtx = sizeCanvas(hlCanvas, w, h, dpr, offL, offT);
@@ -559,14 +563,22 @@ export function attachNoteInk(noteEl, getNote) {
     panning.lastX = e.clientX;
     panning.lastY = e.clientY;
 
-    const before = editor.scrollTop;
-    editor.scrollTop = before - dy;
-    const consumed = before - editor.scrollTop;   // what the note absorbed
-    const leftover = dy - consumed;
-    if (Math.abs(leftover) > 0.5) window.scrollBy(0, -leftover);
-
+    /* The WINDOW scrolls, not the page. The sheet is a full A4 document
+       laid out at its natural height, so `.ql-editor` has no overflow of
+       its own any more — scrolling moved to `.sec-note-editor` when the
+       note became a real document. Panning the editor here moved nothing
+       at all. */
     const sc = scroller();
-    if (sc) sc.scrollLeft -= dx;                  // pan a magnified page sideways
+    if (sc) {
+      const before = sc.scrollTop;
+      sc.scrollTop = before - dy;
+      const consumed = before - sc.scrollTop;     // what the window absorbed
+      const leftover = dy - consumed;
+      if (Math.abs(leftover) > 0.5) window.scrollBy(0, -leftover);
+      sc.scrollLeft -= dx;                        // pan a magnified page sideways
+    } else {
+      window.scrollBy(0, -dy);
+    }
     redraw(layer);
   };
   const endPan = e => {
@@ -670,7 +682,7 @@ export function attachNoteInk(noteEl, getNote) {
       ink.strokes.push(anchorStroke(live, boxes));
       n.updated = Date.now();
       persist();
-      syncPageLock(noteEl, n);
+      syncPageLock(noteEl, n, editor);
     }
     redraw(layer);
   };
@@ -739,7 +751,7 @@ export function attachNoteInk(noteEl, getNote) {
     setMode(layer, layer.mode);
   }
   applyTouchPolicy(layer);
-  syncPageLock(noteEl, note);
+  syncPageLock(noteEl, note, editor);
   redraw(layer);
   return layer;
 }
@@ -899,27 +911,65 @@ export function setNoteZoom(layer, z, noteId) {
    follow their paragraph instead of demanding a fixed column, so the page
    stays a normal responsive one on every device. Kept as a no-op hook and
    a class that CSS uses only for cursor affordances. */
-function syncPageLock(noteEl, note) {
-  const has = noteHasInk(note);
-  noteEl.classList.toggle("has-ink", has);
-  const w = has ? inkPageWidth(note) : 0;
-  if (w > 0) noteEl.style.setProperty("--ink-page-w", w + "px");
-  else noteEl.style.removeProperty("--ink-page-w");
+/* THE DOCUMENT COORDINATE SPACE.
+
+   Every note is an A4 sheet: 794 x 1123 at 96dpi, ratio 1:1.414. That is
+   the document, and it does not change with the device — a phone, a Fold
+   and a desktop are three windows onto the same page, not three page
+   sizes. Zoom changes the display scale and never the coordinate space,
+   so paragraph wrapping is identical everywhere and a stroke drawn on one
+   device is correct on all of them.
+
+   One exception: a note that already carries ink from before this
+   existed. Its strokes were anchored against whatever column width was in
+   force at the time, so re-laying that text out at 794 would rewrap it
+   and slide the words out from under the handwriting. Those notes keep
+   their own recorded width — ink staying where it was put matters more
+   than uniformity. Every new note is A4. */
+const A4_RATIO = 1.4142;
+
+/* `pageW` and every stroke's `a.w` record the TEXT COLUMN width — the
+   paragraph box — because that is what the anchoring maths compares
+   against. The paper is wider than its text by its own margins, so the
+   sheet's width has to add them back. Setting the sheet to the column
+   width instead made the page 68px narrower than A4 and the text touch
+   both edges. Padding is read from the live element rather than hardcoded,
+   so the two can't drift apart. */
+function docWidth(note, editor) {
+  const col = inkPageWidth(note);
+  if (!col) return PAGE_W;
+  let pad = 68; // matches the CSS default; only used if measuring fails
+  if (editor) {
+    const cs = getComputedStyle(editor);
+    const measured = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
+    if (measured > 0) pad = measured;
+  }
+  return Math.round(col + pad);
+}
+
+function syncPageLock(noteEl, note, editor) {
+  noteEl.classList.toggle("has-ink", noteHasInk(note));
+  const w = docWidth(note, editor);
+  noteEl.style.setProperty("--doc-w", w + "px");
+  noteEl.style.setProperty("--doc-h", Math.round(w * A4_RATIO) + "px");
 }
 
 /* Choose a zoom that shows the whole locked page, when the screen is too
    narrow for it — but only if this device has no zoom of its own for the
    note yet. A remembered choice is the person's, and is never overridden. */
 function fitZoomIfNeeded(layer, note) {
-  const pageW = inkPageWidth(note);
+  const pageW = docWidth(note, layer.editor);
   if (!pageW || hasStoredZoom(note.id)) return;
   const host = layer.noteEl.querySelector(".sec-note-editor");
   const avail = host ? host.clientWidth : 0;
   if (!avail || avail >= pageW) return;
-  const want = avail / pageW;
-  // Round DOWN to a stop, so the page fits rather than nearly fits.
-  const step = [...ZOOM_STEPS].reverse().find(z => z <= want) || ZOOM_STEPS[0];
-  if (Math.abs(step - layer.zoom) > 0.001) setNoteZoom(layer, step, null);
+  /* An exact ratio, not the nearest stop. The stops exist for a person
+     clicking − and +; an automatic fit has one job, which is to make the
+     sheet fit, and the smallest stop (50%) is still too large for a phone
+     — 397px of paper in 366px of screen. Rounded down slightly so the
+     edge of the page isn't flush against the edge of the screen. */
+  const want = Math.max(0.2, Math.floor((avail / pageW) * 100) / 100);
+  if (Math.abs(want - layer.zoom) > 0.005) setNoteZoom(layer, want, null);
 }
 
 /* ---------- toolbar ---------- */
