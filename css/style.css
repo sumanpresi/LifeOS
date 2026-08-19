@@ -654,7 +654,11 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
    page you scroll, not a column that pushes everything below it down the
    screen. */
 .sec-note-editor{
-  width: min(794px, 100%);
+  /* The WINDOW fills the card; the SHEET centres itself inside it. Capping
+     the window at the paper's width left no room for desk around the
+     document, so any spare space ended up inside the paper as margin
+     instead of outside it as surroundings. */
+  width: 100%;
   max-width: 100%;
   margin: 0 auto;
   background: none;
@@ -675,7 +679,18 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
    of dead space underneath), and 480px at 150% inside the same box, with
    the bottom third — ink and all — clipped away by the overflow rule
    below. Both are visible in the reported screenshots. */
-.sec-note-editor{height:320px;max-height:60vh;overflow-x:auto;overflow-y:hidden}
+/* THE WINDOW, not the page.
+
+   This element is the viewport onto an A4 sheet, and it scrolls in both
+   directions. It used to be the page itself — a 794px-wide box with an
+   unrelated 320px height, which is why a note looked like a wide letterbox
+   rather than a document, and why full screen had to derive a page width
+   from the viewport HEIGHT to make a whole sheet fit.
+
+   An A4 sheet is taller than almost every screen. Trying to fit one is
+   what forced every compromise here. So it isn't fitted: the sheet keeps
+   its proportions and you scroll. */
+.sec-note-editor{height:340px;max-height:60vh;overflow:auto}
 .sec-note-editor .ql-container{
   background: var(--card);
   border: 1px solid var(--line) !important;
@@ -691,26 +706,34 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
   box-sizing: border-box;
 }
 .sec-note-editor .ql-editor{
-  /* Fills the container, which now carries the height. At zoom z the
-     wrapper above is 1/z of the container, so the page is 1/z tall and
-     scales back down to exactly fill it — no dead space, nothing clipped. */
-  height: 100%;
-  min-height: 0;
+  /* THE PAPER. A4 by ratio, at the document's own width — never the
+     viewport's. Stretching it to whatever full screen happened to offer
+     is what produced a sheet with a huge empty right margin while the
+     text and ink stayed in a narrow column on the left. Unused space now
+     falls OUTSIDE the paper, where it belongs. */
+  width: var(--doc-w, 794px);
+  min-height: var(--doc-h, 1123px);
+  height: auto;
   max-height: none;
+  margin: 0 auto;            /* centred when there is room */
+  /* border-box, so the page margins are INSIDE the sheet. With
+     content-box the padding was added on top and a "794px A4 page" came
+     out 862 x 1179 — ratio 1.368, not A4 at all. */
   box-sizing: border-box;
-  /* `scroll`, not `auto`.
+  /* The page does not scroll; the window around it does. */
+  overflow: visible;
+  padding: 28px 34px;        /* generous margins, as on a real page */
 
-     With `auto` the track only exists while the content overflows, and
-     recent Chrome paints it as an overlay that fades out as soon as the
-     pointer moves away — so on a page that happens to fit there is no
-     scrollbar at all, and on one that doesn't it vanishes the moment you
-     stop scrolling. On a fixed-height page the bar is the main signal that
-     there is more text below, so it is worth reserving permanently. */
-  overflow-y: scroll;
-  padding: 28px 34px;
-  /* Generous margins, as on a real page. */
-  scrollbar-gutter: stable;
+  /* The paper's own appearance moved here from .sec-note-editor when that
+     element became the window. Left there, the whole window was painted
+     card-white and the sheet had no edges at all — the document and the
+     desk it sits on were the same colour. */
+  background: var(--card);
+  border: 1px solid var(--line);
+  box-shadow: 0 2px 10px rgba(0,0,0,.08);
 }
+/* The desk: a recessed surface for the sheet to sit on. */
+.sec-note-editor{background:var(--paper)}
 /* A visible scrollbar on the right, rather than the overlay one that
    appears only while scrolling — with a fixed-height page it is the main
    signal that there is more text below. */
@@ -782,7 +805,8 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
   --fs-page-w: min(1100px, calc(100vw - 48px));
 }
 .sec-note.note-fullscreen .ql-toolbar{
-  width:var(--fs-page-w);max-width:100%;flex:none;
+  /* Aligned to the paper, not the viewport. */
+  width:calc(var(--doc-w, 794px) * var(--z, 1));max-width:100%;flex:none;
   box-sizing:border-box;border-radius:8px;
 }
 /* The page fills the height left over below the toolbar instead of
@@ -791,7 +815,10 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
    `min-height:auto` keeps the box at its content height and the overflow
    escapes the viewport instead of scrolling inside the editor. */
 .sec-note.note-fullscreen .sec-note-editor{
-  width:var(--fs-page-w);max-width:100%;margin:0;
+  /* Full screen widens the WINDOW, not the paper. The sheet stays A4 and
+     centres itself in whatever room there is; the leftover becomes desk
+     around the document rather than margin inside it. */
+  width:100%;max-width:none;margin:0;
   /* flex:1 decides the height here, so the fixed card-view height above
      must be released or it would win and full screen would go back to a
      320px window onto the page. */
@@ -815,10 +842,15 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
 .sec-note.note-fullscreen .ink-zoom{
   display:flex;flex-direction:column;
 }
+/* The page is not a flex item that stretches to the screen: it is a sheet
+   of paper sitting in a scrolling area. Height comes from the A4 ratio and
+   from how much has been written, nothing else. */
 .sec-note.note-fullscreen .sec-note-editor .ql-editor{
-  flex:1;min-height:0;height:auto;max-height:none;
-  overflow-y:auto;
+  flex:none;height:auto;max-height:none;
+  min-height:var(--doc-h, 1123px);
+  overflow:visible;
 }
+.sec-note.note-fullscreen .ink-zoom{display:block}
 /* Nothing behind a full-screen note should scroll or be reachable. */
 body.note-fullscreen-open{overflow:hidden}
 
@@ -3718,30 +3750,30 @@ body.is-dragging :is(.t-board-col, .t-board-card, #tasksCard){
 .sec-note-editor{position:relative}
 /* THE ZOOM SUBTREE.
 
-   Text and both ink canvases live in here together, so `scale()` moves
-   them as one — which is the whole trick. Ink needs no zoom arithmetic to
-   stay registered with the words: it cannot drift from them, because it
-   is the same transformed subtree.
+   Text and both ink canvases live in here together, so scaling moves them
+   as one — that is the whole trick. Ink needs no zoom arithmetic to stay
+   registered with the words: it cannot drift from them, because it is the
+   same scaled subtree.
 
-   WIDTH IS NOT COMPENSATED, AND THAT IS THE POINT. Laying the subtree out
-   at 100%/z first would make it fit the note at any zoom — but the text
-   would then be wrapping at a narrower and narrower layout width, so
-   zooming in would REFLOW the words. OneNote's zoom doesn't reflow: line
-   breaks are identical at 50% and 300%, the page simply gets bigger and
-   you pan across it. That is what keeps handwriting meaningful, and it is
-   what the reference screenshots show — the table runs off the right edge
-   when zoomed rather than rewrapping.
-
-   So the layout width stays at 100%, the subtree overflows when magnified,
-   and the note scrolls sideways to follow it. Height IS compensated, so
-   the note keeps its shape on the page and the editor goes on scrolling
-   vertically the way it always did. */
+   `zoom` rather than `transform: scale()`. A transform is painted after
+   layout, so the scaled page's real size is invisible to the scrolling
+   container — a page magnified past the window had nothing to scroll to,
+   and a shrunken one left a gap the container still reserved. `zoom`
+   participates in layout, so the scroll extents follow the page at every
+   scale and "make the window a window" actually works. Coordinates are
+   unaffected: getBoundingClientRect returns zoomed values either way, and
+   note-ink.js divides by the zoom in exactly one place. */
 .ink-zoom{
   position:relative;
-  transform-origin:top left;
-  transform:scale(var(--z,1));
-  width:100%;
-  height:calc(100% / var(--z,1));
+  zoom:var(--z,1);
+  /* max-content so a magnified page keeps its full width and the window
+     can scroll across it; min-width:100% so a page NARROWER than the
+     window still fills it, giving the sheet's `margin:0 auto` something
+     to centre within. With max-content alone the wrapper shrank to the
+     paper and the sheet sat hard against the left edge with all the spare
+     room piled up on the right. */
+  width:max-content;
+  min-width:100%;
 }
 .ink-zoom-ctl{
   display:inline-flex;align-items:center;gap:1px;margin-right:8px;
@@ -3865,33 +3897,24 @@ html[data-theme="dark"] .note-ink-hl{mix-blend-mode:screen}
    needs it to still be there. */
 .sec-note.ink-drawing .ql-editor{caret-color:transparent}
 
-/* An inked note stops reflowing: it lays its text out at the width it was
-   written at, on every device, so handwriting lands over the same words
-   everywhere. Zoom (which scales without rewrapping) is what makes that
-   fit a phone; the note pans sideways for the rest. Notes with no ink are
-   untouched and stay fully responsive. */
-.sec-note.has-ink .ql-editor{
-  width:var(--ink-page-w);
-  max-width:none;
-  box-sizing:content-box;
-}
-.sec-note.has-ink .ink-zoom{width:max-content;min-width:100%}
+/* Every note now lays out at its own document width (--doc-w, set in
+   note-ink.js) whether it carries ink or not, so there is nothing special
+   to do for an inked one. The rule that used to live here pointed at
+   --ink-page-w, a variable that no longer exists: the declaration became
+   invalid, `width` fell back to auto inside a max-content wrapper, and the
+   page silently sized itself to the longest UNWRAPPED line — 1100px of
+   paper holding a 726px column, which is the huge empty right margin in
+   the screenshots. Stale variable references fail quietly; this one is
+   worth remembering.
 
-/* A note with no ink is a NORMAL responsive note.
-
-   It used to lock its column to 794px so the text couldn't reflow under
-   the ink. That made a phone unusable — a 794px page in a 390px viewport,
-   text off both edges, toolbar cut in half. Strokes now anchor to their
-   paragraph and scale with the column (see note-ink.js), so the width can
-   go back to being whatever the screen allows and the ink follows.
-
-   The toolbar has to wrap rather than overflow at these widths — a
-   formatting bar you have to scroll sideways to reach is a formatting bar
-   you don't use. */
+   Notes are never responsive-by-reflow now: the document stays A4 and a
+   narrow screen scales it down instead of rewrapping it, which is what
+   keeps handwriting over the right words on a phone. The toolbar still
+   has to wrap rather than overflow — a formatting bar you have to scroll
+   sideways to reach is a formatting bar you don't use. */
 .sec-note .ql-toolbar{flex-wrap:wrap}
 @media (max-width: 820px){
   .sec-note-editor{width:100%}
-  .sec-note-editor .ql-editor{max-height:56vh}
   /* Enough of a tap target for a finger, without eating the toolbar row */
   .ink-tool{min-width:38px;min-height:36px}
   .ink-color{width:24px;height:24px}
