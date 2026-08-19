@@ -445,11 +445,68 @@ export function attachNoteInk(noteEl, getNote) {
     return true; // mouse, or a browser that reports nothing useful
   };
 
+  /* Panning, by hand, for pointers that aren't drawing.
+
+     With native gestures switched off (see applyTouchPolicy) a finger
+     would otherwise be inert while a tool is live — the note would be
+     impossible to scroll without putting the pen away. This restores that,
+     for touch only, and scrolls the window once the note itself has hit
+     its limit so a drag never dead-ends. */
+  let panning = null;
+  const scroller = () => noteEl.querySelector(".sec-note-editor");
+
+  const startPan = e => {
+    panning = {
+      id: e.pointerId, y: e.clientY, x: e.clientX,
+      top: editor.scrollTop, left: scroller() ? scroller().scrollLeft : 0,
+    };
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
+  };
+  const movePan = e => {
+    if (!panning || e.pointerId !== panning.id) return;
+    e.preventDefault();
+    const z = layer.zoom || 1;
+    const dy = (e.clientY - panning.y) / z;
+    const dx = (e.clientX - panning.x) / z;
+
+    const before = editor.scrollTop;
+    editor.scrollTop = panning.top - dy;
+    const consumed = editor.scrollTop - before;
+    const wanted = (panning.top - dy) - before;
+    // Whatever the note couldn't absorb goes to the window, so a long drag
+    // keeps moving instead of stopping dead at the note's edge.
+    const leftover = wanted - consumed;
+    if (Math.abs(leftover) > 0.5) window.scrollBy(0, leftover);
+
+    const sc = scroller();
+    if (sc) sc.scrollLeft = panning.left - dx;   // pan a magnified page sideways
+    redraw(layer);
+  };
+  const endPan = e => {
+    if (!panning || e.pointerId !== panning.id) return;
+    try { canvas.releasePointerCapture(e.pointerId); } catch (err) {}
+    panning = null;
+  };
+
   const onDown = e => {
     if (layer.mode === "text") return;
     if (e.pointerType === "pen") markStylusSeen();
-    if (!pointerDraws(e)) return;   // let it scroll the page instead
+    if (!pointerDraws(e)) {
+      // Not an instruction to draw — so it's a hand moving the page.
+      e.preventDefault();
+      startPan(e);
+      return;
+    }
     if (drawing) return;            // a second finger mid-stroke is a palm
+
+    /* The barrel button erases, as it does in Samsung Notes and OneNote.
+       Two ways a stylus can say "eraser": the S Pen holds its side button
+       (barrel, bit 32), and a pen flipped to its eraser end reports
+       button 5. Either one erases for the duration of the stroke and then
+       hands the tool straight back, so it is a modifier, not a mode. */
+    const eraserHeld = (e.buttons & 32) === 32 || e.button === 5;
+    const modeForStroke = eraserHeld ? "eraser" : layer.mode;
+    layer.strokeMode = modeForStroke;
 
     e.preventDefault();
     activePointer = e.pointerId;
@@ -457,15 +514,15 @@ export function attachNoteInk(noteEl, getNote) {
     try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* Safari can refuse */ }
     const p = toContent(e);
 
-    if (layer.mode === "eraser") {
+    if (modeForStroke === "eraser") {
       drawing = true; erased = false;
       eraseAt(p.x, p.y);
       return;
     }
     drawing = true;
-    const hl = layer.mode === "hl";
+    const hl = modeForStroke === "hl";
     layer.live = {
-      id: uid(), mode: layer.mode,
+      id: uid(), mode: modeForStroke,
       color: hl ? layer.hlColor : layer.color,
       w: hl ? layer.hlW : layer.penW,
       pts: [p.x, p.y],
@@ -474,6 +531,7 @@ export function attachNoteInk(noteEl, getNote) {
   };
 
   const onMove = e => {
+    if (panning) { movePan(e); return; }
     if (!drawing || e.pointerId !== activePointer) return; // ignore the resting palm
     e.preventDefault();
     /* Coalesced events recover the samples the browser batched between
@@ -485,7 +543,7 @@ export function attachNoteInk(noteEl, getNote) {
     const evts = (coalesced && coalesced.length) ? coalesced : [e];
     for (const ev of evts) {
       const p = toContent(ev);
-      if (layer.mode === "eraser") { eraseAt(p.x, p.y); continue; }
+      if (layer.strokeMode === "eraser") { eraseAt(p.x, p.y); continue; }
       const pts = layer.live.pts;
       const dx = p.x - pts[pts.length - 2], dy = p.y - pts[pts.length - 1];
       if (dx * dx + dy * dy < 1.5) continue; // thin out samples that add nothing
@@ -500,6 +558,7 @@ export function attachNoteInk(noteEl, getNote) {
   };
 
   const onUp = e => {
+    if (panning) { endPan(e); return; }
     if (!drawing || (activePointer !== null && e.pointerId !== activePointer)) return;
     drawing = false;
     drawingNow = false;
@@ -509,11 +568,13 @@ export function attachNoteInk(noteEl, getNote) {
     layer.live = null;
     const n = getNote();
     if (!n) return;
-    if (layer.mode === "eraser") {
+    if (layer.strokeMode === "eraser") {
+      layer.strokeMode = null;
       if (erased) { n.updated = Date.now(); persist(); }
       redraw(layer);
       return;
     }
+    layer.strokeMode = null;
     if (live && live.pts.length >= 2) {
       inkOf(n).strokes.push(anchorStroke(live, paraBoxes(editor, layer.zoom)));
       n.updated = Date.now();
@@ -546,7 +607,21 @@ export function attachNoteInk(noteEl, getNote) {
   canvas.addEventListener("pointerdown", onDown);
   canvas.addEventListener("pointermove", onMove);
   canvas.addEventListener("pointerup", onUp);
+  /* pointercancel means Safari took the gesture away mid-stroke. Treat it
+     as a pen-up rather than a discard: the part already drawn is real
+     ink, and throwing it away is precisely the "stroke didn't register"
+     complaint. */
   canvas.addEventListener("pointercancel", onUp);
+  canvas.addEventListener("lostpointercapture", onUp);
+
+  /* touch-action:none should be enough, but iOS has historically needed
+     the events killed as well before it will stop scrolling, magnifying
+     and showing the callout on a long press. Non-passive, or
+     preventDefault is ignored. */
+  const swallow = e => { if (layer.mode !== "text") e.preventDefault(); };
+  canvas.addEventListener("touchstart", swallow, { passive: false });
+  canvas.addEventListener("touchmove", swallow, { passive: false });
+  canvas.addEventListener("gesturestart", swallow, { passive: false });
 
   const onScroll = () => redraw(layer);
   editor.addEventListener("scroll", onScroll, { passive: true });
@@ -614,6 +689,17 @@ function rememberTools(layer) {
 export function detachNoteInk(noteEl) {
   const l = layers.get(noteEl);
   if (l) { l.destroy(); layers.delete(noteEl); }
+  /* Take the pen bar and the header controls with it. Their click
+     handlers close over the layer being destroyed, so leaving them behind
+     leaves buttons that look live and act on a dead layer — and
+     buildToolbar's "already built?" guard would then decline to replace
+     them. Harmless while every detach is followed by a full DOM rebuild,
+     which is why it went unnoticed; wrong the moment one isn't. */
+  if (noteEl) {
+    noteEl.querySelector(".ink-bar")?.remove();
+    noteEl.querySelector(".ink-toggle")?.remove();
+    noteEl.querySelector(".ink-zoom-ctl")?.remove();
+  }
 }
 
 /* Redraw every live layer — called after a sync replaces state, when the
@@ -622,17 +708,21 @@ export function redrawAllInk() {
   layers.forEach(l => { try { l.redraw(); } catch (e) { /* detached */ } });
 }
 
-/* touch-action decides what Safari does with a finger BEFORE any
-   JavaScript runs, so it has to match the drawing policy exactly.
+/* touch-action CANNOT be used to separate the pencil from the finger.
 
-   `none` while a finger draws — otherwise iOS starts a scroll and cancels
-   the stroke halfway. `pan-y` when it doesn't, so the same finger can
-   still scroll the note instead of being swallowed by a canvas that has
-   no use for it. Getting this wrong is why a finger both drew stray lines
-   AND failed to move the page. */
+   On iOS an Apple Pencil is delivered through the same touch pipeline as a
+   fingertip. `touch-action: pan-y` therefore hands the PENCIL to Safari's
+   scroller: the page slid under every stroke, and Safari fired
+   pointercancel partway through, which is both "the page moves with my
+   pencil" and "strokes are sometimes not registered" — the same bug wearing
+   two hats. It also explains why turning finger-drawing ON fixed the
+   drawing: that path set `none`.
+
+   So while any tool is live, touch-action is ALWAYS `none` — no native
+   gesture at all — and panning is done by hand below for the pointers that
+   are not drawing. The browser can't tell a pencil from a palm; we can. */
 function applyTouchPolicy(layer) {
-  const drawingMode = layer.mode !== "text";
-  layer.canvas.style.touchAction = (drawingMode && touchDraws()) ? "none" : "pan-y";
+  layer.canvas.style.touchAction = layer.mode === "text" ? "" : "none";
 }
 
 function setMode(layer, mode) {
