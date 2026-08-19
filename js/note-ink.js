@@ -216,6 +216,31 @@ function anchorFor(boxes, x, y) {
 /* Where a stroke's points sit on screen right now. Anchored strokes are
    resolved against their paragraph's current position and width; strokes
    from before anchoring existed keep their absolute coordinates. */
+/* The stroke's own centre, cached on the stroke. Scaling happens ABOUT
+   this point rather than about the stroke's first sample, which is what
+   lets the shape shrink without wandering off the words it belongs to. */
+const centreCache = new WeakMap();
+function strokeCentre(s) {
+  /* Deliberately a WeakMap and NOT a property on the stroke. A stroke
+     object lives in `state`, so anything hung on it is serialised to
+     localStorage and uploaded on the next sync — a cached centre would
+     have quietly added two floats per stroke to a payload that was
+     supposed to get smaller, not larger. The map also clears itself when
+     a stroke is erased. */
+  const hit = centreCache.get(s);
+  if (hit) return hit;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (let i = 0; i < s.pts.length; i += 2) {
+    if (s.pts[i] < x0) x0 = s.pts[i];
+    if (s.pts[i] > x1) x1 = s.pts[i];
+    if (s.pts[i + 1] < y0) y0 = s.pts[i + 1];
+    if (s.pts[i + 1] > y1) y1 = s.pts[i + 1];
+  }
+  const c = { x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
+  centreCache.set(s, c);
+  return c;
+}
+
 function resolvePoints(s, boxes) {
   const a = s.a;
   const i = anchorIndex(a, boxes);
@@ -223,37 +248,50 @@ function resolvePoints(s, boxes) {
   const b = boxes[i];
   const k = b.width / (a.w || b.width); // how much the column has changed
 
-  /* X scales with the column, Y does NOT.
+  /* UNIFORM SCALING, ABOUT THE STROKE'S CENTRE.
 
-     It is tempting to scale both by the same factor, but width and height
-     move in OPPOSITE directions under reflow: narrow the column and a
-     paragraph gets taller, because its text wraps onto more lines. Scaling
-     the vertical offset down alongside the horizontal one dragged every
-     mark up towards the top of its paragraph and squashed it flat — a
-     circle round a phrase ended up a small ellipse floating above the
-     first line, which is what the phone render showed.
+     The previous rule scaled X only and left Y exactly as drawn. That kept
+     a mark spanning the same words, but it deformed everything that wasn't
+     a straight line: handwriting on a 390px phone was squeezed to a third
+     of its width while keeping full height, so "Social liberty" came out
+     compressed and a circle came out an ellipse.
 
-     Only the horizontal axis reflows, so only the horizontal axis is
-     scaled — both the anchor offset AND the stroke's own points. Vertical
-     geometry is reproduced exactly as drawn, because nothing about it
-     changed: the font is the same size on a phone as on a desktop, so a
-     line of text is the same height and a mark spanning one line must
-     still span one line. Scaling the shape vertically shrank a circle
-     round a phrase into a flat sliver hovering above it.
+     Both axes now take the same factor, so nothing is deformed — a circle
+     is a circle and handwriting keeps its hand. The two things that made
+     scaling Y look wrong before are dealt with separately:
 
-     The cost is that a circle becomes an ellipse on a much narrower
-     column. That is the right trade: it still encloses the same words on
-     the same line, which is what the mark was for. */
-  const ox = b.left + a.x * k, oy = b.top + a.y;
+     - The stroke shrank towards the paragraph's top-left corner, because
+       it scaled about its own first sample and the anchor offset scaled
+       with it. Scaling about the CENTRE keeps it over the same part of the
+       text as it gets smaller.
+     - Its vertical POSITION moved, because a narrower paragraph is taller
+       and a proportional offset inside it means something different. The
+       centre's Y is therefore anchored, not scaled: the mark stays on the
+       line it was drawn on, and only its size changes.
+
+     What this trades away: on a much narrower column a circle is now a
+     smaller circle sitting on the right line, rather than a full-width
+     ellipse around the same words. Shape is preserved, coverage is not.
+     For a note that is mostly handwriting — which is what this is for —
+     that is the better half of the trade. */
+  const c = strokeCentre(s);
+  const cx = b.left + (a.x + c.x) * k;   // centre follows the column across
+  const cy = b.top + a.y + c.y;          // ...but stays on its own line
   const out = new Array(s.pts.length);
   for (let i = 0; i < s.pts.length; i += 2) {
-    out[i] = ox + s.pts[i] * k;
-    out[i + 1] = oy + s.pts[i + 1];
+    out[i] = cx + (s.pts[i] - c.x) * k;
+    out[i + 1] = cy + (s.pts[i + 1] - c.y) * k;
   }
   return out;
 }
-/* Line weight does not scale either: a 2.5px pen line is a 2.5px pen line
-   against text that is the same size on every device. */
+/* Line weight follows the same factor, with a floor: a stroke scaled to
+   half size but still drawn at full thickness reads as over-inked. */
+function resolveWidth(s, boxes) {
+  const i = anchorIndex(s.a, boxes);
+  if (i < 0 || !boxes[i] || !s.a) return s.w;
+  const k = boxes[i].width / (s.a.w || boxes[i].width);
+  return Math.max(0.75, s.w * k);
+}
 
 /* ---------- drawing ---------- */
 
@@ -331,7 +369,7 @@ function redraw(layer) {
   layer.resolved = layer.strokes().map(s => resolvePoints(s, boxes));
 
   layer.strokes().forEach((s, i) => drawStroke(
-    s.mode === "hl" ? hlCtx : penCtx, s, top, layer.resolved[i], s.w));
+    s.mode === "hl" ? hlCtx : penCtx, s, top, layer.resolved[i], resolveWidth(s, boxes)));
   // The stroke under the pen is already in current coordinates.
   if (layer.live) drawStroke(layer.live.mode === "hl" ? hlCtx : penCtx, layer.live, top);
 }
@@ -666,6 +704,7 @@ function anchorStroke(s, boxes) {
     out[i] = Math.round((s.pts[i] - x0) * 10) / 10;
     out[i + 1] = Math.round((s.pts[i + 1] - y0) * 10) / 10;
   }
+  centreCache.delete(s); // points just changed; recompute on next paint
   s.a = {
     p, t: b.t,
     x: Math.round((x0 - b.left) * 10) / 10,
