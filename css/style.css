@@ -663,20 +663,40 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
 }
 /* Pan across a magnified page. `auto` rather than hidden: at >100% the
    content is deliberately wider than the note. */
-.sec-note-editor{overflow-x:auto;overflow-y:hidden}
+/* The CONTAINER is the viewport onto the page, and it has to own the
+   height for the zoom compensation to work at all.
+
+   `.ink-zoom` is sized at `100% / zoom` so that scaling it by `zoom`
+   lands back on exactly the space available. That is a percentage of
+   THIS element — and while its height was `auto`, derived from the very
+   content being scaled, the percentage resolved to nothing and the
+   compensation silently did nothing. The visible page came out at its
+   natural height times the zoom: 214px at 67% inside a 322px box (a band
+   of dead space underneath), and 480px at 150% inside the same box, with
+   the bottom third — ink and all — clipped away by the overflow rule
+   below. Both are visible in the reported screenshots. */
+.sec-note-editor{height:320px;max-height:60vh;overflow-x:auto;overflow-y:hidden}
 .sec-note-editor .ql-container{
   background: var(--card);
   border: 1px solid var(--line) !important;
   border-radius: 8px;
   box-shadow: 0 1px 3px rgba(0,0,0,.06);
-  height: auto;          /* the height lives on .ql-editor below */
+  /* Quill 2 puts .ql-container on the element it is handed, so in this app
+     .sec-note-editor IS the container and this rule matches nothing. It is
+     kept as a guard: if a build ever nests a real container, it must pass
+     the height through rather than collapsing to its content and taking
+     the page's height down with it. */
+  height: 100%;
   font-size: inherit;
   box-sizing: border-box;
 }
 .sec-note-editor .ql-editor{
-  height: 320px;
-  min-height: 280px;
-  max-height: 60vh;
+  /* Fills the container, which now carries the height. At zoom z the
+     wrapper above is 1/z of the container, so the page is 1/z tall and
+     scales back down to exactly fill it — no dead space, nothing clipped. */
+  height: 100%;
+  min-height: 0;
+  max-height: none;
   box-sizing: border-box;
   /* `scroll`, not `auto`.
 
@@ -772,6 +792,10 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
    escapes the viewport instead of scrolling inside the editor. */
 .sec-note.note-fullscreen .sec-note-editor{
   width:var(--fs-page-w);max-width:100%;margin:0;
+  /* flex:1 decides the height here, so the fixed card-view height above
+     must be released or it would win and full screen would go back to a
+     320px window onto the page. */
+  height:auto;max-height:none;
   flex:1;min-height:0;display:flex;flex-direction:column;
 }
 .sec-note.note-fullscreen .sec-note-editor .ql-container{
