@@ -47,7 +47,7 @@
    share a mental model (and, if it ever matters, code).
    ============================================================ */
 import { state, uid, persist } from './state.js';
-import { toast } from './ui.js';
+import { toast, registerBusyCheck } from './ui.js';
 
 /* The locked column width, and the reference the stored coordinates mean.
    794px is A4 at 96dpi, which is what the non-ink note already used. */
@@ -70,9 +70,80 @@ const PEN_W = PEN_WIDTHS[2]; // the long-standing default
 const HL_W  = HL_WIDTHS[2];
 const ERASER_R = 14;
 
-/* One live layer per mounted editor, keyed by the editor's element id.
-   Rebuilt whenever renderSectionNotes rebuilds the note. */
+/* One live layer per mounted editor. Rebuilt whenever renderSectionNotes
+   rebuilds the note — which is often, since a sync repaint does it. */
 const layers = new Map();
+
+/* ---------- state that must OUTLIVE the layer ----------
+
+   The layer is destroyed and recreated on every repaint, so anything held
+   only in it is silently reset every time the app syncs. That produced
+   two of the three faults reported from the iPad:
+
+   - The chosen tool reverted to "text" on the next repaint, so a pen
+     stroke landed on a live editor and became a text selection or a
+     caret. It looked like the tool deselecting itself; it was the tool
+     being rebuilt from scratch on a 15-second timer.
+   - Palm rejection was armed by a per-layer flag that only became true
+     after the first stylus event on THAT layer. Every repaint disarmed
+     it, so the next palm touch drew before the pencil got a chance to
+     re-arm it.
+
+   Both now live at module scope, keyed by note, and survive repaints. */
+const toolMemory = new Map(); // noteId -> { mode, color, hlColor, penW, hlW }
+
+/* Whether a stylus has ever been used on this DEVICE — not this layer,
+   and not this note. Once true, touch never draws again: on a tablet with
+   a pencil, a finger on the glass is a palm or a pan, never ink. This is
+   the single most important thing OneNote does that this didn't. */
+const STYLUS_KEY = "lifeos-stylus-seen";
+let stylusSeen = (() => {
+  try { return localStorage.getItem(STYLUS_KEY) === "1"; } catch (e) { return false; }
+})();
+function markStylusSeen() {
+  if (stylusSeen) return;
+  stylusSeen = true;
+  try { localStorage.setItem(STYLUS_KEY, "1"); } catch (e) {}
+  document.body.classList.add("has-stylus");
+  /* The FIRST pencil stroke is the moment a finger stops being an input
+     device and becomes a way to scroll — so every live canvas has to be
+     told immediately, not at the next tool change. Otherwise the finger
+     spends the rest of the session unable to draw (correct) and unable to
+     pan either (not correct), which is the worst of both. */
+  layers.forEach(l => applyTouchPolicy(l));
+  layers.forEach(l => {
+    const btn = l.noteEl.querySelector(".ink-finger");
+    if (btn) btn.style.display = "";
+  });
+}
+if (stylusSeen && typeof document !== "undefined") {
+  document.addEventListener("DOMContentLoaded", () => document.body.classList.add("has-stylus"));
+}
+
+/* Explicit override, the equivalent of OneNote's "Draw with touch". Needed
+   on a phone with no stylus at all, and for anyone who wants to finger
+   draw on a tablet despite the pencil. */
+const FINGER_KEY = "lifeos-finger-draw";
+let fingerDraw = (() => {
+  try { return localStorage.getItem(FINGER_KEY) === "1"; } catch (e) { return false; }
+})();
+export function setFingerDraw(on) {
+  fingerDraw = !!on;
+  try { localStorage.setItem(FINGER_KEY, on ? "1" : "0"); } catch (e) {}
+  document.body.classList.toggle("finger-draw", fingerDraw);
+  layers.forEach(l => applyTouchPolicy(l));
+}
+export function touchDraws() { return fingerDraw || !stylusSeen; }
+
+/* A stroke in progress must not be interrupted by a background repaint —
+   the canvas it is being drawn on gets destroyed and the stroke goes with
+   it. This is the "sometimes strokes are missed" fault: not dropped
+   input, a destroyed canvas. Sync asks before pulling. */
+let drawingNow = false;
+export function isInking() { return drawingNow; }
+/* Same channel the journal editor uses to hold off a pull while someone is
+   mid-sentence. A stroke is the same kind of claim on the DOM. */
+registerBusyCheck(isInking);
 
 function inkOf(note) {
   if (!note.ink || typeof note.ink !== "object") note.ink = { strokes: [], removed: [] };
@@ -326,14 +397,17 @@ export function attachNoteInk(noteEl, getNote) {
   // inert so a stroke isn't captured twice.
   const canvas = penCanvas;
 
+  const remembered = toolMemory.get(note.id) || {};
   const layer = {
     noteEl, editor, canvas, hlCanvas, penCanvas, zoomWrap,
+    noteId: note.id,
     zoom: loadZoom(note.id),
-    mode: "text",           // text | pen | hl | eraser
-    color: PEN_COLORS[0],
-    hlColor: HL_COLORS[0],
-    penW: PEN_W,
-    hlW: HL_W,
+    // Restored, not reset: a repaint must not put the pen down.
+    mode: remembered.mode || "text",   // text | pen | hl | eraser
+    color: remembered.color || PEN_COLORS[0],
+    hlColor: remembered.hlColor || HL_COLORS[0],
+    penW: remembered.penW || PEN_W,
+    hlW: remembered.hlW || HL_W,
     live: null,
     strokes: () => inkOf(getNote() || { }).strokes,
   };
@@ -351,18 +425,36 @@ export function attachNoteInk(noteEl, getNote) {
     };
   };
 
-  let drawing = false, penActive = false, erased = false;
+  let drawing = false, erased = false, activePointer = null;
+
+  /* Does this pointer draw?
+
+     pen   — always. A stylus on the glass is never anything else.
+     mouse — always. There is no palm on a desktop.
+     touch — only when there is no stylus on this device, or the person has
+             explicitly asked for finger drawing. Otherwise a finger is a
+             palm to be ignored or a hand panning the page, and letting it
+             draw is exactly the fault reported: stray lines, and the page
+             being selected while trying to scroll.
+
+     Deliberately NOT "has a stylus touched this layer yet" — that was the
+     old rule, and a repaint reset it. */
+  const pointerDraws = e => {
+    if (e.pointerType === "pen") { markStylusSeen(); return true; }
+    if (e.pointerType === "touch") return touchDraws();
+    return true; // mouse, or a browser that reports nothing useful
+  };
 
   const onDown = e => {
     if (layer.mode === "text") return;
-    /* Palm rejection: once a stylus has been seen on this layer, touch is
-       the hand resting on the screen, not an instruction. The Fold's S Pen
-       reports pointerType 'pen'. */
-    if (e.pointerType === "pen") penActive = true;
-    else if (penActive && e.pointerType === "touch") return;
+    if (e.pointerType === "pen") markStylusSeen();
+    if (!pointerDraws(e)) return;   // let it scroll the page instead
+    if (drawing) return;            // a second finger mid-stroke is a palm
 
     e.preventDefault();
-    canvas.setPointerCapture(e.pointerId);
+    activePointer = e.pointerId;
+    drawingNow = true;
+    try { canvas.setPointerCapture(e.pointerId); } catch (err) { /* Safari can refuse */ }
     const p = toContent(e);
 
     if (layer.mode === "eraser") {
@@ -382,8 +474,7 @@ export function attachNoteInk(noteEl, getNote) {
   };
 
   const onMove = e => {
-    if (!drawing) return;
-    if (penActive && e.pointerType === "touch") return;
+    if (!drawing || e.pointerId !== activePointer) return; // ignore the resting palm
     e.preventDefault();
     /* Coalesced events recover the samples the browser batched between
        frames — the difference between a smooth curve and a stair. The
@@ -398,14 +489,21 @@ export function attachNoteInk(noteEl, getNote) {
       const pts = layer.live.pts;
       const dx = p.x - pts[pts.length - 2], dy = p.y - pts[pts.length - 1];
       if (dx * dx + dy * dy < 1.5) continue; // thin out samples that add nothing
-      pts.push(p.x, p.y);
+      /* Rounded to a tenth of a pixel. Sub-pixel precision beyond that is
+         invisible at any zoom and costs a dozen characters a point in the
+         synced payload — with coalesced events now feeding many more
+         samples per stroke, this keeps the stored size DOWN rather than
+         up, which is what was asked for. */
+      pts.push(Math.round(p.x * 10) / 10, Math.round(p.y * 10) / 10);
     }
     redraw(layer);
   };
 
   const onUp = e => {
-    if (!drawing) return;
+    if (!drawing || (activePointer !== null && e.pointerId !== activePointer)) return;
     drawing = false;
+    drawingNow = false;
+    activePointer = null;
     try { canvas.releasePointerCapture(e.pointerId); } catch (err) { /* already released */ }
     const live = layer.live;
     layer.live = null;
@@ -467,6 +565,13 @@ export function attachNoteInk(noteEl, getNote) {
   layers.set(noteEl, layer);
   buildToolbar(noteEl, layer, getNote);
   setNoteZoom(layer, layer.zoom, null); // apply the remembered zoom, don't re-save it
+  // Put the pen bar and the live tool back exactly as they were before the
+  // repaint that destroyed the previous layer.
+  if (layer.mode !== "text") {
+    noteEl.classList.add("ink-open");
+    setMode(layer, layer.mode);
+  }
+  applyTouchPolicy(layer);
   syncPageLock(noteEl, note);
   redraw(layer);
   return layer;
@@ -483,12 +588,27 @@ function anchorStroke(s, boxes) {
   const x0 = s.pts[0], y0 = s.pts[1];
   const out = new Array(s.pts.length);
   for (let i = 0; i < s.pts.length; i += 2) {   // points become origin-relative
-    out[i] = s.pts[i] - x0;
-    out[i + 1] = s.pts[i + 1] - y0;
+    out[i] = Math.round((s.pts[i] - x0) * 10) / 10;
+    out[i + 1] = Math.round((s.pts[i + 1] - y0) * 10) / 10;
   }
-  s.a = { p, t: b.t, x: x0 - b.left, y: y0 - b.top, w: b.width };
+  s.a = {
+    p, t: b.t,
+    x: Math.round((x0 - b.left) * 10) / 10,
+    y: Math.round((y0 - b.top) * 10) / 10,
+    w: Math.round(b.width * 10) / 10,
+  };
   s.pts = out;
   return s;
+}
+
+/* Written on every change, so the next repaint rebuilds the layer with
+   the pen still in hand. */
+function rememberTools(layer) {
+  if (!layer.noteId) return;
+  toolMemory.set(layer.noteId, {
+    mode: layer.mode, color: layer.color, hlColor: layer.hlColor,
+    penW: layer.penW, hlW: layer.hlW,
+  });
 }
 
 export function detachNoteInk(noteEl) {
@@ -502,8 +622,22 @@ export function redrawAllInk() {
   layers.forEach(l => { try { l.redraw(); } catch (e) { /* detached */ } });
 }
 
+/* touch-action decides what Safari does with a finger BEFORE any
+   JavaScript runs, so it has to match the drawing policy exactly.
+
+   `none` while a finger draws — otherwise iOS starts a scroll and cancels
+   the stroke halfway. `pan-y` when it doesn't, so the same finger can
+   still scroll the note instead of being swallowed by a canvas that has
+   no use for it. Getting this wrong is why a finger both drew stray lines
+   AND failed to move the page. */
+function applyTouchPolicy(layer) {
+  const drawingMode = layer.mode !== "text";
+  layer.canvas.style.touchAction = (drawingMode && touchDraws()) ? "none" : "pan-y";
+}
+
 function setMode(layer, mode) {
   layer.mode = mode;
+  rememberTools(layer);
   const drawing = mode !== "text";
   layer.canvas.classList.toggle("drawing", drawing);
   layer.noteEl.classList.toggle("ink-drawing", drawing);
@@ -524,6 +658,7 @@ function setMode(layer, mode) {
   layer.noteEl.querySelectorAll(".ink-tool").forEach(b => {
     b.classList.toggle("active", b.dataset.tool === mode);
   });
+  applyTouchPolicy(layer);
   const swatches = layer.noteEl.querySelector(".ink-colors");
   swatches?.classList.toggle("show", mode === "pen" || mode === "hl");
   // The two tools have separate palettes and separate current colours, so
@@ -650,6 +785,8 @@ function buildToolbar(noteEl, layer, getNote) {
     <button type="button" class="ink-tool" data-tool="eraser" title="Eraser">⌫</button>
     <span class="ink-colors"></span>
     <span class="ink-widths"></span>
+    <button type="button" class="ink-tool ink-finger" title="Draw with finger (off when a stylus is present)"
+      aria-pressed="false">☝</button>
     <button type="button" class="ink-tool ink-done" data-tool="text" title="Back to typing">Done</button>`;
   noteEl.insertBefore(bar, noteEl.querySelector(".sec-note-body"));
 
@@ -660,7 +797,24 @@ function buildToolbar(noteEl, layer, getNote) {
 
   });
 
+  const syncFingerBtn = () => {
+    const btn = bar.querySelector(".ink-finger");
+    if (!btn) return;
+    btn.classList.toggle("active", touchDraws());
+    btn.setAttribute("aria-pressed", touchDraws() ? "true" : "false");
+    // Only worth showing once we know a stylus exists; without one, touch
+    // drawing is the only option and a toggle would just be a trap.
+    btn.style.display = stylusSeen ? "" : "none";
+  };
+  syncFingerBtn();
+
   bar.addEventListener("click", e => {
+    if (e.target.closest(".ink-finger")) {
+      setFingerDraw(!touchDraws());
+      syncFingerBtn();
+      toast(touchDraws() ? "Finger drawing on" : "Finger drawing off — pencil only, finger scrolls");
+      return;
+    }
     const tool = e.target.closest(".ink-tool");
     if (tool) {
       const m = tool.dataset.tool;
@@ -673,6 +827,7 @@ function buildToolbar(noteEl, layer, getNote) {
       if (layer.mode === "hl") layer.hlColor = col.dataset.color;
       else { layer.color = col.dataset.color; if (layer.mode !== "pen") setMode(layer, "pen"); }
       bar.querySelectorAll(".ink-color").forEach(b => b.classList.toggle("active", b === col));
+      rememberTools(layer);
       // the weight swatches are drawn in the live colour, so they follow it
       renderWidths(bar.querySelector(".ink-widths"), layer, layer.mode === "hl" ? "hl" : "pen");
       return;
@@ -681,6 +836,7 @@ function buildToolbar(noteEl, layer, getNote) {
     if (wq) {
       const w = parseFloat(wq.dataset.w);
       if (layer.mode === "hl") layer.hlW = w; else layer.penW = w;
+      rememberTools(layer);
       bar.querySelectorAll(".ink-width").forEach(b => b.classList.toggle("active", b === wq));
     }
   });
