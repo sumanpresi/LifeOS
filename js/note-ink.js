@@ -390,8 +390,35 @@ function sizeCanvas(canvas, w, h, dpr, left, top) {
    paints normally on top so ink stays crisp and opaque whatever it
    crosses. Highlighter below pen, which is also the right stacking
    order — you highlight a phrase, then circle it. */
+/* Redraw across the frames where layout settles. Module scope, because
+   redraw() below calls it — a definition tucked inside attachNoteInk
+   would be invisible from here. Cheap to run: a canvas clear and a few
+   hundred lines. */
+function scheduleSettle(layer) {
+  if (layer._settling) return;
+  layer._settling = true;
+  requestAnimationFrame(() => {
+    redraw(layer);
+    requestAnimationFrame(() => { layer._settling = false; redraw(layer); });
+  });
+}
+
 function redraw(layer) {
   const { hlCanvas, penCanvas, editor } = layer;
+  /* A note being rebuilt — which is exactly what switching tabs does —
+     can be measured before the browser has laid it out, or before the web
+     font has replaced its fallback. The paragraph boxes read back at the
+     wrong width, every stroke is resolved against them, and the ink comes
+     out shrunken and shifted until some later event forces an honest
+     redraw. That is the reported fault, and "it corrects itself when the
+     page size changes" is its signature.
+
+     So: refuse to draw from a measurement that cannot be right, and try
+     again next frame instead. */
+  if (!editor.clientWidth || !editor.children.length) {
+    scheduleSettle(layer);
+    return;
+  }
   /* Backing-store scale, folding in the zoom so ink is as sharp as the
      text beside it. Capped at 3x: at 300% on a 3x-density phone an
      uncapped multiplier asks for a canvas several thousand pixels on a
@@ -726,10 +753,21 @@ export function attachNoteInk(noteEl, getNote) {
   canvas.addEventListener("touchmove", swallow, { passive: false });
   canvas.addEventListener("gesturestart", swallow, { passive: false });
 
+  layer.settle = () => scheduleSettle(layer);
+  /* Once more when the web font arrives: metrics change as Karla replaces
+     the fallback, moving every paragraph box the anchors resolve against. */
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(() => redraw(layer)).catch(() => {});
+  }
+
   const onScroll = () => redraw(layer);
   editor.addEventListener("scroll", onScroll, { passive: true });
   const ro = new ResizeObserver(() => redraw(layer));
   ro.observe(editor);
+  // The page can keep its own size while the window around it changes — a
+  // sidebar opening, the Fold unfolding — and the ink still has to be
+  // repositioned against it.
+  ro.observe(editorWrap);
 
   layer.destroy = () => {
     ro.disconnect();
@@ -753,6 +791,10 @@ export function attachNoteInk(noteEl, getNote) {
   applyTouchPolicy(layer);
   syncPageLock(noteEl, note, editor);
   redraw(layer);
+  /* One honest draw now, and more once the layout has actually settled.
+     See scheduleSettle: a note rebuilt by a tab switch is routinely
+     measured a frame too early. */
+  scheduleSettle(layer);
   return layer;
 }
 
