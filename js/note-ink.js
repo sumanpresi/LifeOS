@@ -958,6 +958,10 @@ function syncPageLock(noteEl, note, editor) {
    narrow for it — but only if this device has no zoom of its own for the
    note yet. A remembered choice is the person's, and is never overridden. */
 function fitZoomIfNeeded(layer, note) {
+  /* Only a fixed page needs fitting. A text-only note is responsive: its
+     page already fits, and shrinking its zoom would just shrink the words
+     for no reason. */
+  if (!noteHasInk(note)) return;
   const pageW = docWidth(note, layer.editor);
   if (!pageW || hasStoredZoom(note.id)) return;
   const host = layer.noteEl.querySelector(".sec-note-editor");
