@@ -3764,11 +3764,30 @@ html[data-theme="dark"] .note-ink-hl{mix-blend-mode:screen}
   -webkit-touch-callout:none;
   -webkit-tap-highlight-color:transparent;
 }
-/* With a stylus present, a finger must never leave a mark on the text
-   either — iOS puts selection handles on a contenteditable at the first
-   touch, which is the blue overlay in the screenshot. */
-body.has-stylus .sec-note.ink-drawing .ql-editor{
-  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+/* SCRIBBLE.
+
+   iPadOS turns Apple Pencil handwriting over any editable field into typed
+   text. That is a feature of the OS, not of this app, and it is almost
+   certainly what put "bhimbao o" and "Bs bs experience pencil" into the
+   note: pencil strokes near a contenteditable, transcribed. It reads
+   exactly like the editor "switching itself to text mode".
+
+   `-webkit-user-modify: read-only` takes the editor out of Scribble's
+   reach while a tool is live, WITHOUT touching the contenteditable
+   attribute — so Quill still considers itself enabled and its toolbar
+   still formats, which is what setting contenteditable="false" broke
+   before. Selection handles and the callout go the same way. */
+.sec-note.ink-drawing .ql-editor{
+  -webkit-user-modify:read-only;
+  -webkit-user-select:none;user-select:none;
+  -webkit-touch-callout:none;
+  /* Android's equivalent of Scribble (Samsung DirectWriting / Gboard
+     "write in text fields") is tied to touch-action: a field is eligible
+     for handwriting only while panning is allowed on it. `none` here is
+     therefore what switches S Pen handwriting-to-text off for this editor,
+     the same way user-modify does on iOS. Safe to set, because the ink
+     canvas above does the panning by hand anyway. */
+  touch-action:none;
 }
 .ink-finger{font-size:15px}
 .ink-finger.active{background:var(--lilac-deep);border-color:var(--ink)}
