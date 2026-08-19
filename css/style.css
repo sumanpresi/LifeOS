@@ -782,6 +782,15 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
    A4 calculation — is what actually decided the height, clamping the
    page to 600px of a 948px area and leaving the band of empty paper
    underneath it. */
+/* The zoom wrapper sits between .sec-note-editor and .ql-editor, so the
+   `flex:1` below has to be handed down through it — otherwise the editor
+   falls back to `height:auto`, takes only the height of its text, and the
+   ink canvas (which is sized from the editor) covers just a band at the
+   top with everything below it clipped. That is exactly what full screen
+   was showing: text present, most of the drawing gone. */
+.sec-note.note-fullscreen .ink-zoom{
+  display:flex;flex-direction:column;
+}
 .sec-note.note-fullscreen .sec-note-editor .ql-editor{
   flex:1;min-height:0;height:auto;max-height:none;
   overflow-y:auto;
