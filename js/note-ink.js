@@ -356,7 +356,13 @@ function drawStroke(ctx, s, scrollTop, pts, width) {
   ctx.restore();
 }
 
-function sizeCanvas(canvas, w, h, dpr) {
+function sizeCanvas(canvas, w, h, dpr, left, top) {
+  /* Follow the editor's position inside the wrapper, not just its size.
+     With an inked note the text column is a fixed width and may be
+     centred inside a wider wrapper (full screen does exactly this), so a
+     canvas pinned to 0,0 would be offset from the words it belongs to. */
+  canvas.style.left = (left || 0) + "px";
+  canvas.style.top = (top || 0) + "px";
   if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
     canvas.width = Math.round(w * dpr);
     canvas.height = Math.round(h * dpr);
@@ -388,8 +394,9 @@ function redraw(layer) {
   const { hlCanvas, penCanvas, editor } = layer;
   const dpr = window.devicePixelRatio || 1;
   const w = editor.clientWidth, h = editor.clientHeight;
-  const hlCtx = sizeCanvas(hlCanvas, w, h, dpr);
-  const penCtx = sizeCanvas(penCanvas, w, h, dpr);
+  const offL = editor.offsetLeft, offT = editor.offsetTop;
+  const hlCtx = sizeCanvas(hlCanvas, w, h, dpr, offL, offT);
+  const penCtx = sizeCanvas(penCanvas, w, h, dpr, offL, offT);
 
   const top = editor.scrollTop;
   const boxes = paraBoxes(editor, layer.zoom);
