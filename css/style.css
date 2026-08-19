@@ -734,6 +734,41 @@ html[data-theme="dark"] .cal-cell-tasks{--cal-task-done:#9E9787}
 }
 /* The desk: a recessed surface for the sheet to sit on. */
 .sec-note-editor{background:var(--paper)}
+
+/* ---------- Two kinds of note, two meanings for zoom ----------
+
+   A note carrying INK is a fixed page. Its text must not rewrap, or the
+   handwriting slides off the words it was drawn against, so zoom scales
+   the whole sheet (CSS `zoom` on .ink-zoom) and a magnified page is
+   panned. That is the A4 document model above, and it stays.
+
+   A note with only TEXT has nothing to keep registered. Fixing its width
+   buys nothing and costs a great deal on a narrow screen: at 125% the
+   page grew from 794 to 992px and ran off the side of the Fold, which is
+   the reported fault. For these notes the page is responsive — it takes
+   the width available, up to A4 — and zoom means TEXT SIZE, applied as
+   font-size so the text simply reflows into the page it has.
+
+   So: same control, same readout, and on a text note it does what you
+   would expect it to do — bigger words, still on the screen. No transform
+   scaling, no browser zoom, and the font-size is identical on every
+   device: only the page width follows the viewport. */
+.sec-note:not(.has-ink) .ink-zoom{
+  zoom:1;                    /* the page is not scaled; the text is */
+  width:auto;min-width:0;
+}
+.sec-note:not(.has-ink) .ql-editor{
+  width:min(794px, 100%);
+  min-height:100%;
+  /* Quill's own size classes are em-based, so scaling the root here
+     scales headings and small text with it, in proportion. */
+  font-size:calc(var(--doc-font, 15px) * var(--z, 1));
+}
+/* The paper for a text note is as tall as its window or its content,
+   whichever is greater — an A4 sheet's worth of empty page below three
+   lines of text is not useful when there is nothing drawn on it. */
+.sec-note:not(.has-ink) .sec-note-editor{overflow-y:auto;overflow-x:hidden}
+.sec-note:not(.has-ink).note-fullscreen .ql-editor{min-height:100%}
 /* A visible scrollbar on the right, rather than the overlay one that
    appears only while scrolling — with a fixed-height page it is the main
    signal that there is more text below. */
