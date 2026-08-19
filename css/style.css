@@ -3749,11 +3749,29 @@ body.is-dragging :is(.t-board-col, .t-board-card, #tasksCard){
 html[data-theme="dark"] .note-ink-hl{mix-blend-mode:screen}
 .note-ink-canvas.drawing{
   pointer-events:auto;
-  /* A crosshair, not a caret — the pointer is a pen here. `touch-action:
-     none` is what stops a finger-drag from scrolling the page out from
-     under the stroke being drawn. */
-  cursor:crosshair;touch-action:none;
+  cursor:crosshair;
+  /* touch-action is set per layer in note-ink.js, not here: it has to
+     follow whether a finger currently draws (none, so iOS doesn't cancel
+     the stroke with a scroll) or pans (pan-y, so the finger still moves
+     the page). A blanket `none` was why a finger could neither draw
+     reliably nor scroll.
+
+     The rest stops iOS Safari doing its own thing with a long press on a
+     canvas — the magnifier, the selection handles and the callout menu
+     all fire mid-stroke otherwise, which is what tore strokes in half and
+     left the page selected. */
+  -webkit-user-select:none;user-select:none;
+  -webkit-touch-callout:none;
+  -webkit-tap-highlight-color:transparent;
 }
+/* With a stylus present, a finger must never leave a mark on the text
+   either — iOS puts selection handles on a contenteditable at the first
+   touch, which is the blue overlay in the screenshot. */
+body.has-stylus .sec-note.ink-drawing .ql-editor{
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+}
+.ink-finger{font-size:15px}
+.ink-finger.active{background:var(--lilac-deep);border-color:var(--ink)}
 .ink-bar{
   display:none;align-items:center;gap:6px;flex-wrap:wrap;
   padding:6px 10px;border-bottom:1px solid var(--line);background:var(--card);
