@@ -3832,7 +3832,19 @@ html[data-theme="dark"] .note-ink-hl{mix-blend-mode:screen}
    needs it to still be there. */
 .sec-note.ink-drawing .ql-editor{caret-color:transparent}
 
-/* An inked note is a NORMAL responsive note.
+/* An inked note stops reflowing: it lays its text out at the width it was
+   written at, on every device, so handwriting lands over the same words
+   everywhere. Zoom (which scales without rewrapping) is what makes that
+   fit a phone; the note pans sideways for the rest. Notes with no ink are
+   untouched and stay fully responsive. */
+.sec-note.has-ink .ql-editor{
+  width:var(--ink-page-w);
+  max-width:none;
+  box-sizing:content-box;
+}
+.sec-note.has-ink .ink-zoom{width:max-content;min-width:100%}
+
+/* A note with no ink is a NORMAL responsive note.
 
    It used to lock its column to 794px so the text couldn't reflow under
    the ink. That made a phone unusable — a 794px page in a 390px viewport,
