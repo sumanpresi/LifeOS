@@ -151,6 +151,36 @@ function inkOf(note) {
   if (!Array.isArray(note.ink.removed)) note.ink.removed = [];
   return note.ink;
 }
+
+/* THE PAGE WIDTH AN INKED NOTE WAS WRITTEN AT.
+
+   Proportional placement can keep a mark in the same PART of a paragraph
+   across different column widths, but it can never keep it over the same
+   WORD — because at a different width that word is somewhere else. The
+   desktop wraps this quote after "liberty" and the Fold after "freedom",
+   so a circle drawn round one phrase on one device lands on different
+   words on the other. No amount of scaling fixes that; only not
+   reflowing does.
+
+   So an inked note stops reflowing, and remembers the column width it was
+   written at. Every device lays the text out at that same width, wraps it
+   identically, and the ink lands exactly where it was drawn — k works out
+   to 1 and nothing is scaled at all.
+
+   This is what was tried before and abandoned, because a fixed 794px page
+   made a 390px phone unusable. What has changed is that zoom now exists
+   and zoom does not reflow: a narrow screen fits the same page by scaling
+   the whole thing, text and ink together, instead of rewrapping it. Fixed
+   width plus zoom plus pan is exactly how OneNote does it. */
+function inkPageWidth(note) {
+  const ink = note && note.ink;
+  if (!ink || !Array.isArray(ink.strokes) || !ink.strokes.length) return 0;
+  if (ink.pageW > 0) return ink.pageW;
+  // Ink drawn before this existed: recover the width from the strokes,
+  // which have carried their paragraph's width all along.
+  const widths = ink.strokes.map(st => st && st.a && st.a.w).filter(w => w > 0);
+  return widths.length ? Math.round(Math.max(...widths)) : 0;
+}
 export function noteHasInk(note) {
   return !!(note && note.ink && Array.isArray(note.ink.strokes) && note.ink.strokes.length);
 }
@@ -494,30 +524,42 @@ export function attachNoteInk(noteEl, getNote) {
   const scroller = () => noteEl.querySelector(".sec-note-editor");
 
   const startPan = e => {
-    panning = {
-      id: e.pointerId, y: e.clientY, x: e.clientX,
-      top: editor.scrollTop, left: scroller() ? scroller().scrollLeft : 0,
-    };
+    panning = { id: e.pointerId, lastX: e.clientX, lastY: e.clientY };
     try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
   };
+
+  /* INCREMENTAL, not absolute.
+
+     The first version anchored to where the drag started and, on every
+     move, handed whatever the note couldn't absorb to window.scrollBy.
+     When the note had nothing left to scroll — or nothing to scroll at
+     all — that leftover was the WHOLE accumulated distance, re-applied on
+     every single pointermove. One slow drag therefore scrolled the window
+     by the sum of a hundred ever-growing deltas and the page shot away by
+     itself, which is exactly the "page moves automatically and I can't
+     position it" fault.
+
+     Each move now contributes only the distance travelled since the last
+     one. The note takes what it can, the window takes the remainder, and
+     a drag of N pixels moves things by N pixels however many events it
+     arrives in. */
   const movePan = e => {
     if (!panning || e.pointerId !== panning.id) return;
     e.preventDefault();
     const z = layer.zoom || 1;
-    const dy = (e.clientY - panning.y) / z;
-    const dx = (e.clientX - panning.x) / z;
+    const dy = (e.clientY - panning.lastY) / z;
+    const dx = (e.clientX - panning.lastX) / z;
+    panning.lastX = e.clientX;
+    panning.lastY = e.clientY;
 
     const before = editor.scrollTop;
-    editor.scrollTop = panning.top - dy;
-    const consumed = editor.scrollTop - before;
-    const wanted = (panning.top - dy) - before;
-    // Whatever the note couldn't absorb goes to the window, so a long drag
-    // keeps moving instead of stopping dead at the note's edge.
-    const leftover = wanted - consumed;
-    if (Math.abs(leftover) > 0.5) window.scrollBy(0, leftover);
+    editor.scrollTop = before - dy;
+    const consumed = before - editor.scrollTop;   // what the note absorbed
+    const leftover = dy - consumed;
+    if (Math.abs(leftover) > 0.5) window.scrollBy(0, -leftover);
 
     const sc = scroller();
-    if (sc) sc.scrollLeft = panning.left - dx;   // pan a magnified page sideways
+    if (sc) sc.scrollLeft -= dx;                  // pan a magnified page sideways
     redraw(layer);
   };
   const endPan = e => {
@@ -614,7 +656,11 @@ export function attachNoteInk(noteEl, getNote) {
     }
     layer.strokeMode = null;
     if (live && live.pts.length >= 2) {
-      inkOf(n).strokes.push(anchorStroke(live, paraBoxes(editor, layer.zoom)));
+      const boxes = paraBoxes(editor, layer.zoom);
+      const ink = inkOf(n);
+      // The first stroke fixes the page width for this note, for good.
+      if (!(ink.pageW > 0) && boxes.length) ink.pageW = Math.round(boxes[0].width);
+      ink.strokes.push(anchorStroke(live, boxes));
       n.updated = Date.now();
       persist();
       syncPageLock(noteEl, n);
@@ -678,6 +724,7 @@ export function attachNoteInk(noteEl, getNote) {
   layers.set(noteEl, layer);
   buildToolbar(noteEl, layer, getNote);
   setNoteZoom(layer, layer.zoom, null); // apply the remembered zoom, don't re-save it
+  fitZoomIfNeeded(layer, note);
   // Put the pen bar and the live tool back exactly as they were before the
   // repaint that destroyed the previous layer.
   if (layer.mode !== "text") {
@@ -810,6 +857,12 @@ const ZOOM_KEY = "lifeos-note-zoom";
    is view state, like a scroll position or which tab is open. The desktop
    at 80% and the phone at 150% are both right, and neither should be
    telling the other what to do. */
+function hasStoredZoom(noteId) {
+  try {
+    const all = JSON.parse(localStorage.getItem(ZOOM_KEY) || "{}");
+    return Number(all[noteId]) > 0;
+  } catch (e) { return false; }
+}
 function loadZoom(noteId) {
   try {
     const all = JSON.parse(localStorage.getItem(ZOOM_KEY) || "{}");
@@ -840,7 +893,26 @@ export function setNoteZoom(layer, z, noteId) {
    stays a normal responsive one on every device. Kept as a no-op hook and
    a class that CSS uses only for cursor affordances. */
 function syncPageLock(noteEl, note) {
-  noteEl.classList.toggle("has-ink", noteHasInk(note));
+  const has = noteHasInk(note);
+  noteEl.classList.toggle("has-ink", has);
+  const w = has ? inkPageWidth(note) : 0;
+  if (w > 0) noteEl.style.setProperty("--ink-page-w", w + "px");
+  else noteEl.style.removeProperty("--ink-page-w");
+}
+
+/* Choose a zoom that shows the whole locked page, when the screen is too
+   narrow for it — but only if this device has no zoom of its own for the
+   note yet. A remembered choice is the person's, and is never overridden. */
+function fitZoomIfNeeded(layer, note) {
+  const pageW = inkPageWidth(note);
+  if (!pageW || hasStoredZoom(note.id)) return;
+  const host = layer.noteEl.querySelector(".sec-note-editor");
+  const avail = host ? host.clientWidth : 0;
+  if (!avail || avail >= pageW) return;
+  const want = avail / pageW;
+  // Round DOWN to a stop, so the page fits rather than nearly fits.
+  const step = [...ZOOM_STEPS].reverse().find(z => z <= want) || ZOOM_STEPS[0];
+  if (Math.abs(step - layer.zoom) > 0.001) setNoteZoom(layer, step, null);
 }
 
 /* ---------- toolbar ---------- */
