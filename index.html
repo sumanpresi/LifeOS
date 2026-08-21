@@ -1134,8 +1134,9 @@
           <div class="kml-bar">
             <div class="kml-tabs" id="kmlTabs"></div>
             <label class="btn btn-ghost kml-upload">
-              📁 Upload .kml
-              <input type="file" id="kmlFileInput" accept=".kml,application/vnd.google-earth.kml+xml"
+              📁 Upload .kml / .kmz
+              <input type="file" id="kmlFileInput"
+                     accept=".kml,.kmz,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz"
                      multiple onchange="uploadKmlFiles(this)" hidden>
             </label>
           </div>
