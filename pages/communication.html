@@ -32,7 +32,16 @@
   --mono:"IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
   --accent:var(--blue);
   --accent-tint:var(--blue-tint);
+  /* The page's outer measure. Structural things — dialogue, option lists,
+     stat grids — may use all of it; running PROSE is capped separately
+     below, because the two want different widths. */
   --maxw:820px;
+  /* The comfortable reading measure. Prose is limited to this regardless of
+     how wide the page gets: at 17px this is roughly 68 characters a line,
+     inside the 55-75 that reads without the eye losing its place. The
+     column was already running to 95 characters on a large screen, so
+     widening it further would have made reading harder, not easier. */
+  --measure:68ch;
 }
 body.teacher{ --accent:var(--board); --accent-tint:#E3EDE9; }
 
@@ -64,6 +73,19 @@ a{color:var(--accent)}
 .rail{display:none}
 .main{min-width:0;padding:0 0 96px}
 .wrap{max-width:var(--maxw);margin:0 auto;padding:0 16px}
+
+/* PROSE vs STRUCTURE.
+
+   Only continuous prose is held to the reading measure. Anything the eye
+   scans rather than reads — dialogue lines, answer options, worked
+   examples, tables, the formula strip — keeps the full width, so the extra
+   room on a large screen is used by the parts that benefit from it instead
+   of stretching sentences past the point of comfort. */
+.card > p,
+.card > .goal-list li,
+.callout,
+.qtext,
+.hero .lead{max-width:var(--measure)}
 
 /* top bar (mobile) */
 .topbar{
@@ -193,13 +215,16 @@ a{color:var(--accent)}
 .lesson-row p{margin:2px 0 0;font-size:.82rem;color:var(--ink-faint);font-family:var(--display)}
 
 /* ---------- lesson header + tabs ---------- */
-.lessonhead{padding:16px 0 8px}
+/* Compact by padding, never by type size: the title stays as large as it
+   was, the room around it does the shrinking, so the lesson body starts
+   higher up the screen. */
+.lessonhead{padding:10px 0 4px}
 .backlink{
   background:none;border:0;color:var(--ink-soft);font-size:.8rem;font-weight:600;
   cursor:pointer;padding:6px 0;display:inline-flex;align-items:center;gap:6px;
 }
 .lessonhead h1{font-size:clamp(1.4rem,6vw,2rem);margin-top:4px}
-.lessonhead .tagline{color:var(--ink-soft);margin-top:6px;font-size:.98rem}
+.lessonhead .tagline{color:var(--ink-soft);margin-top:4px;font-size:.98rem;max-width:var(--measure)}
 .meta{display:flex;flex-wrap:wrap;gap:14px;margin-top:12px;font-family:var(--mono);font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint)}
 
 .steps{
@@ -225,7 +250,7 @@ a{color:var(--accent)}
 .convo{display:grid;gap:8px;margin:10px 0}
 .line{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:start}
 .line .who{font-family:var(--mono);font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint);padding-top:.35em;min-width:52px}
-.line .say{background:var(--paper);border-radius:10px;padding:8px 12px;font-size:1rem}
+.line .say{background:var(--paper);border-radius:10px;padding:7px 12px;font-size:1rem;line-height:1.5}
 .line.b .say{background:var(--accent-tint)}
 
 .formula{
@@ -399,6 +424,18 @@ input.text.no{border-color:var(--red);background:var(--red-tint)}
   .railnav button:hover{background:var(--paper)}
   .railnav button[aria-current="page"]{background:var(--accent-tint);color:var(--accent)}
   .railfoot{border-top:1px solid var(--rule);padding-top:14px;margin-top:6px}
+}
+
+/* Beyond a comfortable desktop, let the page itself breathe. Prose stays
+   pinned to --measure, so this widens only the dialogue, the option lists
+   and the grids — the parts where the empty space was doing no work.
+
+   Its own block, deliberately. Folding it into the rule above by closing
+   that block early left every desktop rule — the sidebar, the hidden
+   mobile bars — applying only above 1500px, so a 1440px laptop fell back
+   to the phone layout squeezed into a 264px column. */
+@media (min-width:1500px){
+  :root{--maxw:1000px}
 }
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important;transition:none!important}
