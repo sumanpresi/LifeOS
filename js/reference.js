@@ -16,12 +16,14 @@ import { getCurrentLocation } from './geolocation.js';
 import { getRoute, formatDuration } from './routing.js';
 import { attachClickCoordinates } from './map-click-coords.js';
 import { moveToTrash } from './trash.js';
+import { parseKml, kmlLayerToLeaflet, featureLatLng, featureKindLabel } from './map-kml.js';
 
 function activeRefPage() {
   return state.reference.pages.find(p => p.id === state.reference.activePage) || state.reference.pages[0];
 }
 
 export function renderReference() {
+  renderKmlUI();   // independent of the map: see uploadKmlFiles
   const pages = state.reference.pages;
   const active = activeRefPage();
   if (active && state.reference.activePage !== active.id) state.reference.activePage = active.id;
@@ -258,8 +260,214 @@ async function initWorldMap() {
   );
   attachClickCoordinates(map);
 
-  worldMapInstance = { map, drawnItems, freehand, penAnnotation };
+  worldMapInstance = { map, drawnItems, freehand, penAnnotation, kml: new Map() };
+  syncKmlLayers();
   setTimeout(() => map.invalidateSize(), 100);
+}
+
+/* ---------- uploaded KML layers ----------
+
+   The map is rebuilt from state, never the other way round: state holds
+   the parsed features, syncKmlLayers() makes the Leaflet layers match, and
+   every action (upload, hide, delete) changes state and calls it again.
+   One direction only, so a layer added on another device appears here on
+   the next sync without any extra plumbing. */
+
+const KML_MAX_FEATURES = 3000;
+
+function kmlLayersState() {
+  if (!Array.isArray(state.reference.kmlLayers)) state.reference.kmlLayers = [];
+  return state.reference.kmlLayers;
+}
+
+/* Add, remove and show/hide Leaflet layers until the map agrees with state. */
+function syncKmlLayers(fit) {
+  if (!worldMapInstance || typeof L === "undefined") return;
+  const { map, kml } = worldMapInstance;
+  const layers = kmlLayersState();
+  const wanted = new Set(layers.map(l => l.id));
+
+  // Anything on the map that state no longer knows about.
+  [...kml.keys()].forEach(id => {
+    if (!wanted.has(id)) { map.removeLayer(kml.get(id)); kml.delete(id); }
+  });
+
+  layers.forEach(layer => {
+    let lyr = kml.get(layer.id);
+    if (!lyr) {
+      lyr = kmlLayerToLeaflet(L, layer);
+      kml.set(layer.id, lyr);
+    }
+    const shouldShow = layer.visible !== false;
+    if (shouldShow && !map.hasLayer(lyr)) lyr.addTo(lyr._map === map ? map : map);
+    if (!shouldShow && map.hasLayer(lyr)) map.removeLayer(lyr);
+  });
+
+  if (fit) fitToKmlLayer(fit);
+}
+
+function fitToKmlLayer(id) {
+  const lyr = worldMapInstance && worldMapInstance.kml.get(id);
+  if (!lyr) return;
+  try {
+    const b = lyr.getBounds();
+    if (b && b.isValid()) worldMapInstance.map.fitBounds(b, { padding: [40, 40], maxZoom: 12 });
+  } catch (e) { /* a layer with no drawable geometry — leave the view alone */ }
+}
+
+/* ---------- the tab strip and the details list ---------- */
+
+function renderKmlUI() {
+  const tabs = document.getElementById("kmlTabs");
+  const details = document.getElementById("kmlDetails");
+  if (!tabs || !details) return;
+  const layers = kmlLayersState();
+
+  tabs.innerHTML = layers.map(l => {
+    const active = l.id === state.reference.activeKmlLayer;
+    const hidden = l.visible === false;
+    return `<span class="kml-tab${active ? " active" : ""}${hidden ? " hidden-layer" : ""}">
+      <button type="button" class="kml-open" onclick="selectKmlLayer('${l.id}')"
+        title="${hidden ? "Hidden — click to show" : "Show details and zoom to this layer"}"
+        style="border:0;background:transparent;cursor:pointer;font:inherit;color:inherit;padding:0">
+        ${hidden ? "👁️‍🗨️ " : ""}${esc(l.name)} <span class="kml-count">${(l.features || []).length}</span>
+      </button>
+      <button type="button" class="kml-x" onclick="deleteKmlLayer('${l.id}')"
+        title="Remove this file from the map" aria-label="Remove ${esc(l.name)}">✕</button>
+    </span>`;
+  }).join("");
+
+  const active = layers.find(l => l.id === state.reference.activeKmlLayer);
+  if (!layers.length) {
+    details.innerHTML = `<p class="kml-empty">No .kml files yet — upload one from Google Earth or Google My Maps to see its places on the map.</p>`;
+    return;
+  }
+  if (!active) {
+    details.innerHTML = `<p class="kml-empty">${layers.length} file${layers.length > 1 ? "s" : ""} on the map. Pick one above to list what's inside it.</p>`;
+    return;
+  }
+
+  const feats = active.features || [];
+  const note = [active.fileName, feats.length + " feature" + (feats.length === 1 ? "" : "s"),
+                active.description || ""].filter(Boolean).join(" · ");
+  details.innerHTML = `
+    <p class="kml-file-note">${esc(note)}</p>
+    <div class="kml-list">
+      ${feats.map((f, i) => {
+        const p = (f && f.properties) || {};
+        return `<button type="button" class="kml-item" onclick="flyToKmlFeature('${active.id}', ${i})">
+          <span class="kml-kind">${featureKindLabel(f)}</span>
+          <span>
+            <h4>${esc(p.name || "Untitled")}</h4>
+            ${p.folder ? `<span class="kml-folder">${esc(p.folder)}</span>` : ""}
+            ${p.description ? `<p>${esc(p.description)}</p>` : ""}
+          </span>
+        </button>`;
+      }).join("")}
+    </div>`;
+}
+
+/* ---------- actions ---------- */
+
+export async function uploadKmlFiles(input) {
+  const files = [...(input.files || [])];
+  input.value = ""; // so re-picking the same file still fires a change
+  if (!files.length) return;
+  if (!worldMapInstance) await initWorldMap();
+
+  let added = 0, lastId = "";
+  for (const file of files) {
+    try {
+      const text = await file.text();
+      const parsed = parseKml(text);
+      if (!parsed.features.length) { toast(`No places found in ${file.name}`); continue; }
+      if (parsed.features.length > KML_MAX_FEATURES) {
+        /* This data syncs with everything else, so one enormous file would
+           slow every save on every device. Refused with the number, rather
+           than silently truncating to something that looks complete. */
+        toast(`${file.name} has ${parsed.features.length} features — too large to sync (limit ${KML_MAX_FEATURES})`);
+        continue;
+      }
+      const layer = {
+        id: uid(),
+        name: parsed.name || file.name.replace(/\.kml$/i, ""),
+        fileName: file.name,
+        description: parsed.description || "",
+        addedAt: Date.now(),
+        visible: true,
+        features: parsed.features,
+      };
+      kmlLayersState().push(layer);
+      lastId = layer.id;
+      added++;
+    } catch (e) {
+      toast(`Couldn't read ${file.name} — ${e.message}`);
+    }
+  }
+  if (!added) return;
+  state.reference.activeKmlLayer = lastId;
+  persist();
+  /* The list is drawn from state first and the map updated second, so the
+     places are readable even when the map itself can't load — a blocked
+     CDN or an offline device shouldn't cost you the contents of the file
+     you just uploaded. */
+  renderKmlUI();
+  syncKmlLayers(lastId);   // draw it and zoom to it, if there is a map
+  toast(added === 1 ? "Map layer added" : `${added} map layers added`);
+}
+
+/* Clicking the active tab again hides/shows the layer — the quickest way to
+   compare two files without deleting either. */
+export function selectKmlLayer(id) {
+  const layer = kmlLayersState().find(l => l.id === id);
+  if (!layer) return;
+  if (state.reference.activeKmlLayer === id) {
+    layer.visible = layer.visible === false;
+  } else {
+    state.reference.activeKmlLayer = id;
+    layer.visible = true;
+  }
+  persist();
+  renderKmlUI();
+  syncKmlLayers(layer.visible !== false ? id : null);
+}
+
+export function deleteKmlLayer(id) {
+  const layers = kmlLayersState();
+  const i = layers.findIndex(l => l.id === id);
+  if (i < 0) return;
+  const [gone] = layers.splice(i, 1);
+  if (state.reference.activeKmlLayer === id) state.reference.activeKmlLayer = "";
+  /* Into Trash rather than deleted outright: a KML can represent real work
+     (a survey route, a set of field stations) and re-uploading is not
+     always possible from the device you noticed on. */
+  try { moveToTrash("kmlLayer", gone, { name: gone.name }); } catch (e) { /* trash unavailable */ }
+  persist();
+  renderKmlUI();
+  syncKmlLayers();
+  toast(`Removed "${gone.name}" — it's in Trash`);
+}
+
+export function flyToKmlFeature(layerId, index) {
+  const layer = kmlLayersState().find(l => l.id === layerId);
+  if (!layer || !worldMapInstance) return;
+  const feature = (layer.features || [])[index];
+  const at = featureLatLng(feature);
+  if (!at) return;
+  worldMapInstance.map.setView(at, Math.max(worldMapInstance.map.getZoom(), 11), { animate: true });
+  /* Open the matching popup, so clicking a row in the list and clicking the
+     pin on the map do the same thing. */
+  const lyr = worldMapInstance.kml.get(layerId);
+  if (lyr) lyr.eachLayer(child => {
+    if (child.feature === feature && child.openPopup) child.openPopup();
+  });
+}
+
+/* Called after a sync replaces state, so layers added on another device
+   appear without a reload. */
+export function refreshKmlLayers() {
+  renderKmlUI();
+  if (worldMapInstance) syncKmlLayers();
 }
 
 /* Called by ui.js's go() only when the Reference page is actually

@@ -56,6 +56,7 @@ function labelFor(entry) {
     case "whiteboardPage": return `Whiteboard contents — ${(p.objects||[]).length} note(s), ${(p.strokes||[]).length} stroke(s)`;
     case "workDocGroup": return "Documents tab: " + p.name;
     case "travelPlan": return "Travel plan: " + p.name;
+    case "kmlLayer": return `Map layer: ${p.name} (${(p.features || []).length} places)`;
     case "travelStop": return p.place || "(unnamed stop)";
     case "packingItem": return p.text;
     case "packList": return "Packing list: " + p.name;
@@ -247,6 +248,13 @@ export function restoreFromTrash(id) {
         plan.packLists.push(p);
         if (plan.id !== m.planId) toast("Original plan was deleted — restored into \"" + plan.name + "\" instead");
       }
+      break;
+    }
+    case "kmlLayer": {
+      if (!Array.isArray(state.reference.kmlLayers)) state.reference.kmlLayers = [];
+      // Don't resurrect a duplicate if the same file was uploaded again
+      // while this sat in the bin.
+      if (!state.reference.kmlLayers.some(l => l.id === p.id)) state.reference.kmlLayers.push(p);
       break;
     }
     case "journalEntry": {

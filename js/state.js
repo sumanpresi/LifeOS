@@ -247,6 +247,12 @@ export const DEFAULT_STATE = {
     ],
     activePage: "r1",
     worldMapDrawing: null,  // one shared world map's saved GeoJSON FeatureCollection
+    /* Uploaded .kml files, parsed to GeoJSON so they sync like any other
+       data: [{id, name, fileName, addedAt, visible, color, features:[...]}].
+       Kept here rather than in a browser file store precisely so a map
+       marked up on the desktop is there on the phone too. */
+    kmlLayers: [],
+    activeKmlLayer: "",
     penAnnotations: { strokes: [] } // [{id, points:[{lat,lng,pressure,t}], color, width, opacity}] — stylus-only layer, separate from the finger/mouse/stylus freehand scribble above
   },
   /* One shared recycle bin for deletions from anywhere in the app.
