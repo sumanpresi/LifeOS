@@ -16,7 +16,7 @@ import { getCurrentLocation } from './geolocation.js';
 import { getRoute, formatDuration } from './routing.js';
 import { attachClickCoordinates } from './map-click-coords.js';
 import { moveToTrash } from './trash.js';
-import { parseKml, kmlLayerToLeaflet, featureLatLng, featureKindLabel } from './map-kml.js';
+import { parseKml, readKmlOrKmz, kmlLayerToLeaflet, featureLatLng, featureKindLabel } from './map-kml.js';
 
 function activeRefPage() {
   return state.reference.pages.find(p => p.id === state.reference.activePage) || state.reference.pages[0];
@@ -339,7 +339,7 @@ function renderKmlUI() {
 
   const active = layers.find(l => l.id === state.reference.activeKmlLayer);
   if (!layers.length) {
-    details.innerHTML = `<p class="kml-empty">No .kml files yet — upload one from Google Earth or Google My Maps to see its places on the map.</p>`;
+    details.innerHTML = `<p class="kml-empty">No map files yet — upload a .kml or .kmz from Google Earth or Google My Maps to see its places on the map.</p>`;
     return;
   }
   if (!active) {
@@ -378,7 +378,7 @@ export async function uploadKmlFiles(input) {
   let added = 0, lastId = "";
   for (const file of files) {
     try {
-      const text = await file.text();
+      const text = await readKmlOrKmz(file);   // .kml, or the .kml inside a .kmz
       const parsed = parseKml(text);
       if (!parsed.features.length) { toast(`No places found in ${file.name}`); continue; }
       if (parsed.features.length > KML_MAX_FEATURES) {
@@ -390,7 +390,7 @@ export async function uploadKmlFiles(input) {
       }
       const layer = {
         id: uid(),
-        name: parsed.name || file.name.replace(/\.kml$/i, ""),
+        name: parsed.name || file.name.replace(/\.(kml|kmz)$/i, ""),
         fileName: file.name,
         description: parsed.description || "",
         addedAt: Date.now(),
