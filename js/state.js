@@ -181,26 +181,27 @@ export const DEFAULT_STATE = {
     // {id, name, archived, docs: [{id, name, url, archived}]}
     workDocGroups: [], activeWorkDocGroup: ""
   },
-  /* Data for the Communication module (pages/communication.html). The module
-     itself renders in an isolated iframe (separate CSS/JS, no id/class clashes
-     with the rest of LifeOS), but its DATA lives here so it saves through the
-     same persist() -> Supabase pipeline as everything else and syncs across
-     devices. See js/communication-bridge.js for the postMessage handshake. */
+  /* Data for the Communication module (pages/communication.html) — now the
+     Class 8 English course. The module renders in an isolated iframe
+     (separate CSS/JS, no id/class clashes with the rest of LifeOS), but its
+     DATA lives here so it saves through the same persist() -> Supabase
+     pipeline as everything else and syncs across devices. See
+     js/communication-bridge.js for the postMessage handshake.
+
+     Deliberately holds only the DURABLE half of the module's state. What
+     lesson is open, which of the six steps is showing and whether the
+     Student/Teacher toggle is set are per-device view state, like a scroll
+     position — they stay in the iframe and are never sent here, so opening
+     the course on the desk doesn't move the phone to a different lesson.
+
+     The old Communication module's fields (mission, vocab, writing, streak,
+     quizIndex...) are gone; see migrateCommunication() below for what
+     happens to data still carrying them. */
   communication: {
-    streak: { count: 0, last: null },
-    mission: { date: null, done: { speak: false, word: false, grammar: false, phrase: false, writing: false, review: false } },
-    stats: { speakingSeconds: 0, writingEntries: 0, mistakesCorrected: 0, presentations: 0 },
-    vocab: [],
-    mistakes: [
-      { id: 1, wrong: "He don't know.", right: "He doesn't know.", cat: "Subject–Verb", fav: false },
-      { id: 2, wrong: "I am agree.", right: "I agree.", cat: "Grammar", fav: false },
-      { id: 3, wrong: "Discuss about the report.", right: "Discuss the report.", cat: "Preposition", fav: false }
-    ],
-    writing: [],
-    favWord: {}, favTopic: {},
-    activity: {},
-    quizIndex: 0, quizRight: 0, quizSeen: 0,
-    continueYesterday: null
+    progress: {},   // lessonId -> { steps:{}, practice:{}, test:{}, writes:{}, speak:{} }
+    errors: {},     // category -> { wrong, total }
+    mistakes: [],   // notebook: [{topic, q, mine, right, why, lesson, at}]
+    schedule: {}    // lessonId -> [{due, label, done}] spaced revision
   },
   /* Data for the NGDR Upload Tracker module (pages/ngdr-tracker.html), same
      isolated-iframe-plus-bridge pattern as Communication. An array of daily
@@ -269,6 +270,38 @@ export const DEFAULT_STATE = {
 export const SECTION_META = {};
 /* Note: "Communication" now has its own dedicated page (pages/communication.html,
    loaded via iframe) instead of the generic notes+links template above. */
+
+/* The Communication slot used to hold a different module entirely — daily
+   missions, a vocabulary list, writing entries, a quiz cursor. That module
+   is gone, replaced by the Class 8 English course, and the two shapes have
+   nothing in common.
+
+   Old data is not silently merged into the new shape: a `mistakes` array
+   exists in both but means different things ({wrong, right, cat} then,
+   {topic, q, mine, right, why, lesson, at} now), and feeding one to the
+   other would put malformed rows in the notebook. It is set aside under
+   `legacy` instead — still synced, still in every backup, recoverable if
+   it turns out to matter, and ignored by everything. */
+export function migrateCommunication(saved) {
+  const fresh = structuredClone(DEFAULT_STATE.communication);
+  if (!saved || typeof saved !== "object") return fresh;
+
+  const isOld = ("mission" in saved) || ("vocab" in saved) || ("quizIndex" in saved);
+  if (isOld) {
+    // Keep it only if it actually held anything worth keeping.
+    const used = (saved.vocab || []).length || (saved.writing || []).length ||
+                 (saved.mistakes || []).length > 3 || (saved.streak && saved.streak.count);
+    if (used) fresh.legacy = saved;
+    return fresh;
+  }
+
+  fresh.progress = (saved.progress && typeof saved.progress === "object") ? saved.progress : {};
+  fresh.errors   = (saved.errors   && typeof saved.errors   === "object") ? saved.errors   : {};
+  fresh.schedule = (saved.schedule && typeof saved.schedule === "object") ? saved.schedule : {};
+  fresh.mistakes = Array.isArray(saved.mistakes) ? saved.mistakes : [];
+  if (saved.legacy) fresh.legacy = saved.legacy;
+  return fresh;
+}
 
 /* localStorage may be unavailable in some contexts — never crash. */
 export const store = {
@@ -444,7 +477,7 @@ function merge(saved) {
       p.activeWorkDocGroup = (p.workDocGroups.find(gr => !gr.archived) || p.workDocGroups[0]).id;
     }
   });
-  s.communication = Object.assign(structuredClone(DEFAULT_STATE.communication), saved.communication || {});
+  s.communication = migrateCommunication(saved.communication);
   // Top up with richer philosophical quotes rather than replacing the
   // list — keeps whatever the user already has (including any they've
   // added themselves) and just adds the ones not already present.

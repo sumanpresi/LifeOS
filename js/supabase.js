@@ -2,7 +2,7 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js';
 import { state, replaceState, persist, setRemoteSaver, uid, esc, rerender, flushPendingSave } from './state.js';
 import { setSyncPill, nowTime, toast, isUserTyping } from './ui.js';
-import { pushCommunicationUpdate } from './communication-bridge.js';
+import { pushCommunicationUpdate, mergeCommunication } from './communication-bridge.js';
 import { pushNgdrTrackerUpdate } from './ngdr-tracker-bridge.js';
 import { mergeBoardData } from './whiteboard.js';
 import { takeSnapshot } from './backup.js';
@@ -885,6 +885,10 @@ export async function loadRemote(preferRemote = false) {
       mergeIncomingSectionNotes(remote);
       mergeIncomingTasks(remote);
       mergeIncomingJournal(remote); // after the trash log has been merged, which mergeIncomingTasks does
+      /* Course progress is append-shaped, so an incoming copy is combined
+         with this device's rather than replacing it — the same reason the
+         journal and the ink merge instead of one side winning. */
+      remote.communication = state.communication = mergeCommunication(state.communication, remote.communication);
       // The merge just changed local state (possibly pulling in board
       // data from the remote side) independent of whatever the win/lose
       // branching below decides — make sure that's actually reflected
@@ -1316,6 +1320,10 @@ function startRealtime() {
         mergeIncomingSectionNotes(remote);
         mergeIncomingTasks(remote);
         mergeIncomingJournal(remote); // after the trash log has been merged, which mergeIncomingTasks does
+        /* Course progress is append-shaped, so an incoming copy is combined
+           with this device's rather than replacing it — the same reason the
+           journal and the ink merge instead of one side winning. */
+        remote.communication = state.communication = mergeCommunication(state.communication, remote.communication);
         applyRemote(remote);
         toast("Updated from another device");
       })
