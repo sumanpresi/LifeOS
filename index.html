@@ -1128,7 +1128,19 @@
             <button class="btn btn-ghost" onclick="searchWorldMap()">🔍 Go</button>
             <button class="btn btn-ghost" id="worldMapLocateBtn" onclick="locateMeOnWorldMap()">🎯 My location</button>
           </div>
+          <!-- KML layers. Sits between the search row and the map so the
+               tabs read as belonging to the map, and leaves Go / My
+               location / Get route exactly where they were. -->
+          <div class="kml-bar">
+            <div class="kml-tabs" id="kmlTabs"></div>
+            <label class="btn btn-ghost kml-upload">
+              📁 Upload .kml
+              <input type="file" id="kmlFileInput" accept=".kml,application/vnd.google-earth.kml+xml"
+                     multiple onchange="uploadKmlFiles(this)" hidden>
+            </label>
+          </div>
           <div class="leaflet-map-container" id="worldMap" style="height:480px"></div>
+          <div class="kml-details" id="kmlDetails"></div>
 
           <div class="route-panel">
             <div class="route-panel-title">📏 Distance &amp; route by road</div>
