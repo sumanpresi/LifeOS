@@ -818,3 +818,36 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
                                         instead of running past the bottom edge */
   }
 }
+
+/* ===============================================================
+   19. BOARD DRAG HANDLE — touch only
+   ===============================================================
+   Pairs with the `handle` option in initBoardSorting(). The grip is the
+   one place on the card where `touch-action:none` is safe, because it
+   is not a place anyone scrolls from — everywhere else on the card
+   keeps pan so the page still scrolls under a swipe.
+
+   Hidden entirely for a mouse: with a fine pointer Sortable is given no
+   handle at all and the whole card stays draggable, which is what the
+   GSI and Personal boards settled on.
+   --------------------------------------------------------------- */
+@media (pointer:fine){
+  .t-board-card-handle{display:none}
+}
+@media (pointer:coarse){
+  .t-board-card-handle{
+    display:flex; align-items:center; justify-content:center;
+    align-self:stretch;
+    width:26px; margin:-8px 0 -8px -6px;   /* bleed into the card padding: a full-height
+                                              grip column without stealing title width */
+    font-size:15px; opacity:.4;
+    touch-action:none !important;          /* beats the inline touch-action Sortable may set */
+    -webkit-user-select:none; user-select:none;
+    -webkit-touch-callout:none;            /* no iOS press-and-hold callout mid-drag */
+    cursor:grab;
+  }
+  .t-board-card-handle:active{opacity:.75}
+  /* The grip occupies the left edge, so the meta row lines up under the
+     title rather than under the grip. */
+  .t-board-card-meta{margin-left:20px}
+}
