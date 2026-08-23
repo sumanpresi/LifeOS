@@ -1275,59 +1275,63 @@ body.note-fullscreen-open .card{ overflow: visible; }
 .t-archived-delete:hover{background:#FEE2E2;color:var(--t-danger);border-color:var(--t-danger)}
 
 /* ---- Board view ---- */
-/* THE BOARD WRAPS INSTEAD OF SCROLLING SIDEWAYS.
+/* TWO BOARDS, ONE MARKUP.
 
-   It was a flex row with `overflow-x:auto` and 230px minimum columns —
-   a desktop board, which on a folding phone's inner screen (~830px) put
-   three-and-a-bit columns in view and left the fourth as a sliver at the
-   edge. Reading the workload meant scrolling horizontally through five
-   columns while most of the height sat empty.
+   Wide screens keep the board they always had: a horizontal row of
+   columns that scrolls sideways when there are more than fit. On a
+   desktop that is the right shape — the columns are the same height, the
+   eye runs across them, and there is room for all five.
 
-   A grid with `auto-fit` uses whatever width there is and wraps the rest
-   onto the next row, so the same rule produces the right answer at every
-   size without naming a single device: one column on a phone, two on the
-   Fold's inner screen in portrait, four on a laptop, five on a wide
-   desktop — the layout it always had. */
-.t-board{
-  display:grid;
-  /* 240px is chosen against the space the board actually gets, not the
-     viewport: the page's card gives it ~1600px on a 1920 desktop but only
-     ~510px on the Fold's inner screen in portrait. That yields five
-     columns on the desktop, three on the Fold in landscape, two in
-     portrait and one on a phone — from one rule, with no device in it. */
-  /* 216px is measured against the space the board actually gets, which is
-     not the viewport: the page card gives it ~1566px on a 1920 desktop but
-     only ~476px on the Fold's inner screen in portrait. Two columns there
-     need 2x216 plus the 14px gap = 446, which fits; at 240px they needed
-     494 and fell back to one. The same rule then yields four across on a
-     desktop, three on the Fold in landscape and one on a phone. */
-  /* A plain length, not min(100%, 216px): the percentage inside minmax()
-     made Chrome fall back to a single track: it resolved the minimum as the
-     whole container rather than the length.
+   Narrow screens get a wrapping grid instead. The same horizontal board
+   on a folding phone's inner screen (~830px, and only ~476px once the
+   page card has taken its share) showed three-and-a-bit columns with the
+   fourth as a sliver at the edge, while most of the height sat empty. The
+   break is at 1100px, which is below any laptop and above every phone —
+   no device is named. */
+.t-board{display:flex;gap:14px;overflow-x:auto;padding:14px 18px 18px;align-items:flex-start;width:100%;box-sizing:border-box}
+.t-board-col{flex:1 1 0;min-width:230px;background:var(--t-bg);border-radius:12px;border:1px solid var(--t-border);
+  display:flex;flex-direction:column}
 
-     200px, not 216: the Fold's board is 476px wide, 440 inside its
-     padding, and two 216px tracks plus the 14px gap need 446 — six pixels
-     short, which cost the whole second column. Measured, not guessed. */
-  grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
-  gap:14px;padding:14px 18px 18px;width:100%;box-sizing:border-box;
-  align-items:start;      /* columns keep their own height, no stretched gaps */
+@media (max-width:1099px){
+  .t-board{
+    display:grid;
+    /* 200px measured against the space the board actually gets, which is
+       not the viewport: the page card leaves it ~476px on the Fold in
+       portrait, 440 inside its padding. Two 216px tracks plus the 14px gap
+       need 446 — six pixels short, which cost the whole second column.
+
+       A plain length, not min(100%, 200px): a percentage inside minmax()
+       makes Chrome resolve the minimum as the whole container and collapse
+       to a single track. */
+    grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));
+    overflow-x:visible;
+    align-items:start;    /* columns keep their own height, no stretched gaps */
+  }
+  .t-board-col{min-width:0}
+
+  /* Completed is history, not work in progress: it spans the full width at
+     the foot of the board rather than taking one of the four columns that
+     matter, and starts collapsed (see isColCollapsed in tasks.js). */
+  .t-board-col[data-board-col="completed"]{grid-column:1 / -1}
+
+  /* A card here is for scanning, not reading: tighter padding, one meta
+     row, and a status stripe down the left edge so a column can be read at
+     a glance rather than by its heading. */
+  .t-board-card{padding:8px 9px;border-radius:9px}
+  .t-board-card-title{-webkit-line-clamp:2;font-size:13px}
+  .t-board-card-meta{margin-top:6px;margin-left:26px;gap:5px}
+  .t-board-card-tag,.t-board-project-sel{font-size:10px;padding:1px 5px}
+  .t-board-col-body{padding:8px;gap:6px}
+  .t-board-col-head{padding:10px 10px 8px}
+
+  .t-board-col[data-board-col="overdue"] .t-board-card{border-left:3px solid var(--warn)}
+  .t-board-col[data-board-col="today"] .t-board-card{border-left:3px solid var(--t-accent)}
+  .t-board-col[data-board-col="upcoming"] .t-board-card{border-left:3px solid var(--lilac-deep)}
+  .t-board-col[data-board-col="nodate"] .t-board-card{border-left:3px solid var(--line)}
+  /* A flagged card keeps its own marker — priority outranks which column
+     it happens to be sitting in. */
+  .t-board-col .t-board-card.flagged{border-left-color:var(--warn)}
 }
-.t-board-col{
-  min-width:0;background:var(--t-bg);border-radius:12px;border:1px solid var(--t-border);
-  display:flex;flex-direction:column;
-  /* Height comes from the cards. The page scrolls; a column only scrolls
-     internally once it is long enough to swamp the screen on its own. */
-  max-height:none;
-}
-/* No per-column scroll cap here: a considered rule further down this file
-   sets `.t-board-col-body{overflow-y:visible}` so columns grow and the
-   page scrolls once, rather than every column becoming its own wheel
-   trap. Adding a cap here would have been overridden anyway. */
-
-/* Completed is history, not work in progress: it spans the full width at
-   the foot of the board rather than taking a column from the four that
-   matter, and starts collapsed. */
-.t-board-col[data-board-col="completed"]{grid-column:1 / -1}
 
 .t-board-col-head{display:flex;align-items:center;gap:8px;padding:12px 12px 10px;border-bottom:1px solid var(--t-border);flex-shrink:0}
 .t-board-col-title{font-family:'Inter',sans-serif;font-size:13px;font-weight:700;color:var(--t-ink);
