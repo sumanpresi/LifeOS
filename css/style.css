@@ -1495,8 +1495,11 @@ body.note-fullscreen-open .card{ overflow: visible; }
 /* ---- Calendar view ---- */
 .t-cal{padding:14px 18px 18px}
 .t-cal-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-.t-cal-month{font-family:'Fraunces',serif;font-size:17px;font-weight:600;flex:1}
+.t-cal-month{font-family:'Fraunces',serif;font-size:17px;font-weight:600;flex:1;min-width:0}
+.t-cal-month-year{margin-left:.35em;color:var(--t-ink2)}
+.t-cal-nav{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .t-cal-head .btn{padding:6px 12px;font-size:13px}
+.t-cal-wd-mini{display:none} /* phone-width weekday initials — see the mobile block below */
 .t-cal-weekdays{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin-bottom:6px;
   font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--t-ink2);text-align:center}
 .t-cal-grid{display:flex;flex-direction:column;gap:6px}
@@ -1562,11 +1565,110 @@ body.note-fullscreen-open .card{ overflow: visible; }
 .t-popup-title{flex:1;min-width:0;font-family:'Inter',sans-serif;font-size:15.5px;font-weight:600;
   color:var(--t-ink);line-height:1.4;word-break:break-word}
 .t-popup-title.done{text-decoration:line-through;color:var(--t-ink2)}
+/* ---- Calendar view on a phone ----
+   The desktop treatment — seven bordered cards per row, each a raised
+   panel with 7px of padding and a two-line task title — does not survive
+   being divided by a 430px screen. Each cell lands at ~55px wide, which
+   leaves the chip title roughly four characters of room, and a long GSI
+   task name ("Send 52 AMD reports") then breaks one letter per line and
+   stretches the row to the height of the whole viewport.
+
+   So the phone gets the layout the platform already taught everyone to
+   read: Apple's month view. Cells lose their borders and become plain
+   space; the week is separated by a single hairline rule; tasks become
+   one-line tinted pills that truncate rather than wrap; the overflow
+   count collapses to a bare "+3"; and today is a filled circle behind
+   the date instead of a ring around the cell. Tapping a day still opens
+   the day sheet, and a long-press still drags a task to another date.
+
+   Scoped to 600px, not 767px, on purpose: responsive-foldable.css owns
+   601-1099px (Fold 6 unfolded, iPad), where it gives each day a fixed
+   150px column and scrolls the week sideways. Two different answers to
+   two different problems; they must not overlap. */
+@media(max-width:600px){
+  .t-cal{padding:10px 8px calc(16px + env(safe-area-inset-bottom,0px))}
+  /* This grid now fits the width by design, so nothing here scrolls
+     sideways — a stray horizontal drag should move the page, or a task. */
+  .t-cal-scroll{max-width:100%;overflow-x:hidden}
+
+  /* Month name gets display size, the year sits beside it as a label, and
+     the three controls group into a quiet cluster on the right — the
+     month is the thing you're navigating by, not the arrows. */
+  .t-cal-head{align-items:flex-end;gap:8px;margin:0 4px 10px;padding-top:2px}
+  .t-cal-month{font-size:30px;line-height:1.05;letter-spacing:-.01em}
+  .t-cal-month-year{font-size:16px;font-weight:500}
+  .t-cal-nav{gap:2px}
+  .t-cal-head .btn{padding:5px 9px;font-size:12.5px;border-radius:8px}
+  .t-cal-head .t-cal-arrow{padding:3px 10px;font-size:19px;line-height:1}
+
+  /* All seven initials fit where the three-letter names never did. */
+  .t-cal-wd-full{display:none}
+  .t-cal-wd-mini{display:inline}
+  .t-cal-weekdays{gap:0;margin:0;padding:0 0 6px;font-size:11px;font-weight:600;
+    color:var(--t-ink2);border-bottom:1px solid var(--t-border)}
+
+  /* Rows butt against each other and are told apart by a rule, the way a
+     paper month grid does it. No gap, no per-cell border, no radius. */
+  .t-cal-grid{gap:0;overflow-x:visible}
+  .t-cal-week{gap:0;border-bottom:1px solid var(--t-border)}
+  .t-cal-cell{min-height:88px;padding:4px 2px 6px;border:none;border-radius:0;
+    background:transparent;gap:3px}
+  .t-cal-cell:not(.t-cal-empty):hover,.t-cal-cell:not(.t-cal-empty):active{
+    background:var(--t-cal-cell-hover);border-color:transparent}
+  .t-cal-cell.t-cal-today{border:none;box-shadow:none}
+
+  /* The quick-add "+" is desktop hover affordance; on a phone the whole
+     cell is already the tap target and the day sheet has its own add
+     field, so it's only noise sitting on top of the date. */
+  .t-cal-add-hint{display:none}
+  .t-cal-daynum-row{justify-content:center}
+  .t-cal-daynum{font-size:14px;font-weight:600;line-height:1;
+    min-width:24px;height:24px;display:flex;align-items:center;justify-content:center}
+  /* Today reads as a filled dot, which stays legible at this size where a
+     1px ring around a borderless cell would not. --t-danger rather than
+     the blue accent: the accent is already carrying links, the "+N" line
+     and the checked state inside these same cells. */
+  .t-cal-today .t-cal-daynum{background:var(--t-danger);color:#fff;border-radius:999px}
+
+  .t-cal-tasks{gap:2px;min-height:14px}
+
+  /* One line, truncated. This is the change that fixes the letter-per-line
+     column: the desktop rule wraps and clamps to two lines, which needs
+     more width than a seventh of a phone screen can give. */
+  .t-cal-chip{align-items:center;gap:2px;padding:1px 2px;border-radius:4px;
+    border-color:transparent;overflow:hidden}
+  .t-cal-chip-chk{width:6px;height:6px;border-radius:999px;border-width:1.5px;margin-top:0}
+  .t-cal-chip-title{font-size:9.5px;font-weight:600;line-height:1.5;letter-spacing:-.01em;
+    display:block;-webkit-line-clamp:none;white-space:nowrap;word-break:normal;
+    overflow:hidden;text-overflow:ellipsis}
+  /* Work and personal get their own tint so a glance at the month reads
+     as two streams, matching the Work/Personal filter above the grid. */
+  .t-cal-chip.cat-work{background:var(--t-cal-chip-bg)}
+  .t-cal-chip.cat-personal{background:var(--t-cal-chip-personal-bg,#E8F1E9)}
+  .t-cal-chip.overdue{background:var(--t-cal-chip-overdue-bg,#FBEEDD);border-color:transparent}
+
+  /* "+3", not "+3 more" — the word costs a third of the cell's width. */
+  .t-cal-more{text-align:center;font-size:10px;font-weight:600;padding:1px 2px;
+    color:var(--t-ink2)}
+  .t-cal-more-lbl{display:none}
+
+  /* Expanded days stop truncating the list, so the row grows instead. */
+  .t-cal-cell.t-cal-expanded .t-cal-tasks{min-height:0}
+}
+
+/* Tinted pill backgrounds for the phone grid, per theme. */
+html[data-theme="dark"]{--t-cal-chip-personal-bg:#33402F; --t-cal-chip-overdue-bg:#453521}
+
+/* The Tasks toolbar on a phone: the filter and view switches are wider
+   than the screen together, which is why "Calendar" was being clipped
+   mid-word. They wrap onto their own lines and scroll within themselves
+   rather than being cut off by the card edge. */
 @media(max-width:767px){
-  .t-cal-weekdays div:not(:nth-child(1)):not(:nth-child(4)):not(:nth-child(7)){font-size:0} /* keep the grid, thin the labels — Sun/Wed/Sat only, room's too tight for all seven on a phone */
-  .t-cal-cell{min-height:52px;padding:4px}
-  .t-cal-add-hint{opacity:.6}
-  .t-cal-chip{font-size:10.5px}
+  .t-toolbar{flex-wrap:wrap;gap:8px}
+  #taskFilterBar,#taskViewSwitch{max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch;
+    scrollbar-width:none}
+  #taskFilterBar::-webkit-scrollbar,#taskViewSwitch::-webkit-scrollbar{display:none}
+  #taskFilterBar button,#taskViewSwitch button{white-space:nowrap;flex:0 0 auto}
 }
 
 /* Header "Archive Completed" button */
@@ -3269,7 +3371,12 @@ html[data-theme="dark"] :is(.card,.sidebar,.modal){
   .shell{max-width:100%}
   .main{min-width:0;max-width:100%}
   /* Wide children scroll inside themselves rather than stretching the page. */
-  .emi-table-wrap,.t-board,.wb-canvas-area,.t-cal-grid{max-width:100%;overflow-x:auto}
+  .emi-table-wrap,.t-board,.wb-canvas-area{max-width:100%;overflow-x:auto}
+  /* The month grid used to be in that list. On a phone it now fits the
+     width by design (see the calendar mobile block); between 601 and
+     767px responsive-foldable.css scrolls .t-cal-scroll instead, and a
+     second scroller on .t-cal-grid would decouple the day columns from
+     their own weekday labels. */
   /* The greeting is a display serif at a size tuned for desktop; at phone
      widths it wraps to three lines and pushes everything down. */
   .greet h1{font-size:23px;line-height:1.15}
