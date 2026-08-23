@@ -247,46 +247,49 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
 
 /* ---------------------------------------------------------------
    5. TASK CARDS — fixed, Todoist-like size (no more growing with title length)
-   Scoped to the same <=1099px range the board already uses. Desktop
-   cards are untouched — style.css's own line-clamp:3/height:auto stays
-   exactly as it was there.
+
+   NOT scoped to a breakpoint. This used to stop at 1099px, which left
+   desktop on style.css's line-clamp:3 / height:auto — so a single long
+   task (an NGDR note running to a paragraph, Devanagari or Latin) grew
+   its card to many hundreds of pixels and stretched its whole column
+   with it. Todoist's card is a fixed slot at every width, so this is
+   now unconditional and desktop gets the same treatment.
    --------------------------------------------------------------- */
-@media (max-width:1099px){
-  .t-board-card{
-    box-sizing:border-box;
-    height:var(--t-card-h);       /* fixed — a 3-word title and a 30-word title render the same size. Defined in section 11. */
-    display:flex;
-    flex-direction:column;
-    overflow:hidden;
-    padding:9px 10px;
-  }
-  .t-board-card-top{
-    flex:1 1 auto;
-    min-height:0;                 /* required for a flex child to actually shrink/clip instead of pushing the card taller */
-    overflow:hidden;
-    align-items:flex-start;
-  }
-  .t-board-card-title,
-  .gsi-board-card-title{
-    display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
-    overflow:hidden;max-height:100%;
-  }
-  .t-board-card-meta{
-    flex:0 0 auto;                 /* meta row is a fixed strip at the card's bottom, not part of what clips */
-    max-height:36px;
-    overflow:hidden;
-    margin-top:6px;
-    margin-left:0;                 /* reclaim the desktop checkbox-alignment indent — compact cards need the width more */
-    gap:4px;
-  }
-  .t-board-card-tag,.t-board-project-sel,.t-board-card-date{
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  }
-  .t-board-project-sel{max-width:64px}
-  /* One unusually long task no longer stretches its column: every card
-     in every column shares the same 120px slot, so column height is
-     driven purely by card COUNT, same as Todoist. */
+.t-board-card{
+  box-sizing:border-box;
+  height:var(--t-card-h);       /* fixed — a 3-word title and a 30-word title render the same size. Defined in section 11. */
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  padding:9px 10px;
 }
+.t-board-card-top{
+  flex:1 1 auto;
+  min-height:0;                 /* required for a flex child to actually shrink/clip instead of pushing the card taller */
+  overflow:hidden;
+  align-items:flex-start;
+}
+.t-board-card-title,
+.gsi-board-card-title{
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+  overflow:hidden;max-height:100%;
+}
+.t-board-card-meta{
+  flex:0 0 auto;                 /* meta row is a fixed strip at the card's bottom, not part of what clips */
+  max-height:36px;
+  overflow:hidden;
+  margin-top:6px;
+  margin-left:0;                 /* reclaim the desktop checkbox-alignment indent — compact cards need the width more */
+  gap:4px;
+}
+.t-board-card-tag,.t-board-project-sel,.t-board-card-date{
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.t-board-project-sel{max-width:64px}
+/* One unusually long task no longer stretches its column: every card
+   in every column shares the same 120px slot, so column height is
+   driven purely by card COUNT, same as Todoist. */
+
 
 /* ---------------------------------------------------------------
    6. LONG-PRESS DRAG — touch-action hints (JS delay/fallback/handle
@@ -539,11 +542,12 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
 /* ===============================================================
    11. TASK CARD HEIGHT
    ===============================================================
-   Single source of truth so the compact card height can be retuned in
-   one place. Section 5 above fixed this at 128px; the brief asks for
-   110–115px, which is what --t-card-h is set to. The reference
-   screenshot's own cards measure ~72px, so if the intent is to match
-   it exactly rather than the written spec, lower this one value to
-   ~76px and drop the clamp to 2 lines — nothing else needs to change.
+   Single source of truth for the compact card height, applied at every
+   width now that section 5 is no longer breakpoint-scoped.
+
+   Set to 112px, the range the brief asks for. The reference screenshot's
+   own cards measure ~72px — if you would rather match the screenshot
+   than the written spec, lower this one value to ~76px and nothing else
+   needs to change (the title is already clamped to 2 lines).
    --------------------------------------------------------------- */
 :root{--t-card-h:112px}
