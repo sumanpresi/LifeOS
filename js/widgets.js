@@ -24,6 +24,16 @@ export function renderLinks() {
         </div>
       </div>
     </div>`).join("") || `<p class="hint">Save the links you reach for every day.</p>`;
+  /* The three-field add row below is always visible on desktop, where
+     there is room for it. On the foldable/tablet/phone widths it is
+     collapsed behind this "+" chip instead (CSS-only, see section 9 of
+     responsive-foldable.css) so the links card stays the single compact
+     pill row the reference shows. The toggle is a class on the card, not
+     state, so re-rendering the grid — which replaces this button — can
+     never leave the row stranded open or shut. */
+  document.getElementById("linksGrid").insertAdjacentHTML("beforeend",
+    `<button type="button" class="link-add-btn" title="Add link" aria-label="Add link"
+       onclick="this.closest('.card').classList.toggle('adding')">+</button>`);
 }
 export function toggleLinkEdit(id) {
   openLinkEditId = openLinkEditId === id ? null : id;

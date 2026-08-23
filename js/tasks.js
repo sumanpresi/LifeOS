@@ -155,7 +155,6 @@ function initBoardSorting() {
       filter: "button, input, select, textarea, a, .t-chk",
       preventOnFilter: false,
       draggable: ".t-board-card", // GSI cards are pick-up-able here too — moveTaskToColumn routes them through setGsiTaskStatus/editProjectTask/archiveGsiTaskEntry instead of the native task functions
-      preventOnFilter: false,
       animation: 140,
       easing: "cubic-bezier(0.2, 0, 0.2, 1)",
       delay: 200, delayOnTouchOnly: true, touchStartThreshold: 6,
