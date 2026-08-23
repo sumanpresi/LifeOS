@@ -1402,6 +1402,26 @@
   </div>
 </div>
 
+<!-- Calendar day view — opened by tapping a day cell in the Calendar
+     view. Shows every task due that day with an inline "Add on …" row,
+     so a day's full agenda opens as its own window instead of the
+     three-chips-then-truncated preview the month grid shows. -->
+<div class="modal-bg" id="dayViewModalBg">
+  <div class="modal day-view-modal" style="max-width:420px">
+    <div class="expand-modal-head" style="margin-bottom:2px">
+      <h2 id="dayViewTitle">Day</h2>
+      <button class="btn btn-ghost" onclick="closeDayView()">✕ Close</button>
+    </div>
+    <div class="day-view-sub" id="dayViewSub"></div>
+    <div class="day-view-list" id="dayViewBody"></div>
+    <div class="day-view-add-row">
+      <input type="text" id="dayViewAddInput" class="day-view-add-input" placeholder="Add a task…"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();dayViewAddTask()}">
+      <button class="day-view-add-btn" onclick="dayViewAddTask()" aria-label="Add task">+</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal-bg" id="ghModal">
   <div class="modal">
     <div id="ghModalSetup" style="display:none">
