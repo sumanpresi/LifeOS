@@ -11,7 +11,13 @@ import { sanitizeHtml } from './sanitize.js';
 /* ---------- important links ---------- */
 let openLinkEditId = null; // which single link's inline edit panel is open — UI-only, not persisted
 export function renderLinks() {
-  document.getElementById("linksGrid").innerHTML = state.links.map(l => `
+  /* The label lives INSIDE #linksGrid, not in a wrapper around it, for
+     two reasons: it shares the pill row's flex line so it reads as the
+     row's leading label, and — importantly — wrapping #linksGrid would
+     break the `#linksGrid + .add-inline` adjacent-sibling selectors that
+     both style.css and the collapse rule depend on. */
+  const label = `<span class="card-head-section link-grid-label">Important links</span>`;
+  document.getElementById("linksGrid").innerHTML = label + state.links.map(l => `
     <div class="link-row" data-link-id="${l.id}">
       <a href="${esc(l.url)}" target="_blank" rel="noopener" class="link-row-title" onclick="linkClickPulse(this)">${esc(l.title)}</a>
       <button class="link-edit-btn" onclick="toggleLinkEdit('${l.id}')" title="Edit link">✎</button>
