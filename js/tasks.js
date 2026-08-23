@@ -758,10 +758,26 @@ function collapsedCols() {
   try { return new Set(JSON.parse(localStorage.getItem(COLLAPSE_KEY) || "[]")); }
   catch (_) { return new Set(); }
 }
-export function isColCollapsed(board, key) { return collapsedCols().has(board + ":" + key); }
+export function isColCollapsed(board, key) {
+  const set = collapsedCols();
+  /* Completed starts collapsed: it is a record of what is already done, and
+     left open it is the longest column on the board. Once toggled the
+     choice is remembered like any other, so this only decides the first
+     view on a device. */
+  if (key === "completed" && !set.has(board + ":completed:seen")) return true;
+  return set.has(board + ":" + key);
+}
 export function toggleBoardCol(board, key) {
   const set = collapsedCols();
   const id = board + ":" + key;
+  if (key === "completed" && !set.has(board + ":completed:seen")) {
+    // First touch of Completed: record that it has been seen, and open it.
+    set.add(board + ":completed:seen");
+    set.delete(id);
+    try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...set])); } catch (_) {}
+    rerender();
+    return;
+  }
   if (set.has(id)) set.delete(id); else set.add(id);
   try { localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...set])); } catch (_) {}
   rerender();
