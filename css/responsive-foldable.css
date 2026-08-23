@@ -467,13 +467,6 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
 .card.adding #linksGrid + .add-inline{display:flex}
 
 @media (max-width:1024px){
-  /* Title label is redundant next to a row of self-describing pills,
-     and the reference has no room for it. Hidden visually only — it
-     is still announced, so the card keeps its accessible name. */
-  #page-overview > .section-title:first-of-type{
-    position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);
-    white-space:nowrap;margin:0;
-  }
   #linksGrid{flex-wrap:nowrap;overflow-x:auto;overflow-y:visible;gap:8px;
              scrollbar-width:none;padding-bottom:2px}
   #linksGrid::-webkit-scrollbar{display:none}
@@ -620,4 +613,68 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
   #tasksCard #taskDragHint{order:6;width:100%;margin:6px 0 0}
   #tasksCard > #tasksCardContent > .t-add-row{order:7;width:100%}
   #tasksCard > #tasksCardContent > #taskList{order:8;width:100%;padding:12px 0 14px}
+}
+
+/* ===============================================================
+   14. "Habit tracking" label moved inside its own card
+   ===============================================================
+   Previously a .section-title sitting above the card. It now leads the
+   card head, ahead of "Overview". Styled as a label rather than a
+   second heading so the two read as "section · view" instead of
+   competing for the same emphasis — Fraunces to match the section
+   titles it replaces, with a divider separating it from "Overview".
+
+   The h2 is already display:flex with gap:12px, so this needs no
+   layout of its own; margin-right trims that gap for the divider.
+   --------------------------------------------------------------- */
+.card-head-section{
+  font-family:'Fraunces',serif;
+  font-weight:600;
+  color:var(--muted);
+  white-space:nowrap;
+  padding-right:12px;
+  margin-right:0;
+  border-right:1px solid var(--glass-line);
+}
+@media (max-width:600px){
+  /* Two labels plus the week nav is too much for a phone row — the
+     card is under a "Habits" nav item there, so the context is not
+     lost by dropping it. */
+  .card-head-section{display:none}
+}
+
+/* ===============================================================
+   15. IMPORTANT LINKS — label inside the row, slimmer pills
+   ===============================================================
+   The standalone .section-title above the card is gone; the label now
+   leads the pill row itself (prepended inside #linksGrid by
+   renderLinks, so it shares the row's flex line). Same label treatment
+   as the Habit tracking card for consistency.
+
+   Pills are slimmer: smaller title text and reduced vertical padding,
+   so the row reads as a compact strip of shortcuts rather than a set
+   of buttons. Applies at every width.
+   --------------------------------------------------------------- */
+#linksGrid{align-items:center}
+.link-grid-label{
+  flex:0 0 auto;
+  font-size:14px;
+  align-self:center;
+}
+
+.link-row{padding:3px 4px 3px 10px}
+.link-row-title{font-size:12.5px;font-weight:600}
+.link-edit-btn,.link-del-btn{width:18px;height:18px;border-radius:6px;font-size:10px}
+.link-add-btn{width:24px;height:24px;font-size:15px}
+
+@media (max-width:1024px){
+  /* Overrides section 9's earlier, larger values. */
+  .link-row{padding:3px 4px 3px 9px}
+  .link-row-title{font-size:12px}
+  .link-grid-label{font-size:13px}
+}
+@media (max-width:600px){
+  /* The pills scroll horizontally here and the card sits under its own
+     nav item, so the leading label costs more width than it earns. */
+  .link-grid-label{display:none}
 }
