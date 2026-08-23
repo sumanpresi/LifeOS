@@ -566,3 +566,58 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
    --------------------------------------------------------------- */
 #tasksCard[data-view="board"] .t-add-row,
 #tasksCard[data-view="calendar"] .t-add-row{display:none}
+
+/* ===============================================================
+   13. TASKS HEADER — single line on desktop
+   ===============================================================
+   Order:  Tasks (n open) | filters | views | sort ··· Archive Completed | expand
+
+   The heading and the toolbar live in different parents — .card-head
+   sits outside #tasksCardContent, the toolbar inside it — so they can
+   only share a line if those wrappers stop generating boxes.
+   display:contents promotes their children to be flex items of
+   #tasksCard itself, which is what puts them all on one row without
+   moving a single element in the markup.
+
+   Keeping the toolbar in #tasksCardContent matters: expandView() moves
+   that node into the modal, so the filters and view switch travel with
+   the board into "view large". Because every rule here is scoped under
+   #tasksCard, they all stop applying the moment the node is reparented
+   into the modal — the expanded view falls back to the normal stacked
+   layout on its own, with no extra code.
+
+   Breakpoint is 1400px, not 1025px, because the row genuinely needs it:
+   the toolbar alone is ~620px, and heading + toolbar + both action
+   buttons come to ~990px of card width. Below ~1360px that does not
+   fit and the buttons would wrap to a second line anyway — so the
+   existing two-row layout is kept there instead, which is also the
+   shape the Fold reference screenshot shows.
+
+   If you want the merge at narrower widths, collapsing "Archive
+   Completed" to its folder icon (as the <=1024px rules already do)
+   frees ~120px and brings the threshold down to about 1250px.
+   --------------------------------------------------------------- */
+@media (min-width:1400px){
+  #tasksCard{
+    display:flex; flex-wrap:wrap; align-items:center;
+    column-gap:10px; row-gap:0; padding:14px 18px 0;
+  }
+  #tasksCard > .card-head,
+  #tasksCard > #tasksCardContent,
+  #tasksCard > #tasksCardContent > .card-body:first-child{display:contents}
+
+  #tasksCard > .card-head > h2{order:1;margin:0}
+  #tasksCard > .card-head > .hint{order:2}
+  #tasksCard .t-toolbar{order:3;flex:0 1 auto;flex-wrap:nowrap;margin:0;row-gap:0;min-width:0}
+  /* Sort closes the toolbar group rather than being pushed to the far
+     edge — the two action buttons own the right end of the row. */
+  #tasksCard .t-toolbar #taskSortBtn{margin-left:6px}
+  /* This is the gap that separates "controls" from "actions". */
+  #tasksCard > .card-head > .t-archive-all-btn{order:4;margin-left:auto}
+  #tasksCard > .card-head > .expand-btn{order:5}
+
+  /* Everything below the header keeps its own full-width row. */
+  #tasksCard #taskDragHint{order:6;width:100%;margin:6px 0 0}
+  #tasksCard > #tasksCardContent > .t-add-row{order:7;width:100%}
+  #tasksCard > #tasksCardContent > #taskList{order:8;width:100%;padding:12px 0 14px}
+}
