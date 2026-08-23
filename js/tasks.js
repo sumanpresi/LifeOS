@@ -149,9 +149,33 @@ function destroyBoardSortables() {
 function initBoardSorting() {
   destroyBoardSortables();
   if (taskView !== "board" || sortByDate || typeof Sortable === "undefined") return;
+  /* Touch needs a handle; a mouse does not.
+
+     Dragging the whole card relies on `touch-action: pan-x pan-y` so a
+     swipe that starts on a card can still scroll the page — the drag is
+     separated from the scroll by Sortable's 200ms delay instead. That
+     bargain holds on Android but breaks on iOS Safari: allowing pan on
+     the element lets WebKit claim the gesture as a native pan/zoom, and
+     once it has, touchmove stops being cancelable. Sortable can no
+     longer preventDefault, so the page scrolls (or pinch-zooms) out from
+     under a drag that has already started and the fallback clone is left
+     stranded at the coordinates where it was created — detached from the
+     finger, and at the wrong scale once the visual viewport is zoomed.
+
+     A handle fixes it at the source: `touch-action: none` on the grip
+     alone means WebKit never starts a pan there, so the gesture is
+     unambiguously a drag from the first move, while the rest of the card
+     keeps normal scrolling.
+
+     Restricted to coarse pointers on purpose. Both the GSI and Personal
+     boards dropped their ⠿ grip because it got in the way of dragging a
+     card by its body, and that judgement still holds for a mouse — so
+     with a mouse the whole card stays draggable exactly as before. */
+  const coarsePointer = !!window.matchMedia?.("(pointer: coarse)")?.matches;
   document.querySelectorAll("#taskList .t-board-col-body").forEach(container => {
     boardSortableInstances.push(Sortable.create(container, {
       group: "task-board", // shared across every column — this is what allows dragging between them, not just within one
+      ...(coarsePointer ? { handle: ".t-board-card-handle" } : {}),
       filter: "button, input, select, textarea, a, .t-chk",
       preventOnFilter: false,
       draggable: ".t-board-card", // GSI cards are pick-up-able here too — moveTaskToColumn routes them through setGsiTaskStatus/editProjectTask/archiveGsiTaskEntry instead of the native task functions
@@ -693,6 +717,7 @@ function boardCardHtml(t) {
     <div class="t-board-card ${t.done ? "done" : ""}${t.flag ? " flagged" : ""}" data-task-id="${t.id}" data-is-gsi="${t.isGsi ? "1" : "0"}" onclick="openTaskCardDetail('${t.id}')" role="button" tabindex="0"
       onkeydown="if(event.key==='Enter'){event.preventDefault();openTaskCardDetail('${t.id}')}">
       <div class="t-board-card-top">
+        <span class="t-board-card-handle" aria-hidden="true">⠿</span>
         <button class="t-chk ${t.done ? "on" : ""}" onclick="event.stopPropagation();toggleTask('${t.id}')" aria-label="Toggle task">
           <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
         <span class="t-board-card-title">${esc(t.text)}</span>
