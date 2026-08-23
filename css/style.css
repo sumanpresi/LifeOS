@@ -346,6 +346,25 @@ h1,h2,.display{font-family:'Fraunces',serif}
 .modal input:focus{border-color:var(--accent)}
 .modal .row{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
 .modal .err{color:var(--warn);font-weight:700;font-size:13px;margin-top:8px;display:none}
+
+/* ---------- Calendar day view (tap a day cell → this day's agenda) ---------- */
+.day-view-sub{color:var(--muted, #7A7568);font-size:13px;margin:-4px 0 14px}
+.day-view-list{display:flex;flex-direction:column;gap:8px;max-height:min(46vh,360px);overflow-y:auto;margin-bottom:14px}
+.day-view-task{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;
+  background:var(--t-cal-chip-bg,var(--lilac));border:1px solid var(--t-cal-chip-border,var(--line))}
+.day-view-task-chk{flex-shrink:0;width:18px;height:18px;border-radius:6px;border:1.5px solid var(--accent);background:transparent;padding:0;cursor:pointer}
+.day-view-task.done .day-view-task-chk{background:var(--accent)}
+.day-view-task-title{flex:1;min-width:0;text-align:left;background:none;border:none;padding:0;cursor:pointer;
+  font-size:14.5px;font-weight:600;color:var(--ink,#221F33);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.day-view-task.done .day-view-task-title{color:var(--muted,#948F80);text-decoration:line-through}
+.day-view-task-flag{flex-shrink:0;font-size:13px}
+.day-view-add-row{display:flex;gap:8px}
+.day-view-add-input{flex:1;min-width:0;border:1px solid var(--line);border-radius:12px;padding:11px 14px;
+  font-size:14px;background:var(--card);color:var(--ink,#221F33)}
+.day-view-add-input:focus{border-color:var(--accent);outline:none}
+.day-view-add-btn{flex-shrink:0;width:42px;border-radius:12px;border:none;background:var(--accent);
+  color:#fff;font-size:20px;line-height:1;cursor:pointer}
+.day-view-add-btn:hover{filter:brightness(1.08)}
 code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(16px);opacity:0;background:var(--ink);color:#fff;
