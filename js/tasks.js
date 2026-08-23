@@ -1032,6 +1032,13 @@ export function renderTasks() {
     if (switcher) switcher.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.view === taskView));
   }
   const list = document.getElementById("taskList");
+  /* Board and Calendar carry their own ways to add a task (a per-column
+     "+ Add task" composer, and tapping a day cell). The permanent
+     "Add a task" bar is redundant there and is hidden by CSS keyed off
+     this attribute. List view has no other affordance, so it keeps the
+     bar — removing it outright would leave that view unable to add
+     anything at all. */
+  document.getElementById("tasksCard")?.setAttribute("data-view", taskView);
   let visible = state.tasks.filter(t => taskFilter === "all" || (t.category || "work") === taskFilter);
 
   // GSI project tasks are inherently work — merge them in for "Work"/"All"
