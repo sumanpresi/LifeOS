@@ -254,7 +254,7 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
 @media (max-width:1099px){
   .t-board-card{
     box-sizing:border-box;
-    height:128px;                 /* fixed — a 3-word title and a 30-word title render the same size */
+    height:var(--t-card-h);       /* fixed — a 3-word title and a 30-word title render the same size. Defined in section 11. */
     display:flex;
     flex-direction:column;
     overflow:hidden;
@@ -268,7 +268,7 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
   }
   .t-board-card-title,
   .gsi-board-card-title{
-    display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;
+    display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
     overflow:hidden;max-height:100%;
   }
   .t-board-card-meta{
@@ -358,3 +358,192 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
 @media (max-width:600px){
   .link-row-title{max-width:min(160px,50vw)}
 }
+
+/* ===============================================================
+   8. HEADER — two rows on the Fold inner screen / tablet range
+   ===============================================================
+   Reference layout:
+
+     row 1 :  greeting + date          [Backup] [Restore] [@user]
+     row 2 :  [Search] [Dark] [Synced · time] [Sync]
+
+   The markup is now .top > .top-row-main (greeting + primary actions)
+   + .top-actions-secondary. That nesting is what lets row 2 start at
+   the card's left padding edge instead of being right-aligned under
+   the buttons — a single wrapping .top-actions could not do it,
+   because justify-content applies identically to every wrapped line.
+
+   Desktop is restored to its original single row further down via
+   display:contents, so this restructure costs nothing above 1024px.
+   --------------------------------------------------------------- */
+.top-row-main{
+  display:flex; align-items:flex-start; justify-content:space-between;
+  gap:16px; width:100%; min-width:0;
+}
+.top-row-main .greet{min-width:0;flex:1 1 auto}
+
+@media (min-width:601px) and (max-width:1024px){
+  .top{
+    flex-direction:column; align-items:stretch; flex-wrap:nowrap;
+    gap:10px; padding:14px 16px; margin-bottom:14px; border-radius:18px;
+  }
+  .greet h1{font-size:26px;line-height:1.15}
+  .greet .date{font-size:13px;margin-top:1px}
+
+  /* Right-hand group stays on the greeting's row and never wraps
+     underneath it. It may shrink, but only down to a legible floor. */
+  .top-actions-primary{flex-wrap:nowrap;flex-shrink:0;gap:8px}
+  .top-actions-primary .btn{padding:7px 13px;font-size:13px;white-space:nowrap}
+  .top-actions-primary .btn svg{width:14px;height:14px}
+  #ghBtnText{
+    max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+
+  /* Row 2: one horizontal group, left-aligned under the greeting. */
+  .top-actions-secondary{
+    flex-wrap:nowrap; gap:8px; min-width:0;
+    overflow-x:auto; overflow-y:hidden;      /* the row scrolls, never the page (§11) */
+    scrollbar-width:none;
+  }
+  .top-actions-secondary::-webkit-scrollbar{display:none}
+  .top-actions-secondary .pill,
+  .top-actions-secondary .btn{
+    flex-shrink:0; padding:6px 12px; font-size:12.5px; white-space:nowrap;
+  }
+  .top-actions-secondary .btn svg{width:14px;height:14px}
+}
+
+/* Desktop unchanged: display:contents dissolves the two new wrappers
+   so .greet and both action groups become direct flex children of
+   .top again, exactly as before. `order` puts Search/Dark/Sync back
+   ahead of Backup/Restore/GitHub, and margin-left:auto reproduces the
+   original single right-aligned cluster. */
+@media (min-width:1025px){
+  .top-row-main{display:contents}
+  .top-actions-secondary{order:1;margin-left:auto}
+  .top-actions-primary{order:2}
+  .top{gap:10px}
+}
+
+/* Cover screen / phones: the same two-row shape, tightened. */
+@media (max-width:600px){
+  .top{flex-direction:column;align-items:stretch;flex-wrap:nowrap;gap:9px;padding:13px 14px}
+  .top-row-main{gap:10px}
+  .top-actions-primary{flex-wrap:nowrap;flex-shrink:0;gap:6px}
+  .top-actions-primary .btn{padding:6px 10px;font-size:12px}
+  #ghBtnText{max-width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .top-actions-secondary{
+    flex-wrap:nowrap;gap:6px;min-width:0;overflow-x:auto;scrollbar-width:none;
+  }
+  .top-actions-secondary::-webkit-scrollbar{display:none}
+  .top-actions-secondary .pill,.top-actions-secondary .btn{flex-shrink:0;white-space:nowrap}
+  .top-actions-secondary .kbd{display:none} /* no physical keyboard to hint at */
+}
+
+/* ===============================================================
+   9. IMPORTANT LINKS — single compact pill row + "+"
+   ===============================================================
+   The reference shows only the pills and a "+". The three-field add
+   row is kept (it is the only way to add a link) but collapsed behind
+   that "+" below desktop, so the card is one row tall at rest.
+   --------------------------------------------------------------- */
+.link-add-btn{
+  flex:0 0 auto; display:none; align-items:center; justify-content:center;
+  width:30px; height:30px; border-radius:999px; font-size:17px; line-height:1;
+  font-weight:700; color:var(--muted);
+  border:1px solid var(--glass-line); background:var(--glass-bg-strong);
+  transition:color .15s var(--ease),border-color .15s var(--ease);
+}
+.link-add-btn:hover{color:var(--accent-ink);border-color:var(--accent)}
+
+@media (max-width:1024px){
+  .link-add-btn{display:inline-flex}
+  #linksGrid + .add-inline{display:none}
+  .card.adding #linksGrid + .add-inline{display:flex}
+
+  /* Title label is redundant next to a row of self-describing pills,
+     and the reference has no room for it. Hidden visually only — it
+     is still announced, so the card keeps its accessible name. */
+  #page-overview > .section-title:first-of-type{
+    position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);
+    white-space:nowrap;margin:0;
+  }
+  #linksGrid{flex-wrap:nowrap;overflow-x:auto;overflow-y:visible;gap:8px;
+             scrollbar-width:none;padding-bottom:2px}
+  #linksGrid::-webkit-scrollbar{display:none}
+  #linksGrid + .add-inline{margin-top:10px}
+  #page-overview > .card:first-of-type > .card-body{padding:12px 14px}
+  .link-row{flex-shrink:0;padding:5px 5px 5px 11px}
+  .link-row-title{font-size:13.5px}
+  .link-edit-btn,.link-del-btn{width:20px;height:20px;opacity:1}
+}
+
+/* A horizontally-scrolling flex row clips absolutely-positioned
+   children, which would trap the edit popover inside it. Overflow is
+   released for as long as one is open — the card is already promoted
+   by .has-open-popover at that moment, so nothing else can overlap it. */
+@media (max-width:1024px){
+  .card.has-open-popover #linksGrid{overflow:visible}
+}
+
+/* ===============================================================
+   10. TASKS CARD HEAD + TOOLBAR — one row each
+   =============================================================== */
+@media (max-width:1024px){
+  /* Head: "Tasks (1 open)" left, folder + expand right. .card-head is
+     justify-content:space-between with four children, which would
+     spread all four evenly — this pushes the two buttons into a pair
+     at the right instead. */
+  #tasksCard .card-head{padding:13px 14px 0;gap:8px}
+  #tasksCard .card-head h2{font-size:18px}
+  #tasksCard .card-head .hint{margin-right:auto}
+
+  /* Archive-Completed collapses to its icon, matching the reference's
+     folder button. font-size:0 hides the label text while keeping the
+     button's accessible name intact for screen readers. */
+  #tasksCard .t-archive-all-btn{padding:6px 9px;border-radius:10px}
+  #tasksCard .t-archive-all-label{font-size:0}
+  #tasksCard .t-archive-all-label::before{content:"🗂";font-size:15px}
+
+  /* Toolbar: [All|Work|Personal] [Board|List|Calendar|Archive] … [Sort]
+     One row, never wrapped. If a narrower device cannot fit it, the
+     TOOLBAR scrolls — the page must not (§11). */
+  #tasksCard .t-toolbar{
+    flex-wrap:nowrap; gap:8px; row-gap:0; min-width:0;
+    overflow-x:auto; overflow-y:hidden;
+    scrollbar-width:none; padding-bottom:2px;
+  }
+  #tasksCard .t-toolbar::-webkit-scrollbar{display:none}
+  #tasksCard .t-toolbar > *{flex:0 0 auto}
+  /* Sort sits hard right; the two segments stay grouped at the left.
+     margin-left:auto does this without relying on space-between, which
+     would also push the two segments apart from each other. */
+  #tasksCard .t-toolbar #taskSortBtn{margin-left:auto}
+  #tasksCard .t-toolbar .seg button{padding:5px 10px;font-size:12.5px;white-space:nowrap}
+  #tasksCard .t-toolbar #taskSortBtn{padding:5px 11px;font-size:12.5px;white-space:nowrap}
+  #tasksCard > #tasksCardContent > .card-body{padding:10px 14px 0}
+}
+
+/* Archive is a modal trigger, not a view, so it must never take the
+   .on treatment setTaskView applies to its data-view siblings. */
+.t-archive-tab{background:var(--card)}
+
+/* iPad mini (768px) is the tightest width that still has to fit the
+   whole toolbar beside a 60px rail — one more step down in size. */
+@media (min-width:601px) and (max-width:820px){
+  #tasksCard .t-toolbar{gap:6px}
+  #tasksCard .t-toolbar .seg button{padding:5px 8px;font-size:12px}
+  #tasksCard .t-toolbar #taskSortBtn{padding:5px 9px;font-size:12px}
+}
+
+/* ===============================================================
+   11. TASK CARD HEIGHT
+   ===============================================================
+   Single source of truth so the compact card height can be retuned in
+   one place. Section 5 above fixed this at 128px; the brief asks for
+   110–115px, which is what --t-card-h is set to. The reference
+   screenshot's own cards measure ~72px, so if the intent is to match
+   it exactly rather than the written spec, lower this one value to
+   ~76px and drop the clamp to 2 lines — nothing else needs to change.
+   --------------------------------------------------------------- */
+:root{--t-card-h:112px}
