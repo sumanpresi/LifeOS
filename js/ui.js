@@ -209,6 +209,19 @@ export function preserveBoardScroll(render) {
   const saved = boards.map(el => [el.closest("[id]")?.id || "", el.scrollLeft]);
   const pageY = window.scrollY;
 
+  /* On the fold/phone breakpoint a board scrolls horizontally with
+     scroll-snap-type:x mandatory (see responsive-foldable.css). Setting
+     el.scrollLeft below is a programmatic jump straight to where the
+     person had scrolled to, which is rarely a snap point itself — left
+     as mandatory, the browser "corrects" it to whichever column edge is
+     nearest on the very next layout, so the restore visibly lands on a
+     different column than the one being dragged into. Suspending
+     snapping for the length of the restore, then handing it back once
+     scrollLeft has actually settled, is what keeps the drop where the
+     person put it. body.is-dragging (style.css) covers the equivalent
+     problem during the live drag itself — this covers the moment after. */
+  boards.forEach(el => { el.style.scrollSnapType = "none"; });
+
   const result = render();   // pass the render's own return value through
 
   const restore = () => {
@@ -221,9 +234,17 @@ export function preserveBoardScroll(render) {
   };
   /* Once synchronously, so there is no visible flash, and once after the
      next paint, because a board whose columns were re-created can clamp
-     scrollLeft to 0 until it has been laid out. */
+     scrollLeft to 0 until it has been laid out. Snapping is only handed
+     back a further frame after that, once the restored scrollLeft has
+     actually taken — re-enabling it in the same frame that sets it
+     re-triggers the exact snap-correction this is working around. */
   restore();
-  requestAnimationFrame(restore);
+  requestAnimationFrame(() => {
+    restore();
+    requestAnimationFrame(() => {
+      document.querySelectorAll(".t-board").forEach(el => { el.style.scrollSnapType = ""; });
+    });
+  });
   return result;
 }
 
@@ -246,9 +267,15 @@ let skipScrollUntil = 0;
 export function skipScrollRestoreBriefly(ms = 500) { skipScrollUntil = Date.now() + ms; }
 
 export function preserveScrollAndFocus(render) {
-  const savedBoards = [...document.querySelectorAll(".t-board")]
-    .map(el => [el.closest("[id]")?.id || "", el.scrollLeft]);
+  const boardEls = [...document.querySelectorAll(".t-board")];
+  const savedBoards = boardEls.map(el => [el.closest("[id]")?.id || "", el.scrollLeft]);
   const pageY = window.scrollY;
+
+  // Same scroll-snap workaround as preserveBoardScroll above — any
+  // re-render that restores a board's scrollLeft can land on the wrong
+  // column if snapping is left on to "correct" it. See that function's
+  // comment for the full explanation.
+  boardEls.forEach(el => { el.style.scrollSnapType = "none"; });
 
   const active = document.activeElement;
   const focusId = (active && active.id) ? active.id : "";
@@ -281,6 +308,11 @@ export function preserveScrollAndFocus(render) {
     }
   };
   restore();
-  requestAnimationFrame(restore);
+  requestAnimationFrame(() => {
+    restore();
+    requestAnimationFrame(() => {
+      document.querySelectorAll(".t-board").forEach(el => { el.style.scrollSnapType = ""; });
+    });
+  });
   return result;
 }
