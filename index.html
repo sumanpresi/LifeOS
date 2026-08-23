@@ -64,6 +64,13 @@
      nearly impossible to diagnose from a screenshot, because the code on
      disk is correct. Bump on every release. -->
 <link rel="stylesheet" href="css/style.css?v=202608191630">
+<!-- Foldable/tablet/mobile layout layer — loaded after style.css on purpose.
+     It overrides that file's tablet breakpoint (wrap-to-grid board,
+     off-canvas drawer sidebar) with an icon-rail sidebar and a
+     horizontally-scrolling, fixed-width Kanban board for Z Fold 6 inner
+     (~883px), iPad mini/iPad (~768–1024px), and a bottom tab bar for
+     phones (<=600px, incl. iPhone 17 Pro Max ~440px and fold cover screens). -->
+<link rel="stylesheet" href="css/responsive-foldable.css?v=202608231">
 </head>
 <body>
 <div class="shell">
@@ -72,42 +79,42 @@
   <aside class="sidebar" id="sidebar">
     <div class="brand"><div class="brand-mark">L</div><span class="brand-name">LifeOS</span></div>
     <p class="nav-label">Account</p>
-    <button class="nav-item active" data-page="overview" onclick="go('overview')">
+    <button class="nav-item active" data-page="overview" onclick="go('overview')" data-tooltip="Overview">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/></svg>
-      Overview</button>
-    <button class="nav-item" data-page="dayof" onclick="go('dayof')">
+      <span class="nav-item-label">Overview</span></button>
+    <button class="nav-item" data-page="dayof" onclick="go('dayof')" data-tooltip="Today">
       <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
-      Today</button>
-    <button class="nav-item" data-page="trash" onclick="go('trash')">
+      <span class="nav-item-label">Today</span></button>
+    <button class="nav-item" data-page="trash" onclick="go('trash')" data-tooltip="Trash">
       <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>
-      Trash<span class="hint" id="trashNavCount" style="margin-left:auto"></span></button>
+      <span class="nav-item-label">Trash</span><span class="hint" id="trashNavCount" style="margin-left:auto"></span></button>
     <p class="nav-label">Spaces</p>
-    <button class="nav-item" data-page="personal" onclick="go('personal')">
+    <button class="nav-item" data-page="personal" onclick="go('personal')" data-tooltip="Personal">
       <svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
-      Personal</button>
-    <button class="nav-item" data-page="health" onclick="go('health')">
+      <span class="nav-item-label">Personal</span></button>
+    <button class="nav-item" data-page="health" onclick="go('health')" data-tooltip="Health">
       <svg viewBox="0 0 24 24"><path d="M12 21s-8-4.9-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 6.1-8 11-8 11z"/></svg>
-      Health</button>
-    <button class="nav-item" data-page="communication" onclick="go('communication')">
+      <span class="nav-item-label">Health</span></button>
+    <button class="nav-item" data-page="communication" onclick="go('communication')" data-tooltip="Communication">
       <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/></svg>
-      Communication</button>
-    <button class="nav-item" data-page="finance" onclick="go('finance')">
+      <span class="nav-item-label">Communication</span></button>
+    <button class="nav-item" data-page="finance" onclick="go('finance')" data-tooltip="Finance">
       <svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="13" rx="2"/><path d="M2 10h20M6 15h4"/></svg>
-      Finance</button>
-    <button class="nav-item" data-page="travel" onclick="go('travel')">
+      <span class="nav-item-label">Finance</span></button>
+    <button class="nav-item" data-page="travel" onclick="go('travel')" data-tooltip="Travel Plan">
       <svg viewBox="0 0 24 24"><path d="M2 16l20-7-9 11-2-6-6-2z"/></svg>
-      Travel Plan</button>
-    <button class="nav-item" data-page="work" onclick="go('work')">
+      <span class="nav-item-label">Travel Plan</span></button>
+    <button class="nav-item" data-page="work" onclick="go('work')" data-tooltip="Work · GSI">
       <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-      Work · GSI</button>
-    <button class="nav-item" data-page="reference" onclick="go('reference')">
+      <span class="nav-item-label">Work · GSI</span></button>
+    <button class="nav-item" data-page="reference" onclick="go('reference')" data-tooltip="Reference">
       <svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2zm0 0a2 2 0 0 1 2-2h13"/></svg>
-      Reference</button>
-    <button class="nav-item" data-page="entertainment" onclick="go('entertainment')">
+      <span class="nav-item-label">Reference</span></button>
+    <button class="nav-item" data-page="entertainment" onclick="go('entertainment')" data-tooltip="Entertainment">
       <svg viewBox="0 0 24 24"><path d="M4 5h16v11H4zM8 20h8M12 16v4"/><path d="M9 8l5 2.5L9 13z"/></svg>
-      Entertainment</button>
+      <span class="nav-item-label">Entertainment</span></button>
       <div class="sidebar-foot">
-      <button class="gh-chip" onclick="openGhModal()" id="ghChip">
+      <button class="gh-chip" onclick="openGhModal()" id="ghChip" data-tooltip="GitHub">
         <svg id="ghChipIcon" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.54-3.87-1.54-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.26.72-1.55-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12v3.14c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>
         <span>
           <span class="gh-name" id="ghName">Connect GitHub</span><br>
