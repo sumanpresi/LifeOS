@@ -229,7 +229,17 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
    device that would otherwise auto-hide it.
    --------------------------------------------------------------- */
 @media (max-width:1024px){
-  html,body{height:auto;overflow-x:hidden} /* no clipped/nested scroll parents; horizontal overflow guarded here instead */
+  /* overflow-x:hidden here is the LAST-RESORT fallback only — it is
+     what broke the sticky sidebar. `overflow-x:hidden` silently forces
+     the other axis to compute as `auto`, which turns html/body into a
+     scroll container; `position:sticky` on the rail then resolves
+     against that container instead of the viewport and the rail simply
+     scrolls away with the page. Desktop never hits this rule, which is
+     why the sidebar stayed put there and only moved below 1024px.
+     The @supports block after this media query replaces it with
+     overflow-x:clip, which guards horizontal overflow just as well
+     without creating a scroll container. */
+  html,body{height:auto;overflow-x:hidden}
   .shell{align-items:flex-start;min-height:100vh}
   .main{min-width:0;max-width:100%;overflow-x:hidden}
   /* A visible-but-subtle page scrollbar. Firefox: thin + tinted track.
@@ -761,4 +771,50 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
 /* Rotate to a "close" affordance once the row is open. */
 .add-inline.collapsible.open > .link-add-btn{
   transform:rotate(45deg); color:var(--accent-ink); border-color:var(--accent);
+}
+
+/* ===============================================================
+   18. STICKY SIDEBAR ON THE FOLD / TABLET — overflow-x:clip
+   ===============================================================
+   Restores the desktop behaviour (rail stays put, page scrolls under
+   it) on the icon-rail range, where it had been lost.
+
+   `overflow-x:clip` clips overflow exactly like `hidden` but is
+   explicitly defined NOT to create a scroll container — which is the
+   whole reason `hidden` broke position:sticky in section 4. Wrapped in
+   @supports so any browser without clip keeps the old hidden rule:
+   worst case there is the pre-existing behaviour, never a page that
+   scrolls sideways.
+
+   .main keeps plain overflow-x:hidden. It is the sidebar's SIBLING,
+   not its ancestor, so it cannot affect the rail's sticky positioning,
+   and nothing inside .main relies on sticky.
+   --------------------------------------------------------------- */
+@supports (overflow:clip){
+  /* Deliberately scoped to the icon-rail range, NOT all of <=1024px.
+     Below 601px the sidebar is a position:fixed bottom tab bar, which
+     needs no sticky at all — so there is nothing to gain there, and no
+     reason to change the overflow behaviour of an ancestor of a fixed
+     element. Phones keep the original hidden rule untouched. */
+  @media (min-width:601px) and (max-width:1024px){
+    html,body{overflow-x:clip}
+  }
+}
+
+/* Belt and braces for the rail itself: sticky needs a resolvable
+   containing block and a real offset. Both are already set in section
+   1, restated here so the intent is not split across two files if
+   section 1 is ever retuned. The rail must also not be a flex item
+   that stretches, or it would fill .shell's full scroll height and
+   have nothing left to stick within. */
+@media (min-width:601px) and (max-width:1024px){
+  .sidebar{
+    position:sticky;
+    top:16px;
+    align-self:flex-start;           /* never stretch to the shell's full height */
+    height:calc(100vh - 32px);       /* fallback for anything without dvh */
+    height:calc(100dvh - 32px);      /* dvh tracks Samsung Internet's collapsing URL bar,
+                                        so the rail matches what is actually on screen
+                                        instead of running past the bottom edge */
+  }
 }
