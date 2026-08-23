@@ -215,3 +215,119 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:hover::after,
 html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
   background:#2A2926;
 }
+
+/* ---------------------------------------------------------------
+   4. FULL-HEIGHT SIDEBAR + INDEPENDENT PAGE SCROLL
+   .shell is already a flex row and .sidebar is already `position:sticky`
+   with `height:calc(100vh - 32px)` (both on desktop in style.css and in
+   section 1 above for the rail) — that combination is what keeps the
+   sidebar pinned at full viewport height while .main scrolls the normal
+   document underneath it. These rules only harden that: they stop
+   anything from accidentally capping .main's height (which would force
+   a second, nested scroll container inside it) and add a slim, visible
+   scrollbar so the ability to scroll is never invisible on a touch
+   device that would otherwise auto-hide it.
+   --------------------------------------------------------------- */
+@media (max-width:1024px){
+  html,body{height:auto;overflow-x:hidden} /* no clipped/nested scroll parents; horizontal overflow guarded here instead */
+  .shell{align-items:flex-start;min-height:100vh}
+  .main{min-width:0;max-width:100%;overflow-x:hidden}
+  /* A visible-but-subtle page scrollbar. Firefox: thin + tinted track.
+     WebKit/Blink (incl. Samsung Internet, Chrome on the Fold): a slim
+     custom thumb instead of the default full-width one. Deliberately
+     NOT display:none / width:0 anywhere — the spec calls for this to
+     stay visible, not to be hidden for a "cleaner" look. */
+  html{scrollbar-width:thin;scrollbar-color:rgba(43,42,36,.28) transparent}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:rgba(43,42,36,.28);border-radius:99px}
+  html[data-theme="dark"]{scrollbar-color:rgba(255,255,255,.22) transparent}
+  html[data-theme="dark"] ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22)}
+}
+
+/* ---------------------------------------------------------------
+   5. TASK CARDS — fixed, Todoist-like size (no more growing with title length)
+   Scoped to the same <=1099px range the board already uses. Desktop
+   cards are untouched — style.css's own line-clamp:3/height:auto stays
+   exactly as it was there.
+   --------------------------------------------------------------- */
+@media (max-width:1099px){
+  .t-board-card{
+    box-sizing:border-box;
+    height:128px;                 /* fixed — a 3-word title and a 30-word title render the same size */
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    padding:9px 10px;
+  }
+  .t-board-card-top{
+    flex:1 1 auto;
+    min-height:0;                 /* required for a flex child to actually shrink/clip instead of pushing the card taller */
+    overflow:hidden;
+    align-items:flex-start;
+  }
+  .t-board-card-title,
+  .gsi-board-card-title{
+    display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;
+    overflow:hidden;max-height:100%;
+  }
+  .t-board-card-meta{
+    flex:0 0 auto;                 /* meta row is a fixed strip at the card's bottom, not part of what clips */
+    max-height:36px;
+    overflow:hidden;
+    margin-top:6px;
+    margin-left:0;                 /* reclaim the desktop checkbox-alignment indent — compact cards need the width more */
+    gap:4px;
+  }
+  .t-board-card-tag,.t-board-project-sel,.t-board-card-date{
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .t-board-project-sel{max-width:64px}
+  /* One unusually long task no longer stretches its column: every card
+     in every column shares the same 120px slot, so column height is
+     driven purely by card COUNT, same as Todoist. */
+}
+
+/* ---------------------------------------------------------------
+   6. LONG-PRESS DRAG — touch-action hints only (JS delay/fallback/
+   handle logic in tasks.js is intentionally left as-is; these rules
+   just tell the browser up front which axis each layer owns, so it
+   doesn't fight Sortable's own touch handling during the pre-drag delay).
+   --------------------------------------------------------------- */
+@media (max-width:1099px){
+  .t-board{touch-action:pan-x pan-y}     /* board itself may be scrolled either way (horizontally by the user, vertically as part of the page) */
+  .t-board-col-body{touch-action:pan-y}  /* a column's own card list only ever scrolls vertically */
+  .t-board-card{touch-action:manipulation} /* a plain tap responds immediately; SortableJS's own delay timer still owns the long-press-to-lift gesture */
+  .t-board-card-handle{touch-action:none}  /* grabbing the ⠿ handle specifically should never scroll — it should always mean "pick this up" */
+}
+
+/* ---------------------------------------------------------------
+   7. IMPORTANT LINKS — never push the page wider than the viewport
+   Root cause was `.link-row-title` in style.css: white-space:nowrap
+   with no max-width, so one long saved title/URL could grow past the
+   card and take the whole page with it. Truncated with ellipsis here
+   instead — desktop (>1024px) is untouched, where the extra width was
+   never a problem.
+   --------------------------------------------------------------- */
+@media (max-width:1024px){
+  .link-grid{max-width:100%}
+  .link-row{max-width:100%}
+  .link-row-title{
+    max-width:min(220px,58vw);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  /* The inline edit popover is positioned relative to its own link pill
+     (`left:0` in style.css) — fine for a pill near the left edge, but a
+     pill near the right edge of a narrow screen can carry it past the
+     viewport. Capping its width and letting it hug whichever side has
+     room keeps title/URL/description fields and their Save controls
+     reachable either way. */
+  .link-edit-panel{
+    min-width:0;
+    width:max(230px,70vw);
+    max-width:calc(100vw - 32px);
+  }
+}
+@media (max-width:600px){
+  .link-row-title{max-width:min(160px,50vw)}
+}
