@@ -451,7 +451,7 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
    that "+" below desktop, so the card is one row tall at rest.
    --------------------------------------------------------------- */
 .link-add-btn{
-  flex:0 0 auto; display:none; align-items:center; justify-content:center;
+  flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center;
   width:30px; height:30px; border-radius:999px; font-size:17px; line-height:1;
   font-weight:700; color:var(--muted);
   border:1px solid var(--glass-line); background:var(--glass-bg-strong);
@@ -459,11 +459,14 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
 }
 .link-add-btn:hover{color:var(--accent-ink);border-color:var(--accent)}
 
-@media (max-width:1024px){
-  .link-add-btn{display:inline-flex}
-  #linksGrid + .add-inline{display:none}
-  .card.adding #linksGrid + .add-inline{display:flex}
+/* The Title / URL / Description / Add-link bar is collapsed at EVERY
+   width, desktop included — it is a form you need for a few seconds
+   when adding a link and never again, so it should not occupy a
+   permanent row under the pills. The "+" chip reveals it. */
+#linksGrid + .add-inline{display:none}
+.card.adding #linksGrid + .add-inline{display:flex}
 
+@media (max-width:1024px){
   /* Title label is redundant next to a row of self-describing pills,
      and the reference has no room for it. Hidden visually only — it
      is still announced, so the card keeps its accessible name. */
@@ -551,3 +554,15 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
    needs to change (the title is already clamped to 2 lines).
    --------------------------------------------------------------- */
 :root{--t-card-h:112px}
+
+/* ===============================================================
+   12. "ADD A TASK" BAR — only where there is no other way to add
+   ===============================================================
+   Board view has a "+ Add task" composer at the foot of every column
+   and Calendar view adds a task when you tap a day cell, so the
+   permanent bar above the board is a duplicate control in both. It
+   stays in List view, which has no other add affordance.
+   data-view is set on #tasksCard by renderTasks().
+   --------------------------------------------------------------- */
+#tasksCard[data-view="board"] .t-add-row,
+#tasksCard[data-view="calendar"] .t-add-row{display:none}
