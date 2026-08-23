@@ -1228,19 +1228,48 @@ export function addTask() {
   el.value = "";
   clearNewTaskDraft();
 }
+/* Completed starts collapsed (see isColCollapsed). That default is fine
+   on a board you are only reading, but it makes the first completion
+   look broken: the card leaves its column and lands inside a collapsed
+   one, so the visible result of ticking a task is that it vanishes with
+   no feedback. Completing something is exactly the moment that column
+   becomes worth showing, so the first completion opens it and records
+   it as seen — after that the person's own collapse choice is honoured
+   like any other column's. */
+function revealCompletedColumnOnce() {
+  try {
+    const raw = localStorage.getItem(COLLAPSE_KEY);
+    const set = new Set(raw ? JSON.parse(raw) : []);
+    if (set.has("native:completed:seen")) return; // already seen — respect whatever the user chose since
+    set.add("native:completed:seen");
+    set.delete("native:completed");
+    localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...set]));
+  } catch (_) { /* storage unavailable — the column just stays collapsed, same as before */ }
+}
+
 export function toggleTask(id) {
   const t = state.tasks.find(x => x.id === id);
   if (t) {
     t.done = !t.done;
+    if (t.done) revealCompletedColumnOnce();
     t.completedAt = t.done ? Date.now() : null;
     touch(t); persist(); rerender();
     syncTaskToGoogle(t, t.done ? "delete" : "create").catch(() => {}); // a completed task has nothing left to remind about; reopening it (with a due date) puts it back
     return;
   }
+  /* GSI and Personal project tasks land in the same Completed column as
+     native ones, so they get the same one-time reveal. */
   const { task: gt } = findProjectTask(id);
-  if (gt) { setGsiTaskStatus(id, gt.status === "done" ? "todo" : "done"); return; }
+  if (gt) {
+    if (gt.status !== "done") revealCompletedColumnOnce();
+    setGsiTaskStatus(id, gt.status === "done" ? "todo" : "done");
+    return;
+  }
   const { task: pt } = findPwProjectTask(id);
-  if (pt) setPwTaskStatus(id, pt.status === "done" ? "todo" : "done");
+  if (pt) {
+    if (pt.status !== "done") revealCompletedColumnOnce();
+    setPwTaskStatus(id, pt.status === "done" ? "todo" : "done");
+  }
 }
 export function toggleFlag(id) {
   const t = state.tasks.find(x => x.id === id);
