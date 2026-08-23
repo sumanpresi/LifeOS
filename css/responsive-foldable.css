@@ -228,6 +228,60 @@ body.is-dragging .t-board{scroll-snap-type:none}
   .t-board-col[data-board-col="completed"]{width:min(300px,80vw)}
 }
 
+/* ---------------------------------------------------------------
+   3.5. CALENDAR VIEW — horizontal scroll instead of 7-across squeeze
+   Fold 6 inner (~883px) and iPad mini/iPad only — same range as the
+   icon-rail sidebar and the board's mid-width column tweak above.
+   Phones (<=600px) keep style.css's own compact treatment (Sun/Wed/Sat-
+   only labels, shorter cells) unchanged; that one wasn't the complaint.
+
+   style.css's .t-cal-weekdays/.t-cal-week fit exactly 7 columns into
+   whatever width they're given (grid-template-columns:repeat(7,1fr) /
+   flex:1 1 0). At ~883px, minus the icon rail and the card's own
+   padding, that leaves roughly 100px per day — enough for the 2-line
+   chip-title wrap (see .t-cal-chip-title in style.css) to fit only a
+   handful of characters before it still has to truncate, which is
+   what read as unfixed on this screen even though the wrap itself was
+   working correctly.
+
+   The fix mirrors the Kanban board's own one: stop trying to fit all 7
+   columns into the viewport at once and let the week scroll
+   horizontally instead, with each day given a fixed, comfortable
+   width. The weekday header row and every week row are wrapped in one
+   shared .t-cal-scroll container (js/tasks.js) so they scroll TOGETHER
+   as one block — one scrollbar, no separate sync code needed — while
+   .t-cal-head (the month name and ‹ › Today controls) sits outside
+   that wrapper and stays put as the day grid scrolls under it.
+   Sortable's own drag-and-drop is untouched: it operates on the same
+   .t-cal-tasks containers regardless of how wide the column around
+   them is. */
+@media (min-width:601px) and (max-width:1099px){
+  /* style.css has its own phone-only safety net — .t-cal-grid{max-
+     width:100%;overflow-x:auto} at <=767px — meant to stop a wide child
+     stretching the page. It overlaps the bottom of this range (601–
+     767px) and would otherwise give .t-cal-grid a second, independent
+     scrollbar, decoupled from .t-cal-weekdays right above it (which
+     that rule doesn't touch) — the day columns would scroll out of
+     sync with their own SUN/MON/... labels. .t-cal-scroll above is
+     this range's one and only horizontal scroller, so that rule is
+     cancelled here. */
+  .t-cal-grid{max-width:none; overflow-x:visible}
+
+  .t-cal-scroll{overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:4px}
+  .t-cal-weekdays{
+    display:flex; width:max-content; min-width:100%;
+    gap:6px;
+  }
+  .t-cal-weekdays > div{flex:0 0 150px; width:150px}
+  .t-cal-week{width:max-content}
+  .t-cal-cell{flex:0 0 150px; width:150px; min-width:150px; max-width:150px}
+
+  .t-cal-scroll::-webkit-scrollbar{height:6px}
+  .t-cal-scroll::-webkit-scrollbar-thumb{background:rgba(0,0,0,.18);border-radius:99px}
+  .t-cal-scroll::-webkit-scrollbar-track{background:transparent}
+  .t-cal-scroll{scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.18) transparent}
+}
+
 html[data-theme="dark"] .sidebar .nav-item[data-tooltip]:hover::after,
 html[data-theme="dark"] .sidebar .nav-item[data-tooltip]:focus-visible::after,
 html[data-theme="dark"] .gh-chip[data-tooltip]:hover::after,
