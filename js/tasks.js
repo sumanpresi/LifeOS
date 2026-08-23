@@ -360,6 +360,88 @@ export function calendarQuickAdd(dateStr) {
   createNativeTask(v.trim(), dateStr);
   persist(); rerender();
 }
+
+/* ---------- Day view — tapping a day cell opens this, a full agenda
+   for that one date, instead of the month grid's 3-chip preview. Mirrors
+   the "tap a day → see everything, add from right there" pattern of a
+   native calendar app's day sheet. dayViewDate is which date it's
+   currently showing; null means the modal is closed. */
+let dayViewDate = null;
+
+function tasksForDayView(dateStr) {
+  // Same Work/Personal/GSI/Personal-Workspace merge renderTasks() itself
+  // uses for the main list — a day view under a filtered Work/Personal
+  // tab should only show what that tab would show on the grid behind it.
+  let list = state.tasks.filter(t => taskFilter === "all" || (t.category || "work") === taskFilter);
+  if (taskFilter === "all" || taskFilter === "work") {
+    list = list.concat(getAllGsiTasksFlat().map(t => ({
+      id: t.id, text: t.text, done: t.status === "done", category: "work",
+      flag: !!t.flag, link: t.link || "", dueDate: t.date || "", isGsi: true,
+      projectId: t.projectId, projectName: t.projectName, status: t.status
+    })));
+  }
+  if (taskFilter === "all" || taskFilter === "personal") {
+    list = list.concat(getAllPwTasksFlat().map(t => ({
+      id: t.id, text: t.text, done: t.status === "done", category: "personal",
+      flag: !!t.flag, link: t.link || "", dueDate: t.date || "", isPersonal: true,
+      projectId: t.projectId, projectName: t.projectName, status: t.status
+    })));
+  }
+  return list.filter(t => t.dueDate === dateStr);
+}
+
+export function openDayView(dateStr) {
+  if (calendarClickSuppressed()) return; // the click trailing a chip drag/drop, not a real tap
+  dayViewDate = dateStr;
+  const bg = document.getElementById("dayViewModalBg");
+  if (!bg) return;
+  bg.classList.add("open");
+  renderDayView();
+  // Land focus in the add field so typing a task is a single tap + type,
+  // same as the target native day sheet.
+  setTimeout(() => document.getElementById("dayViewAddInput")?.focus(), 50);
+}
+export function closeDayView() {
+  document.getElementById("dayViewModalBg")?.classList.remove("open");
+  dayViewDate = null;
+}
+function renderDayView() {
+  const body = document.getElementById("dayViewBody");
+  if (!body || !dayViewDate) return;
+  const titleEl = document.getElementById("dayViewTitle");
+  const subEl = document.getElementById("dayViewSub");
+  const d = new Date(dayViewDate + "T00:00:00");
+  if (titleEl) titleEl.textContent = d.toLocaleDateString("en-IN", { day: "numeric", weekday: "long" });
+  if (subEl) subEl.textContent = d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  const dayTasks = tasksForDayView(dayViewDate);
+  body.innerHTML = dayTasks.length
+    ? dayTasks.map(t => `
+      <div class="day-view-task ${t.done ? "done" : ""}" data-task-id="${t.id}">
+        <button class="day-view-task-chk" onclick="event.stopPropagation();dayViewToggleTask('${t.id}')" aria-label="Toggle complete"></button>
+        <button class="day-view-task-title" onclick="event.stopPropagation();dayViewOpenTask('${t.id}')" title="${esc(t.text)}">${esc(t.text)}</button>
+        ${t.flag ? `<span class="day-view-task-flag" title="Priority">🚩</span>` : ""}
+      </div>`).join("")
+    : `<p class="hint" style="padding:4px 2px 0">No tasks on this day yet.</p>`;
+  const addInput = document.getElementById("dayViewAddInput");
+  if (addInput) addInput.placeholder = `Add on ${d.toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`;
+}
+export function dayViewToggleTask(id) {
+  toggleTask(id); // persists + triggers the full rerender itself
+  renderDayView();
+}
+export function dayViewOpenTask(id) {
+  openTaskPopup(id); // opens the full task detail on top; the day view stays open behind it
+}
+export function dayViewAddTask() {
+  const input = document.getElementById("dayViewAddInput");
+  if (!input || !dayViewDate) return;
+  const v = (input.value || "").trim();
+  if (!v) return;
+  createNativeTask(v, dayViewDate);
+  input.value = "";
+  persist(); rerender();
+  renderDayView();
+}
 export function toggleTaskSection(name) {
   if (collapsedSections.has(name)) collapsedSections.delete(name); else collapsedSections.add(name);
   const sectionEl = document.querySelector(`.t-section[data-section="${name}"]`);
@@ -938,7 +1020,7 @@ function renderCalendarView(tasksWithDates) {
     const expanded = expandedCalDays.has(dateStr);
     const shown = expanded ? dayTasks : dayTasks.slice(0, 3);
     return `
-      <div class="t-cal-cell ${dateStr === todayStr ? "t-cal-today" : ""} ${expanded ? "t-cal-expanded" : ""}" data-cal-date="${dateStr}" onclick="calendarQuickAdd('${dateStr}')" title="Click to add a task on ${dateStr}">
+      <div class="t-cal-cell ${dateStr === todayStr ? "t-cal-today" : ""} ${expanded ? "t-cal-expanded" : ""}" data-cal-date="${dateStr}" onclick="openDayView('${dateStr}')" title="View all tasks on ${dateStr}">
         <div class="t-cal-daynum-row"><span class="t-cal-daynum">${d}</span><span class="t-cal-add-hint">+</span></div>
         <div class="t-cal-tasks" data-cal-date="${dateStr}">
           ${shown.map(t => `
