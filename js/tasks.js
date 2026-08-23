@@ -1133,7 +1133,7 @@ export function renderTasks() {
   if (document.getElementById("taskArchiveModalBg")?.classList.contains("open")) renderArchivedTasksModal();
 
   const openCount = state.tasks.filter(t => !t.done).length;
-  document.getElementById("taskCount").textContent = state.tasks.length ? `${openCount} open` : "";
+  document.getElementById("taskCount").textContent = state.tasks.length ? `(${openCount} open)` : "";
   const catTasksSub = document.getElementById("catTasksSub");
   if (catTasksSub) catTasksSub.textContent =
     state.tasks.length ? `${openCount} of ${state.tasks.length} still open` : "Plan your day.";
