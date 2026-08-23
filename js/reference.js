@@ -10,7 +10,7 @@ import { attachFreehandTool } from './leaflet-freehand.js';
 import { attachPenAnnotationTool } from './map-pen-annotation.js';
 import { createToolCoordinator } from './map-tool-state.js';
 import { geocodeOne } from './geocode.js';
-import { addBaseLayer, enableClickToScrollZoom } from './map-basemap.js';
+import { addBaseLayer, enableClickToScrollZoom, WHEEL_ZOOM_OPTS } from './map-basemap.js';
 import { addFullscreenControl } from './map-fullscreen.js';
 import { getCurrentLocation } from './geolocation.js';
 import { getRoute, formatDuration } from './routing.js';
@@ -225,7 +225,7 @@ async function initWorldMap() {
   // Another call may have finished building the map while this awaited.
   if (worldMapInstance) { worldMapInstance.map.invalidateSize(); return; }
 
-  const map = L.map(container).setView([20, 10], 2); // whole-world starting view
+  const map = L.map(container, WHEEL_ZOOM_OPTS).setView([20, 10], 2); // whole-world starting view
   addBaseLayer(map);
   enableClickToScrollZoom(map);
   addFullscreenControl(map, "World map");

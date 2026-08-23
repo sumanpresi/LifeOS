@@ -8,7 +8,7 @@ import { loadMapLibs } from './lazy-libs.js';
 import { toast } from './ui.js';
 import { attachFreehandTool } from './leaflet-freehand.js';
 import { geocodeOne } from './geocode.js';
-import { addBaseLayer, enableClickToScrollZoom } from './map-basemap.js';
+import { addBaseLayer, enableClickToScrollZoom, WHEEL_ZOOM_OPTS } from './map-basemap.js';
 import { addFullscreenControl } from './map-fullscreen.js';
 import { moveToTrash } from './trash.js';
 import { getCurrentLocation } from './geolocation.js';
@@ -353,11 +353,13 @@ async function initStopMap(plan, s) {
   try { await loadMapLibs(); } catch (e) { container.textContent = "Map library couldn't load — check your connection."; return; }
   if (typeof L === "undefined") return;
 
-  // Fractional zoom (zoomSnap/zoomDelta below 1) was tried here for
-  // smoother wheel-zoom steps, but it visibly clashed with the vector
-  // tile base layer and made the whole map jittery — reverted to
-  // Leaflet's normal integer zoom levels, which render cleanly.
-  const map = L.map(container).setView([22.5, 80], 5); // default: India, until geocoded
+  /* Fractional zoom (zoomSnap/zoomDelta below 1) was tried here for
+     smoother wheel-zoom steps, but it visibly clashed with the vector
+     tile base layer and made the whole map jittery — reverted to
+     Leaflet's normal integer zoom levels, which render cleanly.
+     WHEEL_ZOOM_OPTS keeps those integer levels and instead fixes how far
+     the wheel has to travel to cross one; see map-basemap.js. */
+  const map = L.map(container, WHEEL_ZOOM_OPTS).setView([22.5, 80], 5); // default: India, until geocoded
   addBaseLayer(map);
   enableClickToScrollZoom(map);
   addFullscreenControl(map, s.place || "Map");
