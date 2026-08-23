@@ -308,8 +308,22 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
    axis for a plain scroll gesture. */
 @media (max-width:1099px){
   .t-board{touch-action:pan-x pan-y !important}     /* board itself may be scrolled either way (horizontally by the user, vertically as part of the page) */
-  .t-board-col-body{touch-action:pan-y !important}  /* a column's own card list only ever scrolls vertically */
-  .t-board-card{touch-action:pan-y !important}       /* a plain tap still responds immediately; SortableJS's own delay timer still owns the long-press-to-lift gesture */
+  /* touch-action's used value is the INTERSECTION of an element and all
+     its ancestors — restricting the column body to pan-y alone (as
+     before) silently vetoed horizontal swipes for every card inside it,
+     no matter what the card itself allowed, because the column sits
+     between the card and the board that actually owns the horizontal
+     scroll. Both axes have to stay open all the way up the chain for a
+     sideways swipe on a card to ever reach .t-board. */
+  .t-board-col-body{touch-action:pan-x pan-y !important}
+  /* A card sits inside a column, but a horizontal swipe that starts ON
+     a card is how you move between columns — the column itself doesn't
+     scroll sideways, only the outer .t-board does. Restricting the card
+     to pan-y (as before) let a vertical swipe on a card scroll fine but
+     silently ate every horizontal swipe that happened to start on a
+     card instead of the gap between them. Allowing both axes here lets
+     that gesture bubble up to whichever ancestor actually owns it. */
+  .t-board-card{touch-action:pan-x pan-y !important}
   .t-board-card-handle{touch-action:none !important}  /* grabbing the ⠿ handle specifically should never scroll — it should always mean "pick this up" */
   .t-row{touch-action:pan-y !important} /* List view uses the same forceFallback+delay Sortable setup on .t-row — same fix applies there */
 }

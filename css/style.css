@@ -194,6 +194,15 @@ h1,h2,.display{font-family:'Fraunces',serif}
    full card width. This makes the row real, and lets that space be used
    on purpose (e.g. the task toolbar: filters left, sort right). */
 .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+/* Tasks toolbar — filters, sort and the view switch used to be two
+   stacked rows (filters+sort, then the view switch on its own line
+   below). Merged into one row in the markup; these rules shrink the
+   pills a touch so all three groups sit comfortably on one line
+   instead of needing the extra row's worth of vertical space. */
+#tasksCard .t-toolbar{row-gap:8px}
+#tasksCard .t-toolbar .seg button{padding:5px 11px;font-size:12.5px}
+#tasksCard .t-toolbar #taskSortBtn{padding:5px 12px;font-size:12.5px}
 .week-nav{display:flex;align-items:center;gap:8px}
 .week-nav button{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);display:grid;place-items:center}
 .week-nav svg{width:14px;height:14px;stroke:var(--ink);fill:none;stroke-width:2}
