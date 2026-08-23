@@ -100,6 +100,13 @@ function initTaskSorting() {
          can drop the board's blur for the duration. Cleared in onEnd —
          and also on cancel, since a drag abandoned off-screen would
          otherwise leave the board unblurred until the next reload. */
+      /* onChoose, not just onStart: Sortable calls _appendGhost() — which
+         MEASURES the source card to place the clone — before it dispatches
+         "start". Adding the class in onStart alone lands after that
+         measurement, so the containing-block reset in style.css would come
+         a frame too late and the clone would keep the bad offset it was
+         born with. onChoose fires first, before any ghost exists. */
+      onChoose: () => document.body.classList.add("is-dragging"),
       onStart: () => document.body.classList.add("is-dragging"),
       ghostClass: "t-row-ghost", dragClass: "t-row-dragging", chosenClass: "t-row-chosen",
       scroll: true, scrollSensitivity: 90, scrollSpeed: 12,
@@ -149,33 +156,16 @@ function destroyBoardSortables() {
 function initBoardSorting() {
   destroyBoardSortables();
   if (taskView !== "board" || sortByDate || typeof Sortable === "undefined") return;
-  /* Touch needs a handle; a mouse does not.
-
-     Dragging the whole card relies on `touch-action: pan-x pan-y` so a
-     swipe that starts on a card can still scroll the page — the drag is
-     separated from the scroll by Sortable's 200ms delay instead. That
-     bargain holds on Android but breaks on iOS Safari: allowing pan on
-     the element lets WebKit claim the gesture as a native pan/zoom, and
-     once it has, touchmove stops being cancelable. Sortable can no
-     longer preventDefault, so the page scrolls (or pinch-zooms) out from
-     under a drag that has already started and the fallback clone is left
-     stranded at the coordinates where it was created — detached from the
-     finger, and at the wrong scale once the visual viewport is zoomed.
-
-     A handle fixes it at the source: `touch-action: none` on the grip
-     alone means WebKit never starts a pan there, so the gesture is
-     unambiguously a drag from the first move, while the rest of the card
-     keeps normal scrolling.
-
-     Restricted to coarse pointers on purpose. Both the GSI and Personal
-     boards dropped their ⠿ grip because it got in the way of dragging a
-     card by its body, and that judgement still holds for a mouse — so
-     with a mouse the whole card stays draggable exactly as before. */
-  const coarsePointer = !!window.matchMedia?.("(pointer: coarse)")?.matches;
+  /* No `handle`: the whole card is draggable, which is what the GSI and
+     Personal boards settled on and what people expect of a Kanban card.
+     The ⠿ grip is still rendered as an affordance and is the most
+     reliable place to start a drag on touch — it is the one spot with
+     `touch-action:none`, so WebKit never mistakes a press there for a
+     pan — but it is no longer REQUIRED. Dragging by the card body works
+     again. */
   document.querySelectorAll("#taskList .t-board-col-body").forEach(container => {
     boardSortableInstances.push(Sortable.create(container, {
       group: "task-board", // shared across every column — this is what allows dragging between them, not just within one
-      ...(coarsePointer ? { handle: ".t-board-card-handle" } : {}),
       filter: "button, input, select, textarea, a, .t-chk",
       preventOnFilter: false,
       draggable: ".t-board-card", // GSI cards are pick-up-able here too — moveTaskToColumn routes them through setGsiTaskStatus/editProjectTask/archiveGsiTaskEntry instead of the native task functions
@@ -190,6 +180,13 @@ function initBoardSorting() {
       fallbackTolerance: 4,
       ghostClass: "t-row-ghost", dragClass: "t-row-dragging", chosenClass: "t-row-chosen",
       scroll: true, scrollSensitivity: 90, scrollSpeed: 12,
+      /* onChoose, not just onStart: Sortable calls _appendGhost() — which
+         MEASURES the source card to place the clone — before it dispatches
+         "start". Adding the class in onStart alone lands after that
+         measurement, so the containing-block reset in style.css would come
+         a frame too late and the clone would keep the bad offset it was
+         born with. onChoose fires first, before any ghost exists. */
+      onChoose: () => document.body.classList.add("is-dragging"),
       onStart: () => document.body.classList.add("is-dragging"),
       onEnd: handleBoardDragEnd,
     }));

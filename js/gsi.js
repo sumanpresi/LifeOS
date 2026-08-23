@@ -382,6 +382,13 @@ function initGsiBoardSorting() {
          can drop the board's blur for the duration. Cleared in onEnd —
          and also on cancel, since a drag abandoned off-screen would
          otherwise leave the board unblurred until the next reload. */
+      /* onChoose, not just onStart: Sortable calls _appendGhost() — which
+         MEASURES the source card to place the clone — before it dispatches
+         "start". Adding the class in onStart alone lands after that
+         measurement, so the containing-block reset in style.css would come
+         a frame too late and the clone would keep the bad offset it was
+         born with. onChoose fires first, before any ghost exists. */
+      onChoose: () => document.body.classList.add("is-dragging"),
       onStart: () => document.body.classList.add("is-dragging"),
       ghostClass: "t-row-ghost", dragClass: "t-row-dragging", chosenClass: "t-row-chosen",
       scroll: true, scrollSensitivity: 90, scrollSpeed: 12,
