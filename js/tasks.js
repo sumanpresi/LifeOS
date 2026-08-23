@@ -1010,7 +1010,11 @@ function renderCalendarView(tasksWithDates) {
   const year = calendarMonth.getFullYear(), month = calendarMonth.getMonth();
   const firstWeekday = new Date(year, month, 1).getDay(); // 0=Sun
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const monthLabel = calendarMonth.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+  // Name and year are separate spans: desktop sets them on one line and they
+  // read exactly as before, while the phone layout gives the month name the
+  // large display size and drops the year back to a quiet label beside it.
+  const monthName = calendarMonth.toLocaleDateString("en-IN", { month: "long" });
+  const monthYear = String(year);
   const todayStr = new Date().toISOString().slice(0, 10);
 
   function dayCellHtml(d) {
@@ -1024,13 +1028,16 @@ function renderCalendarView(tasksWithDates) {
         <div class="t-cal-daynum-row"><span class="t-cal-daynum">${d}</span><span class="t-cal-add-hint">+</span></div>
         <div class="t-cal-tasks" data-cal-date="${dateStr}">
           ${shown.map(t => `
-            <div class="t-cal-chip ${t.done ? "done" : ""} ${t.dueDate < todayStr && !t.done ? "overdue" : ""}" data-task-id="${t.id}" title="Drag to another day to reschedule">
+            <div class="t-cal-chip cat-${(t.category || "work") === "personal" ? "personal" : "work"} ${t.done ? "done" : ""} ${t.dueDate < todayStr && !t.done ? "overdue" : ""}" data-task-id="${t.id}" title="Drag to another day to reschedule">
               <button class="t-cal-chip-chk" onclick="event.stopPropagation();toggleTask('${t.id}')" aria-label="Toggle complete"></button>
               <button class="t-cal-chip-title" onclick="event.stopPropagation();openTaskPopup('${t.id}')" title="${esc(t.text)}">${esc(t.text)}</button>
             </div>`).join("")}
           ${dayTasks.length > 3 ? `<button class="t-cal-more" onclick="event.stopPropagation();toggleCalendarDay('${dateStr}')"
             title="${expanded ? "Show fewer" : `Show all ${dayTasks.length} tasks`}"
-            aria-expanded="${expanded}">${expanded ? "Show less" : `+${dayTasks.length - 3} more`}</button>` : ""}
+            aria-label="${expanded ? "Show fewer tasks" : `Show all ${dayTasks.length} tasks`}"
+            aria-expanded="${expanded}">${expanded
+              ? `<span class="t-cal-more-n">−</span><span class="t-cal-more-lbl">Show less</span>`
+              : `<span class="t-cal-more-n">+${dayTasks.length - 3}</span><span class="t-cal-more-lbl"> more</span>`}</button>` : ""}
         </div>
       </div>`;
   }
@@ -1053,13 +1060,20 @@ function renderCalendarView(tasksWithDates) {
   return `
     <div class="t-cal">
       <div class="t-cal-head">
-        <button class="btn btn-ghost" onclick="calendarPrevMonth()" aria-label="Previous month">‹</button>
-        <div class="t-cal-month">${monthLabel}</div>
-        <button class="btn btn-ghost" onclick="calendarNextMonth()" aria-label="Next month">›</button>
-        <button class="btn btn-ghost" onclick="calendarGoToday()">Today</button>
+        <div class="t-cal-month">
+          <span class="t-cal-month-name">${monthName}</span><span class="t-cal-month-year">${monthYear}</span>
+        </div>
+        <div class="t-cal-nav">
+          <button class="btn btn-ghost t-cal-arrow" onclick="calendarPrevMonth()" aria-label="Previous month">‹</button>
+          <button class="btn btn-ghost t-cal-arrow" onclick="calendarNextMonth()" aria-label="Next month">›</button>
+          <button class="btn btn-ghost t-cal-today-btn" onclick="calendarGoToday()">Today</button>
+        </div>
       </div>
       <div class="t-cal-scroll">
-        <div class="t-cal-weekdays"><div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div></div>
+        <div class="t-cal-weekdays">${
+          ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(w =>
+            `<div><span class="t-cal-wd-full">${w}</span><span class="t-cal-wd-mini" aria-hidden="true">${w[0]}</span></div>`).join("")
+        }</div>
         <div class="t-cal-grid">${weeksHtml}</div>
       </div>
     </div>`;
