@@ -185,6 +185,15 @@ h1,h2,.display{font-family:'Fraunces',serif}
 .seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
 .seg button{padding:6px 13px;font-weight:700;font-size:13px;background:var(--card)}
 .seg button.on{background:var(--accent);color:#fff}
+/* Generic toolbar row: several spots already ship `style="justify-content:
+   space-between"` or `margin-right:auto` on a bare .row, which only does
+   anything once the row is actually a flex container — without this it
+   was falling back to normal block/inline flow, so a filter segment and
+   a button after it just sat side by side with whatever incidental
+   whitespace the markup happened to have instead of spreading across the
+   full card width. This makes the row real, and lets that space be used
+   on purpose (e.g. the task toolbar: filters left, sort right). */
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .week-nav{display:flex;align-items:center;gap:8px}
 .week-nav button{width:28px;height:28px;border-radius:8px;border:1px solid var(--line);display:grid;place-items:center}
 .week-nav svg{width:14px;height:14px;stroke:var(--ink);fill:none;stroke-width:2}
@@ -254,6 +263,40 @@ h1,h2,.display{font-family:'Fraunces',serif}
 .add-inline{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .add-inline input{flex:1;min-width:130px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--paper);outline:none}
 .add-inline input:focus{border-color:var(--accent)}
+
+/* Add-link bar — one unified pill instead of four separately-bordered
+   boxes floating with gaps between them. Same glass material as the
+   link chips above it, so the "add" row reads as part of the same
+   component rather than a plain form tacked on underneath. Field widths
+   are weighted by what people actually type into them (a short title,
+   a longer URL, an even longer optional description) instead of
+   splitting the row evenly, so the space goes where it's needed. */
+#linksGrid + .add-inline{
+  display:flex;flex-wrap:wrap;gap:0;margin-top:14px;
+  border:1px solid var(--glass-line);border-radius:14px;
+  background:var(--glass-bg-strong);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  overflow:hidden;
+}
+#linksGrid + .add-inline input{
+  border:none;background:transparent;border-radius:0;min-width:0;
+  padding:11px 14px;position:relative;
+}
+#linksGrid + .add-inline input:focus{border:none;box-shadow:none;background:rgba(75,92,66,.06)}
+#linksGrid + .add-inline input:not(:first-child){border-left:1px solid var(--glass-line)}
+#linksGrid + .add-inline #linkTitle{flex:1 1 150px}
+#linksGrid + .add-inline #linkUrl{flex:1.6 1 200px}
+#linksGrid + .add-inline #linkDesc{flex:1.6 1 200px}
+#linksGrid + .add-inline button{
+  flex:0 0 auto;border:none;border-left:1px solid var(--glass-line);border-radius:0;
+  padding:11px 20px;font-weight:700;background:var(--accent);color:#fff;
+  transition:background .15s var(--ease)
+}
+#linksGrid + .add-inline button:hover{background:var(--accent-ink)}
+@media (max-width:600px){
+  #linksGrid + .add-inline{border-radius:14px}
+  #linksGrid + .add-inline input:not(:first-child){border-left:none;border-top:1px solid var(--glass-line)}
+  #linksGrid + .add-inline button{border-left:none;border-top:1px solid var(--glass-line);width:100%}
+}
 
 /* quote */
 .quote-box{font-family:'Fraunces',serif;font-size:19px;line-height:1.45;font-weight:600}
@@ -1531,8 +1574,9 @@ body.note-fullscreen-open .card{ overflow: visible; }
   font-size:15px;color:var(--t-ink);padding:6px 0}
 .t-add-row input::placeholder{color:var(--t-ink2)}
 .t-add-row input:focus{outline:none}
-.t-add-project{flex-shrink:0;max-width:120px;border:1px solid var(--t-border);background:var(--t-bg);
-  color:var(--t-ink2);font-family:'Inter',sans-serif;font-size:12.5px;padding:6px 8px;border-radius:8px;cursor:pointer}
+.t-add-project{flex-shrink:0;max-width:160px;border:1px solid var(--t-border);background:var(--t-bg);
+  color:var(--t-ink2);font-family:'Inter',sans-serif;font-size:12.5px;padding:6px 8px;border-radius:8px;cursor:pointer;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis} /* was 120px — clipped "No project" to "No proje" */
 .t-add-btn{border:none;background:var(--t-accent);color:#fff;font-family:'Inter',sans-serif;
   font-weight:600;font-size:13px;padding:8px 16px;border-radius:8px;cursor:pointer;
   transition:background 150ms ease}

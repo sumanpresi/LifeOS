@@ -289,16 +289,29 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
 }
 
 /* ---------------------------------------------------------------
-   6. LONG-PRESS DRAG — touch-action hints only (JS delay/fallback/
-   handle logic in tasks.js is intentionally left as-is; these rules
-   just tell the browser up front which axis each layer owns, so it
-   doesn't fight Sortable's own touch handling during the pre-drag delay).
-   --------------------------------------------------------------- */
+   6. LONG-PRESS DRAG — touch-action hints (JS delay/fallback/handle
+   logic in tasks.js is intentionally left as-is).
+
+   These were previously set WITHOUT !important, which turned out not
+   to matter: SortableJS (forceFallback + fallbackOnBody, as configured
+   in tasks.js) writes its own inline `style.touch-action:none` onto
+   each draggable card so its fallback drag-tracking can reliably call
+   preventDefault() during the pre-drag delay window on browsers where
+   passive-listener detection is inconsistent (confirmed on Samsung
+   Internet — see the Kendo/Telerik Sortable-on-mobile report, whose
+   documented workaround is exactly this: reclaim touch-action from the
+   inline style Sortable sets). An inline style always wins over an
+   external stylesheet rule unless that rule is !important, so the
+   column and board never actually got to keep pan-y — the whole
+   surface stopped scrolling the instant you touched a card, dragging
+   or not. !important is what makes these declarations win back the
+   axis for a plain scroll gesture. */
 @media (max-width:1099px){
-  .t-board{touch-action:pan-x pan-y}     /* board itself may be scrolled either way (horizontally by the user, vertically as part of the page) */
-  .t-board-col-body{touch-action:pan-y}  /* a column's own card list only ever scrolls vertically */
-  .t-board-card{touch-action:manipulation} /* a plain tap responds immediately; SortableJS's own delay timer still owns the long-press-to-lift gesture */
-  .t-board-card-handle{touch-action:none}  /* grabbing the ⠿ handle specifically should never scroll — it should always mean "pick this up" */
+  .t-board{touch-action:pan-x pan-y !important}     /* board itself may be scrolled either way (horizontally by the user, vertically as part of the page) */
+  .t-board-col-body{touch-action:pan-y !important}  /* a column's own card list only ever scrolls vertically */
+  .t-board-card{touch-action:pan-y !important}       /* a plain tap still responds immediately; SortableJS's own delay timer still owns the long-press-to-lift gesture */
+  .t-board-card-handle{touch-action:none !important}  /* grabbing the ⠿ handle specifically should never scroll — it should always mean "pick this up" */
+  .t-row{touch-action:pan-y !important} /* List view uses the same forceFallback+delay Sortable setup on .t-row — same fix applies there */
 }
 
 /* ---------------------------------------------------------------
