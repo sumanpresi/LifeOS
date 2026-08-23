@@ -257,7 +257,7 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
    --------------------------------------------------------------- */
 .t-board-card{
   box-sizing:border-box;
-  height:var(--t-card-h);       /* fixed — a 3-word title and a 30-word title render the same size. Defined in section 11. */
+  height:var(--t-card-h);       /* fixed — a 3-word title and a 30-word title render the same size. Defined in section 16. */
   display:flex;
   flex-direction:column;
   overflow:hidden;
@@ -538,15 +538,10 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
 /* ===============================================================
    11. TASK CARD HEIGHT
    ===============================================================
-   Single source of truth for the compact card height, applied at every
-   width now that section 5 is no longer breakpoint-scoped.
-
-   Set to 112px, the range the brief asks for. The reference screenshot's
-   own cards measure ~72px — if you would rather match the screenshot
-   than the written spec, lower this one value to ~76px and nothing else
-   needs to change (the title is already clamped to 2 lines).
+   The height itself is --t-card-h, defined once in section 16 below
+   alongside the type scale that has to fit inside it — the two numbers
+   are only meaningful together, so they are kept together.
    --------------------------------------------------------------- */
-:root{--t-card-h:112px}
 
 /* ===============================================================
    12. "ADD A TASK" BAR — only where there is no other way to add
@@ -677,4 +672,93 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
   /* The pills scroll horizontally here and the card sits under its own
      nav item, so the leading label costs more width than it earns. */
   .link-grid-label{display:none}
+}
+
+/* ===============================================================
+   16. TASK CARD TYPOGRAPHY — fit the whole card, no clipped meta
+   ===============================================================
+   The meta row was being cut off mid-chip (the project tag and the
+   project dropdown were half-visible at the card's bottom edge). The
+   cause was section 5's `max-height:36px` on .t-board-card-meta: the
+   chips wrap to two lines, and two lines need ~42px, so the second one
+   was sliced through.
+
+   Rebalanced rather than just raised, so the card still holds a fixed,
+   uniform slot:
+
+     padding      8 + 8            = 16px
+     title        12.5px x 1.3 x 2 = 33px
+     gap                           =  5px
+     meta         3 lines ceiling  = 56px
+                                    -------
+                                    110px = the card height exactly
+
+   So even the worst case lands inside the slot. Measured against real
+   content from the board, the common cards need only one or two meta
+   lines (18-39px), putting them at 71-92px inside a 110px card — the
+   third line is headroom, not the normal state. Tag and select widths
+   are capped so the chips settle rather than sprawling onto a fourth
+   line, which is what no height could have absorbed.
+   --------------------------------------------------------------- */
+:root{--t-card-h:110px}
+
+.t-board-card{padding:8px 10px}
+
+.t-board-card-title,
+.gsi-board-card-title{
+  font-size:12.5px;
+  line-height:1.3;
+}
+
+.t-board-card-meta{
+  max-height:56px;      /* 3 chip lines — replaces section 5's 36px */
+  margin-top:5px;
+  gap:4px 5px;
+}
+.t-board-card-date,
+.t-board-card .t-add-date-btn,
+.t-board-card .t-add-link-btn{font-size:10.5px}
+.t-board-card-tag{font-size:10px;padding:1px 7px;max-width:150px}
+.t-board-project-sel{font-size:10px;padding:1px 5px;max-width:64px}
+.t-board-card-meta .t-archive-btn{padding:1px 5px;font-size:10px}
+
+/* The checkbox and flag are fixed furniture — trimming them gives the
+   title a little more of the line it actually has to fit into. */
+.t-board-card .t-chk{width:19px;height:19px}
+.t-board-card .t-chk svg{width:11px;height:11px}
+.t-board-card-top{gap:7px}
+
+@media (max-width:600px){
+  /* Phone columns are narrower, so the same chips need one more line. */
+  .t-board-card-tag{max-width:130px}
+}
+
+/* ===============================================================
+   17. SECTION LINK ROWS — "+" instead of a permanent form
+   ===============================================================
+   GSI, Personal Workspace, Finance, Health and Reference each carried a
+   full-width Title / URL / Add bar sitting under their links at all
+   times. Same treatment as the Overview links card: the bar collapses
+   to a single "+" and opens on click.
+
+   The "+" lives INSIDE .add-inline rather than in the link grid,
+   because every one of those grids is written with innerHTML by its own
+   module (renderFinance, renderGsi, renderReference, ...) — a button
+   placed in the grid would be wiped on the next render. Sitting in the
+   static add-inline row, it needs no JS support at all.
+
+   Scoped to .collapsible so the Overview card, which already has its
+   own "+" in the pill row, is not collapsed twice.
+   --------------------------------------------------------------- */
+.add-inline.collapsible{
+  border:none; background:none; padding:0; margin-top:10px; gap:8px;
+  align-items:center;
+}
+.add-inline.collapsible > :not(.link-add-btn){display:none}
+.add-inline.collapsible.open > :not(.link-add-btn){display:inline-flex}
+.add-inline.collapsible.open > input{display:block;flex:1 1 160px;min-width:0}
+.add-inline.collapsible > .link-add-btn{flex:0 0 auto}
+/* Rotate to a "close" affordance once the row is open. */
+.add-inline.collapsible.open > .link-add-btn{
+  transform:rotate(45deg); color:var(--accent-ink); border-color:var(--accent);
 }
