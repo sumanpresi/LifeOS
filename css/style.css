@@ -3874,12 +3874,52 @@ body > .t-board-card.t-row-dragging{
 /* The card under the finger before the lift completes. */
 .t-row-chosen{ cursor: grabbing; }
 
-/* While any drag is in progress, drop the board's blur. Cards reflow with
-   an animation and every frame would otherwise re-sample the frosted
-   backdrop underneath them. */
-body.is-dragging :is(.t-board-col, .t-board-card, #tasksCard){
+/* While any drag is in progress, suspend everything on an ancestor that
+   can become a CONTAINING BLOCK for the dragged clone.
+
+   This is the same trap documented at `body.note-fullscreen-open` above,
+   and that note already names this bug as its sibling ("the same trap
+   that offset the dragged task clone"). Dropping backdrop-filter alone —
+   which is all this rule used to do — was never enough, because `.card`
+   carries TWO other containing-block triggers:
+
+     • `container-type:inline-size`  — layout containment, permanent, not
+       just while hovered. This one is always on, so #tasksCard is always
+       a containing block, and an absolutely/fixed-positioned clone is
+       positioned against the CARD rather than the page. That is the
+       constant rightward/downward offset between finger and clone.
+     • `.card:hover{transform:translateY(-2px)}` — a transformed ancestor
+       is a containing block too, and during a drag the pointer is by
+       definition over the card. `transition:transform .22s` means it also
+       keeps interpolating for a fifth of a second AFTER the rule lands,
+       so transition has to be suspended with it or the offset merely
+       animates away instead of vanishing.
+
+   fallbackOnBody:true was meant to sidestep all this by parenting the
+   clone to <body>, but Sortable still measures the source element's rect
+   against its own offset parent when it places the clone — so a
+   containing-block ancestor still poisons the starting coordinates.
+
+   `.page` is in the list for the same reason: `.page.visible` runs a
+   `pageEnter` animation on transform, and an element with a running
+   transform animation is a containing block for as long as it plays.
+
+   Scoped to the ancestors a board can actually sit inside, and
+   explicitly NOT the drag clone: Sortable moves the clone with an inline
+   `transform`, and a stylesheet `transform:none !important` would beat
+   that inline style and pin the clone in place. The clone matches
+   .t-board-card, so it has to be excluded by name. */
+body.is-dragging :is(.page, .card, .sidebar, .main, .t-board, .t-board-col, .t-board-card, #tasksCard):not(.sortable-fallback){
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  filter: none !important;
+  transform: none !important;
+  transition: none !important;   /* or the hover transform interpolates away over .22s instead of ending now */
+  container-type: normal !important;
+  animation: none !important;
+  perspective: none !important;
+  will-change: auto !important;
+  contain: none !important;
 }
 
 /* A drag abandoned by the browser (app backgrounded mid-lift, pointer
