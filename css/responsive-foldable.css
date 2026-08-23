@@ -1,0 +1,217 @@
+/* ============================================================
+   LifeOS — Foldable / Tablet / Mobile layout layer
+   ============================================================
+   Loaded AFTER css/style.css on purpose. style.css already has two
+   tablet/mobile behaviours: the board wraps into a grid under 1099px,
+   and the sidebar becomes a hidden off-canvas drawer under 767px. Both
+   were reasonable defaults, but they cost canvas width on the devices
+   this layer targets — so the rules below intentionally replace them:
+
+     • Z Fold 6 inner screen  (~883px unfolded)
+     • iPad mini / iPad       (~744–1024px)
+     • Phones incl. iPhone 17 Pro Max (~390–440px) and fold cover screens
+
+   Three shapes, one rule each:
+     >1024px   — unchanged, full labelled sidebar (style.css)
+     601–1024px — 60px icon rail, tooltips on hover/focus
+     <=600px    — fixed bottom tab bar, sidebar drawer disabled
+
+   The Kanban board gets fixed-width, horizontally-scrolling columns
+   (min 270 / max 300px) with scroll-snap across BOTH tablet/foldable
+   and phone widths, instead of style.css's wrapping grid — so columns
+   always sit beside one another and never collapse vertically.
+   ============================================================ */
+
+/* ---------------------------------------------------------------
+   1. ICON-RAIL SIDEBAR — 601px to 1024px (Fold 6 inner, iPad mini/iPad)
+   --------------------------------------------------------------- */
+@media (min-width:601px) and (max-width:1024px){
+
+  /* Cancel style.css's off-canvas drawer for the part of this range
+     (601–767px) it also covers — the rail replaces it, it isn't hidden. */
+  .sidebar{
+    position:sticky; left:auto; top:16px; transform:none; z-index:5;
+    width:60px; min-width:60px; flex-shrink:0;
+    margin:16px 0 16px 12px; height:calc(100vh - 32px);
+    padding:16px 8px; gap:4px; align-items:center;
+    border-radius:20px; overflow-x:hidden; overflow-y:auto;
+  }
+  .sidebar.open{transform:none} /* rail is always visible, .open is a no-op here */
+  .mob-toggle{display:none}     /* no hamburger needed — the rail is permanent */
+
+  .sidebar .brand{justify-content:center;padding:2px 0 12px;margin-bottom:8px;gap:0}
+  .sidebar .brand-name{display:none}
+  .sidebar .nav-label{display:none}
+
+  .sidebar .nav-item{
+    position:relative;
+    justify-content:center;
+    width:44px; height:44px; padding:0; gap:0;
+    border-radius:13px;
+  }
+  .sidebar .nav-item:hover{transform:none} /* rail icons don't need the desktop nudge-right */
+  .sidebar .nav-item svg{width:20px;height:20px;opacity:.9}
+  .sidebar .nav-item.active svg{opacity:1}
+  .sidebar .nav-item-label{
+    position:absolute; width:1px;height:1px;overflow:hidden;
+    clip:rect(0 0 0 0);white-space:nowrap; /* visually hidden, still readable to screen readers */
+  }
+  .sidebar .nav-item .hint{
+    position:absolute; top:4px; right:4px; margin-left:0!important;
+    min-width:8px;height:8px;padding:0;border-radius:50%;
+    background:var(--warn);color:transparent;font-size:0;overflow:hidden;
+  }
+  .sidebar .nav-item.active{
+    background:linear-gradient(135deg,rgba(75,92,66,.18),rgba(75,92,66,.08));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.6);
+  }
+
+  /* Tooltip: built entirely from data-tooltip, no JS required. */
+  .sidebar .nav-item[data-tooltip]:hover::after,
+  .sidebar .nav-item[data-tooltip]:focus-visible::after{
+    content:attr(data-tooltip);
+    position:absolute; left:calc(100% + 12px); top:50%; transform:translateY(-50%);
+    background:var(--ink); color:#fff; font-size:12px; font-weight:700;
+    padding:6px 11px; border-radius:8px; white-space:nowrap; z-index:80;
+    box-shadow:0 10px 24px -8px rgba(0,0,0,.4); pointer-events:none;
+  }
+  .sidebar .nav-item[data-tooltip]:hover::before,
+  .sidebar .nav-item[data-tooltip]:focus-visible::before{
+    content:""; position:absolute; left:calc(100% + 6px); top:50%;
+    transform:translateY(-50%); border:6px solid transparent;
+    border-right-color:var(--ink); z-index:80; pointer-events:none;
+  }
+
+  .sidebar-foot{padding-top:10px}
+  .gh-chip{position:relative;justify-content:center;padding:9px;border-radius:13px}
+  .gh-chip > span{display:none}
+  .gh-chip img{margin:0}
+  .gh-chip[data-tooltip]:hover::after,
+  .gh-chip[data-tooltip]:focus-visible::after{
+    content:attr(data-tooltip);
+    position:absolute; left:60px; bottom:14px;
+    background:var(--ink); color:#fff; font-size:12px; font-weight:700;
+    padding:6px 11px; border-radius:8px; white-space:nowrap; z-index:80;
+    box-shadow:0 10px 24px -8px rgba(0,0,0,.4); pointer-events:none;
+  }
+
+  /* Reclaimed width goes straight to page content. */
+  .main{--main-pad-x:18px;padding-left:var(--main-pad-x);padding-right:var(--main-pad-x)}
+  .greet h1{font-size:28px}
+}
+
+/* ---------------------------------------------------------------
+   2. BOTTOM TAB BAR — phones & cover screens, <=600px
+   --------------------------------------------------------------- */
+@media (max-width:600px){
+  .mob-toggle{display:none} /* the bar below is always on screen — no toggle needed */
+
+  .sidebar{
+    position:fixed; z-index:40; left:0; right:0; top:auto; bottom:0; margin:0;
+    width:100%; height:auto; max-height:64px;
+    transform:none; /* always visible — replaces the off-canvas drawer entirely */
+    border-radius:16px 16px 0 0;
+    padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+    display:flex; flex-direction:row; align-items:center; gap:2px;
+    overflow-x:auto; overflow-y:hidden;
+    box-shadow:0 -8px 24px -12px rgba(0,0,0,.28);
+  }
+  .sidebar.open{transform:none}
+
+  .sidebar .brand,
+  .sidebar .nav-label,
+  .sidebar-foot{display:none} /* logo, section headers and the GitHub chip move out of the way on the smallest screens */
+
+  .sidebar .nav-item{
+    position:relative;
+    flex:0 0 auto;
+    flex-direction:column;
+    justify-content:center;
+    width:56px; height:52px;
+    padding:6px 2px 5px; gap:3px;
+    border-radius:12px;
+  }
+  .sidebar .nav-item svg{width:19px;height:19px}
+  .sidebar .nav-item-label{
+    position:static; width:auto;height:auto;overflow:visible;clip:auto;
+    font-size:9.5px; font-weight:700; line-height:1.1;
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:54px;
+  }
+  .sidebar .nav-item .hint{
+    position:absolute; top:4px; right:8px; margin-left:0!important;
+    min-width:7px;height:7px;padding:0;border-radius:50%;
+    background:var(--warn);color:transparent;font-size:0;overflow:hidden;
+  }
+  .sidebar .nav-item.active{
+    background:linear-gradient(135deg,rgba(75,92,66,.18),rgba(75,92,66,.08));
+  }
+  .sidebar .nav-item:hover{transform:none}
+
+  /* Room for the fixed bar so it never covers the last bit of content. */
+  .main{--main-pad-y:14px;--main-pad-x:14px;padding:14px 14px calc(78px + env(safe-area-inset-bottom))}
+  .greet h1{font-size:23px}
+  .top{padding:13px 14px}
+
+  /* Important-links / add-task row: stack full width instead of
+     squeezing three inputs and a button onto one line. */
+  .add-inline{flex-direction:column;align-items:stretch}
+  .add-inline input,.add-inline button{width:100%;min-width:0}
+}
+
+/* ---------------------------------------------------------------
+   3. KANBAN BOARD — fixed-width columns, horizontal scroll + snap
+   Applies to BOTH the tablet/foldable rail range and the phone range,
+   overriding style.css's @media(max-width:1099px) grid-wrap so columns
+   always sit side by side instead of stacking.
+   --------------------------------------------------------------- */
+@media (max-width:1099px){
+  .t-board{
+    display:flex;
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    overflow-y:visible;
+    scroll-snap-type:x mandatory;
+    -webkit-overflow-scrolling:touch;
+    scroll-padding-left:16px;
+    align-items:flex-start;
+    padding:14px 16px 20px;
+    gap:12px;
+  }
+  .t-board-col{
+    flex:0 0 auto;
+    width:82vw;             /* sensible default before the tighter caps below kick in */
+    min-width:270px;
+    max-width:300px;
+    scroll-snap-align:start;
+  }
+  /* "Completed" no longer needs to span — it's just another column in
+     the horizontal scroller, collapsed by default same as before. */
+  .t-board-col[data-board-col="completed"]{grid-column:auto;width:270px}
+
+  .t-board::-webkit-scrollbar{height:6px}
+  .t-board::-webkit-scrollbar-thumb{background:rgba(0,0,0,.18);border-radius:99px}
+  .t-board::-webkit-scrollbar-track{background:transparent}
+  .t-board{scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.18) transparent}
+}
+
+/* Z Fold 6 inner (~883px) and iPad mini (~768px) comfortably fit just
+   over two fixed columns with the third peeking in — matches the
+   reference screenshot's board layout. */
+@media (min-width:601px) and (max-width:1099px){
+  .t-board-col{width:280px}
+}
+
+/* Narrow phones: one column reads comfortably with the next peeking
+   in at the edge, prompting the swipe. */
+@media (max-width:600px){
+  .t-board{padding:12px 14px 16px;gap:10px}
+  .t-board-col{width:min(300px,80vw);min-width:270px;max-width:300px}
+  .t-board-col[data-board-col="completed"]{width:min(300px,80vw)}
+}
+
+html[data-theme="dark"] .sidebar .nav-item[data-tooltip]:hover::after,
+html[data-theme="dark"] .sidebar .nav-item[data-tooltip]:focus-visible::after,
+html[data-theme="dark"] .gh-chip[data-tooltip]:hover::after,
+html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
+  background:#2A2926;
+}
