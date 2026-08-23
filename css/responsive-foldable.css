@@ -194,6 +194,25 @@
   .t-board{scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.18) transparent}
 }
 
+/* scroll-snap-type:x mandatory above fights any programmatic scroll —
+   including SortableJS's own autoscroll while a card is dragged toward a
+   column off the edge of the screen. Each small scrollBy() tick got
+   pulled straight back to the nearest column boundary, so the board
+   never visibly moved and a far-off column was unreachable by drag.
+
+   The same snapping also fired the instant a drop's scroll position was
+   restored (see preserveBoardScroll/preserveScrollAndFocus in ui.js),
+   correcting the restored scrollLeft to whichever column edge was
+   nearest rather than leaving it where the person actually had it — the
+   "jumps to a different part of the page" after a drop.
+
+   body.is-dragging covers the live drag (added in onChoose, before any
+   movement); ui.js additionally clears scroll-snap-type inline for the
+   post-drop restore, since is-dragging is already gone by then. Higher
+   specificity than the plain .t-board rule above, so this wins without
+   needing !important. */
+body.is-dragging .t-board{scroll-snap-type:none}
+
 /* Z Fold 6 inner (~883px) and iPad mini (~768px) comfortably fit just
    over two fixed columns with the third peeking in — matches the
    reference screenshot's board layout. */
