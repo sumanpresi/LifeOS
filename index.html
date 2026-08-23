@@ -487,14 +487,16 @@
         <div class="card-head"><h2>GSI links</h2></div>
         <div class="card-body">
           <div class="link-grid" id="gsiLinks" style="grid-template-columns:1fr"></div>
-          <div class="add-inline">
+          <div class="add-inline collapsible">
+            <button type="button" class="link-add-btn" title="Add link" aria-label="Add link"
+                    aria-expanded="false"
+                    onclick="const r=this.closest('.add-inline');const o=r.classList.toggle('open');this.setAttribute('aria-expanded',o);if(o)r.querySelector('input').focus()">+</button>
             <input type="text" id="gsiLinkTitle" placeholder="Title">
             <input type="text" id="gsiLinkUrl" placeholder="https://…">
             <button class="btn btn-ghost" onclick="addGsiLink()">Add</button>
           </div>
         </div>
       </div>
-      <h1 class="display" style="font-size:28px;margin-bottom:14px">GSI Workspace</h1>
       <div class="wb-tabs-row" style="margin-bottom:12px">
         <div class="wb-tabs" id="wsTabsList"></div>
         <button class="wb-tab-add" onclick="addProject()" title="New workspace">+</button>
@@ -704,7 +706,10 @@
         <div class="card-head"><h2>Personal links</h2></div>
         <div class="card-body">
           <div class="link-grid" id="pwLinks" style="grid-template-columns:1fr"></div>
-          <div class="add-inline">
+          <div class="add-inline collapsible">
+            <button type="button" class="link-add-btn" title="Add link" aria-label="Add link"
+                    aria-expanded="false"
+                    onclick="const r=this.closest('.add-inline');const o=r.classList.toggle('open');this.setAttribute('aria-expanded',o);if(o)r.querySelector('input').focus()">+</button>
             <input type="text" id="pwLinkTitle" placeholder="Title">
             <input type="text" id="pwLinkUrl" placeholder="https://…">
             <button class="btn btn-ghost" onclick="addPwLink()">Add</button>
@@ -886,7 +891,10 @@
         <div class="card"><div class="card-head"><h2>Links</h2></div>
           <div class="card-body">
             <div class="link-grid" id="secLinks-finance" style="grid-template-columns:1fr"></div>
-            <div class="add-inline">
+            <div class="add-inline collapsible">
+              <button type="button" class="link-add-btn" title="Add link" aria-label="Add link"
+                      aria-expanded="false"
+                      onclick="const r=this.closest('.add-inline');const o=r.classList.toggle('open');this.setAttribute('aria-expanded',o);if(o)r.querySelector('input').focus()">+</button>
               <input type="text" id="finLinkTitle" placeholder="Title">
               <input type="text" id="finLinkUrl" placeholder="https://…">
               <button class="btn btn-ghost" onclick="addFinanceLink()">Add</button>
@@ -1005,7 +1013,10 @@
         <div class="card"><div class="card-head"><h2>Links</h2></div>
           <div class="card-body">
             <div class="link-grid" id="secLinks-health" style="grid-template-columns:1fr"></div>
-            <div class="add-inline">
+            <div class="add-inline collapsible">
+              <button type="button" class="link-add-btn" title="Add link" aria-label="Add link"
+                      aria-expanded="false"
+                      onclick="const r=this.closest('.add-inline');const o=r.classList.toggle('open');this.setAttribute('aria-expanded',o);if(o)r.querySelector('input').focus()">+</button>
               <input type="text" id="healthLinkTitle" placeholder="Title">
               <input type="text" id="healthLinkUrl" placeholder="https://…">
               <button class="btn btn-ghost" onclick="addHealthLink()">Add</button>
@@ -1122,7 +1133,10 @@
         <div class="card"><div class="card-head"><h2>Links</h2></div>
           <div class="card-body">
             <div class="link-grid" id="secLinks-reference" style="grid-template-columns:1fr"></div>
-            <div class="add-inline">
+            <div class="add-inline collapsible">
+              <button type="button" class="link-add-btn" title="Add link" aria-label="Add link"
+                      aria-expanded="false"
+                      onclick="const r=this.closest('.add-inline');const o=r.classList.toggle('open');this.setAttribute('aria-expanded',o);if(o)r.querySelector('input').focus()">+</button>
               <input type="text" id="refLinkTitle" placeholder="Title">
               <input type="text" id="refLinkUrl" placeholder="https://…">
               <button class="btn btn-ghost" onclick="addRefLink()">Add</button>
