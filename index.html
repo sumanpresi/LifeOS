@@ -63,14 +63,14 @@
      which shows up as new controls rendering completely unstyled — and is
      nearly impossible to diagnose from a screenshot, because the code on
      disk is correct. Bump on every release. -->
-<link rel="stylesheet" href="css/style.css?v=202608231800">
+<link rel="stylesheet" href="css/style.css?v=202608231640">
 <!-- Foldable/tablet/mobile layout layer — loaded after style.css on purpose.
      It overrides that file's tablet breakpoint (wrap-to-grid board,
      off-canvas drawer sidebar) with an icon-rail sidebar and a
      horizontally-scrolling, fixed-width Kanban board for Z Fold 6 inner
      (~883px), iPad mini/iPad (~768–1024px), and a bottom tab bar for
      phones (<=600px, incl. iPhone 17 Pro Max ~440px and fold cover screens). -->
-<link rel="stylesheet" href="css/responsive-foldable.css?v=202608231800">
+<link rel="stylesheet" href="css/responsive-foldable.css?v=202608231640">
 </head>
 <body>
 <div class="shell">
@@ -187,18 +187,18 @@
         </div>
         <div id="tasksCardContent">
         <div class="card-body" style="padding-bottom:0">
-          <div class="row" style="justify-content:space-between">
+          <div class="row t-toolbar" style="justify-content:space-between">
             <div class="seg" id="taskFilterBar">
               <button data-filter="all" class="on" onclick="setTaskFilter('all')">All</button>
               <button data-filter="work" onclick="setTaskFilter('work')">Work</button>
               <button data-filter="personal" onclick="setTaskFilter('personal')">Personal</button>
             </div>
-            <button class="btn btn-ghost" id="taskSortBtn" onclick="toggleSortByDate()" style="padding:6px 12px;font-size:12.5px">📅 Sort by date</button>
-          </div>
-          <div class="seg" id="taskViewSwitch" style="margin-top:10px">
-            <button data-view="board" onclick="setTaskView('board')">▦ Board</button>
-            <button data-view="list" onclick="setTaskView('list')">☰ List</button>
-            <button data-view="calendar" onclick="setTaskView('calendar')">📅 Calendar</button>
+            <button class="btn btn-ghost" id="taskSortBtn" onclick="toggleSortByDate()">📅 Sort by date</button>
+            <div class="seg" id="taskViewSwitch">
+              <button data-view="board" onclick="setTaskView('board')">▦ Board</button>
+              <button data-view="list" onclick="setTaskView('list')">☰ List</button>
+              <button data-view="calendar" onclick="setTaskView('calendar')">📅 Calendar</button>
+            </div>
           </div>
           <p class="hint" id="taskDragHint" style="display:none;margin-top:8px">↕️ Manual ordering is available only in Default Sort.</p>
         </div>
