@@ -5,7 +5,7 @@ import { isComposerOpen, composerHtml, openComposer } from './composer.js';
 /* tasks.js already imports gsi.js, so this is a cycle — safe here because
    neither module touches the other's bindings while modules are being
    evaluated, only inside functions called later at runtime. */
-import { markDragJustEnded, boardColHeadHtml, isColCollapsed } from './tasks.js';
+import { markDragJustEnded, boardColHeadHtml, isColCollapsed, capBoardColumnHeights, initBoardWheelScroll } from './tasks.js';
 import { toast, autoGrow, preserveBoardScroll } from './ui.js';
 import { describeLink } from './attach.js';
 import { moveToTrash } from './trash.js';
@@ -452,6 +452,8 @@ function renderProjects() {
   const dragHint = document.getElementById("gsiBoardDragHint");
   if (dragHint) dragHint.style.display = (gsiSortMode !== "default" && gsiTaskView === "board") ? "" : "none";
   initGsiBoardSorting();
+  capBoardColumnHeights();   // five cards, then the column scrolls — same rule as Overview's board
+  initBoardWheelScroll();
 
   const openCount = active.tasks.filter(i => i.status !== "done").length;
   document.getElementById("ngdrCount").textContent = active.tasks.length ? `${openCount} open` : "";

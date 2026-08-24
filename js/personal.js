@@ -25,7 +25,7 @@ import { isComposerOpen, composerHtml, openComposer } from './composer.js';
 import { toast, autoGrow, preserveBoardScroll } from './ui.js';
 import { describeLink } from './attach.js';
 import { moveToTrash } from './trash.js';
-import { markDragJustEnded, boardColHeadHtml, isColCollapsed } from './tasks.js';
+import { markDragJustEnded, boardColHeadHtml, isColCollapsed, capBoardColumnHeights, initBoardWheelScroll } from './tasks.js';
 import { syncTaskToGoogle } from './google-calendar.js';
 
 // Personal Workspace tasks use the same field names as GSI project tasks
@@ -351,6 +351,8 @@ function renderPwProjects() {
   const dragHint = document.getElementById("pwBoardDragHint");
   if (dragHint) dragHint.style.display = (pwSortMode !== "default" && pwTaskView === "board") ? "" : "none";
   initPwBoardSorting();
+  capBoardColumnHeights();   // five cards, then the column scrolls — same rule as Overview's board
+  initBoardWheelScroll();
 
   const openCount = active.tasks.filter(i => i.status !== "done").length;
   const countEl = document.getElementById("pwCount");

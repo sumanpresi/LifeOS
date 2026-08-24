@@ -190,9 +190,10 @@ function pageScroller(el) {
   }
   return document.scrollingElement || document.documentElement;
 }
-function initBoardWheelScroll() {
-  const board = document.querySelector("#taskList .t-board");
-  if (!board) return;
+export function initBoardWheelScroll() {
+  document.querySelectorAll(boardSel(".t-board")).forEach(bindBoardWheel);
+}
+function bindBoardWheel(board) {
   board.addEventListener("wheel", (e) => {
     const max = board.scrollWidth - board.clientWidth;
     if (max <= 1) return;                                   // nothing to pan
@@ -237,10 +238,20 @@ function initBoardWheelScroll() {
 
    It runs after every render (card heights are only knowable once they're
    laid out) and again on resize, since a narrower column rewraps titles
-   and every height changes with it. */
+   and every height changes with it.
+
+   Applied to all three Kanban boards, not just Overview's: Work · GSI
+   (#ngdrList) and the Personal workspace (#pwTaskList) render the same
+   .t-board-col markup, so a rule about how tall a column gets should
+   hold in all of them rather than being a quirk of one screen.
+   Exported so those two modules can call it after their own renders —
+   renderTasks() doesn't run when they re-render. */
 const BOARD_CARDS_BEFORE_SCROLL = 5;
-function capBoardColumnHeights() {
-  document.querySelectorAll("#taskList .t-board-col-body").forEach(body => {
+// Overview, Work · GSI, and the Personal workspace — the three screens that render .t-board.
+const BOARD_ROOTS = ["#taskList", "#ngdrList", "#pwTaskList"];
+const boardSel = (suffix) => BOARD_ROOTS.map(r => `${r} ${suffix}`).join(", ");
+export function capBoardColumnHeights() {
+  document.querySelectorAll(boardSel(".t-board-col-body")).forEach(body => {
     // Clear first: the measurement has to happen against the column's
     // natural height, not against last render's cap.
     body.style.maxHeight = "";
@@ -1244,7 +1255,7 @@ function calChipHtml(t, todayStr) {
   return `
             <div class="t-cal-chip cat-${(t.category || "work") === "personal" ? "personal" : "work"} ${t.done ? "done" : ""} ${t.dueDate < todayStr && !t.done ? "overdue" : ""}" data-task-id="${t.id}" title="Drag to another day to reschedule">
               <button class="t-cal-chip-chk" onclick="event.stopPropagation();toggleTask('${t.id}')" aria-label="Toggle complete"></button>
-              <button class="t-cal-chip-title" onclick="event.stopPropagation();openTaskPopup('${t.id}')" title="${esc(t.text)}">${esc(t.text)}</button>
+              <button class="t-cal-chip-title" onclick="event.stopPropagation();openTaskPopup('${t.id}')" title="${esc(t.text)}"><span class="t-cal-chip-text">${esc(t.text)}</span></button>
             </div>`;
 }
 
