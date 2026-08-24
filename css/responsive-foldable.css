@@ -255,7 +255,19 @@ body.is-dragging .t-board{scroll-snap-type:none}
    Sortable's own drag-and-drop is untouched: it operates on the same
    .t-cal-tasks containers regardless of how wide the column around
    them is. */
-@media (min-width:601px) and (max-width:1099px){
+/* Extended to 1366px so an iPad gets this same treatment. Above 1099 it
+   was falling back to the desktop grid — seven columns stretched to fill
+   1366px, each tall enough to hold whatever its longest task wrapped to,
+   which is what made the iPad month view sprawl. The Fold's compact
+   fixed-width day column is the right shape for a tablet too.
+
+   The columns are flex:1 0 150px rather than a hard 150px: below about
+   1150px of usable width they can't shrink past their 150px floor, so
+   the week overflows and .t-cal-scroll pans it exactly as it does on the
+   Fold; above that they grow to fill instead of leaving dead space down
+   the right of an iPad in landscape. Same rule, two behaviours, no
+   second breakpoint. */
+@media (min-width:601px) and (max-width:1366px){
   /* style.css has its own phone-only safety net — .t-cal-grid{max-
      width:100%;overflow-x:auto} at <=767px — meant to stop a wide child
      stretching the page. It overlaps the bottom of this range (601–
@@ -273,13 +285,29 @@ body.is-dragging .t-board{scroll-snap-type:none}
      seven-across squeeze: Week is seven full-height columns that already
      fit, Year and Years are their own grids. Pinning every .t-cal-cell to
      150px would have reached into the Week columns too. */
-  .t-cal-r-month .t-cal-weekdays{
-    display:flex; width:max-content; min-width:100%;
-    gap:6px;
+  /* width:max-content with min-width:100% is what lets one rule do both:
+     when seven 150px columns are wider than the scroller the row sizes to
+     its content and pans; when they're narrower the row fills the width
+     and the columns grow into it. The header row and every week row get
+     identical treatment, so the day columns stay aligned under their
+     SUN/MON/... labels in both states. */
+  /* Grid, not flex, and that choice is load-bearing. As flex rows sized
+     width:max-content, a growable column contributes the intrinsic width
+     of its longest task title, so one long title made the whole week
+     1600px wide and the view panned sideways for no reason. A grid
+     column's width comes from the template alone: minmax(150px,1fr) is
+     "at least 150, otherwise share the space", and the text inside has
+     no say in it. Below ~1150px the seven minimums overflow and
+     .t-cal-scroll pans, exactly as on the Fold; above it they grow to
+     fill an iPad in landscape. Header and week rows share the template,
+     so columns stay aligned under their SUN/MON/... labels either way. */
+  .t-cal-r-month .t-cal-weekdays,
+  .t-cal-r-month .t-cal-week{
+    display:grid; grid-template-columns:repeat(7, minmax(150px, 1fr));
+    gap:6px; width:auto; min-width:100%;
   }
-  .t-cal-r-month .t-cal-weekdays > div{flex:0 0 150px; width:150px}
-  .t-cal-r-month .t-cal-week{width:max-content}
-  .t-cal-r-month .t-cal-cell{flex:0 0 150px; width:150px; min-width:150px; max-width:150px}
+  .t-cal-r-month .t-cal-weekdays > div,
+  .t-cal-r-month .t-cal-cell{min-width:0; max-width:none}
 
   .t-cal-scroll::-webkit-scrollbar{height:6px}
   .t-cal-scroll::-webkit-scrollbar-thumb{background:rgba(0,0,0,.18);border-radius:99px}

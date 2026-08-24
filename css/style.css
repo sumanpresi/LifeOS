@@ -1574,7 +1574,16 @@ html[data-theme="dark"] .t-board::-webkit-scrollbar-thumb{background:rgba(255,25
    above so the check sits at the top of a two-line title instead of
    vertically centered between the lines. */
 .t-cal-chip-title{flex:1;min-width:0;text-align:left;font-size:11.5px;font-weight:600;color:var(--t-ink);
-  line-height:1.3;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+  line-height:1.3;display:block;overflow:hidden}
+/* The clamp lives on this inner span, NOT on the button around it.
+   Safari does not honour display:-webkit-box on a form control, so with
+   the clamp set directly on .t-cal-chip-title it was simply ignored
+   there: on iPad a single long Hindi title ran to twenty-odd lines and
+   stretched its whole week row, and in the narrow phone cells the text
+   broke one character per line. Chromium honoured it, which is why this
+   looked fine in testing and broken on every actual device. A plain span
+   is clamped by both engines. */
+.t-cal-chip-text{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
   overflow:hidden;text-overflow:ellipsis;white-space:normal;word-break:break-word}
 .t-cal-chip.overdue .t-cal-chip-title{color:var(--t-cal-overdue)}
 .t-cal-chip.done .t-cal-chip-title{color:var(--t-cal-done);text-decoration:line-through}
@@ -1610,7 +1619,7 @@ html[data-theme="dark"] .t-board::-webkit-scrollbar-thumb{background:rgba(255,25
 .t-cal-wcell .t-cal-daynum{flex:1}
 .t-cal-wcell-count{font-size:11px;font-weight:600;color:var(--t-ink2)}
 .t-cal-week .t-cal-wcell{flex:none}
-.t-cal-wcell .t-cal-chip-title{-webkit-line-clamp:3}
+.t-cal-wcell .t-cal-chip-text{-webkit-line-clamp:3}
 
 /* ---- Year range — twelve mini-months ----
    At this size a day can honestly show one thing: whether anything is due
@@ -1733,8 +1742,8 @@ html[data-theme="dark"] .t-board::-webkit-scrollbar-thumb{background:rgba(255,25
   .t-cal-chip{align-items:center;gap:2px;padding:1px 2px;border-radius:4px;
     border-color:transparent;overflow:hidden}
   .t-cal-chip-chk{width:6px;height:6px;border-radius:999px;border-width:1.5px;margin-top:0}
-  .t-cal-chip-title{font-size:9.5px;font-weight:600;line-height:1.5;letter-spacing:-.01em;
-    display:block;-webkit-line-clamp:none;white-space:nowrap;word-break:normal;
+  .t-cal-chip-title{font-size:9.5px;font-weight:600;line-height:1.5;letter-spacing:-.01em}
+  .t-cal-chip-text{display:block;-webkit-line-clamp:none;white-space:nowrap;word-break:normal;
     overflow:hidden;text-overflow:ellipsis}
   /* Work and personal get their own tint so a glance at the month reads
      as two streams, matching the Work/Personal filter above the grid. */
@@ -1786,8 +1795,9 @@ html[data-theme="dark"] .t-board::-webkit-scrollbar-thumb{background:rgba(255,25
   .t-cal-wcell-count{margin-left:auto}
   .t-cal-wcell .t-cal-chip{padding:5px 8px;border-radius:7px;gap:7px;align-items:flex-start}
   .t-cal-wcell .t-cal-chip-chk{width:14px;height:14px;border-radius:4px;margin-top:1px}
-  .t-cal-wcell .t-cal-chip-title{font-size:13px;line-height:1.35;white-space:normal;
-    letter-spacing:0;display:block;overflow:visible;text-overflow:clip;-webkit-line-clamp:none}
+  .t-cal-wcell .t-cal-chip-title{font-size:13px;line-height:1.35;letter-spacing:0;overflow:visible}
+  .t-cal-wcell .t-cal-chip-text{display:block;white-space:normal;overflow:visible;
+    text-overflow:clip;-webkit-line-clamp:none}
   .t-cal-wcell .t-cal-tasks{gap:4px}
 }
 
