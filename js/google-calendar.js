@@ -25,6 +25,7 @@ import { state, persist } from './state.js';
 import { toast } from './ui.js';
 import { getAccessToken } from './supabase.js';
 
+let warnedThisSession = false; // see syncTaskToGoogle — one toast per session for Google-side rejections
 const REDIRECT_URI = () => location.origin + location.pathname;
 const SCOPE = "https://www.googleapis.com/auth/calendar.events";
 
@@ -107,11 +108,13 @@ export function disconnectGoogleCalendar() {
 export function renderGoogleCalendarStatus() {
   const connectBtn = document.getElementById("gcalConnectBtn");
   const disconnectBtn = document.getElementById("gcalDisconnectBtn");
+  const syncNowBtn = document.getElementById("gcalSyncNowBtn");
   const statusEl = document.getElementById("gcalStatus");
   if (!connectBtn || !disconnectBtn || !statusEl) return;
   const connected = isGoogleCalendarConnected();
   connectBtn.style.display = connected ? "none" : "";
   disconnectBtn.style.display = connected ? "" : "none";
+  if (syncNowBtn) syncNowBtn.style.display = connected ? "" : "none";
   if (!googleCalendarConfigured()) statusEl.textContent = "Not configured yet — see js/config.js";
   else statusEl.textContent = connected
     ? "Connected — tasks with a due date sync automatically"
@@ -147,6 +150,15 @@ export async function syncTaskToGoogle(task, action) {
         // Not connected (anymore) or the refresh token is dead — reflect that locally instead of silently retrying forever.
         state.googleCalendarConnected = false; persist(false);
         toast("Google Calendar sync stopped: " + data.error);
+      } else if (!warnedThisSession) {
+        /* Anything else means Google rejected the request itself. This
+           used to return silently, which is how a malformed event body
+           (all-day events need an exclusive end date — see
+           api/google-calendar-sync.js) went unnoticed indefinitely: the
+           app looked connected, and not one event was ever created.
+           Once per session, so a bad state can't spam every edit. */
+        warnedThisSession = true;
+        toast("Google Calendar rejected a task: " + (data.error || res.status));
       }
       return;
     }
@@ -157,4 +169,40 @@ export async function syncTaskToGoogle(task, action) {
     // Network error, cron will catch it later — not surfacing every
     // transient failure as a toast, since task edits can be frequent.
   }
+}
+
+
+/* Catch-up sync on demand. The daily cron (api/google-calendar-cron.js)
+   does the same job, but once a day on Vercel's Hobby limit — which is a
+   long wait when you've just connected, or just fixed something, and want
+   to see whether it works. This walks the same candidates the cron does:
+   anything with a date, not done, never given a googleEventId. */
+export async function syncAllPendingToGoogle() {
+  if (!googleCalendarConfigured()) { toast("Google Calendar isn't configured yet — see js/config.js"); return; }
+  if (!isGoogleCalendarConnected()) { toast("Connect Google Calendar first"); return; }
+
+  // GSI project tasks use date/status where native tasks use dueDate/done.
+  // Shimmed to one shape so syncTaskToGoogle sees what it expects, with
+  // the real object kept alongside so googleEventId lands on it.
+  const pending = [
+    ...(state.tasks || [])
+      .filter(t => t.dueDate && !t.done && !t.googleEventId)
+      .map(t => ({ ref: t, shim: t })),
+    ...((state.gsi?.projects || []).flatMap(p => (p.tasks || [])
+      .filter(t => t.date && t.status !== "done" && !t.googleEventId)
+      .map(t => ({ ref: t, shim: { text: t.text, dueDate: t.date, googleEventId: null } })))),
+  ];
+  if (!pending.length) { toast("Nothing left to sync — every dated task already has an event"); return; }
+
+  toast(`Syncing ${pending.length} task${pending.length > 1 ? "s" : ""} to Google Calendar…`);
+  let done = 0;
+  for (const { ref, shim } of pending) {
+    await syncTaskToGoogle(shim, "create");
+    if (shim.googleEventId) { ref.googleEventId = shim.googleEventId; done++; }
+    if (!isGoogleCalendarConnected()) break; // the connection died mid-run; syncTaskToGoogle has already said so
+  }
+  persist();
+  toast(done === pending.length
+    ? `Synced ${done} task${done > 1 ? "s" : ""} to Google Calendar`
+    : `Synced ${done} of ${pending.length} — the rest failed`);
 }
