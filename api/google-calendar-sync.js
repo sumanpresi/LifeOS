@@ -10,6 +10,18 @@
    the full list; this function additionally needs nothing new.
 */
 
+/* Google's all-day events use an EXCLUSIVE end date: a one-day event on
+   16 Oct is start 2026-10-16, end 2026-10-17. Sending the same date for
+   both — which this file did — is rejected outright with 400
+   "The specified time range is empty" (reason: timeRangeEmpty), so not a
+   single event was ever created. Parsed as UTC so the +1 can't be
+   shifted by the server's local timezone or a DST boundary. */
+function dayAfter(dateStr) {
+  const d = new Date(dateStr + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 const SUPABASE_URL = "https://hgsqpvvneudwwfemdirc.supabase.co";
 
 async function getSupabaseUser(accessToken) {
@@ -82,7 +94,7 @@ module.exports = async (req, res) => {
       summary: task.text,
       description: "Synced from LifeOS",
       start: { date: task.dueDate },
-      end: { date: task.dueDate },
+      end: { date: dayAfter(task.dueDate) },
     });
 
     if (action === "create") {

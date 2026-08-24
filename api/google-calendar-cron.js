@@ -26,6 +26,18 @@
    made here — see vercel.json). On Pro, this could run much more
    often by changing the cron schedule there. */
 
+/* Google's all-day events use an EXCLUSIVE end date: a one-day event on
+   16 Oct is start 2026-10-16, end 2026-10-17. Sending the same date for
+   both — which this file did — is rejected outright with 400
+   "The specified time range is empty" (reason: timeRangeEmpty), so not a
+   single event was ever created. Parsed as UTC so the +1 can't be
+   shifted by the server's local timezone or a DST boundary. */
+function dayAfter(dateStr) {
+  const d = new Date(dateStr + "T00:00:00Z");
+  d.setUTCDate(d.getUTCDate() + 1);
+  return d.toISOString().slice(0, 10);
+}
+
 const SUPABASE_URL = "https://hgsqpvvneudwwfemdirc.supabase.co";
 const SR_HEADERS = {
   apikey: process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -83,14 +95,25 @@ module.exports = async (req, res) => {
       if (!needsSync.length) { results.push({ user_id: row.user_id, created: 0 }); continue; }
 
       const accessToken = await getFreshAccessToken(row.refresh_token);
-      let created = 0;
+      let created = 0, failed = 0, firstError = null;
       for (const c of needsSync) {
         const r = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
           method: "POST",
           headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ summary: c.text, description: "Synced from LifeOS", start: { date: c.date }, end: { date: c.date } }),
+          body: JSON.stringify({ summary: c.text, description: "Synced from LifeOS", start: { date: c.date }, end: { date: dayAfter(c.date) } }),
         });
         if (r.ok) { const d = await r.json(); c.ref.googleEventId = d.id; created++; }
+        else {
+          /* `if (r.ok)` alone meant a request Google rejected left no
+             trace anywhere — the run still reported success with a count
+             of 0, indistinguishable from "nothing to do". That is how a
+             malformed event body went unnoticed for months. */
+          failed++;
+          if (!firstError) {
+            const body = await r.json().catch(() => null);
+            firstError = body?.error?.message || `Google Calendar returned ${r.status}`;
+          }
+        }
       }
 
       if (created > 0) {
@@ -100,7 +123,7 @@ module.exports = async (req, res) => {
           body: JSON.stringify({ data: lifeos, updated_at: new Date().toISOString() }),
         });
       }
-      results.push({ user_id: row.user_id, created });
+      results.push({ user_id: row.user_id, created, failed, error: firstError });
     } catch (e) {
       results.push({ user_id: row.user_id, error: e.message });
     }
