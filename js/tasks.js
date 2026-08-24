@@ -1264,14 +1264,14 @@ function renderCalMonth(byDate, todayStr) {
   const firstWeekday = new Date(year, month, 1).getDay(); // 0=Sun
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  function dayCellHtml(d) {
-    if (d === null) return `<div class="t-cal-cell t-cal-empty"></div>`;
-    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  function dayCellHtml(slot) {
+    const { y, m, d, adjacent } = slot;
+    const dateStr = `${y}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     const dayTasks = byDate[dateStr] || [];
     const expanded = expandedCalDays.has(dateStr);
     const shown = expanded ? dayTasks : dayTasks.slice(0, 3);
     return `
-      <div class="t-cal-cell ${dateStr === todayStr ? "t-cal-today" : ""} ${expanded ? "t-cal-expanded" : ""}" data-cal-date="${dateStr}" onclick="openDayView('${dateStr}')" title="View all tasks on ${dateStr}">
+      <div class="t-cal-cell ${adjacent ? "t-cal-adjacent" : ""} ${dateStr === todayStr ? "t-cal-today" : ""} ${expanded ? "t-cal-expanded" : ""}" data-cal-date="${dateStr}" onclick="openDayView('${dateStr}')" title="View all tasks on ${dateStr}">
         <div class="t-cal-daynum-row"><span class="t-cal-daynum">${d}</span><span class="t-cal-add-hint">+</span></div>
         <div class="t-cal-tasks" data-cal-date="${dateStr}">
           ${shown.map(t => calChipHtml(t, todayStr)).join("")}
@@ -1285,15 +1285,29 @@ function renderCalMonth(byDate, todayStr) {
       </div>`;
   }
 
-  // Build one flat array — firstWeekday leading nulls (blank padding
-  // cells), then every real day 1..daysInMonth — then chunk it into
-  // week-rows of exactly 7. Each week is rendered as its own flex row
-  // with exactly 7 children, so there's no reliance on a single large
-  // CSS grid correctly auto-wrapping ~34 items at a 7-column boundary.
+  /* Build one flat array of day slots, then chunk it into week-rows of
+     exactly 7. Each week is rendered as its own flex row with exactly 7
+     children, so there's no reliance on a single large CSS grid correctly
+     auto-wrapping ~34 items at a 7-column boundary.
+
+     The padding either side is real dates from the neighbouring months
+     rather than blank cells — 27–31 July ahead of a August that starts on
+     a Saturday. Blank corners made the first and last weeks read as
+     missing rather than as a month boundary, and a task due on the 31st
+     of last month simply vanished from view on the way past it. They
+     carry their tasks and their drop target like any other day; the
+     .t-cal-adjacent class is what dims them so the current month still
+     reads as the subject of the grid. */
+  const prevLast = new Date(year, month, 0);      // day 0 of this month = last day of the previous one
   const slots = [];
-  for (let i = 0; i < firstWeekday; i++) slots.push(null);
-  for (let d = 1; d <= daysInMonth; d++) slots.push(d);
-  while (slots.length % 7 !== 0) slots.push(null); // pad the final week out to a full 7
+  for (let i = firstWeekday; i > 0; i--) {
+    slots.push({ y: prevLast.getFullYear(), m: prevLast.getMonth(), d: prevLast.getDate() - i + 1, adjacent: true });
+  }
+  for (let d = 1; d <= daysInMonth; d++) slots.push({ y: year, m: month, d, adjacent: false });
+  const next = new Date(year, month + 1, 1);
+  for (let d = 1; slots.length % 7 !== 0; d++) {
+    slots.push({ y: next.getFullYear(), m: next.getMonth(), d, adjacent: true });
+  }
 
   let weeksHtml = "";
   for (let w = 0; w < slots.length; w += 7) {
