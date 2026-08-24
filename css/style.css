@@ -1540,6 +1540,18 @@ html[data-theme="dark"] .t-board::-webkit-scrollbar-thumb{background:rgba(255,25
   display:flex;flex-direction:column;gap:3px;cursor:pointer;transition:background 150ms ease,border-color 150ms ease}
 .t-cal-cell:not(.t-cal-empty):hover{background:var(--t-cal-cell-hover);border-color:var(--t-accent)}
 .t-cal-cell.t-cal-empty{border:none;background:transparent;cursor:default}
+/* The days either side of the month boundary — 27–31 July in an August
+   that starts on a Saturday. Present and fully usable (tap to open the
+   day, drop a task on it), just quieter, so the eye still reads the
+   current month as the subject of the grid rather than a 42-day run of
+   equal-weight cells. Dimmed per element rather than with one opacity on
+   the cell: a flat opacity would fade the overdue amber and the
+   done-strikethrough along with everything else, which are exactly the
+   states worth still spotting on the 31st of last month. */
+.t-cal-cell.t-cal-adjacent{background:transparent;border-color:var(--t-border)}
+.t-cal-cell.t-cal-adjacent .t-cal-daynum{color:var(--t-ink2);font-weight:600;opacity:.7}
+.t-cal-cell.t-cal-adjacent .t-cal-chip{opacity:.62}
+.t-cal-cell.t-cal-adjacent:hover .t-cal-chip{opacity:1}
 .t-cal-cell.t-cal-today{border-color:var(--t-accent);box-shadow:0 0 0 1px var(--t-accent)}
 .t-cal-daynum-row{display:flex;align-items:center;justify-content:space-between}
 .t-cal-daynum{font-size:13px;font-weight:700;color:var(--t-ink)}
