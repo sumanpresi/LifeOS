@@ -53,6 +53,7 @@ export const PHILOSOPHICAL_QUOTES = [
 export const DEFAULT_STATE = {
   v: 2,
   taskViewPref: "board", // "board" | "list" | "calendar" — persisted like any other setting, so it syncs across devices the same way everything else does
+  calendarScalePref: "month", // "week" | "month" | "year" | "years" — which range the Calendar view opens on, chosen from the dropdown beside Today
   gsiTaskViewPref: "board", // "board" | "list" — same idea, for GSI Workspace's own task list
   pwTaskViewPref: "board", // "board" | "list" — same idea again, for Personal Workspace
   name: "Suman",

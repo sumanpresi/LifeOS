@@ -27,6 +27,14 @@ let taskView = null; // "list" | "board" | "calendar" — lazily initialized fro
    changes, since the dates no longer apply. */
 let expandedCalDays = new Set();
 let calendarMonth = (() => { const d = new Date(); d.setDate(1); return d; })(); // first-of-month, tracks which month Calendar view is showing
+/* Which range the Calendar view is showing: a week, a month, a year, or a
+   block of years. The anchor above is the date inside that range — for
+   Month and above only its month/year matter, so it stays pinned to the
+   1st; Week moves it to a real date. Persisted like taskViewPref, so the
+   phone and the desktop open on the range you last used. */
+let calendarScale = null; // "week" | "month" | "year" | "years" — lazily read from state on first render
+const CAL_SCALES = [["week", "Week"], ["month", "Month"], ["year", "Year"], ["years", "Years"]];
+const YEARS_BLOCK = 12; // how many years the Years view shows at once
 let collapsedSections = new Set(); // UI-only display state, not persisted — which of Today/Upcoming/Completed are collapsed
 let expandedTaskId = null; // UI-only — which single row currently has its edit controls open
 let archivedSort = "newest"; // "newest" | "oldest" | "completed" | "alpha" — UI-only, not persisted
@@ -153,6 +161,61 @@ function destroyBoardSortables() {
   boardSortableInstances.forEach(s => { try { s.destroy(); } catch (e) { /* already gone with its container */ } });
   boardSortableInstances = [];
 }
+/* ---------- Board: the mouse wheel pans it sideways ----------
+   A board wider than the window is only useful if the columns past the
+   edge are reachable, and on a desktop with no trackpad the wheel is the
+   only gesture there is.
+
+   The hard constraint is that this must never trap the page. Columns here
+   scroll WITH the page rather than inside themselves (a deliberate earlier
+   decision — see the note in style.css), so a board is often taller than
+   the window, and hijacking every wheel tick over it would make the page
+   below the board unreachable. So the rule is a chain, not a takeover:
+
+   - Shift+wheel always pans. That's the convention, and it works anywhere
+     on the board at any scroll position.
+   - A trackpad's own horizontal gesture is left to the browser.
+   - Otherwise the page gets the wheel first. Only once the page has
+     nothing left to give in that direction does the wheel pan the board —
+     the same chaining a nested scroll area gets for free.
+   - And at either end of the board the event is handed back, so the page
+     resumes normally rather than the pointer sticking.
+
+   Re-bound each render because renderTasks() rewrites #taskList wholesale,
+   so this is always a fresh element with no listener left to leak. */
+function pageScroller(el) {
+  // The page scrolls on <html> in this layout, but .main or a modal body
+  // could be the real scroller depending on where the board is mounted, so
+  // find it rather than assume it.
+  for (let n = el.parentElement; n && n !== document.body; n = n.parentElement) {
+    const oy = getComputedStyle(n).overflowY;
+    if ((oy === "auto" || oy === "scroll") && n.scrollHeight - n.clientHeight > 1) return n;
+  }
+  return document.scrollingElement || document.documentElement;
+}
+function initBoardWheelScroll() {
+  const board = document.querySelector("#taskList .t-board");
+  if (!board) return;
+  board.addEventListener("wheel", (e) => {
+    const max = board.scrollWidth - board.clientWidth;
+    if (max <= 1) return;                                   // nothing to pan
+    if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;    // native horizontal gesture
+    const delta = e.deltaY;
+    if (!delta) return;
+
+    if (!e.shiftKey) {
+      const page = pageScroller(board);
+      const pageHasRoom = delta > 0
+        ? page.scrollTop + page.clientHeight < page.scrollHeight - 1
+        : page.scrollTop > 1;
+      if (pageHasRoom) return; // the page goes first
+    }
+    if ((delta < 0 && board.scrollLeft <= 0) || (delta > 0 && board.scrollLeft >= max - 1)) return;
+    e.preventDefault();
+    board.scrollLeft = Math.max(0, Math.min(max, board.scrollLeft + delta));
+  }, { passive: false });
+}
+
 function initBoardSorting() {
   destroyBoardSortables();
   if (taskView !== "board" || sortByDate || typeof Sortable === "undefined") return;
@@ -340,9 +403,53 @@ export function setTaskView(v) {
   if (switcher) switcher.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.view === v));
   renderTasks();
 }
-export function calendarPrevMonth() { expandedCalDays.clear(); calendarMonth.setMonth(calendarMonth.getMonth() - 1); renderTasks(); }
-export function calendarNextMonth() { expandedCalDays.clear(); calendarMonth.setMonth(calendarMonth.getMonth() + 1); renderTasks(); }
-export function calendarGoToday() { expandedCalDays.clear(); calendarMonth = new Date(); calendarMonth.setDate(1); renderTasks(); }
+/* Prev/Next step by whatever range is on screen — a week at a time in
+   Week, a month in Month, a year in Year, a whole block in Years — so the
+   same two arrows keep meaning "back one" and "forward one" throughout. */
+export function calendarPrevMonth() { shiftCalendar(-1); }
+export function calendarNextMonth() { shiftCalendar(1); }
+function shiftCalendar(dir) {
+  expandedCalDays.clear();
+  const scale = currentCalScale();
+  if (scale === "week") calendarMonth.setDate(calendarMonth.getDate() + 7 * dir);
+  // setMonth on the 31st of a month rolls into the next one ("Jan 31" +1
+  // month = "Mar 3"), so month steps are rebuilt from the parts instead.
+  else if (scale === "month") calendarMonth = new Date(calendarMonth.getFullYear(), calendarMonth.getMonth() + dir, 1);
+  else if (scale === "year") calendarMonth = new Date(calendarMonth.getFullYear() + dir, calendarMonth.getMonth(), 1);
+  else calendarMonth = new Date(calendarMonth.getFullYear() + YEARS_BLOCK * dir, 0, 1);
+  renderTasks();
+}
+export function calendarGoToday() {
+  expandedCalDays.clear();
+  calendarMonth = new Date();
+  if (currentCalScale() !== "week") calendarMonth.setDate(1);
+  renderTasks();
+}
+
+/* The range switcher beside Today. Changing range keeps the date you were
+   looking at: Month → Week opens the week containing the 1st of that
+   month, Year → Month opens the month you were already in. */
+export function setCalendarScale(v) {
+  if (!CAL_SCALES.some(([k]) => k === v)) return;
+  expandedCalDays.clear();
+  calendarScale = v;
+  state.calendarScalePref = v;
+  persist(false);
+  if (v !== "week") calendarMonth.setDate(1);
+  renderTasks();
+}
+/* Drilling down: tapping a month in Year view, or a year in Years view. */
+export function calendarZoomTo(dateStr, scale) {
+  expandedCalDays.clear();
+  const [y, m, d] = dateStr.split("-").map(Number);
+  calendarMonth = new Date(y, m - 1, d || 1);
+  if (scale) { calendarScale = scale; state.calendarScalePref = scale; persist(false); }
+  renderTasks();
+}
+function currentCalScale() {
+  if (calendarScale === null) calendarScale = state.calendarScalePref || "month";
+  return calendarScale;
+}
 
 /* "+N more" used to be an inert <div>: it looked like a control, did
    nothing, and the click fell through to the cell — whose handler adds a
@@ -1003,19 +1110,94 @@ function calendarClickSuppressed() {
 // ---------- Calendar view — a plain month grid. Only tasks with a due
 // date can appear here at all (nothing to place on a calendar without
 // one) — that's inherent to the view, not a filter to route around.
+// ---------- Calendar view. Four ranges share one header and one chip:
+// Week (an agenda-width column per day), Month (the grid), Year (twelve
+// mini-months) and Years (a block of twelve years). Only tasks with a due
+// date can appear here at all — that's inherent to a calendar, not a
+// filter to route around.
 function renderCalendarView(tasksWithDates) {
   const byDate = {};
   tasksWithDates.forEach(t => { if (t.dueDate) (byDate[t.dueDate] = byDate[t.dueDate] || []).push(t); });
+  const scale = currentCalScale();
+  const todayStr = isoDate(new Date());
 
+  const body =
+    scale === "week" ? renderCalWeek(byDate, todayStr) :
+    scale === "year" ? renderCalYear(byDate, todayStr) :
+    scale === "years" ? renderCalYears(byDate, todayStr) :
+    renderCalMonth(byDate, todayStr);
+
+  // t-cal-r-* ("r" for range) rather than t-cal-week / t-cal-month: those
+  // two names are already taken inside this view by a week ROW in the
+  // month grid and by the month LABEL in the header, and reusing them on
+  // the container silently applied a flex row and a 30px serif to it.
+  return `<div class="t-cal t-cal-r-${scale}">${calHeadHtml(scale)}${body}</div>`;
+}
+
+// Local-time ISO. new Date().toISOString() is UTC, which in IST turns
+// anything before 05:30 into yesterday — the wrong day highlighted, and
+// "Today" landing on the wrong cell, for the first five and a half hours.
+function isoDate(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function startOfWeek(d) { const s = new Date(d); s.setDate(s.getDate() - s.getDay()); s.setHours(0, 0, 0, 0); return s; }
+/* The block runs from three years back, not from a fixed 12-year boundary:
+   aligning to multiples of 12 put 2026 in a 2016–2027 block, eight of whose
+   cells can never hold anything. Three back covers what's already filed,
+   the rest looks forward. Paging still moves a whole block at a time. */
+function yearsBlockStart(y) { return y - 3; }
+
+// The header is one component across all four ranges: what you're looking
+// at on the left, how to move and how to change range on the right.
+function calHeadHtml(scale) {
+  const y = calendarMonth.getFullYear();
+  let name, sub;
+  if (scale === "week") {
+    const s = startOfWeek(calendarMonth), e = new Date(s); e.setDate(s.getDate() + 6);
+    const fmt = (d, withMonth) => `${d.getDate()}${withMonth ? " " + d.toLocaleDateString("en-IN", { month: "short" }) : ""}`;
+    name = `${fmt(s, s.getMonth() !== e.getMonth())} – ${fmt(e, true)}`;
+    sub = s.getFullYear() === e.getFullYear() ? String(e.getFullYear()) : `${s.getFullYear()}–${e.getFullYear()}`;
+  } else if (scale === "month") {
+    name = calendarMonth.toLocaleDateString("en-IN", { month: "long" }); sub = String(y);
+  } else if (scale === "year") {
+    name = String(y); sub = "";
+  } else {
+    const s = yearsBlockStart(y); name = `${s}`; sub = `– ${s + YEARS_BLOCK - 1}`;
+  }
+  const step = { week: "week", month: "month", year: "year", years: "years" }[scale];
+  return `
+      <div class="t-cal-head">
+        <div class="t-cal-month">
+          <span class="t-cal-month-name">${name}</span>${sub ? `<span class="t-cal-month-year">${sub}</span>` : ""}
+        </div>
+        <div class="t-cal-nav">
+          <button class="btn btn-ghost t-cal-arrow" onclick="calendarPrevMonth()" aria-label="Previous ${step}">‹</button>
+          <button class="btn btn-ghost t-cal-arrow" onclick="calendarNextMonth()" aria-label="Next ${step}">›</button>
+          <button class="btn btn-ghost t-cal-today-btn" onclick="calendarGoToday()">Today</button>
+          <label class="t-cal-scale">
+            <select onchange="setCalendarScale(this.value)" aria-label="Calendar range">
+              ${CAL_SCALES.map(([k, label]) => `<option value="${k}" ${k === scale ? "selected" : ""}>${label}</option>`).join("")}
+            </select>
+            <span class="t-cal-scale-caret" aria-hidden="true">⌄</span>
+          </label>
+        </div>
+      </div>`;
+}
+
+// One chip, used by both Week and Month, so a task looks and behaves the
+// same wherever it's dragged from.
+function calChipHtml(t, todayStr) {
+  return `
+            <div class="t-cal-chip cat-${(t.category || "work") === "personal" ? "personal" : "work"} ${t.done ? "done" : ""} ${t.dueDate < todayStr && !t.done ? "overdue" : ""}" data-task-id="${t.id}" title="Drag to another day to reschedule">
+              <button class="t-cal-chip-chk" onclick="event.stopPropagation();toggleTask('${t.id}')" aria-label="Toggle complete"></button>
+              <button class="t-cal-chip-title" onclick="event.stopPropagation();openTaskPopup('${t.id}')" title="${esc(t.text)}">${esc(t.text)}</button>
+            </div>`;
+}
+
+function renderCalMonth(byDate, todayStr) {
   const year = calendarMonth.getFullYear(), month = calendarMonth.getMonth();
   const firstWeekday = new Date(year, month, 1).getDay(); // 0=Sun
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  // Name and year are separate spans: desktop sets them on one line and they
-  // read exactly as before, while the phone layout gives the month name the
-  // large display size and drops the year back to a quiet label beside it.
-  const monthName = calendarMonth.toLocaleDateString("en-IN", { month: "long" });
-  const monthYear = String(year);
-  const todayStr = new Date().toISOString().slice(0, 10);
 
   function dayCellHtml(d) {
     if (d === null) return `<div class="t-cal-cell t-cal-empty"></div>`;
@@ -1027,11 +1209,7 @@ function renderCalendarView(tasksWithDates) {
       <div class="t-cal-cell ${dateStr === todayStr ? "t-cal-today" : ""} ${expanded ? "t-cal-expanded" : ""}" data-cal-date="${dateStr}" onclick="openDayView('${dateStr}')" title="View all tasks on ${dateStr}">
         <div class="t-cal-daynum-row"><span class="t-cal-daynum">${d}</span><span class="t-cal-add-hint">+</span></div>
         <div class="t-cal-tasks" data-cal-date="${dateStr}">
-          ${shown.map(t => `
-            <div class="t-cal-chip cat-${(t.category || "work") === "personal" ? "personal" : "work"} ${t.done ? "done" : ""} ${t.dueDate < todayStr && !t.done ? "overdue" : ""}" data-task-id="${t.id}" title="Drag to another day to reschedule">
-              <button class="t-cal-chip-chk" onclick="event.stopPropagation();toggleTask('${t.id}')" aria-label="Toggle complete"></button>
-              <button class="t-cal-chip-title" onclick="event.stopPropagation();openTaskPopup('${t.id}')" title="${esc(t.text)}">${esc(t.text)}</button>
-            </div>`).join("")}
+          ${shown.map(t => calChipHtml(t, todayStr)).join("")}
           ${dayTasks.length > 3 ? `<button class="t-cal-more" onclick="event.stopPropagation();toggleCalendarDay('${dateStr}')"
             title="${expanded ? "Show fewer" : `Show all ${dayTasks.length} tasks`}"
             aria-label="${expanded ? "Show fewer tasks" : `Show all ${dayTasks.length} tasks`}"
@@ -1058,25 +1236,93 @@ function renderCalendarView(tasksWithDates) {
   }
 
   return `
-    <div class="t-cal">
-      <div class="t-cal-head">
-        <div class="t-cal-month">
-          <span class="t-cal-month-name">${monthName}</span><span class="t-cal-month-year">${monthYear}</span>
-        </div>
-        <div class="t-cal-nav">
-          <button class="btn btn-ghost t-cal-arrow" onclick="calendarPrevMonth()" aria-label="Previous month">‹</button>
-          <button class="btn btn-ghost t-cal-arrow" onclick="calendarNextMonth()" aria-label="Next month">›</button>
-          <button class="btn btn-ghost t-cal-today-btn" onclick="calendarGoToday()">Today</button>
-        </div>
-      </div>
       <div class="t-cal-scroll">
         <div class="t-cal-weekdays">${
           ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map(w =>
             `<div><span class="t-cal-wd-full">${w}</span><span class="t-cal-wd-mini" aria-hidden="true">${w[0]}</span></div>`).join("")
         }</div>
         <div class="t-cal-grid">${weeksHtml}</div>
-      </div>
-    </div>`;
+      </div>`;
+}
+
+/* Week: seven days, every task shown in full — no "+N more", because a
+   week has the room the month grid doesn't. Same .t-cal-tasks containers,
+   so dragging a task from Monday to Thursday reschedules it exactly as it
+   does in Month. On a phone the seven columns stack into an agenda. */
+function renderCalWeek(byDate, todayStr) {
+  const s = startOfWeek(calendarMonth);
+  let cells = "";
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(s); d.setDate(s.getDate() + i);
+    const dateStr = isoDate(d);
+    const dayTasks = byDate[dateStr] || [];
+    cells += `
+      <div class="t-cal-cell t-cal-wcell ${dateStr === todayStr ? "t-cal-today" : ""}" data-cal-date="${dateStr}" onclick="openDayView('${dateStr}')" title="View all tasks on ${dateStr}">
+        <div class="t-cal-daynum-row">
+          <span class="t-cal-wcell-wd">${d.toLocaleDateString("en-IN", { weekday: "short" })}</span>
+          <span class="t-cal-daynum">${d.getDate()}</span>
+          <span class="t-cal-wcell-count">${dayTasks.length || ""}</span>
+        </div>
+        <div class="t-cal-tasks" data-cal-date="${dateStr}">
+          ${dayTasks.map(t => calChipHtml(t, todayStr)).join("")}
+        </div>
+      </div>`;
+  }
+  return `<div class="t-cal-scroll"><div class="t-cal-weekgrid">${cells}</div></div>`;
+}
+
+/* Year: twelve mini-months. A day carries a dot if anything is due on it,
+   which is all a month-at-this-size can honestly show. Tapping a day opens
+   its day sheet — the same tap as the month grid — and tapping a month
+   name drops into that month. */
+function renderCalYear(byDate, todayStr) {
+  const year = calendarMonth.getFullYear();
+  let months = "";
+  for (let m = 0; m < 12; m++) {
+    const first = new Date(year, m, 1);
+    const daysInMonth = new Date(year, m + 1, 0).getDate();
+    const pad = first.getDay();
+    let days = "";
+    for (let i = 0; i < pad; i++) days += `<span class="t-cal-mini-day t-cal-mini-blank"></span>`;
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateStr = `${year}-${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+      const n = (byDate[dateStr] || []).length;
+      days += `<button class="t-cal-mini-day ${n ? "has" : ""} ${dateStr === todayStr ? "is-today" : ""}"
+        onclick="openDayView('${dateStr}')" title="${n ? `${n} task${n > 1 ? "s" : ""} on ${dateStr}` : dateStr}">${d}</button>`;
+    }
+    months += `
+      <div class="t-cal-mini ${new Date().getFullYear() === year && new Date().getMonth() === m ? "is-current" : ""}">
+        <button class="t-cal-mini-head" onclick="calendarZoomTo('${year}-${String(m + 1).padStart(2, "0")}-01','month')"
+          title="Open ${first.toLocaleDateString("en-IN", { month: "long" })} ${year}">${first.toLocaleDateString("en-IN", { month: "long" })}</button>
+        <div class="t-cal-mini-wd">${["S", "M", "T", "W", "T", "F", "S"].map(w => `<span>${w}</span>`).join("")}</div>
+        <div class="t-cal-mini-grid">${days}</div>
+      </div>`;
+  }
+  return `<div class="t-cal-yeargrid">${months}</div>`;
+}
+
+/* Years: a block of twelve, each with how much is on it. Deliberately a
+   count and not a grid — at this zoom the only useful question is "which
+   year has anything in it", and the answer is a number. */
+function renderCalYears(byDate, todayStr) {
+  const startY = yearsBlockStart(calendarMonth.getFullYear());
+  const thisYear = new Date().getFullYear();
+  const counts = {};
+  Object.keys(byDate).forEach(dateStr => {
+    const y = Number(dateStr.slice(0, 4));
+    counts[y] = (counts[y] || 0) + byDate[dateStr].length;
+  });
+  let cells = "";
+  for (let y = startY; y < startY + YEARS_BLOCK; y++) {
+    const n = counts[y] || 0;
+    cells += `
+      <button class="t-cal-yearcell ${y === thisYear ? "is-current" : ""} ${n ? "has" : ""}"
+        onclick="calendarZoomTo('${y}-01-01','year')" title="Open ${y}">
+        <span class="t-cal-yearcell-y">${y}</span>
+        <span class="t-cal-yearcell-n">${n ? `${n} task${n > 1 ? "s" : ""}` : "—"}</span>
+      </button>`;
+  }
+  return `<div class="t-cal-yearsgrid">${cells}</div>`;
 }
 
 
@@ -1285,6 +1531,7 @@ export function renderTasks() {
   restoreNewTaskDraft();
   initTaskSorting();
   initBoardSorting();
+  initBoardWheelScroll();
   initCalendarSorting();
 }
 
