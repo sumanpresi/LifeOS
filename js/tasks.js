@@ -166,20 +166,17 @@ function destroyBoardSortables() {
    edge are reachable, and on a desktop with no trackpad the wheel is the
    only gesture there is.
 
-   The hard constraint is that this must never trap the page. Columns here
-   scroll WITH the page rather than inside themselves (a deliberate earlier
-   decision — see the note in style.css), so a board is often taller than
-   the window, and hijacking every wheel tick over it would make the page
-   below the board unreachable. So the rule is a chain, not a takeover:
+   The hard constraint is that this must never trap the pointer. So the
+   wheel is a chain, not a takeover, and the board is last in it:
 
    - Shift+wheel always pans. That's the convention, and it works anywhere
      on the board at any scroll position.
    - A trackpad's own horizontal gesture is left to the browser.
-   - Otherwise the page gets the wheel first. Only once the page has
-     nothing left to give in that direction does the wheel pan the board —
-     the same chaining a nested scroll area gets for free.
-   - And at either end of the board the event is handed back, so the page
-     resumes normally rather than the pointer sticking.
+   - A column under the pointer with more than five cards scrolls its own
+     list first, until that list reaches its end.
+   - Then the page, if the page has anywhere left to go.
+   - Only then does the wheel pan the board — and at either end of the
+     board the event is handed back, so nothing sticks.
 
    Re-bound each render because renderTasks() rewrites #taskList wholesale,
    so this is always a fresh element with no listener left to leak. */
@@ -204,17 +201,74 @@ function initBoardWheelScroll() {
     if (!delta) return;
 
     if (!e.shiftKey) {
+      /* A column that can still scroll its own list keeps the wheel:
+         reading down a full Overdue column must not slide the board
+         sideways under the pointer. Once that list is at its end the wheel
+         passes on. */
+      const colBody = e.target.closest?.(".t-board-col-body");
+      if (colBody && colBody.scrollHeight - colBody.clientHeight > 1) {
+        const atTop = colBody.scrollTop <= 1;
+        const atEnd = colBody.scrollTop + colBody.clientHeight >= colBody.scrollHeight - 1;
+        if (!(delta < 0 && atTop) && !(delta > 0 && atEnd)) return;
+      }
       const page = pageScroller(board);
       const pageHasRoom = delta > 0
         ? page.scrollTop + page.clientHeight < page.scrollHeight - 1
         : page.scrollTop > 1;
-      if (pageHasRoom) return; // the page goes first
+      if (pageHasRoom) return; // then the page
     }
     if ((delta < 0 && board.scrollLeft <= 0) || (delta > 0 && board.scrollLeft >= max - 1)) return;
     e.preventDefault();
     board.scrollLeft = Math.max(0, Math.min(max, board.scrollLeft + delta));
   }, { passive: false });
 }
+
+/* ---------- Board columns: five cards, then scroll ----------
+   A column stops at the height of its fifth card and scrolls from there.
+   Five is the number the board reads well at: every column's head stays on
+   one screen, so Overdue can't push Today and Upcoming below the fold just
+   by being long.
+
+   Measured rather than declared. Cards here are not a fixed height — a
+   two-line title, a wrapped meta row, a Hindi title that sets taller all
+   change it — so a max-height in CSS would cut the fifth card in half on
+   one column and leave a gap on another. This reads the fifth card's own
+   bottom edge in each column and caps to exactly that.
+
+   It runs after every render (card heights are only knowable once they're
+   laid out) and again on resize, since a narrower column rewraps titles
+   and every height changes with it. */
+const BOARD_CARDS_BEFORE_SCROLL = 5;
+function capBoardColumnHeights() {
+  document.querySelectorAll("#taskList .t-board-col-body").forEach(body => {
+    // Clear first: the measurement has to happen against the column's
+    // natural height, not against last render's cap.
+    body.style.maxHeight = "";
+    body.classList.remove("t-board-col-capped");
+    const cards = body.querySelectorAll(".t-board-card");
+    if (cards.length <= BOARD_CARDS_BEFORE_SCROLL) return;
+    const fifth = cards[BOARD_CARDS_BEFORE_SCROLL - 1];
+    const padBottom = parseFloat(getComputedStyle(body).paddingBottom) || 0;
+    const h = fifth.getBoundingClientRect().bottom - body.getBoundingClientRect().top + padBottom;
+    if (h > 0) {
+      body.style.maxHeight = `${Math.round(h)}px`;
+      body.classList.add("t-board-col-capped");
+    }
+  });
+}
+/* Web fonts land after the first render, and Inter sets taller than the
+   fallback: a cap measured before they arrive is a few pixels short and
+   clips the fifth card. Remeasure once, when the fonts are in. */
+if (document.fonts?.ready) document.fonts.ready.then(() => capBoardColumnHeights());
+
+/* A resize changes every card's height, so the caps have to be remeasured.
+   Debounced because resize fires continuously while a window is dragged,
+   and each pass reads layout for every column on the board. */
+let boardCapResizeTimer = null;
+window.addEventListener("resize", () => {
+  clearTimeout(boardCapResizeTimer);
+  boardCapResizeTimer = setTimeout(capBoardColumnHeights, 120);
+});
 
 function initBoardSorting() {
   destroyBoardSortables();
@@ -1532,6 +1586,7 @@ export function renderTasks() {
   initTaskSorting();
   initBoardSorting();
   initBoardWheelScroll();
+  capBoardColumnHeights();
   initCalendarSorting();
 }
 
