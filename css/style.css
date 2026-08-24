@@ -1363,6 +1363,38 @@ body.note-fullscreen-open .card{ overflow: visible; }
 .t-board-col{flex:1 1 0;min-width:230px;background:var(--t-bg);border-radius:12px;border:1px solid var(--t-border);
   display:flex;flex-direction:column}
 
+/* ---- Desktop board: fluid columns, and everything past the edge reachable
+   by scrolling rather than by squeezing.
+
+   The columns used to be flex:1 1 0 with a 230px floor, which shares the
+   width out equally however little there is: five columns on a 1200px
+   laptop came out at 216px each, so "Coordinates of the uploaded
+   exploration blocks reg" wrapped to two clipped lines and every meta pill
+   dropped onto its own row. A Kanban column has a readable width, and
+   below it the answer is to scroll, not to keep shaving.
+
+   flex-basis is a clamp, so a column tracks the screen — about a fifth of
+   it, never under 272px, never over 340px, which is where a two-line card
+   title stops being the norm. They still grow to fill a wide monitor; when
+   five of them stop fitting, the board scrolls sideways instead, and the
+   scrollbar is styled thick enough to show that it can.
+
+   Heights are deliberately NOT capped here — see the note further down
+   about columns scrolling with the page rather than inside themselves. */
+@media (min-width:1100px){
+  .t-board{overscroll-behavior-x:contain}
+  .t-board-col{flex:1 1 clamp(272px, 20vw, 340px);min-width:272px}
+
+  .t-board::-webkit-scrollbar{height:10px}
+  .t-board::-webkit-scrollbar-thumb{background:rgba(0,0,0,.20);border-radius:99px;
+    border:3px solid transparent;background-clip:padding-box}
+  .t-board::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.32);background-clip:padding-box}
+  .t-board::-webkit-scrollbar-track{background:transparent}
+  .t-board{scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.20) transparent}
+}
+html[data-theme="dark"] .t-board{scrollbar-color:rgba(255,255,255,.24) transparent}
+html[data-theme="dark"] .t-board::-webkit-scrollbar-thumb{background:rgba(255,255,255,.24);background-clip:padding-box}
+
 @media (max-width:1099px){
   .t-board{
     display:grid;
@@ -1553,6 +1585,69 @@ body.note-fullscreen-open .card{ overflow: visible; }
 .t-cal-more:hover{background:var(--t-cal-chip-bg)}
 .t-cal-more:focus-visible{outline:2px solid var(--t-accent);outline-offset:1px}
 
+/* ---- Range switcher (Week / Month / Year / Years), beside Today ----
+   A native <select>: on a phone it opens the OS wheel, which is a better
+   control than any menu we could draw, and on the desktop it's one click
+   like the buttons next to it. The element is styled to match those
+   buttons and the browser's own arrow is replaced with our caret so the
+   four controls read as one group. */
+.t-cal-scale{position:relative;display:inline-flex;align-items:center}
+.t-cal-scale select{appearance:none;-webkit-appearance:none;
+  font:inherit;font-size:13px;font-weight:600;color:var(--t-ink);
+  background:var(--t-card);border:1px solid var(--t-border);border-radius:10px;
+  padding:6px 26px 6px 12px;cursor:pointer;line-height:1.2}
+.t-cal-scale select:hover{border-color:var(--t-accent)}
+.t-cal-scale select:focus-visible{outline:2px solid var(--t-accent);outline-offset:1px}
+.t-cal-scale-caret{position:absolute;right:9px;font-size:12px;color:var(--t-ink2);pointer-events:none;line-height:1}
+
+/* ---- Week range ----
+   Seven columns, every task shown in full — no "+N more", since the whole
+   point of dropping to a week is that there's room for the detail. */
+.t-cal-weekgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:start}
+.t-cal-wcell{min-height:280px}
+.t-cal-wcell .t-cal-daynum-row{gap:6px;padding-bottom:5px;margin-bottom:3px;border-bottom:1px solid var(--t-border)}
+.t-cal-wcell-wd{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--t-ink2)}
+.t-cal-wcell .t-cal-daynum{flex:1}
+.t-cal-wcell-count{font-size:11px;font-weight:600;color:var(--t-ink2)}
+.t-cal-week .t-cal-wcell{flex:none}
+.t-cal-wcell .t-cal-chip-title{-webkit-line-clamp:3}
+
+/* ---- Year range — twelve mini-months ----
+   At this size a day can honestly show one thing: whether anything is due
+   on it. So a day with tasks is tinted, and the count lives in the tooltip
+   and in the day sheet a tap away. */
+.t-cal-yeargrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding-top:2px}
+.t-cal-mini{background:var(--t-card);border:1px solid var(--t-border);border-radius:12px;padding:9px 10px 11px}
+.t-cal-mini.is-current{border-color:var(--t-accent);box-shadow:0 0 0 1px var(--t-accent)}
+.t-cal-mini-head{display:block;width:100%;text-align:left;background:none;border:none;cursor:pointer;
+  font-family:'Fraunces',serif;font-size:14px;font-weight:600;color:var(--t-ink);padding:0 0 6px}
+.t-cal-mini-head:hover{color:var(--t-accent)}
+.t-cal-mini-head:focus-visible{outline:2px solid var(--t-accent);outline-offset:2px;border-radius:4px}
+.t-cal-mini-wd,.t-cal-mini-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px}
+.t-cal-mini-wd{font-size:9px;font-weight:700;color:var(--t-ink2);text-align:center;padding-bottom:3px}
+.t-cal-mini-day{aspect-ratio:1;min-width:0;padding:0;border:none;background:none;border-radius:5px;
+  font:inherit;font-size:10px;font-weight:500;color:var(--t-ink2);cursor:pointer;
+  display:flex;align-items:center;justify-content:center}
+.t-cal-mini-day:hover{background:var(--t-cal-cell-hover);color:var(--t-ink)}
+.t-cal-mini-day:focus-visible{outline:2px solid var(--t-accent);outline-offset:1px}
+.t-cal-mini-day.has{background:var(--t-cal-chip-bg);color:var(--t-ink);font-weight:700}
+.t-cal-mini-day.is-today{background:var(--t-danger);color:#fff;font-weight:700;border-radius:999px}
+.t-cal-mini-blank{visibility:hidden;pointer-events:none}
+
+/* ---- Years range — a block of twelve ----
+   A count, not a grid: the only question at this zoom is which years have
+   anything in them, and the answer is a number. */
+.t-cal-yearsgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding-top:2px}
+.t-cal-yearcell{display:flex;flex-direction:column;gap:3px;align-items:flex-start;
+  background:var(--t-card);border:1px solid var(--t-border);border-radius:12px;padding:14px 14px 12px;
+  cursor:pointer;font:inherit;text-align:left;transition:background 150ms ease,border-color 150ms ease}
+.t-cal-yearcell:hover{background:var(--t-cal-cell-hover);border-color:var(--t-accent)}
+.t-cal-yearcell:focus-visible{outline:2px solid var(--t-accent);outline-offset:1px}
+.t-cal-yearcell-y{font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:var(--t-ink)}
+.t-cal-yearcell-n{font-size:12px;color:var(--t-ink2)}
+.t-cal-yearcell.has .t-cal-yearcell-n{color:var(--t-accent);font-weight:600}
+.t-cal-yearcell.is-current{border-color:var(--t-accent);box-shadow:0 0 0 1px var(--t-accent)}
+
 /* An expanded day shows every task, so the cell must be allowed to grow
    past its min-height and the task list must stop clipping. The week row
    is a flex row, so the neighbouring cells stretch to match — which is
@@ -1654,6 +1749,46 @@ body.note-fullscreen-open .card{ overflow: visible; }
 
   /* Expanded days stop truncating the list, so the row grows instead. */
   .t-cal-cell.t-cal-expanded .t-cal-tasks{min-height:0}
+
+  /* The range switcher sits under the arrows rather than beside them —
+     four controls plus a 30px month name don't share one line at 390px.
+     Full-height tap target, since it opens the iOS picker wheel. */
+  .t-cal-head{flex-wrap:wrap;row-gap:6px}
+  .t-cal-scale select{padding:6px 24px 6px 11px;font-size:13px;border-radius:9px}
+
+
+  /* Year: two mini-months across. Three fits but the day numbers fall
+     under 9px, which is decoration rather than a date you can read. */
+  .t-cal-yeargrid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .t-cal-mini{padding:7px 7px 9px;border-radius:10px}
+  .t-cal-mini-head{font-size:13px;padding-bottom:4px}
+  .t-cal-mini-day{font-size:9.5px}
+  .t-cal-mini-wd{font-size:8px}
+
+  .t-cal-yearsgrid{grid-template-columns:repeat(2,1fr);gap:8px}
+  .t-cal-yearcell{padding:12px 12px 10px}
+  .t-cal-yearcell-y{font-size:17px}
+}
+
+/* Week range below the desktop: the seven columns become an agenda —
+   seven stacked full-width rows, nothing truncated. Set at 900px, wider
+   than the 600px phone block above, because a 110px column on a Fold 6
+   inner screen or an iPad in portrait clips a task title just as badly as
+   a phone does, and Week exists precisely to show the title in full. */
+@media(max-width:900px){
+  .t-cal-weekgrid{grid-template-columns:1fr;gap:0}
+  .t-cal-wcell{min-height:0;padding:9px 4px 11px;border-bottom:1px solid var(--t-border)}
+  .t-cal-wcell:last-child{border-bottom:none}
+  .t-cal-wcell .t-cal-daynum-row{justify-content:flex-start;gap:8px;border-bottom:none;
+    padding-bottom:2px;margin-bottom:2px}
+  .t-cal-wcell .t-cal-daynum{flex:0 0 auto;font-size:15px}
+  .t-cal-wcell-wd{order:-1;font-size:11px}
+  .t-cal-wcell-count{margin-left:auto}
+  .t-cal-wcell .t-cal-chip{padding:5px 8px;border-radius:7px;gap:7px;align-items:flex-start}
+  .t-cal-wcell .t-cal-chip-chk{width:14px;height:14px;border-radius:4px;margin-top:1px}
+  .t-cal-wcell .t-cal-chip-title{font-size:13px;line-height:1.35;white-space:normal;
+    letter-spacing:0;display:block;overflow:visible;text-overflow:clip;-webkit-line-clamp:none}
+  .t-cal-wcell .t-cal-tasks{gap:4px}
 }
 
 /* Tinted pill backgrounds for the phone grid, per theme. */

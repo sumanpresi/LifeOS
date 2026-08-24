@@ -268,13 +268,18 @@ body.is-dragging .t-board{scroll-snap-type:none}
   .t-cal-grid{max-width:none; overflow-x:visible}
 
   .t-cal-scroll{overflow-x:auto; -webkit-overflow-scrolling:touch; padding-bottom:4px}
-  .t-cal-weekdays{
+  /* Scoped to the Month range. The Calendar view also has Week, Year and
+     Years ranges (the dropdown beside Today), and none of them is a
+     seven-across squeeze: Week is seven full-height columns that already
+     fit, Year and Years are their own grids. Pinning every .t-cal-cell to
+     150px would have reached into the Week columns too. */
+  .t-cal-r-month .t-cal-weekdays{
     display:flex; width:max-content; min-width:100%;
     gap:6px;
   }
-  .t-cal-weekdays > div{flex:0 0 150px; width:150px}
-  .t-cal-week{width:max-content}
-  .t-cal-cell{flex:0 0 150px; width:150px; min-width:150px; max-width:150px}
+  .t-cal-r-month .t-cal-weekdays > div{flex:0 0 150px; width:150px}
+  .t-cal-r-month .t-cal-week{width:max-content}
+  .t-cal-r-month .t-cal-cell{flex:0 0 150px; width:150px; min-width:150px; max-width:150px}
 
   .t-cal-scroll::-webkit-scrollbar{height:6px}
   .t-cal-scroll::-webkit-scrollbar-thumb{background:rgba(0,0,0,.18);border-radius:99px}
