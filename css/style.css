@@ -3931,30 +3931,44 @@ html[data-theme="dark"] .t-archived-trigger .t-section-count{
   background:rgba(255,255,255,.10);color:var(--ink);
 }
 
-/* ---------- Board columns scroll with the page, not inside themselves ----
-   `max-height:70vh` turned every column into its own scroll container.
-   With a mouse that is genuinely slow work: the wheel only moves whichever
-   column the pointer happens to be over, each column has to be scrolled
-   separately to read it, and the page itself sits half empty underneath —
-   visible in the gap below the board.
+/* ---------- Board columns: five cards tall, then their own scroll -------
+   An earlier version of this file capped columns at `max-height:70vh` and
+   was reverted: a viewport-height cap gives a column an arbitrary,
+   screen-dependent size, and with a mouse it meant the wheel only ever
+   moved whichever column the pointer sat over.
 
-   Columns now grow to fit their tasks and the page scrolls once, which is
-   how the eye expects a board to behave on a large screen. Nested scroll
-   containers are worth their cost when the outer area cannot scroll; here
-   it can. */
+   The cap is now stated in cards rather than in pixels — five, measured
+   from the fifth card's own bottom edge in tasks.js (capBoardColumnHeights)
+   so it lands on a card boundary at any card height. That keeps all five
+   column heads on one screen, which is the thing a board is for: a long
+   Overdue can no longer push Today and Upcoming below the fold.
+
+   Only a column with more than five cards is capped, so short columns are
+   untouched. Scroll chaining is left at its default: a wheel over a full
+   column scrolls that column and then carries on to the page, rather than
+   stopping dead at the column's last card. */
 .t-board-col{max-height:none}
 .t-board-col-body{overflow-y:visible}
+.t-board-col-body.t-board-col-capped{overflow-y:auto;-webkit-overflow-scrolling:touch}
+/* The body is a flex column, so its cards are flex items and shrink by
+   default: capping the height without this simply squeezed all twelve
+   cards into the space of five instead of scrolling. */
+.t-board-col-body.t-board-col-capped > *{flex-shrink:0}
+.t-board-col-body.t-board-col-capped::-webkit-scrollbar{width:8px}
+.t-board-col-body.t-board-col-capped::-webkit-scrollbar-thumb{background:rgba(0,0,0,.18);
+  border-radius:99px;border:2px solid transparent;background-clip:padding-box}
+.t-board-col-body.t-board-col-capped::-webkit-scrollbar-track{background:transparent}
+.t-board-col-body.t-board-col-capped{scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.18) transparent}
+html[data-theme="dark"] .t-board-col-body.t-board-col-capped{scrollbar-color:rgba(255,255,255,.20) transparent}
+html[data-theme="dark"] .t-board-col-body.t-board-col-capped::-webkit-scrollbar-thumb{
+  background:rgba(255,255,255,.20);background-clip:padding-box}
 
-/* No height cap at any size, deliberately.
-
-   A first attempt restored an internal scroll on short viewports, on the
-   theory that a long column would otherwise push the add-task button below
-   the fold. On a laptop that works out at roughly 620px of scrollable
-   column — barely different from the 70vh it replaced, so it would have
-   reintroduced the same slow, per-column wheeling for almost no benefit.
-   Scrolling past a long column to reach its button is the ordinary cost of
-   a long list, and it is far cheaper than making every column its own
-   scroll box. */
+/* The cap is stated in cards, not in viewport height — that distinction is
+   what the two reverted attempts (70vh, then a short-viewport variant) both
+   missed. A pixel cap is arbitrary: it lands mid-card, it changes with the
+   window, and on a laptop it came out barely different from the 70vh it was
+   meant to replace. Five cards is a rule about the board, and it holds the
+   same on a Fold, an iPad and a monitor. */
 
 /* The board's own horizontal scroller keeps the columns aligned to the top
    so a long column doesn't stretch its neighbours' backgrounds. */
