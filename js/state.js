@@ -74,6 +74,12 @@ export const DEFAULT_STATE = {
     { id: "h4", name: "10 min speak in English" }
   ],
   habitLog: {},              // { "2026-07-19": { h1:true } }
+  /* When each day's ticks last changed, per date — the same device-clock-
+     free trick journalUpdated uses. Without it a day's habit ticks could
+     only be reconciled by asking which whole document was newer, so the
+     losing device's ticks were discarded wholesale. Written by habits.js
+     on every toggle. */
+  habitLogUpdated: {},       // { "2026-07-19": 1755436800000 }
   calendarScribbles: {},     // { "2026-07-19": { strokes: [{points:[{x,y}],...}] } } — one freehand note per date
   whiteboards: {
     overview: { strokes: [], objects: [] },
@@ -230,6 +236,8 @@ export const DEFAULT_STATE = {
     notes: "", links: [],
     medicines: [],      // [{id, name}]
     medicineLog: {},    // { "2026-07-19": { medId: {morning:bool, afternoon:bool, night:bool} } }
+    medicineLogUpdated: {}, // { "2026-07-19": 1755436800000 } — per-day stamp, so two devices' dose ticks merge by day instead of one document overwriting the other
+
     prescriptions: []   // [{id, name, url, date}]
   },
   travel: {
@@ -504,6 +512,10 @@ function merge(saved) {
   s.ngdrTracker = Array.isArray(saved.ngdrTracker) ? saved.ngdrTracker : structuredClone(DEFAULT_STATE.ngdrTracker);
   s.finance = Object.assign(structuredClone(DEFAULT_STATE.finance), saved.finance || {});
   s.health = Object.assign(structuredClone(DEFAULT_STATE.health), saved.health || {});
+  /* Saves made before the per-day stamps existed have no map at all, and
+     the sync merge reads it on every pull. */
+  if (!s.health.medicineLogUpdated || typeof s.health.medicineLogUpdated !== "object") s.health.medicineLogUpdated = {};
+  if (!s.habitLogUpdated || typeof s.habitLogUpdated !== "object") s.habitLogUpdated = {};
   s.travel = Object.assign(structuredClone(DEFAULT_STATE.travel), saved.travel || {});
   (s.travel.plans || []).forEach(p => {
     if (typeof p.packing === "string") {

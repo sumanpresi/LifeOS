@@ -17,6 +17,11 @@ export function toggleDose(dateKey, medId, slot) {
   state.health.medicineLog[dateKey][medId] = state.health.medicineLog[dateKey][medId] || {};
   const cur = state.health.medicineLog[dateKey][medId];
   cur[slot] = !cur[slot];
+  /* Stamp the DAY, not the dose. The sync merge reconciles this log a day
+     at a time, so what it needs to know is "when did this device last
+     touch 24 Aug" — see mergeIncomingDayLog in js/supabase.js. */
+  state.health.medicineLogUpdated = state.health.medicineLogUpdated || {};
+  state.health.medicineLogUpdated[dateKey] = Date.now();
   persist(); renderHealth();
 }
 

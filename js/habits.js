@@ -23,6 +23,10 @@ export function toggleHabit(dateKey, habitId) {
   state.habitLog[dateKey] = state.habitLog[dateKey] || {};
   state.habitLog[dateKey][habitId] = !state.habitLog[dateKey][habitId];
   if (!state.habitLog[dateKey][habitId]) delete state.habitLog[dateKey][habitId];
+  // Per-day stamp so two devices' ticks merge by day rather than one
+  // document's worth of ticks replacing the other's — see js/supabase.js.
+  state.habitLogUpdated = state.habitLogUpdated || {};
+  state.habitLogUpdated[dateKey] = Date.now();
   persist(); rerender();
 }
 export function streak(habitId) {

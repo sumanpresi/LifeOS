@@ -823,6 +823,9 @@ function mergeIncomingJournal(remote) {
 function mergeIncomingTasks(remote) {
   const gone = mergeTrashLog(remote);
   const remoteWins = (remote.updatedAt || 0) >= (state.updatedAt || 0);
+  // Handed to mergeIncomingRecords() so the rest of the app's lists get
+  // the same deletion set and the same tie-breaker.
+  lastMergeVerdict = { gone, remoteWins };
 
   state.tasks = mergeTaskArray(state.tasks, remote.tasks, gone, remoteWins);
   remote.tasks = state.tasks;
@@ -835,6 +838,120 @@ function mergeIncomingTasks(remote) {
     state.personal.projects = mergeProjectTrees(state.personal.projects, remote.personal.projects, gone, remoteWins);
     remote.personal.projects = state.personal.projects;
   }
+}
+
+
+/* ---------- Everything else that is a list of records ----------
+   Tasks, notes, the journal and the whiteboards each got a merge of
+   their own as their bugs were found. Every other area of the app —
+   medicines and their dose log, habits, goals, prescriptions, saved
+   links, feeds, the finance lists, the entertainment catalogue — had
+   none, and so fell through to the document-level verdict: whichever
+   device the reconcile decided was "newer" replaced the other's copy of
+   all of it wholesale.
+
+   That is the medicine tracker bug exactly. Tick a dose on the phone
+   while the desktop also has any unsent edit, and the two sides both
+   changed since they last agreed; one document wins, and the loser's
+   ticks are gone (into Restore, but gone from the screen). It looks like
+   "this section doesn't sync" because the outcome is indistinguishable
+   from never having synced.
+
+   These lists are all the same shape — arrays of records with an id —
+   so they can all use the union-by-id merge tasks already use. An item
+   added on either device survives; an item deleted on either device
+   stays deleted, because the trash log's `gone` set is shared; an item
+   edited on both falls back to the document verdict, which is the same
+   answer as before and no worse.
+
+   NOT covered, deliberately, because each needs its own shape of merge
+   rather than this one: the contents of a travel plan (packing lists,
+   stops), a reference page's links, and map/ink layers. Those still
+   follow the document-level verdict. */
+let lastMergeVerdict = { gone: new Set(), remoteWins: true };
+
+/* A date-keyed log — habit ticks, medicine doses — reconciled one DAY at
+   a time using the per-day stamps written by habits.js / health.js. Two
+   devices that ticked different days both keep their ticks, which is the
+   normal case and the one that was failing. The same day touched on both
+   sides still has to pick one, and picks the later stamp. */
+function mergeDayLog(localLog, remoteLog, localStamps, remoteStamps, remoteWins) {
+  const out = {};
+  const stamps = {};
+  const days = new Set([...Object.keys(localLog || {}), ...Object.keys(remoteLog || {})]);
+  days.forEach(day => {
+    const inLocal = localLog && day in localLog, inRemote = remoteLog && day in remoteLog;
+    const ls = (localStamps || {})[day] || 0, rs = (remoteStamps || {})[day] || 0;
+    let take;
+    if (inLocal && !inRemote) take = "local";
+    else if (!inLocal && inRemote) take = "remote";
+    else if (ls || rs) take = rs > ls ? "remote" : "local";
+    else take = remoteWins ? "remote" : "local";   // no stamps (older saves) — document verdict
+    out[day] = take === "remote" ? remoteLog[day] : localLog[day];
+    const st = Math.max(ls, rs);
+    if (st) stamps[day] = st;
+  });
+  return { log: out, stamps };
+}
+
+function mergeIncomingRecords(remote) {
+  const { gone, remoteWins } = lastMergeVerdict;
+  const list = (a, b) => mergeTaskArray(a, b, gone, remoteWins);
+  // Both sides get the merged result: `state` so it's on screen now,
+  // `remote` so whichever copy gets pushed back carries it too.
+  const both = (path, merged) => {
+    const keys = path.split(".");
+    const last = keys.pop();
+    let ls = state, rs = remote;
+    for (const k of keys) { ls = ls?.[k]; rs = rs?.[k]; }
+    if (ls) ls[last] = merged;
+    if (rs) rs[last] = merged;
+  };
+  const get = (obj, path) => path.split(".").reduce((o, k) => o?.[k], obj);
+
+  [
+    "goals", "habits", "links", "feeds",
+    "health.medicines", "health.prescriptions",
+    "entertainment.items",
+    "finance.grocery", "finance.shopping", "finance.wishlist", "finance.emiTable.rows",
+    "reference.kmlLayers",
+    "travel.plans", "reference.pages",
+  ].forEach(path => {
+    const l = get(state, path), r = get(remote, path);
+    if (!Array.isArray(l) && !Array.isArray(r)) return;
+    both(path, list(l, r));
+  });
+
+  /* Monthly expenses are a map of months, each holding its own rows —
+     merged per month, then per row by id, so a row added on the phone in
+     August and one added on the desktop in July both survive. */
+  const lm = get(state, "finance.monthlyExpenses.months") || {};
+  const rm = get(remote, "finance.monthlyExpenses.months") || {};
+  const months = {};
+  new Set([...Object.keys(lm), ...Object.keys(rm)]).forEach(m => {
+    months[m] = Object.assign({}, lm[m], rm[m], { rows: list(lm[m]?.rows, rm[m]?.rows) });
+  });
+  both("finance.monthlyExpenses.months", months);
+
+  const habit = mergeDayLog(state.habitLog, remote.habitLog, state.habitLogUpdated, remote.habitLogUpdated, remoteWins);
+  both("habitLog", habit.log);
+  both("habitLogUpdated", habit.stamps);
+
+  const dose = mergeDayLog(
+    state.health?.medicineLog, remote.health?.medicineLog,
+    state.health?.medicineLogUpdated, remote.health?.medicineLogUpdated, remoteWins);
+  both("health.medicineLog", dose.log);
+  both("health.medicineLogUpdated", dose.stamps);
+
+  /* Minutes meditated per day: a number per date, and a date only ever
+     appears because someone logged on that device. Highest wins — a
+     larger number is always the result of more sessions being counted,
+     and taking the lower one would be forgetting a session. */
+  const med = {};
+  new Set([...Object.keys(state.meditation || {}), ...Object.keys(remote.meditation || {})]).forEach(d => {
+    med[d] = Math.max(Number((state.meditation || {})[d]) || 0, Number((remote.meditation || {})[d]) || 0);
+  });
+  both("meditation", med);
 }
 
 function mergeIncomingBrainstormBoards(remote) {
@@ -884,6 +1001,7 @@ export async function loadRemote(preferRemote = false) {
       mergeIncomingBrainstormBoards(remote);
       mergeIncomingSectionNotes(remote);
       mergeIncomingTasks(remote);
+      mergeIncomingRecords(remote); // after mergeIncomingTasks: reuses the trash log's `gone` set and its verdict
       mergeIncomingJournal(remote); // after the trash log has been merged, which mergeIncomingTasks does
       /* Course progress is append-shaped, so an incoming copy is combined
          with this device's rather than replacing it — the same reason the
