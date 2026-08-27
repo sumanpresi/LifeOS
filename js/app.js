@@ -193,7 +193,8 @@ Object.assign(window,
   { addNotebookSection: notebook.addNotebookSection, switchNotebookSection: notebook.switchNotebookSection,
     renameNotebookSection: notebook.renameNotebookSection, delNotebookSection: notebook.delNotebookSection,
     addNotebookPage: notebook.addNotebookPage, switchNotebookPage: notebook.switchNotebookPage,
-    renameNotebookPage: notebook.renameNotebookPage, delNotebookPage: notebook.delNotebookPage },
+    renameNotebookPage: notebook.renameNotebookPage, delNotebookPage: notebook.delNotebookPage,
+    startNotebookRename: notebook.startNotebookRename, commitNotebookRename: notebook.commitNotebookRename },
   { toggleTrashList: trash.toggleTrashList, restoreFromTrash: trash.restoreFromTrash, permanentlyDeleteFromTrash: trash.permanentlyDeleteFromTrash },
   { toggleDatePopover: dateShortcuts.toggleDatePopover, setQuickDate: dateShortcuts.setQuickDate },
   { expandView: expandView.expandView, closeExpandView: expandView.closeExpandView },
@@ -301,6 +302,7 @@ share.initBoardDeepLink({ go: ui.go, switchBoard: whiteboard.switchBrainstormBoa
    sentence typed into it. */
 function flushEverything() {
   try { widgets.flushJournalEditor(); } catch (e) { console.warn("[journal] flush failed", e); }
+  try { notebook.flushNotebookEditor(); } catch (e) { console.warn("[notebook] flush failed", e); }
   flushLocalSave();
 }
 document.addEventListener("visibilitychange", () => { if (document.hidden) flushEverything(); });

@@ -11,6 +11,7 @@ import { state, uid, esc, persist, rerender } from './state.js';
 import { mountRichEditor, unmountRichEditor, getRichEditor } from './rich-text.js';
 import { sanitizeHtml } from './sanitize.js';
 import { moveToTrash } from './trash.js';
+import { registerBusyCheck } from './ui.js';
 
 /* Cycled through by section creation order so each section gets a
    distinct colour strip, purely cosmetic — like OneNote's own section
@@ -54,6 +55,25 @@ function findNbPageById(id) {
    nothing has been loaded into it yet this session. */
 let loadedNbPageId = null;
 
+/* True from the first keystroke of an edit until it reaches `state` 500ms
+   later. In that window the text exists ONLY inside Quill: not saved, not
+   synced, and invisible to Undo and Trash. Registering it as a busy check
+   stops a background pull from replacing state and repainting mid-
+   sentence — the journal does the same thing for the same reason. */
+let nbEditorDirty = false;
+export function hasUnsavedNotebookEdit() { return nbEditorDirty; }
+registerBusyCheck(hasUnsavedNotebookEdit);
+
+/* Forces a pending edit out to `state` without waiting for the debounce.
+   Called before a cloud pull reads state, and before the tab backgrounds
+   or closes — on mobile, timers can be frozen the moment the app goes to
+   the background, so the last thing typed would otherwise never reach
+   `state` at all. */
+export function flushNotebookEditor() {
+  flushNotebookPage();
+  nbEditorDirty = false;
+}
+
 /* Quill's change handler is debounced, so an edit can still be sitting
    unsaved when the page is switched — write it back to the page it
    belongs to first, exactly like flushPackNotes() in travel.js. */
@@ -62,6 +82,7 @@ function flushNotebookPage() {
   if (!q || loadedNbPageId === null) return;
   const p = findNbPageById(loadedNbPageId);
   if (p && p.html !== q.root.innerHTML) { p.html = q.root.innerHTML; p.updatedAt = Date.now(); persist(); }
+  nbEditorDirty = false;
 }
 
 function fmtTimestamp(ts) {
@@ -72,6 +93,51 @@ function fmtTimestamp(ts) {
   return `${datePart}   ${timePart}`;
 }
 
+/* Row names are a plain <span> until a rename is actually asked for.
+
+   They used to be <input> always, and on a touch screen that made the
+   list unusable: tapping a row put the caret in a text field and raised
+   the keyboard instead of opening the section — there was no way to
+   simply switch tabs by tapping. A span can't swallow the tap, so the
+   row's own onclick is free to do the obvious thing, and renaming moved
+   onto an explicit ✎ (or a double-click, on a desktop). A span also
+   wraps and ellipsises, which an <input> cannot do at any width. */
+let nbRenaming = null;
+function rowName(kind, o, placeholder) {
+  const nm = (o.name || "").trim();
+  if (nbRenaming !== o.id) {
+    return `<span class="nb-row-name ${nm ? "" : "is-empty"}">${esc(nm || placeholder)}</span>`;
+  }
+  return `<input type="text" class="nb-row-name nb-row-input" value="${esc(o.name)}" placeholder="${esc(placeholder)}"
+    data-orig="${esc(o.name)}"
+    onclick="event.stopPropagation()"
+    onkeydown="if(event.key==='Enter'){event.preventDefault();this.blur();}else if(event.key==='Escape'){this.value=this.dataset.orig;this.blur();}"
+    onblur="commitNotebookRename('${kind}','${o.id}',this.value)">`;
+}
+/* The only thing a rebuild can destroy is a rename input the person is
+   typing into. Skipping the rebuild for ANY focused element was too broad
+   — after a rename committed, the ✎ button or the row still held focus
+   and the list kept showing the stale input. */
+function renamingInside(listEl) {
+  const el = document.activeElement;
+  return !!nbRenaming && !!el && listEl.contains(el) && el.classList.contains("nb-row-input");
+}
+export function startNotebookRename(kind, id) {
+  /* The ✎ button lives inside the list, so it holds focus at this moment
+     — and the render below skips any list that contains the focused
+     element. Without dropping focus first the input would never appear. */
+  try { document.activeElement && document.activeElement.blur(); } catch (e) {}
+  if (kind === "sec") switchNotebookSection(id); else switchNotebookPage(id);
+  nbRenaming = id;
+  renderNotebook();
+}
+export function commitNotebookRename(kind, id, v) {
+  nbRenaming = null;
+  if (kind === "sec") renameNotebookSection(id, v);
+  else renameNotebookPage(id, v);
+  renderNotebook(); // rename*() returns early on a blank value, so render unconditionally
+}
+
 export function renderNotebook() {
   const nb = ensureNotebook();
   const sec = activeNbSection();
@@ -80,19 +146,17 @@ export function renderNotebook() {
   /* ---- sections column ---- */
   const secList = document.getElementById("nbSectionList");
   /* The rebuild is skipped while focus is inside this list, so a rename in
-     progress isn't yanked out from under the cursor. But clicking a name is
-     ALSO focus inside this list — which meant selecting a section switched
-     its pages while the highlight stayed on the old one. The `.active` class
-     is therefore reconciled separately, below, whether or not the list was
-     redrawn; `data-id` exists so that reconciliation has something to match
-     rows on without rebuilding them. */
-  if (secList && !secList.contains(document.activeElement)) {
+     progress isn't yanked out from under the cursor. Selecting a row no
+     longer puts focus in here at all (the row is a plain tap target now),
+     so the `.active` class is reconciled separately below — `data-id` is
+     what that reconciliation matches rows on without rebuilding them. */
+  if (secList && !renamingInside(secList)) {
     secList.innerHTML = nb.sections.map(s => `
-      <div class="nb-row ${s.id === sec.id ? "active" : ""}" data-id="${s.id}">
+      <div class="nb-row ${s.id === sec.id ? "active" : ""}" data-id="${s.id}"
+        onclick="switchNotebookSection('${s.id}')" ondblclick="startNotebookRename('sec','${s.id}')">
         <span class="nb-color-bar" style="background:${NB_COLORS[s.color % NB_COLORS.length]}"></span>
-        <input type="text" class="nb-row-name" value="${esc(s.name)}" placeholder="Untitled section"
-          onclick="switchNotebookSection('${s.id}')"
-          onchange="renameNotebookSection('${s.id}', this.value)">
+        ${rowName("sec", s, "Untitled section")}
+        <button class="nb-row-act" title="Rename section" onclick="event.stopPropagation();startNotebookRename('sec','${s.id}')">✎</button>
         ${nb.sections.length > 1 ? `<button class="nb-row-del" title="Delete section" onclick="event.stopPropagation();delNotebookSection('${s.id}')">✕</button>` : ""}
       </div>`).join("");
   }
@@ -102,16 +166,21 @@ export function renderNotebook() {
   const page = activeNbPage(sec);
   if (page && sec.activePage !== page.id) sec.activePage = page.id;
   const pageList = document.getElementById("nbPageList");
-  if (pageList && !pageList.contains(document.activeElement)) {
+  if (pageList && !renamingInside(pageList)) {
     pageList.innerHTML = (sec.pages || []).map(p => `
-      <div class="nb-row ${page && p.id === page.id ? "active" : ""}" data-id="${p.id}">
-        <input type="text" class="nb-row-name" value="${esc(p.name)}" placeholder="Untitled page"
-          onclick="switchNotebookPage('${p.id}')"
-          onchange="renameNotebookPage('${p.id}', this.value)">
+      <div class="nb-row ${page && p.id === page.id ? "active" : ""}" data-id="${p.id}"
+        onclick="switchNotebookPage('${p.id}')" ondblclick="startNotebookRename('page','${p.id}')">
+        ${rowName("page", p, "Untitled page")}
+        <button class="nb-row-act" title="Rename page" onclick="event.stopPropagation();startNotebookRename('page','${p.id}')">✎</button>
         ${sec.pages.length > 1 ? `<button class="nb-row-del" title="Delete page" onclick="event.stopPropagation();delNotebookPage('${p.id}')">✕</button>` : ""}
       </div>`).join("") || `<p class="hint">No pages yet — "+ Add page" starts one.</p>`;
   }
   if (pageList) pageList.querySelectorAll(".nb-row").forEach(r => r.classList.toggle("active", !!page && r.dataset.id === page.id));
+  if (nbRenaming) {
+    const inp = document.querySelector(".nb-row-input");
+    if (inp && document.activeElement !== inp) { inp.focus(); inp.select(); }
+    else if (!inp) nbRenaming = null; // the row it belonged to is gone
+  }
   const label = document.getElementById("nbActiveSectionLabel");
   if (label) label.textContent = sec ? sec.name : "Pages";
   const pageAddBtn = document.getElementById("nbAddPageBtn");
@@ -134,8 +203,9 @@ export function renderNotebook() {
     if (!p2) return; // deleted from another device mid-edit
     p2.html = html;
     p2.updatedAt = Date.now();
+    nbEditorDirty = false; // committed to state — a pull is safe again
     persist(); // rich-text.js already debounced this; rerender() here would destroy the editor mid-edit
-  });
+  }, () => { nbEditorDirty = true; });
   if (!quill) return;
   quill.root.dataset.placeholder = "Start writing…";
   if (loadedNbPageId === null) { loadedNbPageId = page.id; return; }
@@ -154,7 +224,7 @@ export function addNotebookSection() {
   flushNotebookPage();
   const pageId = uid();
   const sec = {
-    id: uid(), name: "New section", color: nb.sections.length,
+    id: uid(), name: "New section", color: nb.sections.length, updatedAt: Date.now(),
     pages: [{ id: pageId, name: "Untitled page", html: "", createdAt: Date.now(), updatedAt: Date.now() }],
     activePage: pageId
   };
@@ -162,15 +232,25 @@ export function addNotebookSection() {
   nb.activeSection = sec.id;
   loadedNbPageId = null;
   unmountRichEditor(NB_EDITOR);
-  persist(); renderNotebook();
-  document.querySelector("#nbSectionList .nb-row.active .nb-row-name")?.select();
+  persist();
+  /* Opens straight into the rename input — `.select()` used to be called
+     on the name element directly, which threw the moment that element
+     became a <span>. startNotebookRename() renders it as an input and
+     focuses it, which is what that line was reaching for anyway. */
+  startNotebookRename("sec", sec.id);
 }
 export function switchNotebookSection(id) {
   const nb = ensureNotebook();
   if (nb.activeSection === id) return; // already open — don't rebuild the list under someone renaming it
   flushNotebookPage();
   nb.activeSection = id;
-  loadedNbPageId = null;
+  /* loadedNbPageId is deliberately NOT cleared here. Clearing it told
+     renderNotebook "nothing has been loaded into the editor yet", which is
+     its signal to leave the editor alone — but the editor is still mounted
+     and still showing the PREVIOUS page. The new page then opened holding
+     the old page's text, and the first keystroke saved that text into it.
+     Leaving the id alone lets renderNotebook see a real page change and do
+     the swap properly. */
   persist(false); renderNotebook();
 }
 export function renameNotebookSection(id, v) {
@@ -178,6 +258,7 @@ export function renameNotebookSection(id, v) {
   const sec = nb.sections.find(s => s.id === id);
   if (!sec || !v.trim()) return;
   sec.name = v.trim();
+  sec.updatedAt = Date.now(); // the merge needs a per-section signal, not the document's
   persist(); renderNotebook();
 }
 export function delNotebookSection(id) {
@@ -211,7 +292,7 @@ export function switchNotebookPage(id) {
   if (!sec || sec.activePage === id) return;
   flushNotebookPage();
   sec.activePage = id;
-  loadedNbPageId = null;
+  // Not cleared, for the reason spelled out in switchNotebookSection().
   persist(false); renderNotebook();
 }
 /* Called from the big title field above the page (renames the active

@@ -10,6 +10,7 @@ import { moveToTrash } from './trash.js';
 import { mergeNoteInk, redrawAllInk } from './note-ink.js';
 import { hasUnsavedComposerDraft } from './composer.js';
 import { flushJournalEditor } from './widgets.js';
+import { flushNotebookEditor } from './notebook.js';
 
 const CLIENT_ID = uid() + uid();
 const GH_SVG = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.54-3.87-1.54-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.26.72-1.55-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12v3.14c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>';
@@ -957,6 +958,147 @@ function mergeIncomingRecords(remote) {
 function mergeIncomingBrainstormBoards(remote) {
   BOARD_LISTS.forEach(({ list, active }) => mergeIncomingBoardList(remote, list, active));
 }
+
+/* THE NOTEBOOK MERGE — and why it has to exist.
+
+   Without it the notebook rode on the whole-document verdict, and that had
+   a failure mode far worse than the usual "both devices edited offline"
+   caveat: a device whose stored copy PREDATES the notebook has one
+   fabricated for it by merge() in state.js — an empty General/Untitled
+   page, and (because DEFAULT_STATE uses fixed ids) an empty page carrying
+   the very same id as the one being written on elsewhere. That fabricated
+   emptiness is indistinguishable from real content at document level. So
+   opening the phone after writing on the desktop meant the phone's blank
+   default could win the document comparison and be pushed up, wiping the
+   desktop's pages out of the cloud — and off the desktop at its next pull.
+   Exactly the "I wrote on the desktop, opened the phone, it's gone from
+   both" report.
+
+   Reconciling per section and per page removes the whole class of problem:
+   an empty page with updatedAt 0 can never beat a written one, because the
+   comparison is now between two pages rather than two documents. */
+function mergeNotebookPages(ls, rs, gone, remoteWins, conflicts) {
+  const byId = new Map();
+  (ls.pages || []).forEach(p => { if (p && p.id && !gone.has(p.id)) byId.set(p.id, p); });
+  (rs.pages || []).forEach(rp => {
+    if (!rp || !rp.id || gone.has(rp.id)) return;
+    const lp = byId.get(rp.id);
+    if (!lp) { byId.set(rp.id, rp); return; }
+
+    const a = journalPlainForCompare(lp.html), b = journalPlainForCompare(rp.html);
+    let winner;
+    if (a === b) winner = (rp.updatedAt || 0) >= (lp.updatedAt || 0) ? rp : lp;
+    // One text containing the other is an append — the longer one is the
+    // continuation of the shorter, so nothing is lost by keeping it and
+    // the clocks don't get a say. Same rule the journal merge uses.
+    else if (a && b && a.includes(b)) winner = lp;
+    else if (a && b && b.includes(a)) winner = rp;
+    else {
+      const lt = lp.updatedAt || 0, rt = rp.updatedAt || 0;
+      const takeRemote = (lt || rt) ? rt > lt : remoteWins;
+      winner = takeRemote ? rp : lp;
+      const loser = takeRemote ? lp : rp;
+      // Only a real fork is worth filing — an empty side losing to a
+      // written one is just this device catching up, not lost work.
+      if (journalPlainForCompare(loser.html)) conflicts.push({ page: loser, sectionId: rs.id });
+    }
+    // A name edited on one device shouldn't be dragged back by the other
+    // device winning on text alone; the newer name wins on its own.
+    const named = (rp.updatedAt || 0) > (lp.updatedAt || 0) ? rp : lp;
+    byId.set(rp.id, Object.assign({}, winner, { name: named.name || winner.name }));
+  });
+
+  // Remote order first (the copy both devices last agreed on), then any
+  // page this device has that the cloud hasn't seen yet.
+  const order = [], seen = new Set();
+  (rs.pages || []).forEach(p => { const m = p && byId.get(p.id); if (m && !seen.has(p.id)) { seen.add(p.id); order.push(m); } });
+  (ls.pages || []).forEach(p => { const m = p && byId.get(p.id); if (m && !seen.has(p.id)) { seen.add(p.id); order.push(m); } });
+  return order;
+}
+
+function mergeIncomingNotebook(remote) {
+  const { gone, remoteWins } = lastMergeVerdict;
+  const ln = state.notebook, rn = remote.notebook;
+  if (!rn || !Array.isArray(rn.sections)) { remote.notebook = ln; return; }
+  if (!ln || !Array.isArray(ln.sections)) { state.notebook = rn; return; }
+
+  /* WHICH SECTION AND PAGE ARE OPEN IS THIS DEVICE'S BUSINESS. Same
+     reasoning as the note tabs above: selecting a page doesn't change any
+     content, so it can't be allowed to be decided by the other device. */
+  const localSection = ln.activeSection;
+  const localPage = {};
+  ln.sections.forEach(s => { if (s && s.id) localPage[s.id] = s.activePage; });
+
+  const conflicts = [];
+  const bySec = new Map();
+  ln.sections.forEach(s => { if (s && s.id && !gone.has(s.id)) bySec.set(s.id, s); });
+  rn.sections.forEach(rs => {
+    if (!rs || !rs.id || gone.has(rs.id)) return;
+    const ls = bySec.get(rs.id);
+    if (!ls) { bySec.set(rs.id, rs); return; }
+    /* A section's own name and colour need a timestamp of their own, or
+       they fall back to the document verdict — the very thing this merge
+       exists to get away from, and enough on its own to drag a renamed
+       section back to "General". Sections are stamped on rename now;
+       where neither side carries one (data written before that), the
+       newest page inside the section stands in for it, which is still a
+       far better signal than which whole document happened to win. */
+    const newestPage = s => (s.pages || []).reduce((n, p) => Math.max(n, (p && p.updatedAt) || 0), 0);
+    const lt = ls.updatedAt || 0, rt = rs.updatedAt || 0;
+    let takeRemoteMeta;
+    if (lt || rt) takeRemoteMeta = rt > lt;
+    else {
+      const lnp = newestPage(ls), rnp = newestPage(rs);
+      takeRemoteMeta = (lnp || rnp) ? rnp > lnp : remoteWins;
+    }
+    const meta = takeRemoteMeta ? rs : ls;
+    bySec.set(rs.id, Object.assign({}, ls, {
+      name: meta.name || ls.name,
+      color: typeof meta.color === "number" ? meta.color : (ls.color || 0),
+      updatedAt: Math.max(lt, rt) || undefined,
+      pages: mergeNotebookPages(ls, rs, gone, remoteWins, conflicts)
+    }));
+  });
+
+  const order = [], seen = new Set();
+  rn.sections.forEach(s => { const m = s && bySec.get(s.id); if (m && !seen.has(s.id)) { seen.add(s.id); order.push(m); } });
+  ln.sections.forEach(s => { const m = s && bySec.get(s.id); if (m && !seen.has(s.id)) { seen.add(s.id); order.push(m); } });
+
+  // Reassert the local view over the merged tree.
+  order.forEach(s => {
+    const want = localPage[s.id];
+    if (want && (s.pages || []).some(p => p.id === want)) s.activePage = want;
+    else if (!(s.pages || []).some(p => p.id === s.activePage)) s.activePage = (s.pages && s.pages[0] && s.pages[0].id) || "";
+  });
+  const merged = {
+    sections: order,
+    activeSection: order.some(s => s.id === localSection) ? localSection : ((order[0] && order[0].id) || "")
+  };
+  /* An empty result means every section is in the trash on one side or
+     the other. Left as-is deliberately: merge() in state.js and
+     ensureNotebook() both rebuild a starter section from empty, and doing
+     it here as well would just be a third place to keep in step. */
+  state.notebook = merged;
+  remote.notebook = merged;
+
+  /* Nothing is dropped silently. The losing copy is filed under a fresh
+     id — never the live page's id, which would put it in `gone` and have
+     the next merge delete the page it was meant to protect. */
+  conflicts.forEach(({ page: p, sectionId }) => {
+    try {
+      moveToTrash("notebookPage", {
+        id: "nb-conflict-" + p.id + "-" + uid(),
+        name: (p.name || "Untitled page") + " (other device's copy)",
+        html: p.html, createdAt: p.createdAt, updatedAt: p.updatedAt
+      }, { sectionId }); // restores back into the section it forked from
+    } catch (e) { console.warn("[sync] could not file notebook conflict copy", e); }
+  });
+  if (conflicts.length) {
+    toast(conflicts.length === 1
+      ? "Two versions of one notebook page — the other copy is in Trash"
+      : conflicts.length + " notebook pages had two versions — the other copies are in Trash");
+  }
+}
 function applyRemote(remote) {
   const token = remote.syncToken || "";
   /* If this device is holding edits the cloud hasn't seen, replacing state
@@ -983,6 +1125,7 @@ export async function loadRemote(preferRemote = false) {
      the cloud against a local copy that is a sentence out of date, and
      that sentence loses. */
   try { flushJournalEditor(); } catch (e) { /* editor not mounted */ }
+  try { flushNotebookEditor(); } catch (e) { /* editor not mounted */ }
   setSyncPill("busy", "Syncing…");
   try {
     const { data, error } = await sb.from("lifeos_data")
@@ -1003,6 +1146,7 @@ export async function loadRemote(preferRemote = false) {
       mergeIncomingTasks(remote);
       mergeIncomingRecords(remote); // after mergeIncomingTasks: reuses the trash log's `gone` set and its verdict
       mergeIncomingJournal(remote); // after the trash log has been merged, which mergeIncomingTasks does
+      mergeIncomingNotebook(remote); // after mergeIncomingTasks: needs its `gone` set and verdict
       /* Course progress is append-shaped, so an incoming copy is combined
          with this device's rather than replacing it — the same reason the
          journal and the ink merge instead of one side winning. */
@@ -1438,6 +1582,7 @@ function startRealtime() {
         mergeIncomingSectionNotes(remote);
         mergeIncomingTasks(remote);
         mergeIncomingJournal(remote); // after the trash log has been merged, which mergeIncomingTasks does
+        mergeIncomingNotebook(remote); // after mergeIncomingTasks: needs its `gone` set and verdict
         /* Course progress is append-shaped, so an incoming copy is combined
            with this device's rather than replacing it — the same reason the
            journal and the ink merge instead of one side winning. */
