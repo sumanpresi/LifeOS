@@ -53,6 +53,20 @@ function findNbPageById(id) {
 /* Which page's HTML the shared editor currently holds — null means
    nothing has been loaded into it yet this session. */
 let loadedNbPageId = null;
+/* The exact HTML the editor was last handed, or last committed back. It is
+   how a change made ELSEWHERE is told apart from the editor's own text:
+   if page.html no longer matches this, something other than this editor
+   wrote it — a sync from another device — and the editor is out of date. */
+let loadedNbHtml = null;
+/* Quill normalises whatever HTML it is given, so the editor's innerHTML is
+   almost never byte-identical to the stored string it was loaded from.
+   Comparing the two to decide "did this change?" therefore answered yes
+   every time — which meant simply RECEIVING a sync bumped updatedAt and
+   the rev counter and sent a save straight back, the same false-edit shape
+   the Communication iframe's old unconditional save() had. The baseline is
+   the editor's own innerHTML at the moment of loading, so a comparison
+   against it only reports real typing. */
+let loadedNbBaseline = null;
 
 /* True from the first keystroke of an edit until it reaches `state` 500ms
    later. In that window the text exists ONLY inside Quill: not saved, not
@@ -80,7 +94,14 @@ function flushNotebookPage() {
   const q = getRichEditor(NB_EDITOR);
   if (!q || loadedNbPageId === null) return;
   const p = findNbPageById(loadedNbPageId);
-  if (p && p.html !== q.root.innerHTML) { p.html = q.root.innerHTML; p.updatedAt = Date.now(); persist(); }
+  const cur = q.root.innerHTML;
+  if (p && cur !== loadedNbBaseline) {
+    p.html = cur;
+    p.updatedAt = Date.now();
+    loadedNbHtml = cur;
+    loadedNbBaseline = cur;
+    persist();
+  }
   nbEditorDirty = false;
 }
 
@@ -220,20 +241,43 @@ export function renderNotebook() {
     if (!p2) return; // deleted from another device mid-edit
     p2.html = html;
     p2.updatedAt = Date.now();
+    loadedNbHtml = html;   // this editor wrote it, so it is not an outside change
+    loadedNbBaseline = quill.root.innerHTML;
     nbEditorDirty = false; // committed to state — a pull is safe again
     persist(); // rich-text.js already debounced this; rerender() here would destroy the editor mid-edit
   }, () => { nbEditorDirty = true; });
   if (!quill) return;
   quill.root.dataset.placeholder = "Start writing…";
-  if (loadedNbPageId === null) { loadedNbPageId = page.id; return; }
-  if (loadedNbPageId === page.id) return;
+  if (loadedNbPageId === null) {
+    loadedNbPageId = page.id;
+    loadedNbHtml = page.html || ""; // mountRichEditor just loaded exactly this
+    loadedNbBaseline = quill.root.innerHTML;
+    return;
+  }
+  if (loadedNbPageId === page.id) {
+    /* Same page still open — but a sync from another device may have
+       replaced its text underneath. Without this the editor kept showing
+       whatever it was showing before: the phone's edit landed in `state`
+       and in the cloud, and the desktop simply never repainted it. Worse,
+       the next keystroke here would have saved this stale copy back over
+       it. Skipped while an edit of this device's own is still in flight —
+       nobody's sentence gets pulled out from under them. */
+    if ((page.html || "") !== (loadedNbHtml || "") && !nbEditorDirty) {
+      setEditorHtml(quill, page.html);
+      loadedNbHtml = page.html || "";
+      loadedNbBaseline = quill.root.innerHTML;
+    }
+    return;
+  }
   flushNotebookPage();
   loadedNbPageId = page.id;
+  loadedNbHtml = page.html || "";
   // Switching pages loads HTML directly, outside mountRichEditor's own
   // (first-mount-only) path — via the shared helper, which sanitizes and,
   // crucially, does not steal focus. Loading a page is not a request to
   // start typing in it.
   setEditorHtml(quill, page.html);
+  loadedNbBaseline = quill.root.innerHTML;
 }
 
 /* ---------------- sections ---------------- */
@@ -249,7 +293,7 @@ export function addNotebookSection() {
   };
   nb.sections.push(sec);
   nb.activeSection = sec.id;
-  loadedNbPageId = null;
+  loadedNbPageId = null; loadedNbHtml = null; loadedNbBaseline = null;
   unmountRichEditor(NB_EDITOR);
   persist();
   /* With a mouse, dropping straight into the rename field is convenient.
@@ -293,7 +337,7 @@ export function delNotebookSection(id) {
   const sec = nb.sections.find(s => s.id === id);
   if (!sec) return;
   if (!confirm(`Delete the "${sec.name}" section and its ${sec.pages.length} page(s)? You can restore it from Trash within 30 days.`)) return;
-  if (loadedNbPageId && sec.pages.some(p => p.id === loadedNbPageId)) { loadedNbPageId = null; unmountRichEditor(NB_EDITOR); }
+  if (loadedNbPageId && sec.pages.some(p => p.id === loadedNbPageId)) { loadedNbPageId = null; loadedNbHtml = null; loadedNbBaseline = null; unmountRichEditor(NB_EDITOR); }
   moveToTrash("notebookSection", sec);
   nb.sections = nb.sections.filter(s => s.id !== id);
   if (nb.activeSection === id) nb.activeSection = nb.sections[0].id;
@@ -309,7 +353,7 @@ export function addNotebookPage() {
   const p = { id: uid(), name: "Untitled page", html: "", createdAt: Date.now(), updatedAt: Date.now() };
   sec.pages.unshift(p);
   sec.activePage = p.id;
-  loadedNbPageId = null;
+  loadedNbPageId = null; loadedNbHtml = null; loadedNbBaseline = null;
   unmountRichEditor(NB_EDITOR);
   persist(); renderNotebook();
   if (!coarsePointer()) {
@@ -350,7 +394,7 @@ export function delNotebookPage(id) {
   if (loadedNbPageId === p.id) {
     const q = getRichEditor(NB_EDITOR);
     if (q) p.html = q.root.innerHTML; // trash keeps the latest text, including anything still in the debounce window
-    loadedNbPageId = null;
+    loadedNbPageId = null; loadedNbHtml = null; loadedNbBaseline = null;
     unmountRichEditor(NB_EDITOR);
   }
   moveToTrash("notebookPage", p, { sectionId: sec.id });
