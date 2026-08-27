@@ -98,8 +98,7 @@ export function mountRichEditor(containerId, getInitialHtml, onChange, onDirty) 
   // predate this check or have arrived from another device; outbound,
   // because a paste from a web page brings that page's markup with it
   // and this is the last point before it reaches storage.
-  const initial = sanitizeHtml(getInitialHtml());
-  if (initial) quill.clipboard.dangerouslyPasteHTML(initial);
+  setEditorHtml(quill, getInitialHtml());
   addLineHeightControl(quill);
 
   let timer = null;
@@ -133,6 +132,26 @@ export function mountRichEditor(containerId, getInitialHtml, onChange, onDirty) 
    So teardown puts the node back the way it was found — Quill's own
    classes stripped, its children gone, the toolbar removed — leaving any
    classes the app put there (mm-rich-editor, nb-rich-editor) intact. */
+/* Loads HTML into an editor WITHOUT taking focus.
+
+   quill.clipboard.dangerouslyPasteHTML() — the obvious call, and the one
+   this replaced — ends by calling setSelection() internally, which focuses
+   the editor. On a desktop that is invisible. On a phone or a folding
+   phone, focus means the on-screen keyboard, so an editor merely being
+   RENDERED, or a notebook page being switched, threw up the keyboard over
+   half the screen without anyone asking to type. setContents() with a
+   converted delta loads exactly the same content and leaves focus alone.
+
+   Verified against Quill 2: dangerouslyPasteHTML moves focus into the
+   editor; setContents(clipboard.convert(...)) does not, and produces the
+   same text. */
+export function setEditorHtml(quill, html) {
+  if (!quill) return;
+  const clean = sanitizeHtml(html || "");
+  if (!clean) { quill.setText("", "silent"); return; }
+  quill.setContents(quill.clipboard.convert({ html: clean }), "silent");
+}
+
 export function unmountRichEditor(containerId) {
   delete instances[containerId];
   const el = document.getElementById(containerId);

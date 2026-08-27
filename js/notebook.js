@@ -8,8 +8,7 @@
    uses for packing-list notes. See flushNotebookPage() for why content is
    read back before the editor's contents are replaced. */
 import { state, uid, esc, persist, rerender } from './state.js';
-import { mountRichEditor, unmountRichEditor, getRichEditor } from './rich-text.js';
-import { sanitizeHtml } from './sanitize.js';
+import { mountRichEditor, unmountRichEditor, getRichEditor, setEditorHtml } from './rich-text.js';
 import { moveToTrash } from './trash.js';
 import { registerBusyCheck } from './ui.js';
 
@@ -122,6 +121,24 @@ function renamingInside(listEl) {
   const el = document.activeElement;
   return !!nbRenaming && !!el && listEl.contains(el) && el.classList.contains("nb-row-input");
 }
+/* A phone or a folding phone has no hover and no mouse, and on it a text
+   field getting focus means the on-screen keyboard takes half the screen.
+   So anything that focuses a field as a SIDE EFFECT — rather than because
+   the person asked to type — is gated on having a real pointer. */
+function coarsePointer() {
+  try { return !!(window.matchMedia && window.matchMedia("(pointer:coarse)").matches); }
+  catch (e) { return false; }
+}
+
+/* Two quick taps on a tab, which is just how people tap, register as a
+   dblclick in the browser — and that was opening the rename field and the
+   keyboard with it. Double-click stays a rename shortcut where there is a
+   mouse to double-click with. */
+export function renameOnDoubleClick(kind, id) {
+  if (coarsePointer()) return;
+  startNotebookRename(kind, id);
+}
+
 export function startNotebookRename(kind, id) {
   /* The ✎ button lives inside the list, so it holds focus at this moment
      — and the render below skips any list that contains the focused
@@ -153,7 +170,7 @@ export function renderNotebook() {
   if (secList && !renamingInside(secList)) {
     secList.innerHTML = nb.sections.map(s => `
       <div class="nb-row ${s.id === sec.id ? "active" : ""}" data-id="${s.id}"
-        onclick="switchNotebookSection('${s.id}')" ondblclick="startNotebookRename('sec','${s.id}')">
+        onclick="switchNotebookSection('${s.id}')" ondblclick="renameOnDoubleClick('sec','${s.id}')">
         <span class="nb-color-bar" style="background:${NB_COLORS[s.color % NB_COLORS.length]}"></span>
         ${rowName("sec", s, "Untitled section")}
         <button class="nb-row-act" title="Rename section" onclick="event.stopPropagation();startNotebookRename('sec','${s.id}')">✎</button>
@@ -169,7 +186,7 @@ export function renderNotebook() {
   if (pageList && !renamingInside(pageList)) {
     pageList.innerHTML = (sec.pages || []).map(p => `
       <div class="nb-row ${page && p.id === page.id ? "active" : ""}" data-id="${p.id}"
-        onclick="switchNotebookPage('${p.id}')" ondblclick="startNotebookRename('page','${p.id}')">
+        onclick="switchNotebookPage('${p.id}')" ondblclick="renameOnDoubleClick('page','${p.id}')">
         ${rowName("page", p, "Untitled page")}
         <button class="nb-row-act" title="Rename page" onclick="event.stopPropagation();startNotebookRename('page','${p.id}')">✎</button>
         ${sec.pages.length > 1 ? `<button class="nb-row-del" title="Delete page" onclick="event.stopPropagation();delNotebookPage('${p.id}')">✕</button>` : ""}
@@ -213,14 +230,16 @@ export function renderNotebook() {
   flushNotebookPage();
   loadedNbPageId = page.id;
   // Switching pages loads HTML directly, outside mountRichEditor's own
-  // (first-mount-only) sanitizing path.
-  if (page.html) quill.clipboard.dangerouslyPasteHTML(sanitizeHtml(page.html));
-  else quill.setText("");
+  // (first-mount-only) path — via the shared helper, which sanitizes and,
+  // crucially, does not steal focus. Loading a page is not a request to
+  // start typing in it.
+  setEditorHtml(quill, page.html);
 }
 
 /* ---------------- sections ---------------- */
 export function addNotebookSection() {
   const nb = ensureNotebook();
+  nbRenaming = null;
   flushNotebookPage();
   const pageId = uid();
   const sec = {
@@ -233,15 +252,22 @@ export function addNotebookSection() {
   loadedNbPageId = null;
   unmountRichEditor(NB_EDITOR);
   persist();
-  /* Opens straight into the rename input — `.select()` used to be called
-     on the name element directly, which threw the moment that element
-     became a <span>. startNotebookRename() renders it as an input and
-     focuses it, which is what that line was reaching for anyway. */
-  startNotebookRename("sec", sec.id);
+  /* With a mouse, dropping straight into the rename field is convenient.
+     On a touch device it means "+ Add section" summons the keyboard over
+     half the screen for a name most people leave alone — so there, the
+     section is simply created and ✎ renames it when that's wanted. */
+  if (coarsePointer()) renderNotebook();
+  else startNotebookRename("sec", sec.id);
 }
 export function switchNotebookSection(id) {
   const nb = ensureNotebook();
   if (nb.activeSection === id) return; // already open — don't rebuild the list under someone renaming it
+  /* Leaving a rename open across navigation was why the keyboard came up
+     on a plain tab tap: nbRenaming stayed set, so the row it belonged to
+     kept re-rendering as an <input>, and renderNotebook's focus step kept
+     putting the cursor back into it on EVERY later render. Moving away is
+     the end of that rename. */
+  nbRenaming = null;
   flushNotebookPage();
   nb.activeSection = id;
   /* loadedNbPageId is deliberately NOT cleared here. Clearing it told
@@ -278,6 +304,7 @@ export function delNotebookSection(id) {
 export function addNotebookPage() {
   const sec = activeNbSection();
   if (!sec) return;
+  nbRenaming = null;
   flushNotebookPage();
   const p = { id: uid(), name: "Untitled page", html: "", createdAt: Date.now(), updatedAt: Date.now() };
   sec.pages.unshift(p);
@@ -285,11 +312,15 @@ export function addNotebookPage() {
   loadedNbPageId = null;
   unmountRichEditor(NB_EDITOR);
   persist(); renderNotebook();
-  document.getElementById("nbPageTitleInput")?.select();
+  if (!coarsePointer()) {
+    const t = document.getElementById("nbPageTitleInput");
+    if (t) { t.focus(); t.select(); }
+  }
 }
 export function switchNotebookPage(id) {
   const sec = activeNbSection();
   if (!sec || sec.activePage === id) return;
+  nbRenaming = null; // see switchNotebookSection()
   flushNotebookPage();
   sec.activePage = id;
   // Not cleared, for the reason spelled out in switchNotebookSection().
