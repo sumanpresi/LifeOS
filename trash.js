@@ -70,6 +70,8 @@ function labelFor(entry) {
     case "feed": return p.name || p.url;
     case "sectionLink": return p.title;
     case "sectionNote": return "Note: " + (p.title || "Untitled note");
+    case "notebookSection": return "Notebook section: " + p.name;
+    case "notebookPage": return "Notebook page: " + (p.name || "Untitled page");
     default: return "(item)";
   }
 }
@@ -81,7 +83,8 @@ const TYPE_NAMES = {
   financeLink: "Finance link", medicine: "Medicine", prescription: "Prescription",
   healthLink: "Health link", bookmarkLink: "Link", feed: "News feed", sectionLink: "Link", sectionNote: "Note",
   pwProject: "Personal project", pwProjectTask: "Personal task", pwLink: "Personal link",
-  pwDoc: "Personal document", pwProjectDoc: "Personal project document"
+  pwDoc: "Personal document", pwProjectDoc: "Personal project document",
+  notebookSection: "Notebook section", notebookPage: "Notebook page"
 };
 
 function timeAgo(ts) {
@@ -296,6 +299,22 @@ export function restoreFromTrash(id) {
       if (sec) {
         if (!Array.isArray(sec.noteList)) sec.noteList = [];
         sec.noteList.unshift(p);
+      }
+      break;
+    }
+    case "notebookSection": {
+      if (!state.notebook || !Array.isArray(state.notebook.sections)) state.notebook = { sections: [], activeSection: "" };
+      state.notebook.sections.push(p);
+      state.notebook.activeSection = p.id;
+      break;
+    }
+    case "notebookPage": {
+      const nb = state.notebook;
+      const sec = (nb && nb.sections.find(x => x.id === m.sectionId)) || (nb && nb.sections[0]);
+      if (sec) {
+        sec.pages.unshift(p);
+        sec.activePage = p.id;
+        if (sec.id !== m.sectionId) toast("Original section was deleted — restored into \"" + sec.name + "\" instead");
       }
       break;
     }

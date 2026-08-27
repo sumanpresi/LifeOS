@@ -16,6 +16,7 @@ import * as finance from './finance.js';
 import * as health from './health.js';
 import * as travel from './travel.js';
 import * as reference from './reference.js';
+import * as notebook from './notebook.js';
 import * as trash from './trash.js';
 import * as backup from './backup.js';
 import * as entertainment from './entertainment.js';
@@ -54,6 +55,7 @@ function renderAll() {
   health.renderHealth();
   travel.renderTravel();
   reference.renderReference();
+  notebook.renderNotebook();
   trash.renderTrash();
   entertainment.renderEntertainment();
   backup.renderBackupPanel();
@@ -178,6 +180,10 @@ Object.assign(window,
     locateMeOnWorldMap: reference.locateMeOnWorldMap, useMyLocationForRouteFrom: reference.useMyLocationForRouteFrom,
     clearRouteFromLocation: reference.clearRouteFromLocation, calculateWorldMapRoute: reference.calculateWorldMapRoute,
     resetWorldMapRoute: reference.resetWorldMapRoute },
+  { addNotebookSection: notebook.addNotebookSection, switchNotebookSection: notebook.switchNotebookSection,
+    renameNotebookSection: notebook.renameNotebookSection, delNotebookSection: notebook.delNotebookSection,
+    addNotebookPage: notebook.addNotebookPage, switchNotebookPage: notebook.switchNotebookPage,
+    renameNotebookPage: notebook.renameNotebookPage, delNotebookPage: notebook.delNotebookPage },
   { toggleTrashList: trash.toggleTrashList, restoreFromTrash: trash.restoreFromTrash, permanentlyDeleteFromTrash: trash.permanentlyDeleteFromTrash },
   { toggleDatePopover: dateShortcuts.toggleDatePopover, setQuickDate: dateShortcuts.setQuickDate },
   { expandView: expandView.expandView, closeExpandView: expandView.closeExpandView },

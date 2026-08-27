@@ -63,14 +63,14 @@
      which shows up as new controls rendering completely unstyled — and is
      nearly impossible to diagnose from a screenshot, because the code on
      disk is correct. Bump on every release. -->
-<link rel="stylesheet" href="css/style.css?v=202608250915">
+<link rel="stylesheet" href="css/style.css?v=202608271615">
 <!-- Foldable/tablet/mobile layout layer — loaded after style.css on purpose.
      It overrides that file's tablet breakpoint (wrap-to-grid board,
      off-canvas drawer sidebar) with an icon-rail sidebar and a
      horizontally-scrolling, fixed-width Kanban board for Z Fold 6 inner
      (~883px), iPad mini/iPad (~768–1024px), and a bottom tab bar for
      phones (<=600px, incl. iPhone 17 Pro Max ~440px and fold cover screens). -->
-<link rel="stylesheet" href="css/responsive-foldable.css?v=202608250915">
+<link rel="stylesheet" href="css/responsive-foldable.css?v=202608271615">
 </head>
 <body>
 <div class="shell">
@@ -110,6 +110,9 @@
     <button class="nav-item" data-page="reference" onclick="go('reference')" data-tooltip="Reference">
       <svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2zm0 0a2 2 0 0 1 2-2h13"/></svg>
       <span class="nav-item-label">Reference</span></button>
+    <button class="nav-item" data-page="notebook" onclick="go('notebook')" data-tooltip="Notebook">
+      <svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 3v18M4 8h2M4 13h2M4 18h2"/></svg>
+      <span class="nav-item-label">Notebook</span></button>
     <button class="nav-item" data-page="entertainment" onclick="go('entertainment')" data-tooltip="Entertainment">
       <svg viewBox="0 0 24 24"><path d="M4 5h16v11H4zM8 20h8M12 16v4"/><path d="M9 8l5 2.5L9 13z"/></svg>
       <span class="nav-item-label">Entertainment</span></button>
@@ -1186,6 +1189,36 @@
       </div>
     </section>
 
+    <!-- ======== PAGE: NOTEBOOK ======== -->
+    <section class="page" id="page-notebook">
+      <h1 class="display" style="font-size:28px;margin-bottom:14px">Notebook</h1>
+      <div class="nb-layout">
+        <div class="nb-pane nb-pane-sections">
+          <div class="nb-pane-head">
+            <span class="nb-pane-title">Sections</span>
+            <button class="btn btn-ghost nb-add-btn" onclick="addNotebookSection()">+ Add section</button>
+          </div>
+          <div class="nb-list" id="nbSectionList"></div>
+        </div>
+        <div class="nb-pane nb-pane-pages">
+          <div class="nb-pane-head">
+            <span class="nb-pane-title" id="nbActiveSectionLabel">Pages</span>
+            <button class="btn btn-ghost nb-add-btn" id="nbAddPageBtn" onclick="addNotebookPage()">+ Add page</button>
+          </div>
+          <div class="nb-list" id="nbPageList"></div>
+        </div>
+        <div class="nb-pane nb-editor-pane">
+          <div class="nb-editor-head">
+            <input type="text" id="nbPageTitleInput" class="nb-page-title" placeholder="Untitled page"
+              onchange="renameNotebookPage(this.value)">
+            <button class="del" id="nbPageDelBtn" onclick="delNotebookPage()" title="Delete this page">✕</button>
+          </div>
+          <div class="nb-page-meta" id="nbPageMeta"></div>
+          <div class="mm-rich-editor nb-rich-editor" id="nbPageEditor"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- ======== PAGE: ENTERTAINMENT ======== -->
     <section class="page" id="page-entertainment">
       <h1 class="display" style="font-size:28px;margin-bottom:4px">Entertainment</h1>
@@ -1615,6 +1648,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script type="module" src="js/app.js?v=202608250915"></script>
+<script type="module" src="js/app.js?v=202608271615"></script>
 </body>
 </html>

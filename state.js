@@ -242,6 +242,17 @@ export const DEFAULT_STATE = {
     worldMapDrawing: null,  // one shared world map's saved GeoJSON FeatureCollection
     penAnnotations: { strokes: [] } // [{id, points:[{lat,lng,pressure,t}], color, width, opacity}] — stylus-only layer, separate from the finger/mouse/stylus freehand scribble above
   },
+  /* Notebook: OneNote-style two-level hierarchy — several named sections,
+     each holding several named rich-text pages. Both section and page
+     names are freely editable. */
+  notebook: {
+    sections: [
+      { id: "nbs1", name: "General", color: 0, pages: [
+          { id: "nbp1", name: "Untitled page", html: "", createdAt: 0, updatedAt: 0 }
+        ], activePage: "nbp1" }
+    ],
+    activeSection: "nbs1"
+  },
   /* One shared recycle bin for deletions from anywhere in the app.
      [{id, type, payload, meta, deletedAt}] — see js/trash.js */
   trash: [],
@@ -316,6 +327,23 @@ function merge(saved) {
       it.status = p >= 100 ? "done" : p > 0 ? "doing" : "want";
     }
   });
+  /* Guard against a saved document whose notebook tree is missing or
+     malformed (e.g. an older backup, or a sync race) — fall back to a
+     single empty section/page rather than leaving the page with nothing
+     to show. */
+  if (!s.notebook || !Array.isArray(s.notebook.sections) || !s.notebook.sections.length) {
+    s.notebook = structuredClone(DEFAULT_STATE.notebook);
+  }
+  s.notebook.sections.forEach(sec => {
+    if (!Array.isArray(sec.pages) || !sec.pages.length) {
+      sec.pages = [{ id: uid(), name: "Untitled page", html: "", createdAt: Date.now(), updatedAt: Date.now() }];
+    }
+    if (!sec.pages.some(p => p.id === sec.activePage)) sec.activePage = sec.pages[0].id;
+    if (typeof sec.color !== "number") sec.color = 0;
+  });
+  if (!s.notebook.sections.some(sec => sec.id === s.notebook.activeSection)) {
+    s.notebook.activeSection = s.notebook.sections[0].id;
+  }
   s.sections = Object.assign(structuredClone(DEFAULT_STATE.sections), saved.sections || {});
   /* One-time migration: a section's single free-text Notes box becomes a
      list of separately-titled rich-text notes. Whatever was already
