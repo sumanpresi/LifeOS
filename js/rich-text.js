@@ -120,8 +120,27 @@ export function mountRichEditor(containerId, getInitialHtml, onChange, onDirty) 
   return quill;
 }
 
+/* Dropping the cached instance is not enough on its own. Quill mounts by
+   converting the container into `.ql-container` and inserting its toolbar
+   as a SIBLING immediately before it — so if the same container is mounted
+   again later (Notebook's "+ Add page", travel.js's delPackList), the new
+   Quill stacks a second toolbar and swallows the old editor's DOM as the
+   new document's starting content. The next keystroke then saves the
+   previous page's text into the new page. Verified, not theorised: a
+   second `new Quill(el)` on the same node yields 2 toolbars and inherits
+   the first document's text.
+
+   So teardown puts the node back the way it was found — Quill's own
+   classes stripped, its children gone, the toolbar removed — leaving any
+   classes the app put there (mm-rich-editor, nb-rich-editor) intact. */
 export function unmountRichEditor(containerId) {
   delete instances[containerId];
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const bar = el.previousElementSibling;
+  if (bar && bar.classList && bar.classList.contains("ql-toolbar")) bar.remove();
+  Array.from(el.classList).forEach(c => { if (c.startsWith("ql-")) el.classList.remove(c); });
+  el.innerHTML = "";
 }
 
 export function getRichEditor(containerId) {
