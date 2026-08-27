@@ -4474,8 +4474,8 @@ html[data-theme="dark"] .note-ink-hl{mix-blend-mode:screen}
 
 /* ============ NOTEBOOK (Sections / Pages / rich-text page editor) ============ */
 .nb-layout{
-  display:grid;grid-template-columns:220px 240px 1fr;gap:14px;
-  align-items:stretch;min-height:560px;
+  display:grid;grid-template-columns:196px 216px minmax(0,1fr);gap:12px;
+  align-items:stretch;min-height:calc(100vh - 210px);
 }
 .nb-pane{
   background:var(--glass-bg);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
@@ -4496,18 +4496,30 @@ html[data-theme="dark"] .note-ink-hl{mix-blend-mode:screen}
 .nb-row:hover{background:rgba(0,0,0,.04)}
 .nb-row.active{background:linear-gradient(135deg,rgba(75,92,66,.16),rgba(75,92,66,.07))}
 .nb-color-bar{width:4px;align-self:stretch;min-height:20px;border-radius:3px;flex:0 0 auto}
+.nb-row{cursor:pointer}
 .nb-row-name{
   flex:1;min-width:0;border:none;background:transparent;padding:9px 4px;font-size:14px;
-  font-weight:600;color:var(--ink);border-radius:8px;
+  font-weight:600;color:var(--ink);border-radius:8px;line-height:1.35;
 }
+/* A span, unlike the <input> this replaced, can wrap — long section names
+   are legible instead of silently cut off at the field's width. */
+span.nb-row-name{overflow-wrap:anywhere}
+.nb-row-name.is-empty{color:var(--muted);font-weight:500;font-style:italic}
 .nb-row.active .nb-row-name{font-weight:700}
 .nb-row-name:focus{border-color:transparent;box-shadow:0 0 0 2px rgba(75,92,66,.25);background:var(--card)}
-.nb-row-del{
-  opacity:0;flex:0 0 auto;width:22px;height:22px;border-radius:6px;font-size:12px;
+.nb-row-act,.nb-row-del{
+  opacity:0;flex:0 0 auto;width:24px;height:24px;border-radius:6px;font-size:12px;
   color:var(--muted);transition:opacity .15s ease;
 }
+.nb-row:hover .nb-row-act,.nb-row.active .nb-row-act,
 .nb-row:hover .nb-row-del,.nb-row.active .nb-row-del{opacity:.6}
+.nb-row-act:hover{opacity:1!important;color:var(--ink)}
 .nb-row-del:hover{opacity:1!important;color:#B0413E}
+/* Touch screens have no hover, so controls that only appear on hover are
+   simply unreachable there — and the tap targets need real size. */
+@media (hover:none){
+  .nb-row-act,.nb-row-del{opacity:.5;width:30px;height:30px}
+}
 .nb-editor-pane{padding:0}
 .nb-editor-head{display:flex;align-items:center;gap:10px;padding:20px 22px 0}
 .nb-page-title{
@@ -4517,20 +4529,48 @@ html[data-theme="dark"] .note-ink-hl{mix-blend-mode:screen}
 .nb-page-meta{padding:2px 22px 14px;color:var(--muted);font-size:13px;font-weight:600}
 .nb-rich-editor{margin:0 22px 22px;display:flex;flex-direction:column}
 .nb-rich-editor .ql-container.ql-snow{flex:1}
-.nb-rich-editor .ql-editor{min-height:360px}
+.nb-rich-editor .ql-editor{min-height:420px}
 
-@media(max-width:900px){
-  .nb-layout{grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr;min-height:0}
-  .nb-pane-sections{grid-column:1 / -1}
-  .nb-pane-sections .nb-list{max-height:160px}
-  .nb-pane-pages .nb-list{max-height:220px}
-  .nb-rich-editor .ql-editor{min-height:220px}
+/* ---- narrow / folded: sections and pages become tab STRIPS ----
+   Stacked as full-height panes they ate most of the screen — on a folded
+   phone the editor started below the fold, and on the Fold's inner
+   display two tall cards held one row each while the writing area was
+   pushed into a corner. As horizontal strips each costs one row, and
+   everything left over goes to the editor, which is the part being used. */
+@media(max-width:1100px){
+  .nb-layout{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr);min-height:0;gap:10px}
+  .nb-pane-sections,.nb-pane-pages{grid-column:1}
+  .nb-pane-sections .nb-pane-head,.nb-pane-pages .nb-pane-head{padding:10px 12px 8px}
+  .nb-pane-sections .nb-list,.nb-pane-pages .nb-list{
+    flex-direction:row;overflow-x:auto;overflow-y:hidden;padding:8px;gap:6px;
+    scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;
+  }
+  /* Chips size to their own text and scroll sideways rather than each
+     claiming a full row. */
+  .nb-pane-sections .nb-row,.nb-pane-pages .nb-row{
+    flex:0 0 auto;max-width:60vw;scroll-snap-align:start;
+    border:1px solid var(--line);border-radius:999px;padding:2px 6px 2px 10px;
+  }
+  .nb-pane-sections .nb-row.active,.nb-pane-pages .nb-row.active{border-color:transparent}
+  .nb-pane-sections .nb-row-name,.nb-pane-pages .nb-row-name{
+    flex:0 1 auto;padding:7px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .nb-pane-sections .nb-row-input,.nb-pane-pages .nb-row-input{min-width:140px}
+  .nb-color-bar{min-height:16px}
+  .nb-editor-pane{min-height:60vh}
+  .nb-rich-editor .ql-editor{min-height:44vh}
 }
 @media(max-width:640px){
-  .nb-layout{grid-template-columns:1fr;grid-template-rows:auto auto auto}
-  .nb-pane-sections,.nb-pane-pages{grid-column:1}
   .nb-editor-head{padding:16px 16px 0}
   .nb-page-title{font-size:21px}
   .nb-page-meta{padding:2px 16px 12px}
   .nb-rich-editor{margin:0 16px 16px}
+  .nb-pane-sections .nb-row,.nb-pane-pages .nb-row{max-width:72vw}
+}
+/* The toolbar is the other thing crowding a narrow screen: left to itself
+   Quill lets it grow to four rows and pushes the writing area off the
+   bottom. Capped and scrollable, it stays one gesture away without
+   costing the page half its height. */
+@media(max-width:1100px){
+  .nb-rich-editor .ql-toolbar.ql-snow{max-height:88px;overflow-y:auto}
 }
