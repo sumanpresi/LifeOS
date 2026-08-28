@@ -41,9 +41,11 @@ let toastTimer = null;
    1. STICKY everywhere. The header carries Search, Sync, the sync pill and
       Backup — status and actions wanted at any scroll position, not only
       at the top of the document.
-   2. CONDENSES past a little scrolling: the greeting shrinks and the date
-      steps aside. Nothing is removed, so no control ever has to be hunted
-      for; the bar just stops spending 90px on saying good morning.
+   2. Deliberately DOES NOT resize as you scroll. It used to condense —
+      smaller padding, smaller greeting, date hidden — which was a layout
+      change driven by scroll position. That is a shape of change that can
+      keep a page from settling, and the ~45px it recovered was not worth
+      the risk, so it is gone. The bar is one size at all times.
    3. TUCKS AWAY on small and folded screens only, when scrolling DOWN, and
       comes straight back on the first upward flick. Vertical space is
       scarce there in a way it isn't on a desktop, and an upward flick is
@@ -56,14 +58,12 @@ let toastTimer = null;
 export function initStickyHeader() {
   const top = document.querySelector(".top");
   if (!top) return;
-  const CONDENSE_AT = 40;  // past the first nudge of scroll
   const TUCK_AFTER = 110;  // far enough down that the header isn't the subject
   let lastY = 0, ticking = false;
 
   const apply = () => {
     ticking = false;
     const y = Math.max(0, window.scrollY || document.documentElement.scrollTop || 0);
-    top.classList.toggle("is-condensed", y > CONDENSE_AT);
 
     /* Never tuck out from under someone who is using it — a keyboard user
        tabbed onto Sync, or an open menu inside the bar. */

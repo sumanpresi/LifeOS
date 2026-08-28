@@ -267,6 +267,13 @@ try {
   const lastPage = localStorage.getItem("lifeos-last-page");
   ui.syncSidebarToggle(); // the class is already applied pre-paint; this labels the button to match
   ui.initStickyHeader();
+  /* Diagnostic only, and only on request: ?debug=shake. Dynamically
+     imported so the file is never fetched on a normal load. */
+  if (/[?&]debug=shake\b/.test(location.search)) {
+    import("./shake-probe.js")
+      .then(m => m.startShakeProbe())
+      .catch(e => console.warn("[shake] probe failed to load", e));
+  }
   if (lastPage && document.getElementById("page-" + lastPage)) ui.go(lastPage);
 } catch (e) { /* private browsing etc. — just stays on the default page */ }
 ui.setSyncPill("", "Local only");
