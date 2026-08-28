@@ -266,6 +266,7 @@ renderAll();
 try {
   const lastPage = localStorage.getItem("lifeos-last-page");
   ui.syncSidebarToggle(); // the class is already applied pre-paint; this labels the button to match
+  ui.initStickyHeader();
   if (lastPage && document.getElementById("page-" + lastPage)) ui.go(lastPage);
 } catch (e) { /* private browsing etc. — just stays on the default page */ }
 ui.setSyncPill("", "Local only");

@@ -35,6 +35,59 @@ import { state, esc } from './state.js';
 import { resizeWhiteboardIfVisible } from './whiteboard.js';
 
 let toastTimer = null;
+/* ---------- sticky header ----------
+   Three behaviours, each earning its place:
+
+   1. STICKY everywhere. The header carries Search, Sync, the sync pill and
+      Backup — status and actions wanted at any scroll position, not only
+      at the top of the document.
+   2. CONDENSES past a little scrolling: the greeting shrinks and the date
+      steps aside. Nothing is removed, so no control ever has to be hunted
+      for; the bar just stops spending 90px on saying good morning.
+   3. TUCKS AWAY on small and folded screens only, when scrolling DOWN, and
+      comes straight back on the first upward flick. Vertical space is
+      scarce there in a way it isn't on a desktop, and an upward flick is
+      already the reflex for "give me the top of this" — cheaper than a
+      button to find. Whether the class does anything is decided in CSS by
+      breakpoint; this only reports the direction of travel.
+
+   Reads scroll position inside requestAnimationFrame and listens
+   passively, so scrolling is never blocked by this. */
+export function initStickyHeader() {
+  const top = document.querySelector(".top");
+  if (!top) return;
+  const CONDENSE_AT = 40;  // past the first nudge of scroll
+  const TUCK_AFTER = 110;  // far enough down that the header isn't the subject
+  let lastY = 0, ticking = false;
+
+  const apply = () => {
+    ticking = false;
+    const y = Math.max(0, window.scrollY || document.documentElement.scrollTop || 0);
+    top.classList.toggle("is-condensed", y > CONDENSE_AT);
+
+    /* Never tuck out from under someone who is using it — a keyboard user
+       tabbed onto Sync, or an open menu inside the bar. */
+    if (document.activeElement && document.activeElement !== document.body
+        && top.contains(document.activeElement)) {
+      top.classList.remove("is-tucked");
+      lastY = y;
+      return;
+    }
+    const DEAD = 5; // ignore sub-pixel jitter and rubber-banding
+    if (y <= TUCK_AFTER) top.classList.remove("is-tucked");
+    else if (y > lastY + DEAD) top.classList.add("is-tucked");
+    else if (y < lastY - DEAD) top.classList.remove("is-tucked");
+    lastY = y;
+  };
+
+  window.addEventListener("scroll", () => {
+    if (!ticking) { ticking = true; requestAnimationFrame(apply); }
+  }, { passive: true });
+  // Coming back to a page already scrolled should not start from a wrong state.
+  window.addEventListener("pageshow", apply);
+  apply();
+}
+
 export function toast(msg, actionLabel, actionOnclick) {
   const t = document.getElementById("toast");
   if (actionLabel && actionOnclick) {
