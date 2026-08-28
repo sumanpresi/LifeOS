@@ -1,3 +1,35 @@
+
+/* ---------- sidebar visibility ---------- */
+/* Collapses the whole nav rail away so the writing area gets its width.
+   Deliberately a per-device preference in localStorage and NOT part of
+   `state`: putting it in state would sync it, so hiding the sidebar on a
+   tablet would hide it on the desktop too, and — worse — every toggle
+   would bump the document's rev and fire a full save to the cloud for a
+   piece of view state. */
+const SIDEBAR_KEY = "lifeos-sidebar";
+export function isSidebarHidden() {
+  return document.documentElement.classList.contains("sidebar-hidden");
+}
+export function syncSidebarToggle() {
+  const btn = document.getElementById("sidebarToggle");
+  if (!btn) return;
+  const hidden = isSidebarHidden();
+  const label = hidden ? "Show sidebar" : "Hide sidebar";
+  btn.setAttribute("aria-label", label);
+  btn.setAttribute("aria-pressed", hidden ? "true" : "false");
+  btn.setAttribute("data-tooltip", label);
+  btn.classList.toggle("is-hidden-state", hidden);
+}
+export function toggleSidebar(force) {
+  const hidden = typeof force === "boolean" ? force : !isSidebarHidden();
+  document.documentElement.classList.toggle("sidebar-hidden", hidden);
+  try { localStorage.setItem(SIDEBAR_KEY, hidden ? "hidden" : "shown"); } catch (e) {}
+  syncSidebarToggle();
+  /* Quill sizes its editor against the width it had at mount, so a layout
+     this large changing under it needs a nudge to re-measure. */
+  try { window.dispatchEvent(new Event("resize")); } catch (e) {}
+}
+
 /* Navigation, toasts, header, sync pill. */
 import { state, esc } from './state.js';
 import { resizeWhiteboardIfVisible } from './whiteboard.js';

@@ -78,7 +78,7 @@ function renderEverything() {
 
 /* The markup uses plain onclick="…" handlers; expose them globally. */
 Object.assign(window,
-  { go: ui.go, scrollToEl: ui.scrollToEl },
+  { go: ui.go, scrollToEl: ui.scrollToEl, toggleSidebar: ui.toggleSidebar },
   { addTask: tasks.addTask, saveNewTaskDraft: tasks.saveNewTaskDraft, toggleTask: tasks.toggleTask, editTask: tasks.editTask, delTask: tasks.delTask,
     toggleFlag: tasks.toggleFlag, editTaskMeta: tasks.editTaskMeta, setTaskFilter: tasks.setTaskFilter,
     toggleSortByDate: tasks.toggleSortByDate, toggleTaskSection: tasks.toggleTaskSection, toggleTaskExpanded: tasks.toggleTaskExpanded,
@@ -265,6 +265,7 @@ backup.autoSnapshotIfDue();
 renderAll();
 try {
   const lastPage = localStorage.getItem("lifeos-last-page");
+  ui.syncSidebarToggle(); // the class is already applied pre-paint; this labels the button to match
   if (lastPage && document.getElementById("page-" + lastPage)) ui.go(lastPage);
 } catch (e) { /* private browsing etc. — just stays on the default page */ }
 ui.setSyncPill("", "Local only");
