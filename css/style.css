@@ -112,6 +112,49 @@ h1,h2,.display{font-family:'Fraunces',serif}
 .top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap;
   background:var(--glass-bg);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
   border:1px solid var(--glass-line);border-radius:20px;padding:16px 20px;box-shadow:var(--shadow-glass),var(--glass-highlight)}
+
+/* ---------- sticky header ----------
+   Search, Sync, the sync pill and Backup are wanted at any scroll
+   position, not just at the top of the document, so the bar travels with
+   the page. z-index 30 sits above page content but deliberately below the
+   mobile drawer (40), modals (50) and search (70) — it should never cover
+   something the person just opened.
+
+   The glass background already blurs whatever passes beneath it, so it
+   stays legible over scrolling content without needing to turn opaque. */
+.top{
+  position:sticky;top:12px;z-index:30;
+  transition:padding .18s var(--ease), transform .24s var(--ease),
+             opacity .18s var(--ease), margin-bottom .18s var(--ease);
+}
+@media(min-width:1025px){ .top{top:16px} } /* level with the sidebar's own top:16px */
+
+/* Condensed: smaller, never emptier. Every control stays exactly where it
+   was, so nothing has to be looked for a second time — only the greeting,
+   which has said its piece by the time you've scrolled, gives up room. */
+.top.is-condensed{padding:9px 18px;margin-bottom:14px}
+.top.is-condensed .greet h1{font-size:21px}
+.top.is-condensed .greet .date{display:none}
+.top.is-condensed .top-brand{width:28px;height:28px;font-size:16px}
+
+/* Tucked away: phones, folded and unfolded, and tablets — where vertical
+   space is genuinely scarce. Transform only, so the element keeps its
+   place in the flow and nothing below it jumps as it goes. */
+@media(max-width:1024px){
+  .top{top:8px}
+  .top.is-tucked{transform:translateY(calc(-100% - 20px));opacity:0;pointer-events:none}
+}
+/* Above that the bar never hides — a desktop has the room, and a header
+   that moves when it doesn't need to is just noise. */
+@media(min-width:1025px){ .top.is-tucked{transform:none;opacity:1;pointer-events:auto} }
+@media(prefers-reduced-motion:reduce){ .top{transition:none} }
+
+/* The brand mark only appears once the sidebar is collapsed, standing in
+   for the identity that went away with it. */
+.top-brand{display:none}
+html.sidebar-hidden .top-brand{
+  display:grid;flex:0 0 auto;width:34px;height:34px;transition:width .18s var(--ease),height .18s var(--ease);
+}
 .greet h1{font-size:32px;font-weight:600;letter-spacing:-.01em;font-family:'Fraunces',serif}
 .greet .date{color:var(--muted);font-weight:600;margin-top:2px}
 .top-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
