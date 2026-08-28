@@ -123,25 +123,41 @@ h1,h2,.display{font-family:'Fraunces',serif}
    The glass background already blurs whatever passes beneath it, so it
    stays legible over scrolling content without needing to turn opaque. */
 .top{
-  position:sticky;top:12px;z-index:30;
-  transition:padding .18s var(--ease), transform .24s var(--ease),
-             opacity .18s var(--ease), margin-bottom .18s var(--ease);
+  position:sticky;top:0;z-index:30;
+  /* Transform and opacity only. NOTHING here may change the header's size
+     on scroll: the condense-on-scroll this replaced altered padding, font
+     size and margin as the page moved, which is a layout change driven by
+     scroll position — the shape of problem that shows up as a page that
+     will not settle. A header that stays exactly one size cannot cause
+     it, and the space it saved was never worth that risk. */
+  transition:transform .24s var(--ease), opacity .18s var(--ease);
 }
-@media(min-width:1025px){ .top{top:16px} } /* level with the sidebar's own top:16px */
 
-/* Condensed: smaller, never emptier. Every control stays exactly where it
-   was, so nothing has to be looked for a second time — only the greeting,
-   which has said its piece by the time you've scrolled, gives up room. */
-.top.is-condensed{padding:9px 18px;margin-bottom:14px}
-.top.is-condensed .greet h1{font-size:21px}
-.top.is-condensed .greet .date{display:none}
-.top.is-condensed .top-brand{width:28px;height:28px;font-size:16px}
+/* Two things the bar needs now that content passes behind it.
+
+   STRONGER GLASS. The normal --glass-bg is tuned for a card sitting on the
+   page background, not for one with live text sliding underneath it; at
+   that opacity the links row and the page headings read straight through
+   the bar. --glass-bg-strong is the variant already defined for exactly
+   this.
+
+   A SCRIM ABOVE IT. Sticking at a 12px offset left a 12px strip between
+   the viewport edge and the card, and content scrolled up through that
+   gap in full focus — visible above the bar, which reads as broken. The
+   card now sticks flush and paints its own strip above itself, so the
+   rounded floating look survives while nothing shows through. */
+.top{background:var(--glass-bg-strong)}
+.top::before{
+  content:"";position:absolute;left:-1px;right:-1px;bottom:100%;height:14px;
+  background:var(--glass-bg-strong);
+  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+  pointer-events:none;
+}
 
 /* Tucked away: phones, folded and unfolded, and tablets — where vertical
    space is genuinely scarce. Transform only, so the element keeps its
    place in the flow and nothing below it jumps as it goes. */
 @media(max-width:1024px){
-  .top{top:8px}
   .top.is-tucked{transform:translateY(calc(-100% - 20px));opacity:0;pointer-events:none}
 }
 /* Above that the bar never hides — a desktop has the room, and a header
