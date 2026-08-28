@@ -73,14 +73,14 @@
      which shows up as new controls rendering completely unstyled — and is
      nearly impossible to diagnose from a screenshot, because the code on
      disk is correct. Bump on every release. -->
-<link rel="stylesheet" href="css/style.css?v=202608280715">
+<link rel="stylesheet" href="css/style.css?v=202608280945">
 <!-- Foldable/tablet/mobile layout layer — loaded after style.css on purpose.
      It overrides that file's tablet breakpoint (wrap-to-grid board,
      off-canvas drawer sidebar) with an icon-rail sidebar and a
      horizontally-scrolling, fixed-width Kanban board for Z Fold 6 inner
      (~883px), iPad mini/iPad (~768–1024px), and a bottom tab bar for
      phones (<=600px, incl. iPhone 17 Pro Max ~440px and fold cover screens). -->
-<link rel="stylesheet" href="css/responsive-foldable.css?v=202608280715">
+<link rel="stylesheet" href="css/responsive-foldable.css?v=202608280945">
 </head>
 <body>
 <div class="shell">
@@ -145,6 +145,11 @@
         <button class="btn btn-ghost mob-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Menu">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
         </button>
+        <!-- Only visible once the sidebar is collapsed. Without it the app
+             loses every trace of its own identity in that state and the
+             header reads as a stray toolbar; with it, the collapse looks
+             deliberate rather than broken. -->
+        <div class="brand-mark top-brand" aria-hidden="true">L</div>
         <!-- Lives in the header, not in the sidebar: a control that hides
              something must not be hidden along with it. -->
         <button class="btn btn-ghost side-toggle" id="sidebarToggle" onclick="toggleSidebar()"
@@ -1666,6 +1671,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script type="module" src="js/app.js?v=202608280715"></script>
+<script type="module" src="js/app.js?v=202608280945"></script>
 </body>
 </html>
