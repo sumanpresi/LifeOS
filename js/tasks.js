@@ -1121,19 +1121,87 @@ document.addEventListener("click", (evt) => {
   toggleBoardCol(btn.dataset.colBoard, btn.dataset.colKey);
 }, true);
 
+/* ---- Upcoming: a near horizon, with the rest one tap away ----
+
+   Upcoming is unbounded by definition — everything with a date that isn't
+   today and isn't past lands in it — so a Puja in late October sits in the
+   same column as something due tomorrow, and the column stops answering
+   "what is coming up". Default to the next seven days and keep the rest
+   behind a button rather than dropping it: nothing is lost, it just isn't
+   competing for attention.
+
+   The preference is per-device in localStorage, like the column collapse
+   state right above. It is a view choice, not data — putting it in `state`
+   would sync it and bump the document rev for a toggle. */
+const UPCOMING_DAYS = 7;
+const UPCOMING_KEY = "lifeos-upcoming-all";
+export function isUpcomingExpanded() {
+  try { return localStorage.getItem(UPCOMING_KEY) === "1"; } catch (_) { return false; }
+}
+export function toggleUpcomingHorizon() {
+  try { localStorage.setItem(UPCOMING_KEY, isUpcomingExpanded() ? "0" : "1"); } catch (_) {}
+  rerender();
+}
+/* Inclusive of today + UPCOMING_DAYS, compared as YYYY-MM-DD strings, which
+   is what dueDate already is — no Date parsing, so no timezone to get
+   wrong. Built by adding days to a local date so month and year ends roll
+   over correctly. */
+function upcomingHorizonKey() {
+  const d = new Date();
+  d.setHours(12, 0, 0, 0); // midday, so a DST shift can't move the day
+  d.setDate(d.getDate() + UPCOMING_DAYS);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function splitUpcoming(tasks) {
+  const horizon = upcomingHorizonKey();
+  const near = [], later = [];
+  tasks.forEach(t => ((t.dueDate && t.dueDate <= horizon) ? near : later).push(t));
+  return { near, later };
+}
+
 /* accentClass is gone: the per-column heading colours it carried were
    dropped when the boards moved to the reference's white headings, so it
    had become an argument that was passed and never used. */
 function boardColumnHtml(key, label, tasks) {
+  let shown = tasks, moreBtn = "", emptyMsg = "Nothing here.";
+  if (key === "upcoming" && !isUpcomingExpanded()) {
+    const { near, later } = splitUpcoming(tasks);
+    if (later.length) {
+      shown = near;
+      emptyMsg = `Nothing due in the next ${UPCOMING_DAYS} days.`;
+      moreBtn = `<button type="button" class="t-upcoming-more" data-upcoming-more="1">
+        Show ${later.length} later ${later.length === 1 ? "task" : "tasks"}</button>`;
+    }
+  } else if (key === "upcoming" && isUpcomingExpanded()) {
+    const { later } = splitUpcoming(tasks);
+    if (later.length) {
+      moreBtn = `<button type="button" class="t-upcoming-more is-open" data-upcoming-more="1">
+        Show only the next ${UPCOMING_DAYS} days</button>`;
+    }
+  }
+  // The count stays the column's TRUE total. A badge that shrank with the
+  // filter would hide the very thing the button is there to reveal.
   return `
     <div class="t-board-col ${isColCollapsed("native", key) ? "t-col-collapsed" : ""}" data-board-col="${key}">
       ${boardColHeadHtml("native", key, label, tasks.length)}
       <div class="t-board-col-body">
-        ${tasks.length ? tasks.map(boardCardHtml).join("") : `<p class="hint" style="padding:10px 4px">Nothing here.</p>`}
+        ${shown.length ? shown.map(boardCardHtml).join("") : `<p class="hint" style="padding:10px 4px">${esc(emptyMsg)}</p>`}
       </div>
+      ${moreBtn ? `<div class="t-upcoming-more-wrap">${moreBtn}</div>` : ""}
       ${boardQuickAddHtml(key)}
     </div>`;
 }
+
+/* Delegated, same as the column collapse toggle above and for the same
+   reason: bound once from the module that owns the behaviour, so it can't
+   be broken by an unrelated boot error. */
+document.addEventListener("click", (evt) => {
+  const btn = evt.target.closest?.("[data-upcoming-more]");
+  if (!btn) return;
+  evt.preventDefault();
+  evt.stopPropagation();
+  toggleUpcomingHorizon();
+}, true);
 /* Kept as a thin redirect: the old inline inputs are gone, but a stale
    cached page or a bookmarklet could still call this. */
 export function quickAddBoardTask(key) {
