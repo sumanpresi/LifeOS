@@ -260,7 +260,32 @@ export function capBoardColumnHeights() {
     if (cards.length <= BOARD_CARDS_BEFORE_SCROLL) return;
     const fifth = cards[BOARD_CARDS_BEFORE_SCROLL - 1];
     const padBottom = parseFloat(getComputedStyle(body).paddingBottom) || 0;
-    const h = fifth.getBoundingClientRect().bottom - body.getBoundingClientRect().top + padBottom;
+
+    /* MEASURED FROM LAYOUT, NOT FROM THE PAINTED BOX.
+
+       getBoundingClientRect() reports the TRANSFORMED rectangle, and these
+       cards are transformed for the first third of a second of every page
+       visit: `.page.visible .card{animation:cardEnter}` runs
+       translateY(10px) scale(.98), staggered up to 120ms. A cap measured
+       inside that window is measured against a card that is scaled and
+       offset, so it comes out wrong — and because the number depends on
+       how far the animation had got, EVERY remeasure produced a different
+       cap. Renders restart the animation, so the columns kept resizing:
+       the shaking, and the columns that showed too few cards until a
+       click forced a fresh render after the animation had finished.
+
+       offsetTop and offsetHeight are layout values. Transforms cannot
+       reach them, so this now returns the same answer whether it runs
+       mid-animation, after fonts load, or on resize. Both elements are
+       measured against the same offsetParent so the difference between
+       them is meaningful; where that isn't true the old measurement is
+       still the better of the two available. */
+    let h;
+    if (fifth.offsetParent && fifth.offsetParent === body.offsetParent) {
+      h = (fifth.offsetTop - body.offsetTop) + fifth.offsetHeight + padBottom;
+    } else {
+      h = fifth.getBoundingClientRect().bottom - body.getBoundingClientRect().top + padBottom;
+    }
     if (h > 0) {
       body.style.maxHeight = `${Math.round(h)}px`;
       body.classList.add("t-board-col-capped");
