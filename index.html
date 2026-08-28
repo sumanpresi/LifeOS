@@ -42,6 +42,16 @@
         if (m) m.setAttribute("content", "#1A1917");
       }
     } catch (e) { /* private browsing — fall through to light */ }
+    /* Same reasoning as the theme above: applied from a module this would
+       run after first paint and the sidebar would visibly pop out of the
+       layout on every load. Kept per-device in localStorage rather than in
+       `state`, because how wide one screen is has nothing to do with the
+       other device and has no business travelling through sync. */
+    try {
+      if (localStorage.getItem("lifeos-sidebar") === "hidden") {
+        document.documentElement.classList.add("sidebar-hidden");
+      }
+    } catch (e) {}
   })();
 </script>
 <link href="https://cdn.jsdelivr.net/npm/quill@2/dist/quill.snow.css" rel="stylesheet">
@@ -63,14 +73,14 @@
      which shows up as new controls rendering completely unstyled — and is
      nearly impossible to diagnose from a screenshot, because the code on
      disk is correct. Bump on every release. -->
-<link rel="stylesheet" href="css/style.css?v=202608272215">
+<link rel="stylesheet" href="css/style.css?v=202608280715">
 <!-- Foldable/tablet/mobile layout layer — loaded after style.css on purpose.
      It overrides that file's tablet breakpoint (wrap-to-grid board,
      off-canvas drawer sidebar) with an icon-rail sidebar and a
      horizontally-scrolling, fixed-width Kanban board for Z Fold 6 inner
      (~883px), iPad mini/iPad (~768–1024px), and a bottom tab bar for
      phones (<=600px, incl. iPhone 17 Pro Max ~440px and fold cover screens). -->
-<link rel="stylesheet" href="css/responsive-foldable.css?v=202608272215">
+<link rel="stylesheet" href="css/responsive-foldable.css?v=202608280715">
 </head>
 <body>
 <div class="shell">
@@ -134,6 +144,14 @@
       <div class="greet" style="display:flex;gap:12px;align-items:flex-start">
         <button class="btn btn-ghost mob-toggle" onclick="document.getElementById('sidebar').classList.toggle('open')" aria-label="Menu">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </button>
+        <!-- Lives in the header, not in the sidebar: a control that hides
+             something must not be hidden along with it. -->
+        <button class="btn btn-ghost side-toggle" id="sidebarToggle" onclick="toggleSidebar()"
+          aria-label="Hide sidebar" aria-pressed="false" data-tooltip="Hide sidebar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>
+          </svg>
         </button>
         <div>
           <h1 id="greeting">Hello</h1>
@@ -1648,6 +1666,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script type="module" src="js/app.js?v=202608272215"></script>
+<script type="module" src="js/app.js?v=202608280715"></script>
 </body>
 </html>
