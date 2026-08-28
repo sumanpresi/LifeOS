@@ -1506,6 +1506,24 @@ html[data-theme="dark"] .t-board::-webkit-scrollbar-thumb{background:rgba(255,25
 /* The text and date inputs these rules styled are gone — the Overview
    board's columns now open the shared composer, same as every other
    board. What remains is the wrapper and its "+ Add task" button. */
+/* Sits between the cards and "+ Add task", above the quick-add's own
+   border so the two don't stack into a double rule. flex-shrink:0 for the
+   same reason the quick-add has it: this must not be the thing that gets
+   squeezed when a column is capped. */
+.t-upcoming-more-wrap{padding:8px 10px 0;flex-shrink:0}
+.t-upcoming-more{
+  width:100%;padding:7px 10px;border-radius:9px;
+  border:1px dashed var(--t-border);background:transparent;
+  font-family:'Inter',sans-serif;font-size:12px;font-weight:600;
+  color:var(--muted);cursor:pointer;
+  transition:color 150ms ease,border-color 150ms ease,background 150ms ease;
+}
+.t-upcoming-more:hover{color:var(--t-ink);border-color:var(--t-accent);background:var(--t-card)}
+.t-upcoming-more:focus-visible{outline:2px solid var(--t-accent);outline-offset:2px}
+/* Solid once expanded — the button now closes something rather than
+   promising more, and shouldn't keep reading as an empty slot. */
+.t-upcoming-more.is-open{border-style:solid}
+
 .t-board-quickadd{padding:8px 10px;border-top:1px solid var(--t-border);flex-shrink:0}
 .t-board-card{background:var(--t-card);border:1px solid var(--t-border);border-radius:10px;padding:10px;cursor:pointer;
   transition:box-shadow 150ms ease,border-color 150ms ease}
