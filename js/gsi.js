@@ -5,7 +5,8 @@ import { isComposerOpen, composerHtml, openComposer } from './composer.js';
 /* tasks.js already imports gsi.js, so this is a cycle — safe here because
    neither module touches the other's bindings while modules are being
    evaluated, only inside functions called later at runtime. */
-import { markDragJustEnded, boardColHeadHtml, isColCollapsed, capBoardColumnHeights, initBoardWheelScroll } from './tasks.js';
+import { markDragJustEnded, boardColHeadHtml, isColCollapsed, capBoardColumnHeights, initBoardWheelScroll,
+         applyHorizon, horizonWrapHtml } from './tasks.js';
 import { toast, autoGrow, preserveBoardScroll } from './ui.js';
 import { describeLink } from './attach.js';
 import { moveToTrash } from './trash.js';
@@ -306,12 +307,18 @@ function gsiBoardCardHtml(item) {
     </div>`;
 }
 function gsiBoardColumnHtml(statusKey, label, tasks) {
+  /* Same seven-day horizon the Overview board uses. Scoped per column so
+     each one remembers its own state, and keyed on `date` because that is
+     what a workspace task calls its due date. Undated and overdue tasks
+     always stay visible — see splitByHorizon in tasks.js. */
+  const { shown, moreBtn, emptyMsg } = applyHorizon("gsi-" + statusKey, tasks, t => t.date);
   return `
     <div class="t-board-col ${isColCollapsed("gsi", statusKey) ? "t-col-collapsed" : ""}" data-board-col="${statusKey}">
       ${boardColHeadHtml("gsi", statusKey, label, tasks.length)}
       <div class="t-board-col-body">
-        ${tasks.length ? tasks.map(gsiBoardCardHtml).join("") : `<p class="hint" style="padding:10px 4px">Nothing here.</p>`}
+        ${shown.length ? shown.map(gsiBoardCardHtml).join("") : `<p class="hint" style="padding:10px 4px">${esc(emptyMsg)}</p>`}
       </div>
+      ${horizonWrapHtml(moreBtn)}
       ${isComposerOpen("gsi", statusKey)
         ? composerHtml("gsi", statusKey)
         : `<button class="t-board-col-add" onclick="quickAddGsiTask('${statusKey}')" title="Add a task to ${esc(label)}">+ Add task</button>`}

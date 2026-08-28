@@ -25,7 +25,8 @@ import { isComposerOpen, composerHtml, openComposer } from './composer.js';
 import { toast, autoGrow, preserveBoardScroll } from './ui.js';
 import { describeLink } from './attach.js';
 import { moveToTrash } from './trash.js';
-import { markDragJustEnded, boardColHeadHtml, isColCollapsed, capBoardColumnHeights, initBoardWheelScroll } from './tasks.js';
+import { markDragJustEnded, boardColHeadHtml, isColCollapsed, capBoardColumnHeights, initBoardWheelScroll,
+         applyHorizon, horizonWrapHtml } from './tasks.js';
 import { syncTaskToGoogle } from './google-calendar.js';
 
 // Personal Workspace tasks use the same field names as GSI project tasks
@@ -211,12 +212,18 @@ function pwBoardCardHtml(item) {
     </div>`;
 }
 function pwBoardColumnHtml(statusKey, label, tasks) {
+  /* Same seven-day horizon the Overview board uses. Scoped per column so
+     each one remembers its own state, and keyed on `date` because that is
+     what a workspace task calls its due date. Undated and overdue tasks
+     always stay visible — see splitByHorizon in tasks.js. */
+  const { shown, moreBtn, emptyMsg } = applyHorizon("personal-" + statusKey, tasks, t => t.date);
   return `
     <div class="t-board-col ${isColCollapsed("personal", statusKey) ? "t-col-collapsed" : ""}" data-board-col="${statusKey}">
       ${boardColHeadHtml("personal", statusKey, label, tasks.length)}
       <div class="t-board-col-body">
-        ${tasks.length ? tasks.map(pwBoardCardHtml).join("") : `<p class="hint" style="padding:10px 4px">Nothing here.</p>`}
+        ${shown.length ? shown.map(pwBoardCardHtml).join("") : `<p class="hint" style="padding:10px 4px">${esc(emptyMsg)}</p>`}
       </div>
+      ${horizonWrapHtml(moreBtn)}
       ${isComposerOpen("personal", statusKey)
         ? composerHtml("personal", statusKey)
         : `<button class="t-board-col-add" onclick="quickAddPwTask('${statusKey}')" title="Add a task to ${esc(label)}">+ Add task</button>`}

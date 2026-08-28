@@ -1157,14 +1157,20 @@ document.addEventListener("click", (evt) => {
    state right above. It is a view choice, not data — putting it in `state`
    would sync it and bump the document rev for a toggle. */
 const UPCOMING_DAYS = 7;
-const UPCOMING_KEY = "lifeos-upcoming-all";
-export function isUpcomingExpanded() {
-  try { return localStorage.getItem(UPCOMING_KEY) === "1"; } catch (_) { return false; }
+/* Scoped per column, so expanding the GSI To Do column doesn't also
+   expand Overview's Upcoming or the Personal board. Same shape of key as
+   the column-collapse state above. */
+const laterKey = scope => "lifeos-later-" + scope;
+export function isLaterExpanded(scope) {
+  try { return localStorage.getItem(laterKey(scope)) === "1"; } catch (_) { return false; }
 }
-export function toggleUpcomingHorizon() {
-  try { localStorage.setItem(UPCOMING_KEY, isUpcomingExpanded() ? "0" : "1"); } catch (_) {}
+export function toggleLaterHorizon(scope) {
+  try { localStorage.setItem(laterKey(scope), isLaterExpanded(scope) ? "0" : "1"); } catch (_) {}
   rerender();
 }
+// Kept for the native Upcoming column, which was the first user of this.
+export const isUpcomingExpanded = () => isLaterExpanded("native-upcoming");
+export const toggleUpcomingHorizon = () => toggleLaterHorizon("native-upcoming");
 /* Inclusive of today + UPCOMING_DAYS, compared as YYYY-MM-DD strings, which
    is what dueDate already is — no Date parsing, so no timezone to get
    wrong. Built by adding days to a local date so month and year ends roll
@@ -1175,11 +1181,45 @@ function upcomingHorizonKey() {
   d.setDate(d.getDate() + UPCOMING_DAYS);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
-function splitUpcoming(tasks) {
+/* `dateOf` differs by board: the native list calls the field dueDate, the
+   GSI and Personal workspaces call it date — so the caller supplies the
+   accessor rather than this having to know about all three.
+
+   A task with NO date stays near. On the native Upcoming column that case
+   can't arise (undated tasks have their own column), but on a workspace
+   To Do column it is common — "Report upload tracker" has no date — and
+   hiding those behind a "later" button would be plainly wrong: an undated
+   task isn't later, it's just undated. Past dates stay near too, so
+   nothing overdue can ever be tucked away. */
+export function splitByHorizon(tasks, dateOf = t => t.dueDate) {
   const horizon = upcomingHorizonKey();
   const near = [], later = [];
-  tasks.forEach(t => ((t.dueDate && t.dueDate <= horizon) ? near : later).push(t));
+  tasks.forEach(t => {
+    const d = dateOf(t);
+    ((!d || d <= horizon) ? near : later).push(t);
+  });
   return { near, later };
+}
+
+/* The whole "show N later" treatment for one column: which cards to draw,
+   the button, and the message when the near list is empty. Shared so the
+   three boards stay identical in behaviour and wording. */
+export function applyHorizon(scope, tasks, dateOf) {
+  const { near, later } = splitByHorizon(tasks, dateOf);
+  if (!later.length) return { shown: tasks, moreBtn: "", emptyMsg: "Nothing here." };
+  const expanded = isLaterExpanded(scope);
+  const n = later.length;
+  const moreBtn = `<button type="button" class="t-upcoming-more${expanded ? " is-open" : ""}" data-upcoming-more="${esc(scope)}">${
+    expanded ? `Show only the next ${UPCOMING_DAYS} days`
+             : `Show ${n} later ${n === 1 ? "task" : "tasks"}`}</button>`;
+  return {
+    shown: expanded ? tasks : near,
+    moreBtn,
+    emptyMsg: `Nothing due in the next ${UPCOMING_DAYS} days.`
+  };
+}
+export function horizonWrapHtml(moreBtn) {
+  return moreBtn ? `<div class="t-upcoming-more-wrap">${moreBtn}</div>` : "";
 }
 
 /* accentClass is gone: the per-column heading colours it carried were
@@ -1187,20 +1227,8 @@ function splitUpcoming(tasks) {
    had become an argument that was passed and never used. */
 function boardColumnHtml(key, label, tasks) {
   let shown = tasks, moreBtn = "", emptyMsg = "Nothing here.";
-  if (key === "upcoming" && !isUpcomingExpanded()) {
-    const { near, later } = splitUpcoming(tasks);
-    if (later.length) {
-      shown = near;
-      emptyMsg = `Nothing due in the next ${UPCOMING_DAYS} days.`;
-      moreBtn = `<button type="button" class="t-upcoming-more" data-upcoming-more="1">
-        Show ${later.length} later ${later.length === 1 ? "task" : "tasks"}</button>`;
-    }
-  } else if (key === "upcoming" && isUpcomingExpanded()) {
-    const { later } = splitUpcoming(tasks);
-    if (later.length) {
-      moreBtn = `<button type="button" class="t-upcoming-more is-open" data-upcoming-more="1">
-        Show only the next ${UPCOMING_DAYS} days</button>`;
-    }
+  if (key === "upcoming") {
+    ({ shown, moreBtn, emptyMsg } = applyHorizon("native-upcoming", tasks, t => t.dueDate));
   }
   // The count stays the column's TRUE total. A badge that shrank with the
   // filter would hide the very thing the button is there to reveal.
@@ -1210,7 +1238,7 @@ function boardColumnHtml(key, label, tasks) {
       <div class="t-board-col-body">
         ${shown.length ? shown.map(boardCardHtml).join("") : `<p class="hint" style="padding:10px 4px">${esc(emptyMsg)}</p>`}
       </div>
-      ${moreBtn ? `<div class="t-upcoming-more-wrap">${moreBtn}</div>` : ""}
+      ${horizonWrapHtml(moreBtn)}
       ${boardQuickAddHtml(key)}
     </div>`;
 }
@@ -1223,7 +1251,7 @@ document.addEventListener("click", (evt) => {
   if (!btn) return;
   evt.preventDefault();
   evt.stopPropagation();
-  toggleUpcomingHorizon();
+  toggleLaterHorizon(btn.dataset.upcomingMore);
 }, true);
 /* Kept as a thin redirect: the old inline inputs are gone, but a stale
    cached page or a bookmarklet could still call this. */
