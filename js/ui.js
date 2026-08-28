@@ -233,6 +233,11 @@ export function go(page) {
     el.querySelectorAll(".t-title").forEach(autoGrow);
     el.querySelectorAll(".pw-board-card-title").forEach(autoGrow);
     el.querySelectorAll(".task-row textarea").forEach(autoGrow);
+    /* Same reason as the textareas above, and the same fix: a board
+       column capped while its page was hidden was capped against zeroed
+       offsets. Dynamically imported to keep ui.js free of a static
+       dependency on tasks.js, which imports from here. */
+    import("./tasks.js").then(m => m.capBoardColumnHeights()).catch(() => {});
     if (page === "work") resizeWhiteboardIfVisible("gsi");
     /* The Whiteboard's surface is still called "overview" for data
        compatibility, but the card renders on Communication now. */

@@ -256,6 +256,29 @@ export function capBoardColumnHeights() {
     // natural height, not against last render's cap.
     body.style.maxHeight = "";
     body.classList.remove("t-board-col-capped");
+
+    /* NOTHING HIDDEN CAN BE MEASURED.
+
+       `.page{display:none}` until it is the visible one, and every offset
+       and rect inside a display:none subtree reads 0. The measurement below
+       then came out as just the bottom padding — about 10px — and `h > 0`
+       happily accepted it, so the column was pinned to a 10px cap: a header
+       and a sliver of the first card, exactly as reported on switching tabs.
+       A later click triggered a render with the page now visible, the cap
+       was recomputed correctly, and the column "expanded".
+
+       Renders happen while a page is hidden all the time — on first load
+       every page is rendered, and a sync landing while you are on another
+       page re-renders this one — so this was reachable constantly.
+
+       go() in ui.js already re-measures textareas and maps for precisely
+       this reason; the board cap simply was not on that list. It is now,
+       and this guard makes a hidden pass a no-op rather than a wrong one.
+       Left uncapped instead of wrongly capped: an uncapped column is
+       merely taller than intended, which is a far better failure than a
+       column that hides its own contents. */
+    if (!body.offsetParent) return;
+
     const cards = body.querySelectorAll(".t-board-card");
     if (cards.length <= BOARD_CARDS_BEFORE_SCROLL) return;
     const fifth = cards[BOARD_CARDS_BEFORE_SCROLL - 1];
