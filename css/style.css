@@ -377,6 +377,24 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 
 .page{display:none}.page.visible{display:block}
 .mob-toggle{display:none}
+
+/* ---------- collapsible sidebar ----------
+   The nav is removed from the flex row entirely rather than shrunk to a
+   rail, so the whole 232px plus its margins goes to the content. The
+   toggle that brings it back sits in the header, never in the sidebar, so
+   it can't disappear with the thing it controls. */
+.side-toggle{display:inline-flex;align-items:center;justify-content:center;padding:8px;flex:0 0 auto}
+.side-toggle svg{width:19px;height:19px}
+.side-toggle.is-hidden-state{opacity:.72}
+html.sidebar-hidden .sidebar{display:none}
+html.sidebar-hidden .main{--main-pad-x:28px;padding-left:28px}
+@media(max-width:767px){
+  /* Below this the sidebar is already an off-canvas drawer with its own
+     hamburger — a second, differently-behaved hide control would just be
+     confusing, so the toggle steps aside. */
+  .side-toggle{display:none}
+  html.sidebar-hidden .sidebar{display:flex}
+}
 @media(max-width:767px){
   .sidebar{position:fixed;z-index:40;left:0;top:0;margin:0;height:100vh;border-radius:0 22px 22px 0;
     transform:translateX(-100%);transition:transform .22s var(--ease);box-shadow:var(--shadow-glass-lift)}
@@ -4473,13 +4491,24 @@ html[data-theme="dark"] .note-ink-hl{mix-blend-mode:screen}
 }
 
 /* ============ NOTEBOOK (Sections / Pages / rich-text page editor) ============ */
+/* A DEFINITE height, not a min-height. With min-height the grid row simply
+   grew to fit however many sections and pages there were, the panes grew
+   with it, and `overflow-y:auto` on the lists never had anything to
+   overflow — so the whole document scrolled and the columns ran off the
+   bottom of the screen. Pinning the height to the viewport gives the lists
+   a bottom to hit, which is what turns their scrollbars on. */
 .nb-layout{
   display:grid;grid-template-columns:196px 216px minmax(0,1fr);gap:12px;
-  align-items:stretch;min-height:calc(100vh - 210px);
+  /* 240px is the header card, the "Notebook" title and the page padding
+     above it. Erring slightly tall would give the document its own
+     scrollbar next to the panes' — two scrollbars for one list — so this
+     errs a little short instead. */
+  align-items:stretch;height:calc(100vh - 240px);min-height:380px;
 }
 .nb-pane{
   background:var(--glass-bg);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
   border:1px solid var(--glass-line);border-radius:16px;display:flex;flex-direction:column;overflow:hidden;
+  min-height:0; /* without this a flex child refuses to shrink below its content */
 }
 .nb-pane-head{
   display:flex;align-items:center;justify-content:space-between;gap:8px;
@@ -4488,7 +4517,20 @@ html[data-theme="dark"] .note-ink-hl{mix-blend-mode:screen}
 .nb-pane-title{font-weight:800;font-size:13px;letter-spacing:.02em;color:var(--muted);
   text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .nb-add-btn{padding:6px 12px;font-size:12.5px;white-space:nowrap}
-.nb-list{padding:8px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:3px}
+.nb-list{padding:8px;overflow-y:auto;overscroll-behavior:contain;flex:1;min-height:0;
+  display:flex;flex-direction:column;gap:3px}
+/* A visible, slim scrollbar — the default overlay bar gives no hint that
+   there is more below, which is exactly the problem with a long list. */
+.nb-list{scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.22) transparent}
+.nb-list::-webkit-scrollbar{width:8px;height:8px}
+.nb-list::-webkit-scrollbar-thumb{background:rgba(0,0,0,.2);border-radius:8px}
+.nb-list::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.32)}
+.nb-list::-webkit-scrollbar-track{background:transparent}
+html[data-theme="dark"] .nb-list{scrollbar-color:rgba(255,255,255,.24) transparent}
+html[data-theme="dark"] .nb-list::-webkit-scrollbar-thumb{background:rgba(255,255,255,.22)}
+/* Rows must keep their height inside a scroller instead of being squashed
+   to fit, or a long list compresses rather than scrolling. */
+.nb-list .nb-row{flex:0 0 auto}
 .nb-row{
   display:flex;align-items:center;gap:8px;border-radius:10px;padding:2px 4px 2px 8px;
   transition:background .15s ease;
@@ -4520,16 +4562,23 @@ span.nb-row-name{overflow-wrap:anywhere}
 @media (hover:none){
   .nb-row-act,.nb-row-del{opacity:.5;width:30px;height:30px}
 }
-.nb-editor-pane{padding:0}
+.nb-editor-pane{padding:0;min-height:0}
 .nb-editor-head{display:flex;align-items:center;gap:10px;padding:20px 22px 0}
 .nb-page-title{
   flex:1;min-width:0;border:none;background:transparent;font-family:'Fraunces',serif;
   font-size:26px;font-weight:700;color:var(--ink);padding:4px 0;
 }
 .nb-page-meta{padding:2px 22px 14px;color:var(--muted);font-size:13px;font-weight:600}
-.nb-rich-editor{margin:0 22px 22px;display:flex;flex-direction:column}
-.nb-rich-editor .ql-container.ql-snow{flex:1}
-.nb-rich-editor .ql-editor{min-height:420px}
+.nb-rich-editor{margin:0 22px 22px;display:flex;flex-direction:column;flex:1;min-height:0}
+/* The text scrolls, the toolbar does not — losing the formatting controls
+   the moment the page runs past one screen would be its own annoyance. */
+.nb-rich-editor .ql-toolbar.ql-snow{flex:0 0 auto}
+.nb-rich-editor .ql-container.ql-snow{flex:1;min-height:0;overflow-y:auto}
+.nb-rich-editor .ql-editor{min-height:100%}
+.nb-rich-editor .ql-container{scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.22) transparent}
+.nb-rich-editor .ql-container::-webkit-scrollbar{width:9px}
+.nb-rich-editor .ql-container::-webkit-scrollbar-thumb{background:rgba(0,0,0,.2);border-radius:8px}
+html[data-theme="dark"] .nb-rich-editor .ql-container{scrollbar-color:rgba(255,255,255,.24) transparent}
 
 /* ---- narrow / folded: sections and pages become tab STRIPS ----
    Stacked as full-height panes they ate most of the screen — on a folded
@@ -4538,7 +4587,12 @@ span.nb-row-name{overflow-wrap:anywhere}
    pushed into a corner. As horizontal strips each costs one row, and
    everything left over goes to the editor, which is the part being used. */
 @media(max-width:1100px){
-  .nb-layout{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr);min-height:0;gap:10px}
+  /* Back to auto: here the panes are one-row strips and the editor is the
+     tall thing, so the page itself is the right scroller. */
+  .nb-layout{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr);
+    height:auto;min-height:0;gap:10px}
+  .nb-rich-editor .ql-container.ql-snow{overflow-y:visible}
+  .nb-rich-editor .ql-editor{min-height:44vh}
   .nb-pane-sections,.nb-pane-pages{grid-column:1}
   .nb-pane-sections .nb-pane-head,.nb-pane-pages .nb-pane-head{padding:10px 12px 8px}
   .nb-pane-sections .nb-list,.nb-pane-pages .nb-list{
