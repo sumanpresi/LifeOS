@@ -4575,7 +4575,10 @@ html[data-theme="dark"] .note-ink-hl{mix-blend-mode:screen}
    bottom of the screen. Pinning the height to the viewport gives the lists
    a bottom to hit, which is what turns their scrollbars on. */
 .nb-layout{
-  display:grid;grid-template-columns:196px 216px minmax(0,1fr);gap:12px;
+  /* Was 196px + 216px of lists. One tree at 232px replaces both, and the
+     ~180px saved goes to the editor — which is the only pane whose width
+     changes what you can actually do in it. */
+  display:grid;grid-template-columns:232px minmax(0,1fr);gap:12px;
   /* 240px is the header card, the "Notebook" title and the page padding
      above it. Erring slightly tall would give the document its own
      scrollbar next to the panes' — two scrollbars for one list — so this
@@ -4652,6 +4655,54 @@ span.nb-row-name{overflow-wrap:anywhere}
 .nb-rich-editor .ql-toolbar.ql-snow{flex:0 0 auto}
 .nb-rich-editor .ql-container.ql-snow{flex:1;min-height:0;overflow-y:auto}
 .nb-rich-editor .ql-editor{min-height:100%}
+/* ---------- notebook tree ---------- */
+.nb-tree{gap:1px}
+.nb-sec{display:flex;flex-direction:column;flex:0 0 auto}
+.nb-row-sec{font-weight:650}
+/* Pages are indented under their section and hang off a hairline, so the
+   nesting is visible without a second column to imply it. */
+.nb-sec-pages{
+  display:flex;flex-direction:column;gap:1px;
+  margin:1px 0 4px 14px;padding-left:8px;border-left:1px solid var(--line);
+}
+.nb-row-page{padding-left:4px}
+.nb-row-page .nb-row-name{font-weight:500;font-size:13.5px}
+.nb-row-page.active .nb-row-name{font-weight:650}
+
+.nb-twisty{
+  flex:0 0 auto;width:18px;height:18px;margin-right:1px;padding:0;
+  border:none;background:transparent;color:var(--muted);
+  font-size:9px;line-height:1;cursor:pointer;border-radius:4px;
+  transform:rotate(0deg);transition:transform .16s var(--ease),color .16s var(--ease);
+}
+.nb-twisty.is-open{transform:rotate(90deg)}
+.nb-twisty:hover{color:var(--ink);background:rgba(0,0,0,.05)}
+@media(prefers-reduced-motion:reduce){ .nb-twisty{transition:none} }
+
+/* Reads as a row of the tree rather than a button parked in a header, so
+   it is obvious which section it adds to. */
+.nb-add-page-row{
+  text-align:left;padding:6px 8px;margin-top:1px;border:none;background:transparent;
+  font-family:'Inter',sans-serif;font-size:12px;font-weight:600;color:var(--muted);
+  border-radius:7px;cursor:pointer;transition:color .15s ease,background .15s ease;
+}
+.nb-add-page-row:hover{color:var(--ink);background:var(--card)}
+
+/* Folds the whole tree away. Hidden on wide screens: there the tree costs
+   232px out of well over a thousand, which is not worth a control. */
+.nb-tree-toggle{
+  display:none;flex:0 0 auto;width:32px;height:32px;margin-right:8px;
+  border:1px solid var(--line);border-radius:9px;background:transparent;
+  color:var(--muted);font-size:14px;line-height:1;cursor:pointer;
+}
+.nb-tree-toggle:hover{color:var(--ink)}
+#page-notebook.nb-tree-hidden .nb-pane-tree{display:none}
+#page-notebook.nb-tree-hidden .nb-layout{grid-template-columns:minmax(0,1fr)}
+
+/* The section name, since no column header states it any more. */
+.nb-crumb{font-weight:650;color:var(--muted)}
+.nb-crumb:not(:empty)::after{content:" · ";font-weight:400}
+
 .nb-rich-editor .ql-container{scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.22) transparent}
 .nb-rich-editor .ql-container::-webkit-scrollbar{width:9px}
 .nb-rich-editor .ql-container::-webkit-scrollbar-thumb{background:rgba(0,0,0,.2);border-radius:8px}
@@ -4664,39 +4715,27 @@ html[data-theme="dark"] .nb-rich-editor .ql-container{scrollbar-color:rgba(255,2
    pushed into a corner. As horizontal strips each costs one row, and
    everything left over goes to the editor, which is the part being used. */
 @media(max-width:1100px){
-  /* Back to auto: here the panes are one-row strips and the editor is the
-     tall thing, so the page itself is the right scroller. */
-  .nb-layout{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto minmax(0,1fr);
+  /* Back to auto: here the editor is the tall thing, so the page itself is
+     the right scroller. The tree stacks above it and the ☰ folds it away,
+     because on this width the two cannot both have the room they want. */
+  .nb-layout{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);
     height:auto;min-height:0;gap:10px}
+  .nb-tree-toggle{display:inline-flex;align-items:center;justify-content:center}
+  .nb-pane-tree .nb-list{max-height:38vh}
   .nb-rich-editor .ql-container.ql-snow{overflow-y:visible}
   .nb-rich-editor .ql-editor{min-height:44vh}
-  .nb-pane-sections,.nb-pane-pages{grid-column:1}
-  .nb-pane-sections .nb-pane-head,.nb-pane-pages .nb-pane-head{padding:10px 12px 8px}
-  .nb-pane-sections .nb-list,.nb-pane-pages .nb-list{
-    flex-direction:row;overflow-x:auto;overflow-y:hidden;padding:8px;gap:6px;
-    scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch;
-  }
-  /* Chips size to their own text and scroll sideways rather than each
-     claiming a full row. */
-  .nb-pane-sections .nb-row,.nb-pane-pages .nb-row{
-    flex:0 0 auto;max-width:60vw;scroll-snap-align:start;
-    border:1px solid var(--line);border-radius:999px;padding:2px 6px 2px 10px;
-  }
-  .nb-pane-sections .nb-row.active,.nb-pane-pages .nb-row.active{border-color:transparent}
-  .nb-pane-sections .nb-row-name,.nb-pane-pages .nb-row-name{
-    flex:0 1 auto;padding:7px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-  }
-  .nb-pane-sections .nb-row-input,.nb-pane-pages .nb-row-input{min-width:140px}
+  /* The horizontal chip strips that used to live here are gone with the
+     two columns they belonged to. A tree reads the same way at any width,
+     so it just stacks and scrolls. */
+  .nb-pane-tree .nb-pane-head{padding:10px 12px 8px}
   .nb-color-bar{min-height:16px}
   .nb-editor-pane{min-height:60vh}
-  .nb-rich-editor .ql-editor{min-height:44vh}
 }
 @media(max-width:640px){
   .nb-editor-head{padding:16px 16px 0}
   .nb-page-title{font-size:21px}
   .nb-page-meta{padding:2px 16px 12px}
   .nb-rich-editor{margin:0 16px 16px}
-  .nb-pane-sections .nb-row,.nb-pane-pages .nb-row{max-width:72vw}
 }
 /* The toolbar is the other thing crowding a narrow screen: left to itself
    Quill lets it grow to four rows and pushes the writing area off the
