@@ -73,14 +73,14 @@
      which shows up as new controls rendering completely unstyled — and is
      nearly impossible to diagnose from a screenshot, because the code on
      disk is correct. Bump on every release. -->
-<link rel="stylesheet" href="css/style.css?v=202608291130">
+<link rel="stylesheet" href="css/style.css?v=202608291225">
 <!-- Foldable/tablet/mobile layout layer — loaded after style.css on purpose.
      It overrides that file's tablet breakpoint (wrap-to-grid board,
      off-canvas drawer sidebar) with an icon-rail sidebar and a
      horizontally-scrolling, fixed-width Kanban board for Z Fold 6 inner
      (~883px), iPad mini/iPad (~768–1024px), and a bottom tab bar for
      phones (<=600px, incl. iPhone 17 Pro Max ~440px and fold cover screens). -->
-<link rel="stylesheet" href="css/responsive-foldable.css?v=202608291130">
+<link rel="stylesheet" href="css/responsive-foldable.css?v=202608291225">
 </head>
 <body>
 <div class="shell">
@@ -1214,7 +1214,23 @@
 
     <!-- ======== PAGE: NOTEBOOK ======== -->
     <section class="page" id="page-notebook">
-      <h1 class="display" style="font-size:28px;margin-bottom:14px">Notebook</h1>
+      <!-- On a narrow screen this bar carries everything the side tree
+           used to: which section you are in, a way to open the tree, and
+           a way to add a page. Above 1100px only the heading shows and
+           the tree stays where it is. -->
+      <div class="nb-topbar">
+        <h1 class="display nb-title">Notebook</h1>
+        <button class="nb-sec-chip" id="nbSecChip" onclick="toggleNotebookTree()"
+          aria-haspopup="true" aria-expanded="false">
+          <span class="nb-sec-dot" id="nbSecDot"></span><span id="nbSecChipName">Sections</span> <span class="nb-caret">▾</span>
+        </button>
+        <span class="nb-topbar-gap"></span>
+        <button class="btn btn-ghost nb-topbar-btn" onclick="toggleNotebookTree()">☰ Sections</button>
+        <button class="btn btn-ghost nb-topbar-btn" onclick="addNotebookPage()">+ Page</button>
+      </div>
+      <!-- Dismisses the sections panel by tapping away from it, which is
+           the expected way out of an overlay on a touch screen. -->
+      <div class="nb-scrim" onclick="toggleNotebookTree(true)"></div>
       <div class="nb-layout">
         <!-- One tree instead of two columns: sections, with their pages
              nested underneath. The width that the second column used to
@@ -1672,6 +1688,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script type="module" src="js/app.js?v=202608291130"></script>
+<script type="module" src="js/app.js?v=202608291225"></script>
 </body>
 </html>
