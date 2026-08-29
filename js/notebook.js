@@ -41,6 +41,17 @@ function activeNbPage(sec) {
   if (!sec || !sec.pages.length) return null;
   return sec.pages.find(p => p.id === sec.activePage) || sec.pages[0];
 }
+/* The section a page belongs to, searched across ALL sections.
+
+   Everything below used to look only inside the ACTIVE section, which was
+   fine when the tree could show one section's pages at a time. Now several
+   sections can be unfolded at once, so a page you can see and click is
+   often not in the selected section — and clicking it did nothing at all,
+   because the lookup never found it. */
+function findNbSectionOfPage(id) {
+  const nb = ensureNotebook();
+  return nb.sections.find(sec => (sec.pages || []).some(p => p.id === id)) || null;
+}
 function findNbPageById(id) {
   const nb = ensureNotebook();
   for (const sec of nb.sections) {
@@ -165,7 +176,14 @@ export function startNotebookRename(kind, id) {
      — and the render below skips any list that contains the focused
      element. Without dropping focus first the input would never appear. */
   try { document.activeElement && document.activeElement.blur(); } catch (e) {}
-  if (kind === "sec") switchNotebookSection(id); else switchNotebookPage(id);
+  /* Renaming used to select the thing being renamed. By the same rule as
+     above that is wrong: putting a name on a page in another section is
+     not a request to stop editing the one you are in. The row is visible
+     in the tree either way, so nothing needs to move. */
+  if (kind === "sec") {
+    const set = openSectionSet();
+    if (!set.has(id)) { set.add(id); saveOpenSections(set); } // keep its pages in view
+  }
   nbRenaming = id;
   renderNotebook();
 }
@@ -238,9 +256,14 @@ function toggleSectionFold(id) {
    it stays as the indicator of open/closed, but it can no longer disagree
    with the row it sits in. */
 export function notebookSectionClick(id) {
-  const nb = ensureNotebook();
-  if (nb.activeSection === id) { toggleSectionFold(id); return; }
-  switchNotebookSection(id); // selects, and unfolds as part of selecting
+  /* A SECTION CLICK ONLY FOLDS OR UNFOLDS. It does not move the selection.
+
+     Moving it meant that glancing at another section's contents pulled the
+     editor away from the page being written in, and there was no way to
+     just look. Opening a page is the deliberate act, so that is what
+     changes what you are editing; a section click merely shows or hides
+     what is inside it. */
+  toggleSectionFold(id);
 }
 // Kept as the named fold action for anything that wants it directly.
 export const toggleNotebookSectionOpen = toggleSectionFold;
@@ -529,32 +552,48 @@ export function addNotebookPage() {
   }
 }
 export function switchNotebookPage(id) {
-  const sec = activeNbSection();
-  if (!sec || sec.activePage === id) return;
+  const nb = ensureNotebook();
+  const owner = findNbSectionOfPage(id);
+  if (!owner) return;
+  if (nb.activeSection === owner.id && owner.activePage === id) return;
   nbRenaming = null; // see switchNotebookSection()
   flushNotebookPage();
-  sec.activePage = id;
-  // Not cleared, for the reason spelled out in switchNotebookSection().
+  owner.activePage = id;
+  /* OPENING A PAGE is what moves the selection — including across
+     sections. Clicking a section only unfolds it; the selection stays
+     with whatever you were writing in until you actually choose a page. */
+  if (nb.activeSection !== owner.id) {
+    nb.activeSection = owner.id;
+    const set = openSectionSet();
+    if (!set.has(owner.id)) { set.add(owner.id); saveOpenSections(set); }
+  }
+  // loadedNbPageId is not cleared — see switchNotebookSection().
   persist(false); renderNotebook();
 }
 /* Called from the big title field above the page (renames the active
    page) and from a row in the pages list (renames that specific page). */
 export function renameNotebookPage(a, b) {
-  const sec = activeNbSection();
-  if (!sec) return;
-  const id = b === undefined ? sec.activePage : a;
   const v = b === undefined ? a : b;
-  const p = sec.pages.find(x => x.id === id);
+  let p;
+  if (b === undefined) {
+    const sec = activeNbSection();          // the big title field: the open page
+    if (!sec) return;
+    p = sec.pages.find(x => x.id === sec.activePage);
+  } else {
+    p = findNbPageById(a);                  // a row in the tree, in any section
+  }
   if (!p || !v.trim()) return;
   p.name = v.trim();
   p.updatedAt = Date.now();
   persist(); renderNotebook();
 }
 export function delNotebookPage(id) {
-  const sec = activeNbSection();
+  const active = activeNbSection();
+  const pid = id || (active && active.activePage);
+  if (!pid) return;
+  const sec = findNbSectionOfPage(pid); // may be a section other than the open one
   if (!sec) return;
   if (sec.pages.length <= 1) return; // a section always keeps at least one page
-  const pid = id || sec.activePage;
   const p = sec.pages.find(x => x.id === pid);
   if (!p) return;
   if (!confirm(`Delete the "${p.name || "Untitled page"}" page? You can restore it from Trash within 30 days.`)) return;
