@@ -3910,6 +3910,67 @@ html[data-theme="dark"]{
 
 /* The mesh gradient is what the frost was blurring; with no blur it would
    just be a coloured smear behind flat panels. */
+/* ============================================================
+   WARM GLASS — a skin, not a fourth copy of the stylesheet
+   ============================================================
+   There are 117 rules keyed to html[data-theme="dark"] in this file:
+   the task board, calendar chips, the whiteboard, Quill's own surfaces.
+   A third value of data-theme would have needed every one of them
+   duplicated, and every future dark rule remembered twice.
+
+   So Warm Glass IS the dark theme, wearing a different palette. It sets
+   data-theme="dark" AND data-skin="warm"; every existing dark rule
+   applies untouched, and only the hues are overridden below. The cost is
+   one extra attribute; the alternative was doubling the theme surface of
+   the whole stylesheet.
+
+   On the colours: the reference builds its panels from a WHITE veil at
+   .14 over a light brown backdrop. Measured against that backdrop, that
+   gives 2.8:1 for body text and 2.1:1 for muted text at the lightest
+   point — a long way under the 4.5:1 minimum, in an app whose main
+   screen is a text editor. The look survives the fix: the panel is a
+   warm dark brown at .60 instead, the backdrop pools are pulled down,
+   and the frost comes from blur and the lit edge exactly as it does in
+   the reference. Every value below was checked against the lightest
+   point of the gradient, which is the worst case:
+       ink #F4EDE3   9.22:1     muted #B2A799   4.53:1
+       accents 4.75-5.53:1      all clear of AA
+   ============================================================ */
+html[data-skin="warm"]{
+  --paper:#2A211A; --card:#33281F; --ink:#F4EDE3; --muted:#B2A799;
+  --line:#4A3B30; --lilac:#3A2E25; --lilac-deep:#4A3B30;
+  --accent:#9BB48C; --accent-ink:#B4C9A6; --accent2:#DFA079;
+  --sand:#3D3025; --sage:#333A2F; --blush:#3E2E26; --sky:#2E332F;
+  --ok:#4ECB8D; --warn:#E3B26A; --danger:#F5967E; --danger-bg:#43291F; --secondary:#D9A87E;
+  --nav-ink:#CBBFAE; --nav-ink-strong:#F4EDE3; --nav-label:#B2A799;
+  --nav-hover:rgba(255,255,255,.08);
+  /* .60 is the thinnest this can go while muted text still clears AA at
+     the lightest point of the backdrop. The glassiness is bought with
+     blur and the edge highlight, not by making the panel thinner. */
+  --glass-bg:rgba(42,33,26,.60);
+  --glass-bg-strong:rgba(51,40,31,.76);
+  --glass-border:rgba(255,241,224,.20);
+  --glass-line:rgba(255,241,224,.18);
+  --glass-highlight:inset 0 1px 0 rgba(255,241,224,.16);
+  --shadow:0 1px 2px rgba(20,14,9,.42),0 10px 26px -14px rgba(20,14,9,.62);
+  --shadow-glass:0 1px 2px rgba(20,14,9,.42),0 10px 26px -14px rgba(20,14,9,.62);
+  --shadow-glass-lift:0 4px 10px rgba(20,14,9,.46),0 20px 40px -18px rgba(20,14,9,.7);
+  /* The task board is a recessed tray holding raised cards, same idiom as
+     the dark theme — just warm. */
+  --t-bg:#251D17; --t-card:#382C22; --t-ink:#F4EDE3; --t-ink2:#B2A799;
+  --t-border:#4A3B30;
+}
+/* Earth-tone pools rather than the dark theme's purples and blues. */
+html[data-skin="warm"] body{
+  background:
+    radial-gradient(1100px 900px at 14% 16%, #7A6352 0%, transparent 60%),
+    radial-gradient(900px 780px at 86% 8%, #6E5745 0%, transparent 58%),
+    radial-gradient(900px 760px at 70% 74%, #5E4C3F 0%, transparent 60%),
+    radial-gradient(800px 700px at 8% 88%, #4A3C31 0%, transparent 58%),
+    linear-gradient(160deg,#3B2F27 0%,#332821 55%,#2A211A 100%);
+  background-attachment:fixed;
+}
+
 html[data-theme="dark"] body{background:var(--paper)}
 html[data-theme="dark"] :is(.card,.sidebar,.modal){background-image:none}
 
