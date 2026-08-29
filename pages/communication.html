@@ -13,15 +13,17 @@
      dark-themed app would flash a full-brightness page inside the frame. */
   (function () {
     var BASE = { light:"light", advocate:"light", belle:"light", empowerx:"light",
-                 procyon:"light", quantiva:"light", motion:"light", egnis:"dark", warm:"dark" };
-    var SKIN = { warm:"warm", quantiva:"quantiva", motion:"motion", advocate:"advocate", belle:"belle",
-                 empowerx:"empowerx", procyon:"procyon", egnis:"egnis" };
-    var RETIRED = { dark:"warm" }; /* see js/theme.js */
+                 procyon:"light", quantiva:"light", credix:"light", capra:"dark",
+                 investra:"dark", egnis:"dark", warm:"dark" };
+    var SKIN = { warm:"warm", capra:"capra", quantiva:"quantiva", credix:"credix", investra:"investra",
+                 advocate:"advocate",
+                 belle:"belle", empowerx:"empowerx", procyon:"procyon", egnis:"egnis" };
+    var RETIRED = { dark:"warm", light:"quantiva" }; /* see js/theme.js */
     function apply(v) {
       var r = document.documentElement;
       if (RETIRED[v]) v = RETIRED[v];
       if (!BASE[v]) {
-        v = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "warm" : "light";
+        v = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "warm" : "quantiva";
       }
       r.setAttribute("data-theme", BASE[v]);
       if (SKIN[v]) r.setAttribute("data-skin", SKIN[v]); else r.removeAttribute("data-skin");
@@ -39,7 +41,7 @@
       var onSys = function () {
         try {
           var v = localStorage.getItem("lifeos-theme");
-          if (v !== "light" && v !== "dark" && v !== "warm") apply(null);
+          if (!v) apply(null); /* follow the OS only while nothing is stored */
         } catch (_) {}
       };
       if (mq.addEventListener) mq.addEventListener("change", onSys);
@@ -183,26 +185,74 @@ html[data-skin="advocate"]{
   --board:#22303A;
   --shadow:0 1px 2px rgba(23,26,29,.05), 0 8px 24px -14px rgba(23,26,29,.3);
 }
-html[data-skin="motion"]{
-  /* The reference has no serif, so this page's display/body serif pairing
-     becomes grotesque display + neutral sans body. */
-  --display:"Plus Jakarta Sans","Inter",sans-serif;
+html[data-skin="capra"]{
+  /* The reference's own Variables panel names Inter, used for headings
+     and copy alike — so this page's display/body serif pairing collapses
+     to one grotesque. */
+  --display:"Inter","Plus Jakarta Sans",sans-serif;
   --body:"Inter","Plus Jakarta Sans",sans-serif;
-  --paper:#F4F7FB;
+  --paper:#2B2B2B;
+  --card:#333333;
+  --ink:#F5F5F5;
+  --ink-soft:#C9C9C9;
+  --ink-faint:#A5A5A5;
+  --rule:#454545;
+  /* --blue is this page's accent ROLE. Capra's brand is violet #7F56D9,
+     which is 2.55:1 as foreground on the charcoal card — the same hue
+     lifted to #A78BFA carries the role instead. */
+  --blue:#A78BFA;      --blue-tint:#332F3D;
+  --green:#5FD09A;     --green-tint:#293630;
+  --red:#F0907C;       --red-tint:#3E2723;
+  --amber:#E8BE74;     --amber-tint:#3A3428;
+  --margin-rule:#A78BFA;
+  --board:#232323;
+  --shadow:0 1px 2px rgba(0,0,0,.40), 0 8px 24px -14px rgba(0,0,0,.62);
+}
+html[data-skin="investra"]{
+  /* The reference's serif-over-grotesque pairing is the one thing this
+     page's own display/body split already matches — so it keeps a serif
+     display here rather than collapsing to a single sans. */
+  --display:"Playfair Display",Georgia,serif;
+  --body:"Inter","Plus Jakarta Sans",sans-serif;
+  --paper:#22343D;
+  --card:#2A3D47;
+  --ink:#FFFFFF;
+  --ink-soft:#CBD5DA;
+  --ink-faint:#B0BDC4;
+  --rule:#3B4F59;
+  /* --blue is this page's accent ROLE, not a promise of the colour.
+     Investra has exactly one accent and it is coral — the reference's
+     own #F4555C is 3.39:1 here, so the hue is lifted to #FA8A90. */
+  --blue:#FA8A90;      --blue-tint:#3A2F31;
+  --green:#5FCB9B;     --green-tint:#28382F;
+  --red:#F8946B;       --red-tint:#3D2C24;
+  --amber:#E7BE79;     --amber-tint:#39352B;
+  --margin-rule:#FA8A90;
+  --board:#1C2C34;
+  --shadow:0 1px 2px rgba(8,16,20,.42), 0 8px 24px -14px rgba(8,16,20,.62);
+}
+html[data-skin="credix"]{
+  /* Rounded geometric headings over plain neutral copy, as in the
+     reference — so this page's display/body serif pairing becomes two
+     sans faces rather than one. */
+  --display:"Nunito Sans","Plus Jakarta Sans",sans-serif;
+  --body:"Inter","Nunito Sans",sans-serif;
+  --paper:#F4F7FC;
   --card:#FFFFFF;
-  --ink:#0F1419;
-  --ink-soft:#414B57;
-  --ink-faint:#5B6673;
-  --rule:#E5EAF1;
-  /* --blue is this page's accent ROLE and here it really is blue, but a
-     darkened one: the reference's own #0D8CF0 is 3.5:1 on white. */
-  --blue:#0E6FD1;      --blue-tint:#E7F0FB;
-  --green:#137A52;     --green-tint:#E2F2EB;
-  --red:#C0392B;       --red-tint:#FBE8E5;
-  --amber:#8F5E0C;     --amber-tint:#F7EEDC;
-  --margin-rule:#0E6FD1;
-  --board:#0F2B4A;
-  --shadow:0 1px 2px rgba(16,32,56,.04), 0 8px 24px -16px rgba(16,32,56,.28);
+  --ink:#16203C;
+  --ink-soft:#3A4463;
+  --ink-faint:#57617D;
+  --rule:#E4E8F2;
+  /* --blue is this page's accent ROLE, and here it is genuinely blue —
+     but the reference's own periwinkle is a FILL under navy text, 2.5:1
+     as foreground, so the role takes the same hue taken down. */
+  --blue:#3B4ACB;      --blue-tint:#E3E8FC;
+  --green:#146F53;     --green-tint:#E2F0EA;
+  --red:#B93A30;       --red-tint:#FAE7E5;
+  --amber:#845A0E;     --amber-tint:#F6EEDD;
+  --margin-rule:#3B4ACB;
+  --board:#16203C;
+  --shadow:0 1px 2px rgba(22,32,60,.05), 0 8px 24px -16px rgba(22,32,60,.30);
 }
 html[data-skin="quantiva"]{
   /* One sans throughout, as in the reference — this page normally pairs

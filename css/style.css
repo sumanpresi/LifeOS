@@ -528,10 +528,12 @@ html.sidebar-hidden .main{--main-pad-x:28px;padding-left:28px}
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.16);
 }
 [data-theme-pick="light"] .theme-swatch-dot{background:linear-gradient(145deg,#F7F2E7,#E9E1D0)}
+[data-theme-pick="capra"] .theme-swatch-dot{background:linear-gradient(145deg,#2B2B2B 46%,#7F56D9 46%)}
 [data-theme-pick="advocate"] .theme-swatch-dot{background:linear-gradient(145deg,#FAFBFC 46%,#22262B 46%)}
 [data-theme-pick="warm"]  .theme-swatch-dot{background:linear-gradient(145deg,#8A7059,#3B2F27)}
 [data-theme-pick="quantiva"] .theme-swatch-dot{background:linear-gradient(145deg,#FBF5E8 46%,#12503C 46%)}
-[data-theme-pick="motion"] .theme-swatch-dot{background:linear-gradient(145deg,#0D8CF0 46%,#F0761A 46%)}
+[data-theme-pick="credix"] .theme-swatch-dot{background:linear-gradient(145deg,#A9C6EA 46%,#3B4ACB 46%)}
+[data-theme-pick="investra"] .theme-swatch-dot{background:linear-gradient(145deg,#22343D 46%,#F4555C 46%)}
 [data-theme-pick="belle"] .theme-swatch-dot{background:linear-gradient(145deg,#F7F1EE 46%,#22384A 46%)}
 [data-theme-pick="egnis"]    .theme-swatch-dot{background:linear-gradient(145deg,#14454F 46%,#0B1519 46%)}
 [data-theme-pick="procyon"]  .theme-swatch-dot{background:linear-gradient(145deg,#FDF3EA 46%,#F97316 46%)}
@@ -4229,86 +4231,218 @@ html[data-skin="advocate"] :is(h1,h2,.display,.brand-name,.section-title,.greet 
 }
 
 /* ============================================================
-   MOTION GENIE — white paper, electric blue, warm-amber counterpoint
+   CAPRA — flat charcoal, one grotesque, violet brand accent
    ============================================================
-   A skin over the LIGHT theme, same construction as Quantiva:
-   data-theme="light" plus data-skin="motion", so every existing light
-   rule applies untouched and only the palette and the typefaces are
-   overridden. No new data-theme value, no duplicated rule set.
+   A skin over the DARK theme: data-theme="dark" plus
+   data-skin="capra", so all 117 existing dark rules apply untouched and
+   only the palette and the typeface change. Same construction as Warm
+   Glass; see the note under it for why a third data-theme value was
+   never an option.
 
-   The reference (motiongenie.webflow.io) is a near-white SaaS page:
-   white cards on white, hairline cool-grey borders, generously rounded
-   corners, almost no shadow, and colour arriving only as an identity
-   gradient that runs bright blue into warm amber. Headings are large,
-   tight and heavy in a grotesque — there is no serif anywhere on the
-   site, which is the biggest departure from the app's Fraunces display
-   face. Body copy is a plain neutral sans, so display and body split
-   here (Plus Jakarta Sans / Inter) rather than collapsing to one family
-   the way Quantiva does.
+   The reference (ovo-capra.webflow.io) is a flat neutral charcoal page —
+   no gradient, no mesh, no warmth — with cards a shade lighter than the
+   page, hairline borders around 16px corners, and recessed near-black
+   trays inside them. That maps almost exactly onto the dark theme's
+   existing "recessed tray holding raised cards" idiom, so nothing here
+   fights the base rules. The page stays flat because
+   html[data-theme="dark"] body already paints var(--paper) and no
+   backdrop rule is added, which is what the reference wants anyway.
 
-   The reference's own blue (#0D8CF0) reads 3.5:1 on white — below AA
-   for text. It is kept for decoration only (the backdrop wash and the
-   brand gradient); the text/UI accent is darkened to #0E6FD1. Likewise
-   the logo orange #F97316 is 3.0:1 and is darkened to #C25508 for any
-   role that carries text.
+   The template states its own variables on screen: brand #7F56D9 and
+   Inter as the main font. Inter is used throughout — display and body
+   both, no serif, which is the visible break from Fraunces. The brand
+   violet is kept literally only where it sits UNDER white (white on
+   #7F56D9 is 4.96:1); as foreground on the charcoal card it is 2.55:1,
+   so the text/UI accent is the same hue lifted to #A78BFA.
 
-   Contrast checked against the panel the white glass produces over the
-   worst point of its own backdrop (~#FAFCFD): ink 18.5:1, muted 5.8:1,
-   accent 5.0:1, and every remaining accent between 4.6 and 5.6:1.
-   White on the accent-filled button is 5.0:1.
+   Contrast measured against the lightest surface, the card at #333333:
+       ink #F5F5F5 11.59:1     muted #A5A5A5 5.13:1
+       accent #A78BFA 4.64:1   accent2 #79C8D6 6.65:1
+       ok 6.60:1  warn 7.25:1  danger 5.41:1 — all clear of AA.
    ============================================================ */
-html[data-skin="motion"]{
-  /* The reference pairs a heavier grotesque in the headings with a
-     plain neutral sans in the copy — hence two families, not one. */
-  --font-display:'Plus Jakarta Sans','Inter',sans-serif;
+html[data-skin="capra"]{
+  /* The reference's own Variables panel names Inter, and uses it for
+     headings and copy alike. */
+  --font-display:'Inter','Plus Jakarta Sans',sans-serif;
   --font-body:'Inter','Plus Jakarta Sans',sans-serif;
 
-  --paper:#F4F7FB; --card:#FFFFFF; --ink:#0F1419; --muted:#5B6673;
-  --line:#E5EAF1; --lilac:#EDF2F9; --lilac-deep:#DCE4EF;
-  --accent:#0E6FD1; --accent-ink:#0A5FB8; --accent2:#C25508;
-  --sand:#FDF1E6; --sage:#E4F1EA; --blush:#FDECE2; --sky:#E7F0FB;
-  --ok:#137A52; --warn:#8F5E0C; --danger:#C0392B; --danger-bg:#FBE8E5; --secondary:#B4530C;
-  --nav-ink:#3C4753; --nav-ink-strong:#0F1419; --nav-label:#68727E;
-  --nav-hover:rgba(14,111,209,.07);
-  --glass-bg:rgba(255,255,255,.82);
-  --glass-bg-strong:rgba(255,255,255,.94);
-  --glass-border:rgba(255,255,255,.92);
-  --glass-line:rgba(15,20,25,.07);
-  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.8);
-  /* Shadows pulled almost flat: the reference separates surfaces with a
-     hairline border, not with lift. */
-  --shadow:0 1px 2px rgba(16,32,56,.04),0 14px 34px -20px rgba(16,32,56,.18);
-  --shadow-glass:0 1px 2px rgba(16,32,56,.04),0 14px 34px -20px rgba(16,32,56,.18);
-  --shadow-glass-lift:0 3px 10px rgba(16,32,56,.06),0 22px 44px -22px rgba(16,32,56,.22);
-  /* Corners on the reference's cards are noticeably rounder than 20px. */
-  --r:22px;
-  --t-bg:#EFF3F9; --t-card:#FFFFFF; --t-ink:#0F1419; --t-ink2:#5B6673; --t-border:#E5EAF1;
+  --paper:#2B2B2B; --card:#333333; --ink:#F5F5F5; --muted:#A5A5A5;
+  --line:#454545; --lilac:#3A3A3A; --lilac-deep:#4A4A4A;
+  --accent:#A78BFA; --accent-ink:#B69CFB; --accent2:#79C8D6;
+  --sand:#3A352C; --sage:#2E3833; --blush:#382E33; --sky:#2C363B;
+  --ok:#5FD09A; --warn:#E8BE74; --danger:#F0907C; --danger-bg:#3E2723; --secondary:#7FB6E8;
+  --nav-ink:#C9C9C9; --nav-ink-strong:#F5F5F5; --nav-label:#9E9E9E;
+  --nav-hover:rgba(255,255,255,.07);
+  /* .62 is where muted text still clears AA over the flat charcoal
+     page — the reference has no backdrop imagery for a thinner panel to
+     reveal, so there is nothing to buy by going lower. */
+  --glass-bg:rgba(43,43,43,.62);
+  --glass-bg-strong:rgba(51,51,51,.80);
+  --glass-border:rgba(255,255,255,.13);
+  --glass-line:rgba(255,255,255,.11);
+  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.08);
+  --shadow:0 1px 2px rgba(0,0,0,.40),0 10px 26px -14px rgba(0,0,0,.60);
+  --shadow-glass:0 1px 2px rgba(0,0,0,.40),0 10px 26px -14px rgba(0,0,0,.60);
+  --shadow-glass-lift:0 4px 10px rgba(0,0,0,.44),0 20px 40px -18px rgba(0,0,0,.68);
+  /* The reference's corners are tighter than the app's default 20px. */
+  --r:16px;
+  /* Recessed near-black tray, raised charcoal cards — the same shape as
+     the file-tree and component panels on the reference. */
+  --t-bg:#232323; --t-card:#333333; --t-ink:#F5F5F5; --t-ink2:#A5A5A5;
+  --t-border:#454545;
 }
-/* Near-white page with the identity gradient reduced to two faint
-   washes — blue entering top-left, amber leaving bottom-right — instead
-   of the app's four-colour mesh. */
-html[data-skin="motion"] body{
+/* Tight and semibold rather than serif. */
+html[data-skin="capra"] :is(h1,h2,.display,.brand-name,.section-title,.greet h1){
+  font-weight:600;letter-spacing:-.02em;
+}
+
+/* ============================================================
+   INVESTRA — slate, one coral, and the only serif display left
+   ============================================================
+   A skin over the DARK theme: data-theme="dark" plus
+   data-skin="investra", so all the existing dark rules apply and only
+   the palette and the typefaces change. Same construction as Capra and
+   Warm Glass.
+
+   The reference is a near-monochrome deep blue-slate page carrying a
+   single coral accent, set in a high-contrast serif over a plain
+   grotesque, with square corners on buttons and images. Since Light was
+   retired, Fraunces went with it — this is now the only theme in the app
+   with a serif display face, which is what it is built around. Playfair
+   Display is already loaded at 500/600/700 and is the closest match to
+   the reference's transitional serif.
+
+   The corner radius is the outlier here: 8px against 16-24px everywhere
+   else. That is the reference, not an accident — its buttons and image
+   tiles are effectively square, and softening them would lose the one
+   structural thing that distinguishes it from Capra.
+
+   On the coral. The reference's #F4555C is 3.39:1 as foreground on the
+   slate card and 3.33:1 under the white button text it actually ships —
+   it fails AA in both directions, so it could not be used literally for
+   either. The hue is lifted to #FA8A90 (4.90:1 as foreground) and the
+   primary button flips to dark ink on that fill, 7.19:1, via the one
+   scoped rule below. Danger is pushed toward orange so it stays
+   distinguishable from an accent in the same family.
+
+   Measured against the lightest surface, the card at #2A3D47:
+       ink 11.31:1   muted 5.88:1   accent 4.90:1   accent-ink 5.83:1
+       accent2 6.95:1  ok 5.66:1  warn 6.48:1  danger 5.08:1
+       nav-ink 7.58:1  nav-label 4.73:1 — all clear of AA.
+   ============================================================ */
+html[data-skin="investra"]{
+  /* A high-contrast serif over a plain grotesque, exactly as the
+     reference pairs them. */
+  --font-display:'Playfair Display',Georgia,serif;
+  --font-body:'Inter','Plus Jakarta Sans',sans-serif;
+
+  --paper:#22343D; --card:#2A3D47; --ink:#FFFFFF; --muted:#B0BDC4;
+  --line:#3B4F59; --lilac:#2F444F; --lilac-deep:#3B4F59;
+  --accent:#FA8A90; --accent-ink:#FFA0A6; --accent2:#E3C79A;
+  --sand:#3B382F; --sage:#2C4038; --blush:#3E3236; --sky:#26383F;
+  --ok:#5FCB9B; --warn:#E7BE79; --danger:#F8946B; --danger-bg:#3D2C24; --secondary:#E3C79A;
+  --nav-ink:#CBD5DA; --nav-ink-strong:#FFFFFF; --nav-label:#9BAAB2;
+  --nav-hover:rgba(255,255,255,.07);
+  --glass-bg:rgba(34,52,61,.62);
+  --glass-bg-strong:rgba(42,61,71,.80);
+  --glass-border:rgba(255,255,255,.14);
+  --glass-line:rgba(255,255,255,.12);
+  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.09);
+  --shadow:0 1px 2px rgba(8,16,20,.42),0 10px 26px -14px rgba(8,16,20,.62);
+  --shadow-glass:0 1px 2px rgba(8,16,20,.42),0 10px 26px -14px rgba(8,16,20,.62);
+  --shadow-glass-lift:0 4px 10px rgba(8,16,20,.46),0 20px 40px -18px rgba(8,16,20,.70);
+  /* Square, per the reference. The sharpest corners of any theme here. */
+  --r:8px;
+  --t-bg:#1C2C34; --t-card:#2A3D47; --t-ink:#FFFFFF; --t-ink2:#B0BDC4;
+  --t-border:#3B4F59;
+}
+/* The shared .btn-primary rule hardcodes near-white text, which on this
+   coral is 3.33:1. Flipping to dark ink on the same fill gives 7.19:1
+   and is closer to the reference's own weight balance anyway. Scoped to
+   this skin so no other theme is touched. */
+html[data-skin="investra"] .btn-primary{color:#142027}
+/* Serif, and lighter than the sans skins — Playfair carries weight at
+   600 that Inter needs 700 for. */
+html[data-skin="investra"] :is(h1,h2,.display,.brand-name,.section-title,.greet h1){
+  font-weight:600;letter-spacing:-.01em;
+}
+
+/* ============================================================
+   CREDIX — sky backdrop, white cards, periwinkle tints, deep navy
+   ============================================================
+   A skin over the LIGHT theme: data-theme="light" plus
+   data-skin="credix", so every existing light rule applies untouched
+   and only the palette and the typefaces change. Same construction as
+   Quantiva.
+
+   The reference is a fintech dashboard floating on a photographic sky —
+   soft blue at the top breaking into white cloud toward the bottom —
+   with a near-white shell on top of it, white cards, and secondary
+   panels filled a flat periwinkle. Corners are the roundest of any
+   theme here. This is the one skin whose backdrop actually carries
+   weight, which is why the glass is thicker than the other light
+   skins': the page behind the panels is a real colour, not a whisper.
+
+   The reference's brand periwinkle (~#8E9BF0) is 2.5:1 on white and
+   works there only as a FILL under navy text — ink on the periwinkle
+   tint is 12.6:1. As foreground it would fail, so the text/UI accent is
+   the same hue taken down to #3B4ACB.
+
+   Contrast checked against the panel the white glass produces over the
+   most saturated point of the sky (~#F3F7FC), and separately against
+   the periwinkle tint, which is the darker of the two surfaces:
+       ink 15.4:1 / 12.6:1      muted 5.9:1 / 5.1:1
+       accent 6.6:1 / 5.4:1     accent2 5.7:1 / 4.7:1
+       ok, warn, danger all between 4.6 and 5.9:1. White on the
+       accent-filled button is 6.9:1.
+   ============================================================ */
+html[data-skin="credix"]{
+  /* The reference sets its headings in a rounded geometric sans and its
+     dense table copy in a plain neutral one — so display and body split
+     rather than collapsing to a single family. */
+  --font-display:'Nunito Sans','Plus Jakarta Sans',sans-serif;
+  --font-body:'Inter','Nunito Sans',sans-serif;
+
+  --paper:#F4F7FC; --card:#FFFFFF; --ink:#16203C; --muted:#57617D;
+  --line:#E4E8F2; --lilac:#E3E8FC; --lilac-deep:#CBD4F8;
+  --accent:#3B4ACB; --accent-ink:#2E3BAF; --accent2:#7145D6;
+  /* The reference's right-hand column is a warm off-white against all
+     the cool blue — the one warm surface in the design. */
+  --sand:#F7F6F3; --sage:#E2F0EA; --blush:#F7E9E7; --sky:#E3E8FC;
+  --ok:#146F53; --warn:#845A0E; --danger:#B93A30; --danger-bg:#FAE7E5; --secondary:#7145D6;
+  --nav-ink:#3A4463; --nav-ink-strong:#16203C; --nav-label:#626B87;
+  --nav-hover:rgba(59,74,203,.07);
+  /* .86 rather than the usual light-theme .78: the sky behind these
+     panels is a saturated blue, not a near-white wash, so a thinner
+     panel would pull dark text down through AA. */
+  --glass-bg:rgba(255,255,255,.86);
+  --glass-bg-strong:rgba(255,255,255,.95);
+  --glass-border:rgba(255,255,255,.95);
+  --glass-line:rgba(22,32,60,.07);
+  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.85);
+  --shadow:0 1px 2px rgba(22,32,60,.05),0 16px 36px -20px rgba(22,32,60,.22);
+  --shadow-glass:0 1px 2px rgba(22,32,60,.05),0 16px 36px -20px rgba(22,32,60,.22);
+  --shadow-glass-lift:0 4px 12px rgba(22,32,60,.07),0 24px 48px -22px rgba(22,32,60,.26);
+  /* The roundest corners of any theme in the app — the reference's shell
+     and cards are noticeably softer than 20px. */
+  --r:24px;
+  --t-bg:#EEF1F9; --t-card:#FFFFFF; --t-ink:#16203C; --t-ink2:#57617D; --t-border:#E4E8F2;
+}
+/* The sky the dashboard floats on: blue overhead breaking to white cloud
+   below, in place of the app's four-colour mesh. */
+html[data-skin="credix"] body{
   background:
-    radial-gradient(1100px 760px at 12% -14%, rgba(13,140,240,.15), transparent 60%),
-    radial-gradient(900px 680px at 88% -6%, rgba(249,115,22,.09), transparent 58%),
-    radial-gradient(900px 780px at 84% 70%, rgba(13,140,240,.08), transparent 60%),
-    radial-gradient(800px 700px at 6% 90%, rgba(249,115,22,.06), transparent 60%),
-    linear-gradient(170deg,#FFFFFF 0%,#F9FBFD 55%,#F2F6FB 100%);
+    radial-gradient(1200px 720px at 50% -20%, rgba(122,166,224,.55), transparent 62%),
+    radial-gradient(900px 600px at 12% 6%, rgba(255,255,255,.70), transparent 55%),
+    radial-gradient(1000px 700px at 88% 18%, rgba(150,190,235,.34), transparent 58%),
+    radial-gradient(900px 780px at 30% 92%, rgba(255,255,255,.85), transparent 60%),
+    linear-gradient(180deg,#A9C6EA 0%,#CFE0F4 42%,#EEF3FA 78%,#F9FBFD 100%);
   background-attachment:fixed;
 }
-/* Big, tight and heavy rather than serif. */
-html[data-skin="motion"] :is(h1,h2,.display,.brand-name,.section-title,.greet h1){
-  font-weight:700;letter-spacing:-.03em;
-}
-/* The one place the full blue-to-amber identity gradient is spent, the
-   same way the reference spends it on its wordmark. Decorative only —
-   the fallback if background-clip:text is unsupported is the accent
-   colour, which is why `color` is set before it is clipped away. */
-html[data-skin="motion"] .brand-name{
-  color:var(--accent);
-  background:linear-gradient(100deg,#0D8CF0 0%,#4C82B8 46%,#C2732B 80%,#E08A2B 100%);
-  -webkit-background-clip:text;background-clip:text;
-  -webkit-text-fill-color:transparent;
+/* Rounded and semibold rather than serif — the reference stays well
+   short of the heavy weights the other light skins reach for. */
+html[data-skin="credix"] :is(h1,h2,.display,.brand-name,.section-title,.greet h1){
+  font-weight:600;letter-spacing:-.015em;
 }
 
 /* ============================================================

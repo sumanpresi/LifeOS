@@ -12,15 +12,17 @@
      why a same-origin `storage` listener is all the plumbing needed. */
   (function () {
     var BASE = { light:"light", advocate:"light", belle:"light", empowerx:"light",
-                 procyon:"light", quantiva:"light", motion:"light", egnis:"dark", warm:"dark" };
-    var SKIN = { warm:"warm", quantiva:"quantiva", motion:"motion", advocate:"advocate", belle:"belle",
-                 empowerx:"empowerx", procyon:"procyon", egnis:"egnis" };
-    var RETIRED = { dark:"warm" }; /* see js/theme.js */
+                 procyon:"light", quantiva:"light", credix:"light", capra:"dark",
+                 investra:"dark", egnis:"dark", warm:"dark" };
+    var SKIN = { warm:"warm", capra:"capra", quantiva:"quantiva", credix:"credix", investra:"investra",
+                 advocate:"advocate",
+                 belle:"belle", empowerx:"empowerx", procyon:"procyon", egnis:"egnis" };
+    var RETIRED = { dark:"warm", light:"quantiva" }; /* see js/theme.js */
     function apply(v) {
       var r = document.documentElement;
       if (RETIRED[v]) v = RETIRED[v];
       if (!BASE[v]) {
-        v = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "warm" : "light";
+        v = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "warm" : "quantiva";
       }
       r.setAttribute("data-theme", BASE[v]);
       if (SKIN[v]) r.setAttribute("data-skin", SKIN[v]); else r.removeAttribute("data-skin");
@@ -84,10 +86,20 @@
     --gold:#8A6212; --gold-light:#A87D22; --teal:#22262B; --teal-light:#4A5158;
     --good:#2E6B4F; --bad:#A33A30;
   }
-  html[data-skin="motion"]{
-    --bg:#F4F7FB; --card:#FFFFFF; --ink:#0F1419; --muted:#5B6673; --border:#E5EAF1;
-    --gold:#B4530C; --gold-light:#D2701A; --teal:#0E6FD1; --teal-light:#2E8AE6;
-    --good:#137A52; --bad:#C0392B;
+  html[data-skin="capra"]{
+    --bg:#2B2B2B; --card:#333333; --ink:#F5F5F5; --muted:#A5A5A5; --border:#454545;
+    --gold:#E8BE74; --gold-light:#F0D09A; --teal:#A78BFA; --teal-light:#C0AEFC;
+    --good:#5FD09A; --bad:#F0907C;
+  }
+  html[data-skin="investra"]{
+    --bg:#22343D; --card:#2A3D47; --ink:#FFFFFF; --muted:#B0BDC4; --border:#3B4F59;
+    --gold:#E3C79A; --gold-light:#EFD9B6; --teal:#FA8A90; --teal-light:#FFA0A6;
+    --good:#5FCB9B; --bad:#F8946B;
+  }
+  html[data-skin="credix"]{
+    --bg:#F4F7FC; --card:#FFFFFF; --ink:#16203C; --muted:#57617D; --border:#E4E8F2;
+    --gold:#845A0E; --gold-light:#A3721A; --teal:#3B4ACB; --teal-light:#5766DC;
+    --good:#146F53; --bad:#B93A30;
   }
   html[data-skin="quantiva"]{
     --bg:#FBF5E8; --card:#FFFDF6; --ink:#0E1210; --muted:#5C6360; --border:#E6E2D4;
