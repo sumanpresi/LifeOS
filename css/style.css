@@ -4655,6 +4655,58 @@ span.nb-row-name{overflow-wrap:anywhere}
 .nb-rich-editor .ql-toolbar.ql-snow{flex:0 0 auto}
 .nb-rich-editor .ql-container.ql-snow{flex:1;min-height:0;overflow-y:auto}
 .nb-rich-editor .ql-editor{min-height:100%}
+/* ---------- notebook top bar (narrow screens) ----------
+   Above 1100px this collapses to just the heading: the tree is a column
+   there, so nothing needs a button. Below it, the tree becomes an overlay
+   and this bar carries what the column used to say — which section you
+   are in, a way to open the tree, and a way to add a page. */
+.nb-topbar{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.nb-title{font-size:28px;margin:0}
+.nb-topbar-gap{flex:1}
+.nb-sec-chip,.nb-topbar-btn{display:none}
+.nb-sec-chip{
+  align-items:center;gap:7px;padding:5px 12px;border-radius:999px;
+  border:1px solid var(--glass-line);background:var(--glass-bg);
+  font-family:'Inter',sans-serif;font-size:13px;font-weight:650;color:var(--ink);
+  cursor:pointer;max-width:46vw;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+}
+.nb-sec-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto;background:var(--muted)}
+.nb-caret{color:var(--muted);font-size:10px}
+.nb-topbar-btn{white-space:nowrap;font-size:13px;padding:6px 12px}
+.nb-scrim{display:none}
+
+@media(max-width:1100px){
+  .nb-title{font-size:24px}
+  .nb-sec-chip{display:inline-flex}
+  .nb-topbar-btn{display:inline-flex;align-items:center}
+  /* The editor-head ☰ would be a second control doing the same job as
+     "Sections" in the bar, so it stands down. */
+  .nb-tree-toggle{display:none}
+
+  /* The tree floats over the page instead of taking a row of it, so the
+     editor keeps the full screen while the tree is closed — which is the
+     state it is in most of the time. */
+  .nb-pane-tree{
+    position:fixed;z-index:46;
+    top:96px;left:12px;width:min(330px,calc(100vw - 24px));
+    max-height:min(70vh,560px);
+    background:var(--glass-bg-strong);
+    -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
+    box-shadow:0 18px 46px rgba(0,0,0,.24);
+  }
+  .nb-pane-tree .nb-list{max-height:none}
+  #page-notebook:not(.nb-tree-hidden) .nb-scrim{
+    display:block;position:fixed;inset:0;z-index:45;background:transparent;
+  }
+  /* The editor is the only thing in the grid now — the tree is out of
+     flow — so it gets the whole width whether the panel is up or not. */
+  .nb-layout{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
+}
+@media(max-width:640px){
+  .nb-pane-tree{top:88px}
+  .nb-sec-chip{max-width:40vw}
+}
+
 /* ---------- notebook tree ---------- */
 .nb-tree{gap:1px}
 .nb-sec{display:flex;flex-direction:column;flex:0 0 auto}
@@ -4718,15 +4770,10 @@ html[data-theme="dark"] .nb-rich-editor .ql-container{scrollbar-color:rgba(255,2
   /* Back to auto: here the editor is the tall thing, so the page itself is
      the right scroller. The tree stacks above it and the ☰ folds it away,
      because on this width the two cannot both have the room they want. */
-  .nb-layout{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr);
-    height:auto;min-height:0;gap:10px}
-  .nb-tree-toggle{display:inline-flex;align-items:center;justify-content:center}
-  .nb-pane-tree .nb-list{max-height:38vh}
+  .nb-layout{height:auto;min-height:0;gap:10px}
+
   .nb-rich-editor .ql-container.ql-snow{overflow-y:visible}
   .nb-rich-editor .ql-editor{min-height:44vh}
-  /* The horizontal chip strips that used to live here are gone with the
-     two columns they belonged to. A tree reads the same way at any width,
-     so it just stacks and scrolls. */
   .nb-pane-tree .nb-pane-head{padding:10px 12px 8px}
   .nb-color-bar{min-height:16px}
   .nb-editor-pane{min-height:60vh}
