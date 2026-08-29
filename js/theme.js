@@ -58,32 +58,45 @@ function apply(theme) {
   syncToggleUi(theme);
 }
 
-/* The button names WHERE THE NEXT CLICK GOES, not where you are. That is
-   how it behaved with two themes and it stays predictable with three:
-   Light -> Dark -> Warm Glass -> Light. A cycle rather than a menu keeps
-   this to one control in an already busy header, and there is no state to
-   get stuck in — three clicks always returns you to where you started. */
 function nextTheme(theme) {
   const i = THEMES.indexOf(theme);
   return THEMES[(i < 0 ? 0 : i + 1) % THEMES.length];
 }
 
+/* One swatch per theme rather than one button that cycles. A cycle can
+   only ever announce where the NEXT click goes; three circles show all
+   three destinations at once, and any of them is one tap away instead of
+   up to two. The marking of the current one is the only state to keep in
+   step. */
 function syncToggleUi(theme) {
+  document.querySelectorAll("[data-theme-pick]").forEach(btn => {
+    const isThis = btn.dataset.themePick === theme;
+    btn.classList.toggle("is-active", isThis);
+    btn.setAttribute("aria-checked", String(isThis));
+    btn.title = LABEL[btn.dataset.themePick] + (isThis ? " (current)" : "");
+  });
+  // The old single toggle, if a build still has it in the markup.
   const btn = document.getElementById("themeToggle");
-  if (!btn) return;
-  const next = nextTheme(theme);
-  const icon = btn.querySelector(".theme-icon");
-  const label = btn.querySelector(".theme-label");
-  if (icon) icon.textContent = ICON[next];
-  if (label) label.textContent = LABEL[next];
-  btn.setAttribute("aria-pressed", String(theme !== "light"));
-  btn.title = "Currently " + LABEL[theme] + " — switch to " + LABEL[next];
+  if (btn) {
+    const next = nextTheme(theme);
+    const icon = btn.querySelector(".theme-icon");
+    const label = btn.querySelector(".theme-label");
+    if (icon) icon.textContent = ICON[next];
+    if (label) label.textContent = LABEL[next];
+    btn.setAttribute("aria-pressed", String(theme !== "light"));
+    btn.title = "Currently " + LABEL[theme] + " — switch to " + LABEL[next];
+  }
 }
 
+export function setTheme(theme) {
+  if (!THEMES.includes(theme)) return;
+  try { localStorage.setItem(KEY, theme); } catch (_) { /* private browsing */ }
+  apply(theme);
+}
+
+/* Kept so anything still bound to it keeps working. */
 export function toggleTheme() {
-  const next = nextTheme(effectiveTheme());
-  try { localStorage.setItem(KEY, next); } catch (_) { /* private browsing */ }
-  apply(next);
+  setTheme(nextTheme(effectiveTheme()));
 }
 
 export function initTheme() {
