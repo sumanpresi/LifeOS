@@ -36,18 +36,23 @@
          js/theme.js. Both attributes have to be set here, or a skinned
          theme flashes its base palette before the module loads, which is
          the exact flash this script exists to prevent. */
-    var BASE = { light:"light", dark:"dark", warm:"dark", quantiva:"light" };
-    var SKIN = { warm:"warm", quantiva:"quantiva" };
+    var BASE = { light:"light", advocate:"light", belle:"light", empowerx:"light",
+                 procyon:"light", quantiva:"light", egnis:"dark", warm:"dark" };
+    var SKIN = { warm:"warm", quantiva:"quantiva", advocate:"advocate", belle:"belle",
+                 empowerx:"empowerx", procyon:"procyon", egnis:"egnis" };
+    var RETIRED = { dark:"warm" }; /* see js/theme.js */
     function applyTheme(v) {
       var r = document.documentElement;
+      if (RETIRED[v]) v = RETIRED[v];
       if (!BASE[v]) {
-        v = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+        v = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "warm" : "light";
       }
       r.setAttribute("data-theme", BASE[v]);
       if (SKIN[v]) r.setAttribute("data-skin", SKIN[v]); else r.removeAttribute("data-skin");
       return v;
     }
-      var BAR = { light:"#F3EEE4", dark:"#1A1917", warm:"#2A211A", quantiva:"#FBF5E8" };
+      var BAR = { light:"#F3EEE4", advocate:"#EEF1F4", belle:"#F7F1EE", empowerx:"#F5F1F1",
+                  procyon:"#FDF3EA", quantiva:"#FBF5E8", egnis:"#0B1519", warm:"#2A211A" };
       var v = applyTheme(localStorage.getItem("lifeos-theme"));
       var m = document.querySelector('meta[name="theme-color"]');
       if (m && BAR[v]) m.setAttribute("content", BAR[v]);
@@ -79,21 +84,21 @@
 <!-- Plus Jakarta Sans is loaded for the Quantiva theme only; the other
      themes never reference it. One extra family on the same request
      rather than a second blocking round-trip. -->
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&family=Cormorant+Garamond:wght@400;500;600&family=Nunito+Sans:wght@400;600;700&family=Archivo:wght@600;700&family=JetBrains+Mono:wght@400;500;700&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
 <!-- Versioned so a deploy can never pair NEW JavaScript with the browser's
      CACHED OLD stylesheet. Without it the two files expire independently:
      markup and behaviour update while the rules that style them do not,
      which shows up as new controls rendering completely unstyled — and is
      nearly impossible to diagnose from a screenshot, because the code on
      disk is correct. Bump on every release. -->
-<link rel="stylesheet" href="css/style.css?v=202608291810">
+<link rel="stylesheet" href="css/style.css?v=202608292145">
 <!-- Foldable/tablet/mobile layout layer — loaded after style.css on purpose.
      It overrides that file's tablet breakpoint (wrap-to-grid board,
      off-canvas drawer sidebar) with an icon-rail sidebar and a
      horizontally-scrolling, fixed-width Kanban board for Z Fold 6 inner
      (~883px), iPad mini/iPad (~768–1024px), and a bottom tab bar for
      phones (<=600px, incl. iPhone 17 Pro Max ~440px and fold cover screens). -->
-<link rel="stylesheet" href="css/responsive-foldable.css?v=202608291810">
+<link rel="stylesheet" href="css/responsive-foldable.css?v=202608292145">
 </head>
 <body>
 <div class="shell">
@@ -206,17 +211,33 @@
             role="radio" aria-checked="false" title="Light" onclick="setTheme('light')">
             <span class="theme-swatch-dot" aria-hidden="true"></span><span class="sr-only">Light</span>
           </button>
-          <button type="button" class="theme-swatch" data-theme-pick="dark"
-            role="radio" aria-checked="false" title="Dark" onclick="setTheme('dark')">
-            <span class="theme-swatch-dot" aria-hidden="true"></span><span class="sr-only">Dark</span>
+          <button type="button" class="theme-swatch" data-theme-pick="advocate"
+            role="radio" aria-checked="false" title="Advocate" onclick="setTheme('advocate')">
+            <span class="theme-swatch-dot" aria-hidden="true"></span><span class="sr-only">Advocate</span>
           </button>
-          <button type="button" class="theme-swatch" data-theme-pick="warm"
-            role="radio" aria-checked="false" title="Warm Glass" onclick="setTheme('warm')">
-            <span class="theme-swatch-dot" aria-hidden="true"></span><span class="sr-only">Warm Glass</span>
+          <button type="button" class="theme-swatch" data-theme-pick="belle"
+            role="radio" aria-checked="false" title="Belle Amour" onclick="setTheme('belle')">
+            <span class="theme-swatch-dot" aria-hidden="true"></span><span class="sr-only">Belle Amour</span>
+          </button>
+          <button type="button" class="theme-swatch" data-theme-pick="empowerx"
+            role="radio" aria-checked="false" title="EmpowerX" onclick="setTheme('empowerx')">
+            <span class="theme-swatch-dot" aria-hidden="true"></span><span class="sr-only">EmpowerX</span>
+          </button>
+          <button type="button" class="theme-swatch" data-theme-pick="procyon"
+            role="radio" aria-checked="false" title="Procyon" onclick="setTheme('procyon')">
+            <span class="theme-swatch-dot" aria-hidden="true"></span><span class="sr-only">Procyon</span>
           </button>
           <button type="button" class="theme-swatch" data-theme-pick="quantiva"
             role="radio" aria-checked="false" title="Quantiva" onclick="setTheme('quantiva')">
             <span class="theme-swatch-dot" aria-hidden="true"></span><span class="sr-only">Quantiva</span>
+          </button>
+          <button type="button" class="theme-swatch" data-theme-pick="egnis"
+            role="radio" aria-checked="false" title="Egnis" onclick="setTheme('egnis')">
+            <span class="theme-swatch-dot" aria-hidden="true"></span><span class="sr-only">Egnis</span>
+          </button>
+          <button type="button" class="theme-swatch" data-theme-pick="warm"
+            role="radio" aria-checked="false" title="Warm Glass" onclick="setTheme('warm')">
+            <span class="theme-swatch-dot" aria-hidden="true"></span><span class="sr-only">Warm Glass</span>
           </button>
         </div>
         <span class="pill dot" id="syncPill">Local only</span>
@@ -1721,6 +1742,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script type="module" src="js/app.js?v=202608291810"></script>
+<script type="module" src="js/app.js?v=202608292145"></script>
 </body>
 </html>
