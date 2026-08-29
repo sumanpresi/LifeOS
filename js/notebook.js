@@ -282,7 +282,14 @@ export function addNotebookPageTo(sectionId) {
 
 /* On a narrow screen the tree and the editor cannot both have the room
    they want, so the tree folds away and the editor takes the width. */
-const NB_TREE_KEY = "lifeos-nb-tree";
+/* Two keys, because the tree is two different things at the two widths:
+   a column you keep, and an overlay you dismiss. Sharing one key meant
+   closing the overlay on a folded phone also closed the column when that
+   same browser was maximised — and on a desktop there is no control to
+   reopen it. Separate keys, so each width remembers its own state. */
+const NB_TREE_KEY_WIDE = "lifeos-nb-tree";
+const NB_TREE_KEY_NARROW = "lifeos-nb-tree-narrow";
+const nbTreeKey = () => (nbNarrow() ? NB_TREE_KEY_NARROW : NB_TREE_KEY_WIDE);
 /* Narrow means the tree is an OVERLAY rather than a column, so it must
    start closed there — a panel covering the page on arrival would be the
    opposite of the point. On a wide screen the tree is a column that costs
@@ -294,14 +301,14 @@ function nbNarrow() {
 }
 export function isNotebookTreeHidden() {
   try {
-    const v = localStorage.getItem(NB_TREE_KEY);
-    if (v === null) return nbNarrow(); // never chosen on this device
+    const v = localStorage.getItem(nbTreeKey());
+    if (v === null) return nbNarrow(); // never chosen at this width
     return v === "hidden";
   } catch (_) { return false; }
 }
 export function toggleNotebookTree(force) {
   const hide = typeof force === "boolean" ? force : !isNotebookTreeHidden();
-  try { localStorage.setItem(NB_TREE_KEY, hide ? "hidden" : "shown"); } catch (_) {}
+  try { localStorage.setItem(nbTreeKey(), hide ? "hidden" : "shown"); } catch (_) {}
   applyNotebookTreeState();
 }
 function applyNotebookTreeState() {
