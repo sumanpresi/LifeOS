@@ -33,13 +33,18 @@
   (function () {
     try {
       var v = localStorage.getItem("lifeos-theme");
-      if (v !== "light" && v !== "dark") {
+      if (v !== "light" && v !== "dark" && v !== "warm") {
         v = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
       }
-      document.documentElement.setAttribute("data-theme", v);
-      if (v === "dark") {
+      /* Warm Glass is the dark theme in a different palette — see the
+         note at the top of js/theme.js. It must be applied here too, or
+         a Warm Glass user gets a flash of charcoal before the module
+         loads, which is the exact flash this script exists to prevent. */
+      document.documentElement.setAttribute("data-theme", v === "warm" ? "dark" : v);
+      if (v === "warm") document.documentElement.setAttribute("data-skin", "warm");
+      if (v === "dark" || v === "warm") {
         var m = document.querySelector('meta[name="theme-color"]');
-        if (m) m.setAttribute("content", "#1A1917");
+        if (m) m.setAttribute("content", v === "warm" ? "#2A211A" : "#1A1917");
       }
     } catch (e) { /* private browsing — fall through to light */ }
     /* Same reasoning as the theme above: applied from a module this would
@@ -73,14 +78,14 @@
      which shows up as new controls rendering completely unstyled — and is
      nearly impossible to diagnose from a screenshot, because the code on
      disk is correct. Bump on every release. -->
-<link rel="stylesheet" href="css/style.css?v=202608291415">
+<link rel="stylesheet" href="css/style.css?v=202608291540">
 <!-- Foldable/tablet/mobile layout layer — loaded after style.css on purpose.
      It overrides that file's tablet breakpoint (wrap-to-grid board,
      off-canvas drawer sidebar) with an icon-rail sidebar and a
      horizontally-scrolling, fixed-width Kanban board for Z Fold 6 inner
      (~883px), iPad mini/iPad (~768–1024px), and a bottom tab bar for
      phones (<=600px, incl. iPhone 17 Pro Max ~440px and fold cover screens). -->
-<link rel="stylesheet" href="css/responsive-foldable.css?v=202608291415">
+<link rel="stylesheet" href="css/responsive-foldable.css?v=202608291540">
 </head>
 <body>
 <div class="shell">
@@ -1688,6 +1693,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script type="module" src="js/app.js?v=202608291415"></script>
+<script type="module" src="js/app.js?v=202608291540"></script>
 </body>
 </html>
