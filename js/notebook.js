@@ -260,8 +260,21 @@ export function addNotebookPageTo(sectionId) {
 /* On a narrow screen the tree and the editor cannot both have the room
    they want, so the tree folds away and the editor takes the width. */
 const NB_TREE_KEY = "lifeos-nb-tree";
+/* Narrow means the tree is an OVERLAY rather than a column, so it must
+   start closed there — a panel covering the page on arrival would be the
+   opposite of the point. On a wide screen the tree is a column that costs
+   little, so it starts open. Same key either way: it is per-device, and a
+   phone and a desktop are different devices. */
+function nbNarrow() {
+  try { return !!(window.matchMedia && window.matchMedia("(max-width:1100px)").matches); }
+  catch (_) { return false; }
+}
 export function isNotebookTreeHidden() {
-  try { return localStorage.getItem(NB_TREE_KEY) === "hidden"; } catch (_) { return false; }
+  try {
+    const v = localStorage.getItem(NB_TREE_KEY);
+    if (v === null) return nbNarrow(); // never chosen on this device
+    return v === "hidden";
+  } catch (_) { return false; }
 }
 export function toggleNotebookTree(force) {
   const hide = typeof force === "boolean" ? force : !isNotebookTreeHidden();
@@ -271,12 +284,25 @@ export function toggleNotebookTree(force) {
 function applyNotebookTreeState() {
   const page = document.getElementById("page-notebook");
   if (page) page.classList.toggle("nb-tree-hidden", isNotebookTreeHidden());
+  const hidden = isNotebookTreeHidden();
   const btn = document.getElementById("nbTreeToggle");
   if (btn) {
-    const hidden = isNotebookTreeHidden();
     btn.setAttribute("aria-label", hidden ? "Show sections" : "Hide sections");
     btn.setAttribute("aria-pressed", hidden ? "true" : "false");
   }
+  const chip = document.getElementById("nbSecChip");
+  if (chip) chip.setAttribute("aria-expanded", hidden ? "false" : "true");
+}
+
+/* Selecting a page from the overlay should get the overlay out of the way
+   — you picked a page in order to write in it. Only page selection does
+   this: browsing sections keeps the panel up, and renaming must not close
+   the panel the rename field is sitting in, which is why this is a
+   separate entry point from switchNotebookPage() rather than a change to
+   it. */
+export function notebookPageClick(id) {
+  switchNotebookPage(id);
+  if (nbNarrow() && !isNotebookTreeHidden()) toggleNotebookTree(true);
 }
 
 export function renderNotebook() {
@@ -308,7 +334,7 @@ export function renderNotebook() {
       const pages = s.pages || [];
       const pageRows = open ? pages.map(p => `
         <div class="nb-row nb-row-page ${page && p.id === page.id ? "active" : ""}" data-id="${p.id}"
-          onclick="switchNotebookPage('${p.id}')" ondblclick="renameOnDoubleClick('page','${p.id}')">
+          onclick="notebookPageClick('${p.id}')" ondblclick="renameOnDoubleClick('page','${p.id}')">
           ${rowName("page", p, "Untitled page")}
           <button class="nb-row-act" title="Rename page" onclick="event.stopPropagation();startNotebookRename('page','${p.id}')">✎</button>
           ${pages.length > 1 ? `<button class="nb-row-del" title="Delete page" onclick="event.stopPropagation();delNotebookPage('${p.id}')">✕</button>` : ""}
@@ -345,6 +371,12 @@ export function renderNotebook() {
     else if (!inp) nbRenaming = null; // the row it belonged to is gone
   }
   applyNotebookTreeState();
+  /* The chip in the top bar names the section you are in, standing in for
+     the tree while the tree is closed. */
+  const chipName = document.getElementById("nbSecChipName");
+  if (chipName) chipName.textContent = sec ? (sec.name || "Untitled section") : "Sections";
+  const chipDot = document.getElementById("nbSecDot");
+  if (chipDot && sec) chipDot.style.background = NB_COLORS[sec.color % NB_COLORS.length];
   /* The editor now says which section the open page belongs to, since
      there is no longer a column header doing that. */
   const crumb = document.getElementById("nbCrumb");
