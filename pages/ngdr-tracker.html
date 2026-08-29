@@ -11,14 +11,16 @@
   /* See pages/communication.html for why this is inline and blocking, and
      why a same-origin `storage` listener is all the plumbing needed. */
   (function () {
+    var BASE = { light:"light", dark:"dark", warm:"dark", quantiva:"light" };
+    var SKIN = { warm:"warm", quantiva:"quantiva" };
     function apply(v) {
       var r = document.documentElement;
-      if (v !== "light" && v !== "dark" && v !== "warm") {
+      if (!BASE[v]) {
         v = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
       }
-      r.setAttribute("data-theme", v === "warm" ? "dark" : v);
-      if (v === "warm") r.setAttribute("data-skin", "warm");
-      else r.removeAttribute("data-skin");
+      r.setAttribute("data-theme", BASE[v]);
+      if (SKIN[v]) r.setAttribute("data-skin", SKIN[v]); else r.removeAttribute("data-skin");
+      return v;
     }
     try { apply(localStorage.getItem("lifeos-theme")); } catch (e) {}
     window.addEventListener("storage", function (e) {
@@ -52,6 +54,11 @@
     --bg:#1A1917; --card:#23221F; --ink:#EDE9E0; --muted:#9E9787; --border:#35332E;
     --gold:#D9A441; --gold-light:#E7BC66; --teal:#5FA79A; --teal-light:#84C2B6;
     --good:#7FB98F; --bad:#E8836C;
+  }
+  html[data-skin="quantiva"]{
+    --bg:#FBF5E8; --card:#FFFDF6; --ink:#0E1210; --muted:#5C6360; --border:#E6E2D4;
+    --gold:#9A6410; --gold-light:#B98421; --teal:#12503C; --teal-light:#1F7A4D;
+    --good:#1F7A4D; --bad:#B03A2E;
   }
   html[data-skin="warm"]{
     --bg:#2A211A; --card:#33281F; --ink:#F4EDE3; --muted:#B2A799; --border:#4A3B30;

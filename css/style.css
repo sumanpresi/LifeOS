@@ -51,10 +51,15 @@
   --shadow-glass:0 1px 2px rgba(43,42,36,.05),0 10px 26px -14px rgba(43,42,36,.16);
   --shadow-glass-lift:0 4px 10px rgba(43,42,36,.06),0 20px 40px -18px rgba(43,42,36,.22);
   --ease:cubic-bezier(.22,1,.36,1);
+  /* Fonts as variables so a theme can change them. They were written out
+     at 20 call sites, which meant a theme could restyle every colour in
+     the app but not its typeface. */
+  --font-body:'Karla',sans-serif;
+  --font-display:'Fraunces',serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{-webkit-text-size-adjust:100%}
-body{font-family:'Karla',sans-serif;color:var(--ink);font-size:15px;line-height:1.5;min-height:100vh;
+body{font-family:var(--font-body);color:var(--ink);font-size:15px;line-height:1.5;min-height:100vh;
   background:
     radial-gradient(1200px 900px at 8% -12%,rgba(140,120,200,.30),transparent 58%),
     radial-gradient(1000px 800px at 90% -6%,rgba(220,140,150,.26),transparent 56%),
@@ -69,7 +74,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--accent);box-shadow:0 
 input::placeholder,textarea::placeholder{color:var(--muted);opacity:.8}
 a{color:var(--accent-ink)}
 ::selection{background:var(--lilac-deep)}
-h1,h2,.display{font-family:'Fraunces',serif}
+h1,h2,.display{font-family:var(--font-display)}
 
 /* ---------- shell ---------- */
 .shell{display:flex;min-height:100vh}
@@ -81,8 +86,8 @@ h1,h2,.display{font-family:'Fraunces',serif}
   padding:20px 14px;display:flex;flex-direction:column;gap:4px;position:sticky;top:16px;height:calc(100vh - 32px);overflow-y:auto}
 .brand{display:flex;align-items:center;gap:10px;padding:6px 8px 18px;border-bottom:1px solid var(--glass-line);margin-bottom:14px}
 .brand-mark{width:34px;height:34px;border-radius:11px;background:var(--accent2);color:#fff;display:grid;place-items:center;
-  font-family:'Fraunces',serif;font-weight:700;font-size:19px;transform:rotate(-4deg);box-shadow:0 6px 14px -4px rgba(185,113,74,.45)}
-.brand-name{font-family:'Fraunces',serif;font-weight:700;font-size:20px;letter-spacing:.2px}
+  font-family:var(--font-display);font-weight:700;font-size:19px;transform:rotate(-4deg);box-shadow:0 6px 14px -4px rgba(185,113,74,.45)}
+.brand-name{font-family:var(--font-display);font-weight:700;font-size:20px;letter-spacing:.2px}
 .nav-label{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--nav-label);padding:12px 8px 5px}
 /* Colour comes from a token, not a literal. It used to be a hard-coded
    #5C5748 — a dark grey chosen for the cream sidebar, which on the dark
@@ -171,7 +176,7 @@ h1,h2,.display{font-family:'Fraunces',serif}
 html.sidebar-hidden .top-brand{
   display:grid;flex:0 0 auto;width:34px;height:34px;transition:width .18s var(--ease),height .18s var(--ease);
 }
-.greet h1{font-size:32px;font-weight:600;letter-spacing:-.01em;font-family:'Fraunces',serif}
+.greet h1{font-size:32px;font-weight:600;letter-spacing:-.01em;font-family:var(--font-display)}
 .greet .date{color:var(--muted);font-weight:600;margin-top:2px}
 .top-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .pill{display:inline-flex;align-items:center;gap:7px;padding:7px 13px;border-radius:999px;font-weight:700;font-size:13px;
@@ -203,7 +208,7 @@ html.sidebar-hidden .top-brand{
 .card-body{padding:14px 18px 18px}
 .hint{color:var(--muted);font-size:13px}
 
-.section-title{font-family:'Fraunces',serif;font-size:22px;font-weight:600;margin:30px 0 12px}
+.section-title{font-family:var(--font-display);font-size:22px;font-weight:600;margin:30px 0 12px}
 
 /* tasks */
 .task-row{display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line)}
@@ -272,7 +277,7 @@ html.sidebar-hidden .top-brand{
 .donut{width:130px;height:130px}
 .donut .track{stroke:var(--line)}
 .donut .val{stroke:var(--accent);stroke-linecap:round;transition:stroke-dasharray .4s ease}
-.donut-center{font-family:'Fraunces',serif;font-size:26px;font-weight:700;fill:var(--ink)}
+.donut-center{font-family:var(--font-display);font-size:26px;font-weight:700;fill:var(--ink)}
 .legend{display:flex;flex-direction:column;gap:6px;font-size:13.5px;font-weight:600}
 .legend .row{display:flex;align-items:center;gap:8px}
 .legend .swatch{width:10px;height:10px;border-radius:3px}
@@ -282,7 +287,7 @@ html.sidebar-hidden .top-brand{
 .goal:last-child{border-bottom:none}
 .goal-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .goal-top input[type=text]{flex:1;min-width:0;border:none;background:transparent;font-weight:700;outline:none}
-.goal-top .pct{font-family:'Fraunces',serif;font-weight:700;font-size:17px;color:var(--accent-ink);min-width:44px;text-align:right}
+.goal-top .pct{font-family:var(--font-display);font-weight:700;font-size:17px;color:var(--accent-ink);min-width:44px;text-align:right}
 .bar{height:8px;border-radius:99px;background:var(--lilac);margin-top:8px;overflow:hidden}
 .bar > span{display:block;height:100%;border-radius:99px;background:var(--accent);transition:width .3s ease}
 .goal input[type=range]{width:100%;accent-color:var(--accent);margin-top:6px}
@@ -367,7 +372,7 @@ html.sidebar-hidden .top-brand{
 }
 
 /* quote */
-.quote-box{font-family:'Fraunces',serif;font-size:19px;line-height:1.45;font-weight:600}
+.quote-box{font-family:var(--font-display);font-size:19px;line-height:1.45;font-weight:600}
 .quote-box .mark{color:var(--accent);font-size:30px;line-height:0;vertical-align:-8px;margin-right:4px}
 
 /* news */
@@ -376,10 +381,10 @@ html.sidebar-hidden .top-brand{
   text-decoration:none;font-weight:700;background:var(--card)}
 .news-list a:hover{background:var(--paper)}
 .news-list .fav{width:26px;height:26px;border-radius:8px;background:var(--lilac);display:grid;place-items:center;
-  font-family:'Fraunces',serif;font-weight:700;color:var(--accent-ink);font-size:13px}
+  font-family:var(--font-display);font-weight:700;color:var(--accent-ink);font-size:13px}
 
 /* meditation */
-.med-time{font-family:'Fraunces',serif;font-size:44px;font-weight:700;letter-spacing:.02em;text-align:center}
+.med-time{font-family:var(--font-display);font-size:44px;font-weight:700;letter-spacing:.02em;text-align:center}
 .med-controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:10px}
 .med-stat{text-align:center;color:var(--muted);font-weight:700;font-size:13px;margin-top:10px}
 
@@ -523,6 +528,7 @@ html.sidebar-hidden .main{--main-pad-x:28px;padding-left:28px}
 [data-theme-pick="light"] .theme-swatch-dot{background:linear-gradient(145deg,#F7F2E7,#E9E1D0)}
 [data-theme-pick="dark"]  .theme-swatch-dot{background:linear-gradient(145deg,#2B2A32,#141419)}
 [data-theme-pick="warm"]  .theme-swatch-dot{background:linear-gradient(145deg,#8A7059,#3B2F27)}
+[data-theme-pick="quantiva"] .theme-swatch-dot{background:linear-gradient(145deg,#FBF5E8 46%,#12503C 46%)}
 /* A ring rather than a tick: it reads at 17px, where a glyph would not. */
 .theme-swatch.is-active{box-shadow:0 0 0 2px var(--accent)}
 .theme-swatch:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -1280,7 +1286,7 @@ body.note-fullscreen-open .card{ overflow: visible; }
 /* ---------- Travel: packing list (checkbox items, matching task-list style) ---------- */
 .pack-list-name-row{display:flex;align-items:center;gap:8px;margin-bottom:4px}
 .pack-list-name-row input{flex:1;min-width:0;border:none;background:transparent;padding:0;
-  font-family:'Fraunces',serif;font-size:18px;font-weight:600;color:var(--ink)}
+  font-family:var(--font-display);font-size:18px;font-weight:600;color:var(--ink)}
 .pack-list-name-row input:focus{outline:none;border-bottom:1px solid var(--line)}
 .pack-item-link{color:var(--accent-ink);text-decoration:underline;text-underline-offset:2px;word-break:break-all}
 .pack-item-link:hover{color:var(--accent)}
@@ -1657,7 +1663,7 @@ html[data-theme="dark"] .t-board::-webkit-scrollbar-thumb{background:rgba(255,25
 /* ---- Calendar view ---- */
 .t-cal{padding:14px 18px 18px}
 .t-cal-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-.t-cal-month{font-family:'Fraunces',serif;font-size:17px;font-weight:600;flex:1;min-width:0}
+.t-cal-month{font-family:var(--font-display);font-size:17px;font-weight:600;flex:1;min-width:0}
 .t-cal-month-year{margin-left:.35em;color:var(--t-ink2)}
 .t-cal-nav{display:flex;align-items:center;gap:8px;flex-shrink:0}
 .t-cal-head .btn{padding:6px 12px;font-size:13px}
@@ -1771,7 +1777,7 @@ html[data-theme="dark"] .t-board::-webkit-scrollbar-thumb{background:rgba(255,25
 .t-cal-mini{background:var(--t-card);border:1px solid var(--t-border);border-radius:12px;padding:9px 10px 11px}
 .t-cal-mini.is-current{border-color:var(--t-accent);box-shadow:0 0 0 1px var(--t-accent)}
 .t-cal-mini-head{display:block;width:100%;text-align:left;background:none;border:none;cursor:pointer;
-  font-family:'Fraunces',serif;font-size:14px;font-weight:600;color:var(--t-ink);padding:0 0 6px}
+  font-family:var(--font-display);font-size:14px;font-weight:600;color:var(--t-ink);padding:0 0 6px}
 .t-cal-mini-head:hover{color:var(--t-accent)}
 .t-cal-mini-head:focus-visible{outline:2px solid var(--t-accent);outline-offset:2px;border-radius:4px}
 .t-cal-mini-wd,.t-cal-mini-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px}
@@ -1794,7 +1800,7 @@ html[data-theme="dark"] .t-board::-webkit-scrollbar-thumb{background:rgba(255,25
   cursor:pointer;font:inherit;text-align:left;transition:background 150ms ease,border-color 150ms ease}
 .t-cal-yearcell:hover{background:var(--t-cal-cell-hover);border-color:var(--t-accent)}
 .t-cal-yearcell:focus-visible{outline:2px solid var(--t-accent);outline-offset:1px}
-.t-cal-yearcell-y{font-family:'Fraunces',serif;font-size:19px;font-weight:600;color:var(--t-ink)}
+.t-cal-yearcell-y{font-family:var(--font-display);font-size:19px;font-weight:600;color:var(--t-ink)}
 .t-cal-yearcell-n{font-size:12px;color:var(--t-ink2)}
 .t-cal-yearcell.has .t-cal-yearcell-n{color:var(--t-accent);font-weight:600}
 .t-cal-yearcell.is-current{border-color:var(--t-accent);box-shadow:0 0 0 1px var(--t-accent)}
@@ -2290,7 +2296,7 @@ html[data-theme="dark"]{--t-cal-chip-personal-bg:#33402F; --t-cal-chip-overdue-b
 .gsi-archive-modal-body{flex:1;overflow-y:auto;padding:12px 20px 20px}
 .wd-group-row{display:flex;align-items:center;gap:8px;margin-bottom:4px;flex-wrap:wrap}
 .wd-group-row input{flex:1;min-width:120px;border:none;background:transparent;padding:0;
-  font-family:'Fraunces',serif;font-size:17px;font-weight:600;color:var(--ink)}
+  font-family:var(--font-display);font-size:17px;font-weight:600;color:var(--ink)}
 .wd-group-row input:focus{outline:none;border-bottom:1px solid var(--line)}
 .wd-archive-btn{margin-top:10px;font-size:12.5px;padding:6px 12px}
 .wd-archive-panel{display:none;margin-top:8px;border:1px solid var(--line);border-radius:12px;
@@ -2862,7 +2868,7 @@ html[data-theme="dark"]{--t-cal-chip-personal-bg:#33402F; --t-cal-chip-overdue-b
 .ent-focus-badge{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.09em;
   text-transform:uppercase;color:var(--accent-ink);background:rgba(255,255,255,.6);
   border:1px solid var(--lilac-deep);border-radius:99px;padding:3px 10px}
-.ent-focus-title{font-family:'Fraunces',serif;font-size:29px;font-weight:600;line-height:1.15;
+.ent-focus-title{font-family:var(--font-display);font-size:29px;font-weight:600;line-height:1.15;
   margin:8px 0 2px;color:var(--ink)}
 .ent-focus-meta{font-size:12px;font-weight:700;color:var(--muted);margin:0 0 8px;
   letter-spacing:.02em;text-transform:uppercase}
@@ -2949,7 +2955,7 @@ html[data-theme="dark"]{--t-cal-chip-personal-bg:#33402F; --t-cal-chip-overdue-b
   color:var(--line);padding:2px 4px;line-height:1}
 .ent-focus-btn:hover{color:var(--muted)}
 .ent-focus-btn.on{color:var(--accent)}
-.ent-title{font-family:'Fraunces',serif;font-size:18px;font-weight:600;line-height:1.2;margin:2px 0 0;color:var(--ink)}
+.ent-title{font-family:var(--font-display);font-size:18px;font-weight:600;line-height:1.2;margin:2px 0 0;color:var(--ink)}
 .ent-creator{font-size:11.5px;font-weight:700;color:var(--muted);margin:0}
 .ent-note{font-size:12.5px;line-height:1.45;color:var(--ink);opacity:.8;margin:2px 0 0}
 .ent-card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;
@@ -3083,7 +3089,7 @@ body.modal-locked{overflow:hidden}
 
 .tm-title-row{display:flex;align-items:flex-start;gap:10px;margin-bottom:6px}
 .tm-title{flex:1;min-width:0;border:1px solid transparent;border-radius:8px;padding:4px 8px;resize:none;
-  font-family:'Fraunces',serif;font-size:21px;font-weight:600;line-height:1.25;color:var(--ink);
+  font-family:var(--font-display);font-size:21px;font-weight:600;line-height:1.25;color:var(--ink);
   background:transparent;overflow:hidden}
 .tm-title:hover{border-color:var(--line)}
 .tm-title:focus{outline:none;border-color:var(--ink);background:var(--card)}
@@ -3946,6 +3952,63 @@ html[data-theme="dark"]{
 /* The mesh gradient is what the frost was blurring; with no blur it would
    just be a coloured smear behind flat panels. */
 /* ============================================================
+   QUANTIVA — cream paper, deep green, one geometric sans
+   ============================================================
+   A skin over the LIGHT theme, the same way Warm Glass is a skin over
+   the dark one: data-theme="light" plus data-skin="quantiva", so every
+   existing light rule applies and only the palette and the typeface are
+   overridden.
+
+   The reference pairs a warm cream page with deep forest green and soft
+   green mesh arcs, and sets everything in a single geometric sans — no
+   serif anywhere, which is the most visible difference from the app's
+   current display face.
+
+   Contrast checked against the DARKEST panel the cream glass produces
+   over its own backdrop: ink 18.0:1, muted 5.88:1, and every accent
+   between 4.76 and 8.95:1. White on the deep-green button is 9.38:1.
+   ============================================================ */
+html[data-skin="quantiva"]{
+  --font-body:'Plus Jakarta Sans','Inter',sans-serif;
+  /* The reference has no serif at all — headings are the same family,
+     heavier and tighter. */
+  --font-display:'Plus Jakarta Sans','Inter',sans-serif;
+
+  --paper:#FBF5E8; --card:#FFFDF6; --ink:#0E1210; --muted:#5C6360;
+  --line:#E6E2D4; --lilac:#EFEDE1; --lilac-deep:#DEDACB;
+  --accent:#12503C; --accent-ink:#0C3B2C; --accent2:#0F7A57;
+  --sand:#F3E9D6; --sage:#DFEADF; --blush:#F4E6DC; --sky:#E2ECE6;
+  --ok:#1F7A4D; --warn:#9A6410; --danger:#B03A2E; --danger-bg:#F6E4E0; --secondary:#0F7A57;
+  --nav-ink:#3D443F; --nav-ink-strong:#0E1210; --nav-label:#6A716D;
+  --nav-hover:rgba(255,255,255,.7);
+  --glass-bg:rgba(255,253,246,.82);
+  --glass-bg-strong:rgba(255,253,246,.93);
+  --glass-border:rgba(255,255,255,.9);
+  --glass-line:rgba(20,60,45,.10);
+  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.7);
+  --shadow:0 1px 2px rgba(18,40,32,.05),0 12px 30px -16px rgba(18,40,32,.20);
+  --shadow-glass:0 1px 2px rgba(18,40,32,.05),0 12px 30px -16px rgba(18,40,32,.20);
+  --shadow-glass-lift:0 4px 12px rgba(18,40,32,.07),0 22px 46px -20px rgba(18,40,32,.26);
+  /* The reference's corners are noticeably rounder than the app's. */
+  --r:24px;
+  --t-bg:#F4F1E6; --t-card:#FFFDF6; --t-ink:#0E1210; --t-ink2:#5C6360; --t-border:#E6E2D4;
+}
+/* Soft green arcs over cream, in place of the app's purple/pink pools. */
+html[data-skin="quantiva"] body{
+  background:
+    radial-gradient(1100px 780px at 50% -22%, rgba(24,96,72,.30), transparent 62%),
+    radial-gradient(900px 620px at 50% -14%, rgba(46,150,112,.22), transparent 58%),
+    radial-gradient(900px 800px at 92% 20%, rgba(30,110,84,.10), transparent 60%),
+    radial-gradient(800px 700px at 6% 84%, rgba(200,170,110,.12), transparent 60%),
+    linear-gradient(170deg,#FDF8EC 0%,#FBF5E8 60%,#F8F1E2 100%);
+  background-attachment:fixed;
+}
+/* Headings in the reference are tight and heavy rather than serif. */
+html[data-skin="quantiva"] :is(h1,h2,.display,.brand-name,.section-title,.greet h1){
+  font-weight:700;letter-spacing:-.02em;
+}
+
+/* ============================================================
    WARM GLASS — a skin, not a fourth copy of the stylesheet
    ============================================================
    There are 117 rules keyed to html[data-theme="dark"] in this file:
@@ -4741,7 +4804,7 @@ span.nb-row-name{overflow-wrap:anywhere}
 .nb-editor-pane{padding:0;min-height:0}
 .nb-editor-head{display:flex;align-items:center;gap:10px;padding:20px 22px 0}
 .nb-page-title{
-  flex:1;min-width:0;border:none;background:transparent;font-family:'Fraunces',serif;
+  flex:1;min-width:0;border:none;background:transparent;font-family:var(--font-display);
   font-size:26px;font-weight:700;color:var(--ink);padding:4px 0;
 }
 .nb-page-meta{padding:2px 22px 14px;color:var(--muted);font-size:13px;font-weight:600}

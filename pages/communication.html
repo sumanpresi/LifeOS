@@ -12,14 +12,16 @@
      from a module it would land after first paint and every load of a
      dark-themed app would flash a full-brightness page inside the frame. */
   (function () {
+    var BASE = { light:"light", dark:"dark", warm:"dark", quantiva:"light" };
+    var SKIN = { warm:"warm", quantiva:"quantiva" };
     function apply(v) {
       var r = document.documentElement;
-      if (v !== "light" && v !== "dark" && v !== "warm") {
+      if (!BASE[v]) {
         v = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
       }
-      r.setAttribute("data-theme", v === "warm" ? "dark" : v);
-      if (v === "warm") r.setAttribute("data-skin", "warm");
-      else r.removeAttribute("data-skin");
+      r.setAttribute("data-theme", BASE[v]);
+      if (SKIN[v]) r.setAttribute("data-skin", SKIN[v]); else r.removeAttribute("data-skin");
+      return v;
     }
     try { apply(localStorage.getItem("lifeos-theme")); } catch (e) {}
     /* Same origin, so the parent writing the key raises `storage` in here.
@@ -41,6 +43,7 @@
     }
   })();
 </script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 :root{
   --paper:#EDF0F4;
@@ -108,6 +111,26 @@ html[data-theme="dark"]{
   --margin-rule:#D96A5B;
   --board:#243A33;
   --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -14px rgba(0,0,0,.7);
+}
+html[data-skin="quantiva"]{
+  /* One sans throughout, as in the reference — this page normally pairs
+     a display sans with a serif body, which is the pairing Quantiva drops. */
+  --display:"Plus Jakarta Sans","Inter",sans-serif;
+  --body:"Plus Jakarta Sans","Inter",sans-serif;
+  --paper:#FBF5E8;
+  --card:#FFFDF6;
+  --ink:#0E1210;
+  --ink-soft:#454C48;
+  --ink-faint:#5C6360;
+  --rule:#E6E2D4;
+  /* --blue is this page's accent ROLE; Quantiva's accent is forest green. */
+  --blue:#12503C;      --blue-tint:#E4EFE8;
+  --green:#1F7A4D;     --green-tint:#E2F1E7;
+  --red:#B03A2E;       --red-tint:#F8E7E4;
+  --amber:#9A6410;     --amber-tint:#F6EEDC;
+  --margin-rule:#12503C;
+  --board:#123A2C;
+  --shadow:0 1px 2px rgba(18,40,32,.05), 0 8px 24px -14px rgba(18,40,32,.3);
 }
 html[data-skin="warm"]{
   --paper:#2A211A;
