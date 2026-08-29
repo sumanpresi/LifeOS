@@ -37,8 +37,8 @@
          theme flashes its base palette before the module loads, which is
          the exact flash this script exists to prevent. */
     var BASE = { light:"light", advocate:"light", belle:"light", empowerx:"light",
-                 procyon:"light", quantiva:"light", egnis:"dark", warm:"dark" };
-    var SKIN = { warm:"warm", quantiva:"quantiva", advocate:"advocate", belle:"belle",
+                 procyon:"light", quantiva:"light", motion:"light", egnis:"dark", warm:"dark" };
+    var SKIN = { warm:"warm", quantiva:"quantiva", motion:"motion", advocate:"advocate", belle:"belle",
                  empowerx:"empowerx", procyon:"procyon", egnis:"egnis" };
     var RETIRED = { dark:"warm" }; /* see js/theme.js */
     function applyTheme(v) {
@@ -52,7 +52,7 @@
       return v;
     }
       var BAR = { light:"#F3EEE4", advocate:"#EEF1F4", belle:"#F7F1EE", empowerx:"#F5F1F1",
-                  procyon:"#FDF3EA", quantiva:"#FBF5E8", egnis:"#0B1519", warm:"#2A211A" };
+                  procyon:"#FDF3EA", quantiva:"#FBF5E8", motion:"#F4F7FB", egnis:"#0B1519", warm:"#2A211A" };
       var v = applyTheme(localStorage.getItem("lifeos-theme"));
       var m = document.querySelector('meta[name="theme-color"]');
       if (m && BAR[v]) m.setAttribute("content", BAR[v]);
@@ -91,14 +91,14 @@
      which shows up as new controls rendering completely unstyled — and is
      nearly impossible to diagnose from a screenshot, because the code on
      disk is correct. Bump on every release. -->
-<link rel="stylesheet" href="css/style.css?v=202608292145">
+<link rel="stylesheet" href="css/style.css?v=202608300130">
 <!-- Foldable/tablet/mobile layout layer — loaded after style.css on purpose.
      It overrides that file's tablet breakpoint (wrap-to-grid board,
      off-canvas drawer sidebar) with an icon-rail sidebar and a
      horizontally-scrolling, fixed-width Kanban board for Z Fold 6 inner
      (~883px), iPad mini/iPad (~768–1024px), and a bottom tab bar for
      phones (<=600px, incl. iPhone 17 Pro Max ~440px and fold cover screens). -->
-<link rel="stylesheet" href="css/responsive-foldable.css?v=202608292145">
+<link rel="stylesheet" href="css/responsive-foldable.css?v=202608300130">
 </head>
 <body>
 <div class="shell">
@@ -214,6 +214,10 @@
           <button type="button" class="theme-swatch" data-theme-pick="quantiva"
             role="radio" aria-checked="false" title="Quantiva" onclick="setTheme('quantiva')">
             <span class="theme-swatch-dot" aria-hidden="true"></span><span class="sr-only">Quantiva</span>
+          </button>
+          <button type="button" class="theme-swatch" data-theme-pick="motion"
+            role="radio" aria-checked="false" title="Motion Genie" onclick="setTheme('motion')">
+            <span class="theme-swatch-dot" aria-hidden="true"></span><span class="sr-only">Motion Genie</span>
           </button>
           <button type="button" class="theme-swatch" data-theme-pick="egnis"
             role="radio" aria-checked="false" title="Egnis" onclick="setTheme('egnis')">
@@ -1726,6 +1730,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script type="module" src="js/app.js?v=202608292145"></script>
+<script type="module" src="js/app.js?v=202608300130"></script>
 </body>
 </html>
