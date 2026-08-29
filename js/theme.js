@@ -1,7 +1,8 @@
 /* ============================================================
    Theme
    ============================================================
-   Three named themes — "light", "dark", "warm" — plus no stored choice at
+   Six named themes — Capra, Quantiva, Credix, Egnis, Warm Glass and
+   Investra — plus no stored choice at
    all, which is the default and means "follow the operating system", so a
    phone that switches to dark at sunset takes the app with it without
    anyone having configured anything.
@@ -27,25 +28,29 @@
    ============================================================ */
 
 const KEY = "lifeos-theme";
-export const THEMES = ["light", "quantiva", "motion", "egnis", "warm"];
-const LABEL = { light: "Light", quantiva: "Quantiva", motion: "Motion Genie", egnis: "Egnis", warm: "Warm Glass" };
-const ICON = { light: "☀", quantiva: "◈", motion: "◉", egnis: "◐", warm: "✦" };
+export const THEMES = ["capra", "quantiva", "credix", "egnis", "warm", "investra"];
+const LABEL = { capra: "Capra", quantiva: "Quantiva", credix: "Credix", egnis: "Egnis", warm: "Warm Glass", investra: "Investra" };
+const ICON = { capra: "⬤", quantiva: "◈", credix: "◉", egnis: "◐", warm: "✦", investra: "❖" };
 
-/* Dark is no longer offered, but it is still REACHABLE state: it is the
-   base Warm Glass is built on, and anyone who chose it before this change
-   still has "dark" in their localStorage. Rather than leave them on a
-   theme with no swatch to match, it resolves to Warm Glass — which is the
-   dark option now. Same for a device whose OS asks for dark. */
-const RETIRED = { dark: "warm" };
+/* Retired names are still REACHABLE state: they remain the bases the
+   skins are built on, and anyone who chose one before it was retired
+   still has it in their localStorage. Rather than leave them on a theme
+   with no swatch to match, each resolves to the offered theme closest to
+   it — "dark" to Warm Glass, and "light" to Quantiva, which is the
+   lightest option now that Capra has taken the first slot. */
+const RETIRED = { dark: "warm", light: "quantiva" };
 
 /* A theme is a BASE plus an optional SKIN. The base decides which of the
    two big rule sets applies — the 117 dark rules or the default light
-   ones — and the skin repaints the variables on top. Warm Glass is dark
-   repainted; Quantiva and Motion Genie are light repainted. Keeping this as a table means a
+   ones — and the skin repaints the variables on top. Warm Glass, Capra and Investra
+   are dark repainted; Quantiva and Credix are light repainted. Keeping this as a table means a
    new theme is one row here rather than another branch in four places. */
-const BASE = { light: "light", quantiva: "light", motion: "light", egnis: "dark", warm: "dark" };
-const SKIN = { warm: "warm", quantiva: "quantiva", motion: "motion", egnis: "egnis" };
-const BAR  = { light: "#F3EEE4", quantiva: "#FBF5E8", motion: "#F4F7FB", egnis: "#0B1519", warm: "#2A211A" };
+/* "light" stays in BASE without being in THEMES: it is no longer an
+   offered theme, but it is still the base every light skin is painted
+   over and still the fallback apply() lands on. */
+const BASE = { light: "light", capra: "dark", quantiva: "light", credix: "light", egnis: "dark", warm: "dark", investra: "dark" };
+const SKIN = { warm: "warm", capra: "capra", quantiva: "quantiva", credix: "credix", egnis: "egnis", investra: "investra" };
+const BAR  = { light: "#F3EEE4", capra: "#2B2B2B", quantiva: "#FBF5E8", credix: "#BFD5EF", egnis: "#0B1519", warm: "#2A211A", investra: "#22343D" };
 
 function stored() {
   try {
@@ -61,7 +66,10 @@ function systemPrefersDark() {
 
 /* What is actually on screen right now, as opposed to what was chosen. */
 export function effectiveTheme() {
-  return stored() || (systemPrefersDark() ? "warm" : "light");
+  /* The no-preference light answer is Quantiva rather than plain Light
+     for the same reason RETIRED maps light there: every state the app
+     can be in should have a swatch that matches it. */
+  return stored() || (systemPrefersDark() ? "warm" : "quantiva");
 }
 
 function apply(theme) {
@@ -124,7 +132,7 @@ export function initTheme() {
      sunset. */
   if (typeof matchMedia === "function") {
     const mq = matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => { if (!stored()) apply(systemPrefersDark() ? "warm" : "light"); };
+    const onChange = () => { if (!stored()) apply(systemPrefersDark() ? "warm" : "quantiva"); };
     if (mq.addEventListener) mq.addEventListener("change", onChange);
     else if (mq.addListener) mq.addListener(onChange); // older WebKit
   }
