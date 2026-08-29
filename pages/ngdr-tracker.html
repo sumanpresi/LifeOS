@@ -12,8 +12,8 @@
      why a same-origin `storage` listener is all the plumbing needed. */
   (function () {
     var BASE = { light:"light", advocate:"light", belle:"light", empowerx:"light",
-                 procyon:"light", quantiva:"light", egnis:"dark", warm:"dark" };
-    var SKIN = { warm:"warm", quantiva:"quantiva", advocate:"advocate", belle:"belle",
+                 procyon:"light", quantiva:"light", motion:"light", egnis:"dark", warm:"dark" };
+    var SKIN = { warm:"warm", quantiva:"quantiva", motion:"motion", advocate:"advocate", belle:"belle",
                  empowerx:"empowerx", procyon:"procyon", egnis:"egnis" };
     var RETIRED = { dark:"warm" }; /* see js/theme.js */
     function apply(v) {
@@ -83,6 +83,11 @@
     --bg:#EEF1F4; --card:#FFFFFF; --ink:#171A1D; --muted:#5A6067; --border:#DEE3E8;
     --gold:#8A6212; --gold-light:#A87D22; --teal:#22262B; --teal-light:#4A5158;
     --good:#2E6B4F; --bad:#A33A30;
+  }
+  html[data-skin="motion"]{
+    --bg:#F4F7FB; --card:#FFFFFF; --ink:#0F1419; --muted:#5B6673; --border:#E5EAF1;
+    --gold:#B4530C; --gold-light:#D2701A; --teal:#0E6FD1; --teal-light:#2E8AE6;
+    --good:#137A52; --bad:#C0392B;
   }
   html[data-skin="quantiva"]{
     --bg:#FBF5E8; --card:#FFFDF6; --ink:#0E1210; --muted:#5C6360; --border:#E6E2D4;

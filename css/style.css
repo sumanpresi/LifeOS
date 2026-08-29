@@ -531,6 +531,7 @@ html.sidebar-hidden .main{--main-pad-x:28px;padding-left:28px}
 [data-theme-pick="advocate"] .theme-swatch-dot{background:linear-gradient(145deg,#FAFBFC 46%,#22262B 46%)}
 [data-theme-pick="warm"]  .theme-swatch-dot{background:linear-gradient(145deg,#8A7059,#3B2F27)}
 [data-theme-pick="quantiva"] .theme-swatch-dot{background:linear-gradient(145deg,#FBF5E8 46%,#12503C 46%)}
+[data-theme-pick="motion"] .theme-swatch-dot{background:linear-gradient(145deg,#0D8CF0 46%,#F0761A 46%)}
 [data-theme-pick="belle"] .theme-swatch-dot{background:linear-gradient(145deg,#F7F1EE 46%,#22384A 46%)}
 [data-theme-pick="egnis"]    .theme-swatch-dot{background:linear-gradient(145deg,#14454F 46%,#0B1519 46%)}
 [data-theme-pick="procyon"]  .theme-swatch-dot{background:linear-gradient(145deg,#FDF3EA 46%,#F97316 46%)}
@@ -4225,6 +4226,89 @@ html[data-skin="advocate"] body{
    slightly larger and looser than the other themes' display face. */
 html[data-skin="advocate"] :is(h1,h2,.display,.brand-name,.section-title,.greet h1){
   font-weight:600;letter-spacing:0;
+}
+
+/* ============================================================
+   MOTION GENIE — white paper, electric blue, warm-amber counterpoint
+   ============================================================
+   A skin over the LIGHT theme, same construction as Quantiva:
+   data-theme="light" plus data-skin="motion", so every existing light
+   rule applies untouched and only the palette and the typefaces are
+   overridden. No new data-theme value, no duplicated rule set.
+
+   The reference (motiongenie.webflow.io) is a near-white SaaS page:
+   white cards on white, hairline cool-grey borders, generously rounded
+   corners, almost no shadow, and colour arriving only as an identity
+   gradient that runs bright blue into warm amber. Headings are large,
+   tight and heavy in a grotesque — there is no serif anywhere on the
+   site, which is the biggest departure from the app's Fraunces display
+   face. Body copy is a plain neutral sans, so display and body split
+   here (Plus Jakarta Sans / Inter) rather than collapsing to one family
+   the way Quantiva does.
+
+   The reference's own blue (#0D8CF0) reads 3.5:1 on white — below AA
+   for text. It is kept for decoration only (the backdrop wash and the
+   brand gradient); the text/UI accent is darkened to #0E6FD1. Likewise
+   the logo orange #F97316 is 3.0:1 and is darkened to #C25508 for any
+   role that carries text.
+
+   Contrast checked against the panel the white glass produces over the
+   worst point of its own backdrop (~#FAFCFD): ink 18.5:1, muted 5.8:1,
+   accent 5.0:1, and every remaining accent between 4.6 and 5.6:1.
+   White on the accent-filled button is 5.0:1.
+   ============================================================ */
+html[data-skin="motion"]{
+  /* The reference pairs a heavier grotesque in the headings with a
+     plain neutral sans in the copy — hence two families, not one. */
+  --font-display:'Plus Jakarta Sans','Inter',sans-serif;
+  --font-body:'Inter','Plus Jakarta Sans',sans-serif;
+
+  --paper:#F4F7FB; --card:#FFFFFF; --ink:#0F1419; --muted:#5B6673;
+  --line:#E5EAF1; --lilac:#EDF2F9; --lilac-deep:#DCE4EF;
+  --accent:#0E6FD1; --accent-ink:#0A5FB8; --accent2:#C25508;
+  --sand:#FDF1E6; --sage:#E4F1EA; --blush:#FDECE2; --sky:#E7F0FB;
+  --ok:#137A52; --warn:#8F5E0C; --danger:#C0392B; --danger-bg:#FBE8E5; --secondary:#B4530C;
+  --nav-ink:#3C4753; --nav-ink-strong:#0F1419; --nav-label:#68727E;
+  --nav-hover:rgba(14,111,209,.07);
+  --glass-bg:rgba(255,255,255,.82);
+  --glass-bg-strong:rgba(255,255,255,.94);
+  --glass-border:rgba(255,255,255,.92);
+  --glass-line:rgba(15,20,25,.07);
+  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.8);
+  /* Shadows pulled almost flat: the reference separates surfaces with a
+     hairline border, not with lift. */
+  --shadow:0 1px 2px rgba(16,32,56,.04),0 14px 34px -20px rgba(16,32,56,.18);
+  --shadow-glass:0 1px 2px rgba(16,32,56,.04),0 14px 34px -20px rgba(16,32,56,.18);
+  --shadow-glass-lift:0 3px 10px rgba(16,32,56,.06),0 22px 44px -22px rgba(16,32,56,.22);
+  /* Corners on the reference's cards are noticeably rounder than 20px. */
+  --r:22px;
+  --t-bg:#EFF3F9; --t-card:#FFFFFF; --t-ink:#0F1419; --t-ink2:#5B6673; --t-border:#E5EAF1;
+}
+/* Near-white page with the identity gradient reduced to two faint
+   washes — blue entering top-left, amber leaving bottom-right — instead
+   of the app's four-colour mesh. */
+html[data-skin="motion"] body{
+  background:
+    radial-gradient(1100px 760px at 12% -14%, rgba(13,140,240,.15), transparent 60%),
+    radial-gradient(900px 680px at 88% -6%, rgba(249,115,22,.09), transparent 58%),
+    radial-gradient(900px 780px at 84% 70%, rgba(13,140,240,.08), transparent 60%),
+    radial-gradient(800px 700px at 6% 90%, rgba(249,115,22,.06), transparent 60%),
+    linear-gradient(170deg,#FFFFFF 0%,#F9FBFD 55%,#F2F6FB 100%);
+  background-attachment:fixed;
+}
+/* Big, tight and heavy rather than serif. */
+html[data-skin="motion"] :is(h1,h2,.display,.brand-name,.section-title,.greet h1){
+  font-weight:700;letter-spacing:-.03em;
+}
+/* The one place the full blue-to-amber identity gradient is spent, the
+   same way the reference spends it on its wordmark. Decorative only —
+   the fallback if background-clip:text is unsupported is the accent
+   colour, which is why `color` is set before it is clipped away. */
+html[data-skin="motion"] .brand-name{
+  color:var(--accent);
+  background:linear-gradient(100deg,#0D8CF0 0%,#4C82B8 46%,#C2732B 80%,#E08A2B 100%);
+  -webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;
 }
 
 /* ============================================================

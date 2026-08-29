@@ -13,8 +13,8 @@
      dark-themed app would flash a full-brightness page inside the frame. */
   (function () {
     var BASE = { light:"light", advocate:"light", belle:"light", empowerx:"light",
-                 procyon:"light", quantiva:"light", egnis:"dark", warm:"dark" };
-    var SKIN = { warm:"warm", quantiva:"quantiva", advocate:"advocate", belle:"belle",
+                 procyon:"light", quantiva:"light", motion:"light", egnis:"dark", warm:"dark" };
+    var SKIN = { warm:"warm", quantiva:"quantiva", motion:"motion", advocate:"advocate", belle:"belle",
                  empowerx:"empowerx", procyon:"procyon", egnis:"egnis" };
     var RETIRED = { dark:"warm" }; /* see js/theme.js */
     function apply(v) {
@@ -182,6 +182,27 @@ html[data-skin="advocate"]{
   --margin-rule:#22262B;
   --board:#22303A;
   --shadow:0 1px 2px rgba(23,26,29,.05), 0 8px 24px -14px rgba(23,26,29,.3);
+}
+html[data-skin="motion"]{
+  /* The reference has no serif, so this page's display/body serif pairing
+     becomes grotesque display + neutral sans body. */
+  --display:"Plus Jakarta Sans","Inter",sans-serif;
+  --body:"Inter","Plus Jakarta Sans",sans-serif;
+  --paper:#F4F7FB;
+  --card:#FFFFFF;
+  --ink:#0F1419;
+  --ink-soft:#414B57;
+  --ink-faint:#5B6673;
+  --rule:#E5EAF1;
+  /* --blue is this page's accent ROLE and here it really is blue, but a
+     darkened one: the reference's own #0D8CF0 is 3.5:1 on white. */
+  --blue:#0E6FD1;      --blue-tint:#E7F0FB;
+  --green:#137A52;     --green-tint:#E2F2EB;
+  --red:#C0392B;       --red-tint:#FBE8E5;
+  --amber:#8F5E0C;     --amber-tint:#F7EEDC;
+  --margin-rule:#0E6FD1;
+  --board:#0F2B4A;
+  --shadow:0 1px 2px rgba(16,32,56,.04), 0 8px 24px -16px rgba(16,32,56,.28);
 }
 html[data-skin="quantiva"]{
   /* One sans throughout, as in the reference — this page normally pairs
