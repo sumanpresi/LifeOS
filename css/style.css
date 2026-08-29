@@ -4701,6 +4701,7 @@ span.nb-row-name{overflow-wrap:anywhere}
   /* The editor is the only thing in the grid now — the tree is out of
      flow — so it gets the whole width whether the panel is up or not. */
   .nb-layout{grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr)}
+  #page-notebook.nb-tree-hidden .nb-pane-tree{display:none}
 }
 @media(max-width:640px){
   .nb-pane-tree{top:88px}
@@ -4748,8 +4749,14 @@ span.nb-row-name{overflow-wrap:anywhere}
   color:var(--muted);font-size:14px;line-height:1;cursor:pointer;
 }
 .nb-tree-toggle:hover{color:var(--ink)}
-#page-notebook.nb-tree-hidden .nb-pane-tree{display:none}
-#page-notebook.nb-tree-hidden .nb-layout{grid-template-columns:minmax(0,1fr)}
+/* The hide rules live in the narrow media query below, NOT here.
+
+   Applied at every width they made the tree unreachable on a desktop: the
+   only controls that unhide it — the ☰ in the editor head and "Sections"
+   in the top bar — are themselves narrow-only, so a flag set while the
+   window was small stayed set when it was maximised, with nothing left on
+   screen to undo it. Above 1100px the tree is simply always there, which
+   is what it was before any of this was added. */
 
 /* The section name, since no column header states it any more. */
 .nb-crumb{font-weight:650;color:var(--muted)}
