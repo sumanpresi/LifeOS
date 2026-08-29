@@ -27,22 +27,37 @@
    ============================================================ */
 
 const KEY = "lifeos-theme";
-export const THEMES = ["light", "dark", "warm", "quantiva"];
-const LABEL = { light: "Light", dark: "Dark", warm: "Warm Glass", quantiva: "Quantiva" };
-const ICON = { light: "☀", dark: "☾", warm: "✦", quantiva: "◈" };
+export const THEMES = ["light", "advocate", "belle", "empowerx", "procyon", "quantiva", "egnis", "warm"];
+const LABEL = { light: "Light", advocate: "Advocate", belle: "Belle Amour", empowerx: "EmpowerX",
+                procyon: "Procyon", quantiva: "Quantiva", egnis: "Egnis", warm: "Warm Glass" };
+const ICON = { light: "☀", advocate: "§", belle: "❦", empowerx: "◆", procyon: "▤",
+               quantiva: "◈", egnis: "◐", warm: "✦" };
+
+/* Dark is no longer offered, but it is still REACHABLE state: it is the
+   base Warm Glass is built on, and anyone who chose it before this change
+   still has "dark" in their localStorage. Rather than leave them on a
+   theme with no swatch to match, it resolves to Warm Glass — which is the
+   dark option now. Same for a device whose OS asks for dark. */
+const RETIRED = { dark: "warm" };
 
 /* A theme is a BASE plus an optional SKIN. The base decides which of the
    two big rule sets applies — the 117 dark rules or the default light
    ones — and the skin repaints the variables on top. Warm Glass is dark
    repainted; Quantiva is light repainted. Keeping this as a table means a
    new theme is one row here rather than another branch in four places. */
-const BASE = { light: "light", dark: "dark", warm: "dark", quantiva: "light" };
-const SKIN = { warm: "warm", quantiva: "quantiva" };
-const BAR  = { light: "#F3EEE4", dark: "#1A1917", warm: "#2A211A", quantiva: "#FBF5E8" };
+const BASE = { light: "light", advocate: "light", belle: "light", empowerx: "light",
+               procyon: "light", quantiva: "light", egnis: "dark", warm: "dark" };
+const SKIN = { warm: "warm", quantiva: "quantiva", advocate: "advocate", belle: "belle",
+               empowerx: "empowerx", procyon: "procyon", egnis: "egnis" };
+const BAR  = { light: "#F3EEE4", advocate: "#EEF1F4", belle: "#F7F1EE", empowerx: "#F5F1F1",
+               procyon: "#FDF3EA", quantiva: "#FBF5E8", egnis: "#0B1519", warm: "#2A211A" };
 
 function stored() {
-  try { const v = localStorage.getItem(KEY); return THEMES.includes(v) ? v : null; }
-  catch (_) { return null; }
+  try {
+    const v = localStorage.getItem(KEY);
+    if (RETIRED[v]) return RETIRED[v];
+    return THEMES.includes(v) ? v : null;
+  } catch (_) { return null; }
 }
 
 function systemPrefersDark() {
@@ -51,7 +66,7 @@ function systemPrefersDark() {
 
 /* What is actually on screen right now, as opposed to what was chosen. */
 export function effectiveTheme() {
-  return stored() || (systemPrefersDark() ? "dark" : "light");
+  return stored() || (systemPrefersDark() ? "warm" : "light");
 }
 
 function apply(theme) {
@@ -114,7 +129,7 @@ export function initTheme() {
      sunset. */
   if (typeof matchMedia === "function") {
     const mq = matchMedia("(prefers-color-scheme: dark)");
-    const onChange = () => { if (!stored()) apply(systemPrefersDark() ? "dark" : "light"); };
+    const onChange = () => { if (!stored()) apply(systemPrefersDark() ? "warm" : "light"); };
     if (mq.addEventListener) mq.addEventListener("change", onChange);
     else if (mq.addListener) mq.addListener(onChange); // older WebKit
   }
