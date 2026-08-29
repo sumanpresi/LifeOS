@@ -190,20 +190,35 @@ function openSectionSet() {
 function saveOpenSections(set) {
   try { localStorage.setItem(NB_OPEN_KEY, JSON.stringify([...set])); } catch (_) {}
 }
-function isSectionOpen(id, activeId) {
-  return id === activeId || openSectionSet().has(id);
+/* Open purely because it is in the set — NOT because it happens to be the
+   active section.
+
+   Treating the active section as implicitly open meant it was open while
+   absent from the set, and the twisty then had to special-case it: the
+   first click on it moved the selection to another section (expanding
+   THAT one's pages) and only a second click folded the one actually
+   clicked. Which is the bug — the triangle did something other than what
+   it points at.
+
+   Selecting a section adds it to the set instead, so "open" has exactly
+   one meaning and the twisty is a plain toggle. Folding the section you
+   are reading is allowed: the page stays open in the editor, it is just
+   no longer listed, which is what folding a tree node means everywhere
+   else. */
+function isSectionOpen(id) {
+  return openSectionSet().has(id);
+}
+/* A device that has never touched the tree starts with the section it is
+   in unfolded, rather than with everything shut. */
+function ensureOpenSeed(activeId) {
+  try {
+    if (activeId && localStorage.getItem(NB_OPEN_KEY) === null) {
+      saveOpenSections(new Set([activeId]));
+    }
+  } catch (_) {}
 }
 export function toggleNotebookSectionOpen(id) {
-  const sec = activeNbSection();
   const set = openSectionSet();
-  /* Folding the active section would leave its open page invisible in the
-     tree, so folding it moves the selection out of it first — to the next
-     section along, which is what the person is evidently heading for. */
-  if (sec && sec.id === id && !set.has(id)) {
-    const nb = ensureNotebook();
-    const other = nb.sections.find(x => x.id !== id);
-    if (other) { set.delete(id); saveOpenSections(set); switchNotebookSection(other.id); return; }
-  }
   if (set.has(id)) set.delete(id); else set.add(id);
   saveOpenSections(set);
   renderNotebook();
@@ -247,6 +262,7 @@ export function renderNotebook() {
   const nb = ensureNotebook();
   const sec = activeNbSection();
   if (sec && nb.activeSection !== sec.id) nb.activeSection = sec.id;
+  ensureOpenSeed(sec && sec.id);
 
   /* ---- one tree, sections with their pages nested ----
 
@@ -267,7 +283,7 @@ export function renderNotebook() {
      is reconciled separately below against `data-id`. */
   if (secList && !renamingInside(secList)) {
     secList.innerHTML = nb.sections.map(s => {
-      const open = isSectionOpen(s.id, sec.id);
+      const open = isSectionOpen(s.id);
       const pages = s.pages || [];
       const pageRows = open ? pages.map(p => `
         <div class="nb-row nb-row-page ${page && p.id === page.id ? "active" : ""}" data-id="${p.id}"
@@ -394,7 +410,16 @@ export function addNotebookSection() {
 }
 export function switchNotebookSection(id) {
   const nb = ensureNotebook();
-  if (nb.activeSection === id) return; // already open — don't rebuild the list under someone renaming it
+  /* Selecting a section unfolds it — including when it is already the
+     selected one, so tapping the name of a section you folded brings its
+     pages back without having to find the triangle. */
+  const set = openSectionSet();
+  const wasFolded = !set.has(id);
+  if (wasFolded) { set.add(id); saveOpenSections(set); }
+  if (nb.activeSection === id) {
+    if (wasFolded) renderNotebook();
+    return; // already selected — don't rebuild the list under someone renaming it
+  }
   /* Leaving a rename open across navigation was why the keyboard came up
      on a plain tab tap: nbRenaming stayed set, so the row it belonged to
      kept re-rendering as an <input>, and renderNotebook's focus step kept
