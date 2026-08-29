@@ -534,6 +534,7 @@ html.sidebar-hidden .main{--main-pad-x:28px;padding-left:28px}
 [data-theme-pick="quantiva"] .theme-swatch-dot{background:linear-gradient(145deg,#FBF5E8 46%,#12503C 46%)}
 [data-theme-pick="credix"] .theme-swatch-dot{background:linear-gradient(145deg,#A9C6EA 46%,#3B4ACB 46%)}
 [data-theme-pick="investra"] .theme-swatch-dot{background:linear-gradient(145deg,#22343D 46%,#F4555C 46%)}
+[data-theme-pick="redsun"] .theme-swatch-dot{background:linear-gradient(145deg,#0A0A0B 46%,#FF6B00 46%)}
 [data-theme-pick="belle"] .theme-swatch-dot{background:linear-gradient(145deg,#F7F1EE 46%,#22384A 46%)}
 [data-theme-pick="egnis"]    .theme-swatch-dot{background:linear-gradient(145deg,#14454F 46%,#0B1519 46%)}
 [data-theme-pick="procyon"]  .theme-swatch-dot{background:linear-gradient(145deg,#FDF3EA 46%,#F97316 46%)}
@@ -4294,6 +4295,108 @@ html[data-skin="capra"]{
 /* Tight and semibold rather than serif. */
 html[data-skin="capra"] :is(h1,h2,.display,.brand-name,.section-title,.greet h1){
   font-weight:600;letter-spacing:-.02em;
+}
+
+/* ============================================================
+   REDSUN — near-black, one orange, and a glow that follows the cursor
+   ============================================================
+   A skin over the DARK theme: data-theme="dark" plus
+   data-skin="redsun", so all the existing dark rules apply and only the
+   palette, the typefaces and the glow below change.
+
+   The reference is the darkest thing in the set — a near-black page,
+   cards barely lifted off it, and a single saturated orange that is
+   used almost entirely as LIGHT rather than as fill: the accent pill
+   does not just sit there, it blooms. That bloom is the template's whole
+   identity, and it moves with the pointer, which is why this skin is the
+   only one that ships behaviour as well as colour (js/cursor-glow.js).
+
+   Two glow layers, both scoped to this skin and both decorative:
+     - an ambient wash on body::after that tracks the viewport cursor
+       position, painted under all content at z-index -1;
+     - a per-card spotlight driven by card-local coordinates, applied as
+       a background-image layer on .card so it sits above the glass fill
+       and strictly BELOW the card's text. It is deliberately not a
+       pseudo-element: an absolutely positioned ::before would paint over
+       the content it is meant to light.
+
+   The fade uses a registered custom property so it can transition. Where
+   @property is unsupported the var() falls back to 0 and the glow simply
+   snaps on and off instead of easing — no layout or colour breakage.
+
+   On the orange. #FF6B00 is a strong 6.39:1 as FOREGROUND on the card,
+   so unlike Investra's coral it needs no lifting for text. Under white
+   button text, though, it is 2.86:1 — the reference ships exactly that
+   and it fails AA, so the primary button flips to near-black ink here,
+   6.63:1, via the scoped rule below.
+
+   Measured against the lightest surface, the card at #151517:
+       ink 18.24:1   muted 6.69:1   accent 6.39:1   accent-ink 7.76:1
+       accent2 / warn 9.97:1   ok 10.47:1   danger 7.15:1
+       nav-ink 10.85:1   nav-label 5.32:1 — all clear of AA.
+   ============================================================ */
+html[data-skin="redsun"]{
+  /* A wide grotesque for the display face, matching the reference's
+     wordmark, over a plain neutral sans for copy. */
+  --font-display:'Archivo','Inter',sans-serif;
+  --font-body:'Inter','Archivo',sans-serif;
+
+  --paper:#0A0A0B; --card:#151517; --ink:#FFFFFF; --muted:#9C9CA4;
+  --line:#27272B; --lilac:#1C1C20; --lilac-deep:#2A2A2F;
+  --accent:#FF6B00; --accent-ink:#FF8A33; --accent2:#FFB020;
+  --sand:#241A0F; --sage:#132018; --blush:#241416; --sky:#141A22;
+  --ok:#4ADE80; --warn:#FFB020; --danger:#FF7A66; --danger-bg:#2A1512; --secondary:#FFB020;
+  --nav-ink:#C7C7CE; --nav-ink-strong:#FFFFFF; --nav-label:#8A8A92;
+  --nav-hover:rgba(255,107,0,.10);
+  --glass-bg:rgba(10,10,11,.62);
+  --glass-bg-strong:rgba(21,21,23,.82);
+  --glass-border:rgba(255,255,255,.10);
+  --glass-line:rgba(255,255,255,.09);
+  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.06);
+  --shadow:0 1px 2px rgba(0,0,0,.60),0 10px 26px -14px rgba(0,0,0,.80);
+  --shadow-glass:0 1px 2px rgba(0,0,0,.60),0 10px 26px -14px rgba(0,0,0,.80);
+  --shadow-glass-lift:0 4px 10px rgba(0,0,0,.64),0 20px 40px -18px rgba(0,0,0,.86);
+  --r:16px;
+  --t-bg:#0F0F11; --t-card:#151517; --t-ink:#FFFFFF; --t-ink2:#9C9CA4;
+  --t-border:#27272B;
+}
+/* Registered so the spotlight can EASE in and out. A plain custom
+   property is not animatable; this is the only thing @property buys
+   here, and var(--redsun-glow,0) below keeps the fallback sane. */
+@property --redsun-glow{syntax:"<number>";inherits:false;initial-value:0}
+
+/* Ambient wash following the viewport cursor. z-index:-1 puts it above
+   the page background (which body propagates to the canvas) and below
+   every piece of content. --cursor-x/y are written by js/cursor-glow.js;
+   the fallback centres it, so a keyboard-only session sees a static
+   glow rather than nothing. */
+html[data-skin="redsun"] body::after{
+  content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:radial-gradient(460px 460px at var(--cursor-x,50vw) var(--cursor-y,38vh),
+    rgba(255,107,0,.14), rgba(255,107,0,.05) 42%, transparent 72%);
+}
+/* Per-card spotlight, as a background LAYER rather than a pseudo-element
+   so it never covers the card's own text. --glow-x/y are card-local. */
+html[data-skin="redsun"] .card{
+  background-image:radial-gradient(320px 320px at var(--glow-x,50%) var(--glow-y,-30%),
+    rgb(255 107 0 / calc(var(--redsun-glow,0) * 18%)), transparent 72%);
+  transition:box-shadow .22s var(--ease),transform .22s var(--ease),--redsun-glow .35s var(--ease);
+}
+html[data-skin="redsun"] .card.has-cursor-glow{--redsun-glow:1}
+
+/* The reference's orange does not sit, it blooms — this is the one
+   place that is spent literally. The shared .btn-primary rule hardcodes
+   near-white text, 2.86:1 on this orange, so the ink flips too. */
+html[data-skin="redsun"] .btn-primary{
+  color:#14100C;
+  box-shadow:0 0 0 1px rgba(255,107,0,.35),0 6px 26px -6px rgba(255,107,0,.55);
+}
+html[data-skin="redsun"] .btn-primary:hover{
+  box-shadow:0 0 0 1px rgba(255,107,0,.45),0 10px 34px -8px rgba(255,107,0,.70);
+}
+/* Wide and heavy, as the wordmark is. */
+html[data-skin="redsun"] :is(h1,h2,.display,.brand-name,.section-title,.greet h1){
+  font-weight:700;letter-spacing:-.015em;
 }
 
 /* ============================================================

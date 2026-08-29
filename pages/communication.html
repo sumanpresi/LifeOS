@@ -14,9 +14,9 @@
   (function () {
     var BASE = { light:"light", advocate:"light", belle:"light", empowerx:"light",
                  procyon:"light", quantiva:"light", credix:"light", capra:"dark",
-                 investra:"dark", egnis:"dark", warm:"dark" };
+                 investra:"dark", redsun:"dark", egnis:"dark", warm:"dark" };
     var SKIN = { warm:"warm", capra:"capra", quantiva:"quantiva", credix:"credix", investra:"investra",
-                 advocate:"advocate",
+                 redsun:"redsun", advocate:"advocate",
                  belle:"belle", empowerx:"empowerx", procyon:"procyon", egnis:"egnis" };
     var RETIRED = { dark:"warm", light:"quantiva" }; /* see js/theme.js */
     function apply(v) {
@@ -207,6 +207,28 @@ html[data-skin="capra"]{
   --margin-rule:#A78BFA;
   --board:#232323;
   --shadow:0 1px 2px rgba(0,0,0,.40), 0 8px 24px -14px rgba(0,0,0,.62);
+}
+html[data-skin="redsun"]{
+  /* A wide grotesque display over a plain neutral sans, as the reference
+     pairs its wordmark with its copy. */
+  --display:"Archivo","Plus Jakarta Sans",sans-serif;
+  --body:"Inter","Archivo",sans-serif;
+  --paper:#0A0A0B;
+  --card:#151517;
+  --ink:#FFFFFF;
+  --ink-soft:#C7C7CE;
+  --ink-faint:#9C9CA4;
+  --rule:#27272B;
+  /* --blue is this page's accent ROLE. Redsun has exactly one accent
+     and it is orange — strong enough at 6.39:1 to be used literally as
+     foreground, unlike Investra's coral. */
+  --blue:#FF6B00;      --blue-tint:#241A0F;
+  --green:#4ADE80;     --green-tint:#132018;
+  --red:#FF7A66;       --red-tint:#2A1512;
+  --amber:#FFB020;     --amber-tint:#241C0C;
+  --margin-rule:#FF6B00;
+  --board:#0F0F11;
+  --shadow:0 1px 2px rgba(0,0,0,.60), 0 8px 24px -14px rgba(0,0,0,.80);
 }
 html[data-skin="investra"]{
   /* The reference's serif-over-grotesque pairing is the one thing this

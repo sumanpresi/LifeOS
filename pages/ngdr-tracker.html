@@ -13,9 +13,9 @@
   (function () {
     var BASE = { light:"light", advocate:"light", belle:"light", empowerx:"light",
                  procyon:"light", quantiva:"light", credix:"light", capra:"dark",
-                 investra:"dark", egnis:"dark", warm:"dark" };
+                 investra:"dark", redsun:"dark", egnis:"dark", warm:"dark" };
     var SKIN = { warm:"warm", capra:"capra", quantiva:"quantiva", credix:"credix", investra:"investra",
-                 advocate:"advocate",
+                 redsun:"redsun", advocate:"advocate",
                  belle:"belle", empowerx:"empowerx", procyon:"procyon", egnis:"egnis" };
     var RETIRED = { dark:"warm", light:"quantiva" }; /* see js/theme.js */
     function apply(v) {
@@ -90,6 +90,11 @@
     --bg:#2B2B2B; --card:#333333; --ink:#F5F5F5; --muted:#A5A5A5; --border:#454545;
     --gold:#E8BE74; --gold-light:#F0D09A; --teal:#A78BFA; --teal-light:#C0AEFC;
     --good:#5FD09A; --bad:#F0907C;
+  }
+  html[data-skin="redsun"]{
+    --bg:#0A0A0B; --card:#151517; --ink:#FFFFFF; --muted:#9C9CA4; --border:#27272B;
+    --gold:#FFB020; --gold-light:#FFC757; --teal:#FF6B00; --teal-light:#FF8A33;
+    --good:#4ADE80; --bad:#FF7A66;
   }
   html[data-skin="investra"]{
     --bg:#22343D; --card:#2A3D47; --ink:#FFFFFF; --muted:#B0BDC4; --border:#3B4F59;
