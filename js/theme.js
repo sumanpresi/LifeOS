@@ -27,9 +27,9 @@
    ============================================================ */
 
 const KEY = "lifeos-theme";
-export const THEMES = ["light", "quantiva", "egnis", "warm"];
-const LABEL = { light: "Light", quantiva: "Quantiva", egnis: "Egnis", warm: "Warm Glass" };
-const ICON = { light: "☀", quantiva: "◈", egnis: "◐", warm: "✦" };
+export const THEMES = ["light", "quantiva", "motion", "egnis", "warm"];
+const LABEL = { light: "Light", quantiva: "Quantiva", motion: "Motion Genie", egnis: "Egnis", warm: "Warm Glass" };
+const ICON = { light: "☀", quantiva: "◈", motion: "◉", egnis: "◐", warm: "✦" };
 
 /* Dark is no longer offered, but it is still REACHABLE state: it is the
    base Warm Glass is built on, and anyone who chose it before this change
@@ -41,11 +41,11 @@ const RETIRED = { dark: "warm" };
 /* A theme is a BASE plus an optional SKIN. The base decides which of the
    two big rule sets applies — the 117 dark rules or the default light
    ones — and the skin repaints the variables on top. Warm Glass is dark
-   repainted; Quantiva is light repainted. Keeping this as a table means a
+   repainted; Quantiva and Motion Genie are light repainted. Keeping this as a table means a
    new theme is one row here rather than another branch in four places. */
-const BASE = { light: "light", quantiva: "light", egnis: "dark", warm: "dark" };
-const SKIN = { warm: "warm", quantiva: "quantiva", egnis: "egnis" };
-const BAR  = { light: "#F3EEE4", quantiva: "#FBF5E8", egnis: "#0B1519", warm: "#2A211A" };
+const BASE = { light: "light", quantiva: "light", motion: "light", egnis: "dark", warm: "dark" };
+const SKIN = { warm: "warm", quantiva: "quantiva", motion: "motion", egnis: "egnis" };
+const BAR  = { light: "#F3EEE4", quantiva: "#FBF5E8", motion: "#F4F7FB", egnis: "#0B1519", warm: "#2A211A" };
 
 function stored() {
   try {
