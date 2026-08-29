@@ -37,22 +37,25 @@
          theme flashes its base palette before the module loads, which is
          the exact flash this script exists to prevent. */
     var BASE = { light:"light", advocate:"light", belle:"light", empowerx:"light",
-                 procyon:"light", quantiva:"light", motion:"light", egnis:"dark", warm:"dark" };
-    var SKIN = { warm:"warm", quantiva:"quantiva", motion:"motion", advocate:"advocate", belle:"belle",
-                 empowerx:"empowerx", procyon:"procyon", egnis:"egnis" };
-    var RETIRED = { dark:"warm" }; /* see js/theme.js */
+                 procyon:"light", quantiva:"light", credix:"light", capra:"dark",
+                 investra:"dark", egnis:"dark", warm:"dark" };
+    var SKIN = { warm:"warm", capra:"capra", quantiva:"quantiva", credix:"credix", investra:"investra",
+                 advocate:"advocate",
+                 belle:"belle", empowerx:"empowerx", procyon:"procyon", egnis:"egnis" };
+    var RETIRED = { dark:"warm", light:"quantiva" }; /* see js/theme.js */
     function applyTheme(v) {
       var r = document.documentElement;
       if (RETIRED[v]) v = RETIRED[v];
       if (!BASE[v]) {
-        v = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "warm" : "light";
+        v = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "warm" : "quantiva";
       }
       r.setAttribute("data-theme", BASE[v]);
       if (SKIN[v]) r.setAttribute("data-skin", SKIN[v]); else r.removeAttribute("data-skin");
       return v;
     }
       var BAR = { light:"#F3EEE4", advocate:"#EEF1F4", belle:"#F7F1EE", empowerx:"#F5F1F1",
-                  procyon:"#FDF3EA", quantiva:"#FBF5E8", motion:"#F4F7FB", egnis:"#0B1519", warm:"#2A211A" };
+                  procyon:"#FDF3EA", quantiva:"#FBF5E8", credix:"#BFD5EF", capra:"#2B2B2B",
+                  investra:"#22343D", egnis:"#0B1519", warm:"#2A211A" };
       var v = applyTheme(localStorage.getItem("lifeos-theme"));
       var m = document.querySelector('meta[name="theme-color"]');
       if (m && BAR[v]) m.setAttribute("content", BAR[v]);
@@ -91,14 +94,14 @@
      which shows up as new controls rendering completely unstyled — and is
      nearly impossible to diagnose from a screenshot, because the code on
      disk is correct. Bump on every release. -->
-<link rel="stylesheet" href="css/style.css?v=202608300130">
+<link rel="stylesheet" href="css/style.css?v=202608301040">
 <!-- Foldable/tablet/mobile layout layer — loaded after style.css on purpose.
      It overrides that file's tablet breakpoint (wrap-to-grid board,
      off-canvas drawer sidebar) with an icon-rail sidebar and a
      horizontally-scrolling, fixed-width Kanban board for Z Fold 6 inner
      (~883px), iPad mini/iPad (~768–1024px), and a bottom tab bar for
      phones (<=600px, incl. iPhone 17 Pro Max ~440px and fold cover screens). -->
-<link rel="stylesheet" href="css/responsive-foldable.css?v=202608300130">
+<link rel="stylesheet" href="css/responsive-foldable.css?v=202608301040">
 </head>
 <body>
 <div class="shell">
@@ -207,17 +210,17 @@
              say where all three go, and reaching any of them is one tap
              instead of up to two. -->
         <div class="theme-swatches" role="radiogroup" aria-label="Theme" id="themeSwatches">
-          <button type="button" class="theme-swatch" data-theme-pick="light"
-            role="radio" aria-checked="false" title="Light" onclick="setTheme('light')">
-            <span class="theme-swatch-dot" aria-hidden="true"></span><span class="sr-only">Light</span>
+          <button type="button" class="theme-swatch" data-theme-pick="capra"
+            role="radio" aria-checked="false" title="Capra" onclick="setTheme('capra')">
+            <span class="theme-swatch-dot" aria-hidden="true"></span><span class="sr-only">Capra</span>
           </button>
           <button type="button" class="theme-swatch" data-theme-pick="quantiva"
             role="radio" aria-checked="false" title="Quantiva" onclick="setTheme('quantiva')">
             <span class="theme-swatch-dot" aria-hidden="true"></span><span class="sr-only">Quantiva</span>
           </button>
-          <button type="button" class="theme-swatch" data-theme-pick="motion"
-            role="radio" aria-checked="false" title="Motion Genie" onclick="setTheme('motion')">
-            <span class="theme-swatch-dot" aria-hidden="true"></span><span class="sr-only">Motion Genie</span>
+          <button type="button" class="theme-swatch" data-theme-pick="credix"
+            role="radio" aria-checked="false" title="Credix" onclick="setTheme('credix')">
+            <span class="theme-swatch-dot" aria-hidden="true"></span><span class="sr-only">Credix</span>
           </button>
           <button type="button" class="theme-swatch" data-theme-pick="egnis"
             role="radio" aria-checked="false" title="Egnis" onclick="setTheme('egnis')">
@@ -226,6 +229,10 @@
           <button type="button" class="theme-swatch" data-theme-pick="warm"
             role="radio" aria-checked="false" title="Warm Glass" onclick="setTheme('warm')">
             <span class="theme-swatch-dot" aria-hidden="true"></span><span class="sr-only">Warm Glass</span>
+          </button>
+          <button type="button" class="theme-swatch" data-theme-pick="investra"
+            role="radio" aria-checked="false" title="Investra" onclick="setTheme('investra')">
+            <span class="theme-swatch-dot" aria-hidden="true"></span><span class="sr-only">Investra</span>
           </button>
         </div>
         <span class="pill dot" id="syncPill">Local only</span>
@@ -1730,6 +1737,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script type="module" src="js/app.js?v=202608300130"></script>
+<script type="module" src="js/app.js?v=202608301040"></script>
 </body>
 </html>
