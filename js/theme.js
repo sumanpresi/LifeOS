@@ -6,12 +6,13 @@
    phone that switches to dark at sunset takes the app with it without
    anyone having configured anything.
 
-   "warm" (Warm Glass) is not a third data-theme value. It IS the dark
-   theme with a different palette: it sets data-theme="dark" alongside
-   data-skin="warm", so all 117 dark rules in the stylesheet apply
-   untouched and only the hues are overridden. Adding a genuine third
-   value would have meant duplicating every one of them, and remembering
-   to duplicate every future one.
+   Only two of them are real data-theme values. "warm" (Warm Glass) is the
+   DARK theme repainted, and "quantiva" is the LIGHT theme repainted: each
+   sets its base in data-theme and its palette in data-skin, so all 117
+   dark rules and every light rule apply untouched and only the variables
+   change. Genuine extra data-theme values would have meant duplicating
+   every one of those rules, and remembering to duplicate every future
+   one. See the BASE/SKIN table below.
 
    The preference is stored in localStorage rather than in `state`. It is
    a per-device setting — a desktop under office lighting and a phone in
@@ -26,9 +27,18 @@
    ============================================================ */
 
 const KEY = "lifeos-theme";
-export const THEMES = ["light", "dark", "warm"];
-const LABEL = { light: "Light", dark: "Dark", warm: "Warm Glass" };
-const ICON = { light: "☀", dark: "☾", warm: "✦" };
+export const THEMES = ["light", "dark", "warm", "quantiva"];
+const LABEL = { light: "Light", dark: "Dark", warm: "Warm Glass", quantiva: "Quantiva" };
+const ICON = { light: "☀", dark: "☾", warm: "✦", quantiva: "◈" };
+
+/* A theme is a BASE plus an optional SKIN. The base decides which of the
+   two big rule sets applies — the 117 dark rules or the default light
+   ones — and the skin repaints the variables on top. Warm Glass is dark
+   repainted; Quantiva is light repainted. Keeping this as a table means a
+   new theme is one row here rather than another branch in four places. */
+const BASE = { light: "light", dark: "dark", warm: "dark", quantiva: "light" };
+const SKIN = { warm: "warm", quantiva: "quantiva" };
+const BAR  = { light: "#F3EEE4", dark: "#1A1917", warm: "#2A211A", quantiva: "#FBF5E8" };
 
 function stored() {
   try { const v = localStorage.getItem(KEY); return THEMES.includes(v) ? v : null; }
@@ -46,15 +56,13 @@ export function effectiveTheme() {
 
 function apply(theme) {
   const root = document.documentElement;
-  // Warm Glass rides on the dark rules; see the note at the top.
-  root.setAttribute("data-theme", theme === "warm" ? "dark" : theme);
-  if (theme === "warm") root.setAttribute("data-skin", "warm");
+  root.setAttribute("data-theme", BASE[theme] || "light");
+  if (SKIN[theme]) root.setAttribute("data-skin", SKIN[theme]);
   else root.removeAttribute("data-skin");
   // Keeps the browser UI (form controls, scrollbars, address bar on
   // mobile) in step with the page instead of leaving a light strip.
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute("content",
-    theme === "warm" ? "#2A211A" : theme === "dark" ? "#1A1917" : "#F3EEE4");
+  if (meta) meta.setAttribute("content", BAR[theme] || BAR.light);
   syncToggleUi(theme);
 }
 
