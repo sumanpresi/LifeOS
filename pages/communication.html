@@ -7,6 +7,40 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script>
+  /* Inline and blocking, for the same reason index.html does this: run
+     from a module it would land after first paint and every load of a
+     dark-themed app would flash a full-brightness page inside the frame. */
+  (function () {
+    function apply(v) {
+      var r = document.documentElement;
+      if (v !== "light" && v !== "dark" && v !== "warm") {
+        v = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+      }
+      r.setAttribute("data-theme", v === "warm" ? "dark" : v);
+      if (v === "warm") r.setAttribute("data-skin", "warm");
+      else r.removeAttribute("data-skin");
+    }
+    try { apply(localStorage.getItem("lifeos-theme")); } catch (e) {}
+    /* Same origin, so the parent writing the key raises `storage` in here.
+       The event does not fire in the document that made the change, which
+       is exactly the split we want: parent writes, frame listens. */
+    window.addEventListener("storage", function (e) {
+      if (e.key === "lifeos-theme") { try { apply(e.newValue); } catch (_) {} }
+    });
+    if (window.matchMedia) {
+      var mq = matchMedia("(prefers-color-scheme: dark)");
+      var onSys = function () {
+        try {
+          var v = localStorage.getItem("lifeos-theme");
+          if (v !== "light" && v !== "dark" && v !== "warm") apply(null);
+        } catch (_) {}
+      };
+      if (mq.addEventListener) mq.addEventListener("change", onSys);
+      else if (mq.addListener) mq.addListener(onSys);
+    }
+  })();
+</script>
 <style>
 :root{
   --paper:#EDF0F4;
@@ -42,6 +76,55 @@
      column was already running to 95 characters on a large screen, so
      widening it further would have made reading harder, not easier. */
   --measure:68ch;
+}
+
+/* ============================================================
+   THEMES
+   ============================================================
+   This page is loaded in an iframe, and CSS custom properties do not
+   cross a document boundary — which is why it stayed on its light blue
+   palette while the rest of the app went dark. It needs its own copies.
+
+   It does not need its own PLUMBING, though: the frame is same-origin,
+   so it reads the same localStorage key the parent writes, and the
+   `storage` event fires in every other same-origin document when the
+   parent changes it. No postMessage, no parent-side code, no load-order
+   race.
+
+   Every value below was checked against this page's own card surface:
+   the lowest is 5.48:1 in dark and 6.07:1 in warm, both clear of AA.
+   ============================================================ */
+html[data-theme="dark"]{
+  --paper:#1A1917;
+  --card:#23221F;
+  --ink:#EDE9E0;
+  --ink-soft:#B6AE9D;
+  --ink-faint:#9E9787;
+  --rule:#35332E;
+  --blue:#93B4DE;      --blue-tint:#232B35;
+  --green:#7FB98F;     --green-tint:#1F2B24;
+  --red:#E8836C;       --red-tint:#33221E;
+  --amber:#DFAC66;     --amber-tint:#332A1C;
+  --margin-rule:#D96A5B;
+  --board:#243A33;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -14px rgba(0,0,0,.7);
+}
+html[data-skin="warm"]{
+  --paper:#2A211A;
+  --card:#33281F;
+  --ink:#F4EDE3;
+  --ink-soft:#CBBFAE;
+  --ink-faint:#B2A799;
+  --rule:#4A3B30;
+  /* --blue is this page's accent role, not a promise of the colour. In
+     Warm Glass a blue accent would be the one cold thing on screen. */
+  --blue:#9BB48C;      --blue-tint:#2F3529;
+  --green:#4ECB8D;     --green-tint:#22332A;
+  --red:#F5967E;       --red-tint:#3D2820;
+  --amber:#E3B26A;     --amber-tint:#3A2D1D;
+  --margin-rule:#DFA079;
+  --board:#2E3A2C;
+  --shadow:0 1px 2px rgba(20,14,9,.42), 0 8px 24px -14px rgba(20,14,9,.7);
 }
 body.teacher{ --accent:var(--board); --accent-tint:#E3EDE9; }
 

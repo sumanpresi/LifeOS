@@ -7,6 +7,25 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+  /* See pages/communication.html for why this is inline and blocking, and
+     why a same-origin `storage` listener is all the plumbing needed. */
+  (function () {
+    function apply(v) {
+      var r = document.documentElement;
+      if (v !== "light" && v !== "dark" && v !== "warm") {
+        v = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+      }
+      r.setAttribute("data-theme", v === "warm" ? "dark" : v);
+      if (v === "warm") r.setAttribute("data-skin", "warm");
+      else r.removeAttribute("data-skin");
+    }
+    try { apply(localStorage.getItem("lifeos-theme")); } catch (e) {}
+    window.addEventListener("storage", function (e) {
+      if (e.key === "lifeos-theme") { try { apply(e.newValue); } catch (_) {} }
+    });
+  })();
+</script>
 <style>
   :root{
     --navy-950:#0A1F33;
@@ -24,6 +43,20 @@
     --good:#2E7D46;
     --bad:#B3372C;
     --radius:12px;
+  }
+  /* Same story as pages/communication.html: an iframe is its own document,
+     so the app's variables never reach it and this stayed light while
+     everything around it went dark. Checked against --card in each theme;
+     the lowest is 5.5:1. */
+  html[data-theme="dark"]{
+    --bg:#1A1917; --card:#23221F; --ink:#EDE9E0; --muted:#9E9787; --border:#35332E;
+    --gold:#D9A441; --gold-light:#E7BC66; --teal:#5FA79A; --teal-light:#84C2B6;
+    --good:#7FB98F; --bad:#E8836C;
+  }
+  html[data-skin="warm"]{
+    --bg:#2A211A; --card:#33281F; --ink:#F4EDE3; --muted:#B2A799; --border:#4A3B30;
+    --gold:#E3B26A; --gold-light:#EFCB92; --teal:#8FB9A4; --teal-light:#A9CDBB;
+    --good:#4ECB8D; --bad:#F5967E;
   }
   *{box-sizing:border-box}
   body{

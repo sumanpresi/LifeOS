@@ -502,6 +502,38 @@ html.sidebar-hidden .main{--main-pad-x:28px;padding-left:28px}
 .meeting textarea{width:100%;border:none;background:var(--paper);border-radius:8px;padding:9px 11px;margin-top:8px;
   outline:none;resize:vertical;min-height:64px;line-height:1.5}
 
+/* ---------- theme swatches ----------
+   Each circle is filled with that theme's own paper colour, so the
+   control is a sample of the result rather than a label describing it.
+   The fills are literal, not var()-driven: a swatch has to show the
+   theme it OFFERS, and var(--paper) would show the theme you are
+   already in, making all three identical. */
+.theme-swatches{display:inline-flex;align-items:center;gap:6px;padding:4px 6px;
+  border-radius:999px;border:1px solid var(--glass-line);background:var(--glass-bg);flex:0 0 auto}
+.theme-swatch{
+  width:26px;height:26px;padding:0;border:none;background:transparent;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
+  transition:transform .15s var(--ease);
+}
+.theme-swatch:hover{transform:scale(1.12)}
+.theme-swatch-dot{
+  width:17px;height:17px;border-radius:50%;display:block;
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.16);
+}
+[data-theme-pick="light"] .theme-swatch-dot{background:linear-gradient(145deg,#F7F2E7,#E9E1D0)}
+[data-theme-pick="dark"]  .theme-swatch-dot{background:linear-gradient(145deg,#2B2A32,#141419)}
+[data-theme-pick="warm"]  .theme-swatch-dot{background:linear-gradient(145deg,#8A7059,#3B2F27)}
+/* A ring rather than a tick: it reads at 17px, where a glyph would not. */
+.theme-swatch.is-active{box-shadow:0 0 0 2px var(--accent)}
+.theme-swatch:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0 0 0 0);white-space:nowrap;border:0}
+@media(max-width:767px){
+  .theme-swatches{gap:4px;padding:3px 5px}
+  .theme-swatch{width:24px;height:24px}
+  .theme-swatch-dot{width:15px;height:15px}
+}
+
 /* ---------- v0.3: embedded Communication page ---------- */
 .iframe-page{
   width:100%;
@@ -509,8 +541,11 @@ html.sidebar-hidden .main{--main-pad-x:28px;padding-left:28px}
   min-height:720px;
   border:1px solid var(--line);
   border-radius:var(--r);
-  background:#fff;
+  /* Was #fff, which showed as a white slab behind the frame before its
+     document painted — and stayed white at the edges under a dark theme. */
+  background:var(--card);
   box-shadow:var(--shadow);
+  color-scheme:normal;
 }
 @media(max-width:767px){
   .iframe-page{height:calc(100vh - 120px);min-height:600px;border-radius:12px}
