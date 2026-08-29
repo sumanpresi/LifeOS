@@ -10,6 +10,7 @@ import * as gsi from './gsi.js';
 import * as personal from './personal.js';
 import * as share from './share.js';
 import * as theme from './theme.js';
+import { initCursorGlow } from './cursor-glow.js';
 import * as composer from './composer.js';
 import { initDropToAttach, handleIncomingShare } from './attach.js';
 import * as finance from './finance.js';
@@ -300,6 +301,9 @@ backup.backupReminderIfDue();
 initDropToAttach();
 handleIncomingShare();
 theme.initTheme();
+/* Reads pointer position into two CSS variables. Only the Redsun skin
+   uses them; every other theme is unaffected. See js/cursor-glow.js. */
+initCursorGlow();
 taskModal.syncModalFromUrl();
 // A page loaded with ?board=… opens that board, once the account it
 // belongs to has finished loading. Wired with callbacks rather than

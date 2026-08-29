@@ -1,8 +1,8 @@
 /* ============================================================
    Theme
    ============================================================
-   Six named themes — Capra, Quantiva, Credix, Egnis, Warm Glass and
-   Investra — plus no stored choice at
+   Seven named themes — Capra, Quantiva, Credix, Egnis, Warm Glass,
+   Investra and Redsun — plus no stored choice at
    all, which is the default and means "follow the operating system", so a
    phone that switches to dark at sunset takes the app with it without
    anyone having configured anything.
@@ -28,9 +28,9 @@
    ============================================================ */
 
 const KEY = "lifeos-theme";
-export const THEMES = ["capra", "quantiva", "credix", "egnis", "warm", "investra"];
-const LABEL = { capra: "Capra", quantiva: "Quantiva", credix: "Credix", egnis: "Egnis", warm: "Warm Glass", investra: "Investra" };
-const ICON = { capra: "⬤", quantiva: "◈", credix: "◉", egnis: "◐", warm: "✦", investra: "❖" };
+export const THEMES = ["capra", "quantiva", "credix", "egnis", "warm", "investra", "redsun"];
+const LABEL = { capra: "Capra", quantiva: "Quantiva", credix: "Credix", egnis: "Egnis", warm: "Warm Glass", investra: "Investra", redsun: "Redsun" };
+const ICON = { capra: "⬤", quantiva: "◈", credix: "◉", egnis: "◐", warm: "✦", investra: "❖", redsun: "☉" };
 
 /* Retired names are still REACHABLE state: they remain the bases the
    skins are built on, and anyone who chose one before it was retired
@@ -42,15 +42,15 @@ const RETIRED = { dark: "warm", light: "quantiva" };
 
 /* A theme is a BASE plus an optional SKIN. The base decides which of the
    two big rule sets applies — the 117 dark rules or the default light
-   ones — and the skin repaints the variables on top. Warm Glass, Capra and Investra
-   are dark repainted; Quantiva and Credix are light repainted. Keeping this as a table means a
+   ones — and the skin repaints the variables on top. Warm Glass, Capra, Investra and
+   Redsun are dark repainted; Quantiva and Credix are light repainted. Keeping this as a table means a
    new theme is one row here rather than another branch in four places. */
 /* "light" stays in BASE without being in THEMES: it is no longer an
    offered theme, but it is still the base every light skin is painted
    over and still the fallback apply() lands on. */
-const BASE = { light: "light", capra: "dark", quantiva: "light", credix: "light", egnis: "dark", warm: "dark", investra: "dark" };
-const SKIN = { warm: "warm", capra: "capra", quantiva: "quantiva", credix: "credix", egnis: "egnis", investra: "investra" };
-const BAR  = { light: "#F3EEE4", capra: "#2B2B2B", quantiva: "#FBF5E8", credix: "#BFD5EF", egnis: "#0B1519", warm: "#2A211A", investra: "#22343D" };
+const BASE = { light: "light", capra: "dark", quantiva: "light", credix: "light", egnis: "dark", warm: "dark", investra: "dark", redsun: "dark" };
+const SKIN = { warm: "warm", capra: "capra", quantiva: "quantiva", credix: "credix", egnis: "egnis", investra: "investra", redsun: "redsun" };
+const BAR  = { light: "#F3EEE4", capra: "#2B2B2B", quantiva: "#FBF5E8", credix: "#BFD5EF", egnis: "#0B1519", warm: "#2A211A", investra: "#22343D", redsun: "#0A0A0B" };
 
 function stored() {
   try {
