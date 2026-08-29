@@ -9,6 +9,7 @@
 import { state, uid, esc, persist, rerender, touch } from './state.js';
 import { isComposerOpen, composerHtml, openComposer, nativeColumnAccepts } from './composer.js';
 import { toast, autoGrow, preserveBoardScroll } from './ui.js';
+import { releaseDragGhost } from './drag-cleanup.js';
 import { moveToTrash } from './trash.js';
 import { syncTaskToGoogle } from './google-calendar.js';
 import { getAllGsiTasksFlat, findProjectTask, editProjectTask, setTaskStatus as setGsiTaskStatus,
@@ -67,6 +68,10 @@ export function toggleSortByDate() {
 // ---------- Drag-to-reorder (List view, Default sort only) ----------
 let sortableInstances = [];
 function destroySortables() {
+  /* Before destroy(), never after: destroy() calls Sortable's _onDrop()
+     with no event, which skips the branch that removes the drag clone and
+     then nulls the only reference to it. See js/drag-cleanup.js. */
+  releaseDragGhost();
   sortableInstances.forEach(s => { try { s.destroy(); } catch (e) { /* already gone with its container — fine */ } });
   sortableInstances = [];
 }
@@ -126,7 +131,7 @@ function handleTaskDragEnd(evt) {
   markDragJustEnded(); // a drop lands a click on the card — don't let it open the task
   const draggedId = evt.item.dataset.taskId;
   const draggedTask = state.tasks.find(t => t.id === draggedId);
-  if (!draggedTask) { renderTasks(); return; } // shouldn't happen — GSI rows can't be dragged — but stay safe rather than silently do nothing
+  if (!draggedTask) { rerender(); return; } // shouldn't happen — GSI rows can't be dragged — but stay safe rather than silently do nothing
   const orderedIds = Array.from(evt.to.children).map(el => el.dataset.taskId).filter(Boolean);
   const idx = orderedIds.indexOf(draggedId);
   // Walk outward past any interspersed GSI task ids (which have no
@@ -152,12 +157,25 @@ function handleTaskDragEnd(evt) {
     afterPos == null ? beforePos + 1000 :
     (beforePos + afterPos) / 2;
   persist();
-  renderTasks();
+  /* rerender() rather than renderTasks(). Two reasons, both visible.
+
+     Ordering: onEnd runs INSIDE Sortable's _onDrop, so a synchronous
+     render re-enters destroy() -> _onDrop() while the outer _onDrop is
+     still walking its own cleanup. Deferring by a frame lets Sortable
+     finish first.
+
+     Flicker: the mutation helpers already call rerender(), which
+     coalesces to one frame. A synchronous render on top of that rebuilt
+     the list immediately AND again a frame later — two full passes per
+     drop, each replaying the card entry animation. That double rebuild
+     is the flash after a move. */
+  rerender();
 }
 
 // ---------- Board view drag-and-drop (six columns, cross-column moves) ----------
 let boardSortableInstances = [];
 function destroyBoardSortables() {
+  releaseDragGhost();   // see destroySortables above
   boardSortableInstances.forEach(s => { try { s.destroy(); } catch (e) { /* already gone with its container */ } });
   boardSortableInstances = [];
 }
@@ -356,6 +374,10 @@ function initBoardSorting() {
       fallbackTolerance: 4,
       ghostClass: "t-row-ghost", dragClass: "t-row-dragging", chosenClass: "t-row-chosen",
       scroll: true, scrollSensitivity: 90, scrollSpeed: 12,
+      /* An empty column is a 5px target by default, which on a Kanban
+         board is the one drop everybody misses — there is no card in it
+         to aim at. 28px makes "somewhere in that column" enough. */
+      emptyInsertThreshold: 28,
       /* onChoose, not just onStart: Sortable calls _appendGhost() — which
          MEASURES the source card to place the clone — before it dispatches
          "start". Adding the class in onStart alone lands after that
@@ -374,7 +396,7 @@ function handleBoardDragEnd(evt) {
   const draggedId = evt.item.dataset.taskId;
   const fromCol = evt.from.closest(".t-board-col")?.dataset.boardCol;
   const toCol = evt.to.closest(".t-board-col")?.dataset.boardCol;
-  if (!draggedId || !toCol) { renderTasks(); return; }
+  if (!draggedId || !toCol) { rerender(); return; }
   if (fromCol === toCol) {
     // Reordering within one column — identical position math to List
     // view's own reorder, it doesn't care what shape the container is.
@@ -395,7 +417,7 @@ function handleBoardDragEnd(evt) {
      now dates the task yesterday instead of refusing. The `ok === false`
      branch is kept as a backstop in case a future column needs to decline
      one, since silently swallowing a refused move would look like a bug. */
-  renderTasks();
+  rerender();   // deferred and coalesced — see handleTaskDragEnd above
   if (ok === false) toast("That task can't move there");
 }
 // Every actual mutation here goes through the exact same functions the

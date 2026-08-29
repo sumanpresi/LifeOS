@@ -8,6 +8,7 @@ import { isComposerOpen, composerHtml, openComposer } from './composer.js';
 import { markDragJustEnded, boardColHeadHtml, isColCollapsed, capBoardColumnHeights, initBoardWheelScroll,
          applyHorizon, horizonWrapHtml } from './tasks.js';
 import { toast, autoGrow, preserveBoardScroll } from './ui.js';
+import { releaseDragGhost } from './drag-cleanup.js';
 import { describeLink } from './attach.js';
 import { moveToTrash } from './trash.js';
 import { checkGrammar } from './text-tools.js';
@@ -340,6 +341,10 @@ export function setGsiTaskView(v) {
 }
 let gsiBoardSortables = [];
 function destroyGsiBoardSortables() {
+  /* Before destroy(), never after: destroy() calls Sortable's _onDrop()
+     with no event, which skips the branch that removes the drag clone and
+     then nulls the only reference to it. See js/drag-cleanup.js. */
+  releaseDragGhost();
   gsiBoardSortables.forEach(s => { try { s.destroy(); } catch (e) { /* already gone with its container */ } });
   gsiBoardSortables = [];
 }
@@ -399,6 +404,10 @@ function initGsiBoardSorting() {
       onStart: () => document.body.classList.add("is-dragging"),
       ghostClass: "t-row-ghost", dragClass: "t-row-dragging", chosenClass: "t-row-chosen",
       scroll: true, scrollSensitivity: 90, scrollSpeed: 12,
+      /* An empty column is a 5px target by default, which on a Kanban
+         board is the one drop everybody misses — there is no card in it
+         to aim at. 28px makes "somewhere in that column" enough. */
+      emptyInsertThreshold: 28,
       onEnd: (evt) => {
         document.body.classList.remove("is-dragging");
         markDragJustEnded(); // so the click that trails a drop doesn't open the task
@@ -409,7 +418,12 @@ function initGsiBoardSorting() {
            restored before the DOM it applies to has been rebuilt. */
         preserveBoardScroll(() => {
           if (taskId && toStatus) setTaskStatus(taskId, toStatus); // already persists, syncs, and re-renders
-          else renderProjects();
+          /* rerender() rather than renderProjects(): onEnd runs inside
+             Sortable's _onDrop, and a synchronous render re-enters
+             destroy() -> _onDrop() while the outer one is still cleaning
+             up. Deferred, it also coalesces with the render the status
+             setter above already queued instead of doubling it. */
+          else rerender();
         });
       },
     }));

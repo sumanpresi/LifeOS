@@ -215,6 +215,28 @@ export function isUserTyping() {
   });
 }
 
+/* ---------- the card entry animation belongs to NAVIGATION ----------
+   `.page.visible .card{animation:cardEnter}` fades every card up from
+   opacity 0 with a staggered 10px rise. Cards are rebuilt from scratch on
+   every render, so a brand-new element matched that rule and replayed the
+   animation — meaning the whole board flashed and re-rose after a task
+   was moved, after a sync landed, after any edit at all. It read as the
+   page reloading, which is exactly what was reported.
+
+   The animation is worth keeping for an actual page entry, which is what
+   it was written for. So the rule is now gated on a marker that only
+   navigation sets, and that expires: 300ms of animation plus the 120ms
+   maximum stagger, plus a frame of slack. A render inside that window
+   still animates, which is correct — the page really is arriving. */
+const PAGE_ENTER_MS = 460;
+let pageEnterTimer = null;
+function markPageEntering(el) {
+  clearTimeout(pageEnterTimer);
+  document.querySelectorAll(".page-entering").forEach(p => p.classList.remove("page-entering"));
+  el.classList.add("page-entering");
+  pageEnterTimer = setTimeout(() => el.classList.remove("page-entering"), PAGE_ENTER_MS);
+}
+
 export function go(page) {
   // A page change is *supposed* to jump to the top; don't let a render
   // queued by this navigation restore the old page's scroll position.
@@ -224,6 +246,7 @@ export function go(page) {
   const el = document.getElementById("page-" + page);
   if (el) {
     el.classList.add("visible");
+    markPageEntering(el);
     try { localStorage.setItem("lifeos-last-page", page); } catch (e) { /* private browsing etc. — non-critical */ }
     // Textareas/maps rendered while their page was hidden can't be measured
     // correctly (hidden elements report scrollHeight/size 0) — fix them up

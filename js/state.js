@@ -791,10 +791,37 @@ export function setRenderer(fn) { renderer = fn; }
    redraw, and lands it just before the browser paints rather than
    between paints where the work is invisible anyway. */
 let renderQueued = false;
+/* A render that lands mid-drag rewrites the board's innerHTML, which
+   destroys the very card the pointer is holding and leaves SortableJS
+   working against detached nodes — and, because init*Sorting() destroys
+   its instances first, strands the <body>-mounted drag clone permanently
+   (the whole story is in js/drag-cleanup.js). Renders arrive unbidden
+   from sync, so this was intermittent: it needed a background pull to
+   coincide with a lift.
+
+   Holding the frame until the lift ends fixes it at the source, and
+   costs nothing — the burst that arrives during a drag still collapses
+   into the single redraw the coalescing was already there to produce.
+
+   The deadline is the safety valve. body.is-dragging is cleared by
+   Sortable's own onEnd AND by the pointer-release net in app.js, so it
+   should never stick; if it somehow does, a stalled interface is a far
+   worse failure than a redraw landing mid-drag, so after a second the
+   render goes through regardless. */
+const DRAG_RENDER_DEADLINE_MS = 1000;
 export function rerender() {
   if (!renderer || renderQueued) return;
   renderQueued = true;
-  requestAnimationFrame(() => { renderQueued = false; renderer(); });
+  const deadline = Date.now() + DRAG_RENDER_DEADLINE_MS;
+  const frame = () => {
+    if (document.body.classList.contains("is-dragging") && Date.now() < deadline) {
+      requestAnimationFrame(frame);
+      return;
+    }
+    renderQueued = false;
+    renderer();
+  };
+  requestAnimationFrame(frame);
 }
 // For the few places that must see the DOM updated on the next line.
 export function rerenderNow() { if (renderer) renderer(); }

@@ -11,6 +11,7 @@ import * as personal from './personal.js';
 import * as share from './share.js';
 import * as theme from './theme.js';
 import { initCursorGlow } from './cursor-glow.js';
+import { releaseDragGhost } from './drag-cleanup.js';
 import * as composer from './composer.js';
 import { initDropToAttach, handleIncomingShare } from './attach.js';
 import * as finance from './finance.js';
@@ -296,7 +297,15 @@ backup.backupReminderIfDue();
    does not report — the app backgrounded mid-drag, a cancelled pointer —
    the board would keep its blur disabled until the next reload. */
 ["pointerup", "pointercancel", "touchend", "touchcancel", "blur"].forEach(evt =>
-  window.addEventListener(evt, () => document.body.classList.remove("is-dragging")));
+  window.addEventListener(evt, () => {
+    document.body.classList.remove("is-dragging");
+    /* And take the drag clone with it. Sortable's own document-level
+       handlers run before this one (document bubbles before window), so
+       in the normal case the clone is already gone and this is a no-op;
+       it only bites when Sortable lost track of it. See
+       js/drag-cleanup.js for how that happens. */
+    releaseDragGhost();
+  }));
 
 initDropToAttach();
 handleIncomingShare();
