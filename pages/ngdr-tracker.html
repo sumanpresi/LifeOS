@@ -11,12 +11,16 @@
   /* See pages/communication.html for why this is inline and blocking, and
      why a same-origin `storage` listener is all the plumbing needed. */
   (function () {
-    var BASE = { light:"light", dark:"dark", warm:"dark", quantiva:"light" };
-    var SKIN = { warm:"warm", quantiva:"quantiva" };
+    var BASE = { light:"light", advocate:"light", belle:"light", empowerx:"light",
+                 procyon:"light", quantiva:"light", egnis:"dark", warm:"dark" };
+    var SKIN = { warm:"warm", quantiva:"quantiva", advocate:"advocate", belle:"belle",
+                 empowerx:"empowerx", procyon:"procyon", egnis:"egnis" };
+    var RETIRED = { dark:"warm" }; /* see js/theme.js */
     function apply(v) {
       var r = document.documentElement;
+      if (RETIRED[v]) v = RETIRED[v];
       if (!BASE[v]) {
-        v = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+        v = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "warm" : "light";
       }
       r.setAttribute("data-theme", BASE[v]);
       if (SKIN[v]) r.setAttribute("data-skin", SKIN[v]); else r.removeAttribute("data-skin");
@@ -54,6 +58,31 @@
     --bg:#1A1917; --card:#23221F; --ink:#EDE9E0; --muted:#9E9787; --border:#35332E;
     --gold:#D9A441; --gold-light:#E7BC66; --teal:#5FA79A; --teal-light:#84C2B6;
     --good:#7FB98F; --bad:#E8836C;
+  }
+  html[data-skin="egnis"]{
+    --bg:#0B1519; --card:#12232A; --ink:#EFF4F5; --muted:#9FB3B9; --border:#22383F;
+    --gold:#E0B368; --gold-light:#EBCB93; --teal:#7FC7D2; --teal-light:#A6DBE3;
+    --good:#5FC79B; --bad:#F0907C;
+  }
+  html[data-skin="procyon"]{
+    --bg:#FDF3EA; --card:#FFFBF6; --ink:#141414; --muted:#5B5750; --border:#E4D8CA;
+    --gold:#8A5A0B; --gold-light:#B07615; --teal:#1F6F76; --teal-light:#2E8C94;
+    --good:#1F6F4B; --bad:#A83A2C;
+  }
+  html[data-skin="empowerx"]{
+    --bg:#F5F1F1; --card:#FFFFFF; --ink:#141414; --muted:#5A5556; --border:#E4DDDD;
+    --gold:#8A6212; --gold-light:#A87D22; --teal:#8B1A1E; --teal-light:#A33036;
+    --good:#2E6B4F; --bad:#A33036;
+  }
+  html[data-skin="belle"]{
+    --bg:#F7F1EE; --card:#FDFAF8; --ink:#22384A; --muted:#5B6670; --border:#E8DED8;
+    --gold:#976213; --gold-light:#B07C22; --teal:#1D4A50; --teal-light:#3F7A5E;
+    --good:#3F7A5E; --bad:#A9433A;
+  }
+  html[data-skin="advocate"]{
+    --bg:#EEF1F4; --card:#FFFFFF; --ink:#171A1D; --muted:#5A6067; --border:#DEE3E8;
+    --gold:#8A6212; --gold-light:#A87D22; --teal:#22262B; --teal-light:#4A5158;
+    --good:#2E6B4F; --bad:#A33A30;
   }
   html[data-skin="quantiva"]{
     --bg:#FBF5E8; --card:#FFFDF6; --ink:#0E1210; --muted:#5C6360; --border:#E6E2D4;

@@ -513,8 +513,10 @@ html.sidebar-hidden .main{--main-pad-x:28px;padding-left:28px}
    The fills are literal, not var()-driven: a swatch has to show the
    theme it OFFERS, and var(--paper) would show the theme you are
    already in, making all three identical. */
-.theme-swatches{display:inline-flex;align-items:center;gap:6px;padding:4px 6px;
-  border-radius:999px;border:1px solid var(--glass-line);background:var(--glass-bg);flex:0 0 auto}
+/* flex-wrap because there are eight of these now; at that count the row
+   has to be allowed to break rather than push the header wider. */
+.theme-swatches{display:inline-flex;align-items:center;flex-wrap:wrap;gap:5px;padding:4px 6px;
+  border-radius:16px;border:1px solid var(--glass-line);background:var(--glass-bg);flex:0 1 auto}
 .theme-swatch{
   width:26px;height:26px;padding:0;border:none;background:transparent;border-radius:50%;
   display:inline-flex;align-items:center;justify-content:center;cursor:pointer;
@@ -526,9 +528,13 @@ html.sidebar-hidden .main{--main-pad-x:28px;padding-left:28px}
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.16);
 }
 [data-theme-pick="light"] .theme-swatch-dot{background:linear-gradient(145deg,#F7F2E7,#E9E1D0)}
-[data-theme-pick="dark"]  .theme-swatch-dot{background:linear-gradient(145deg,#2B2A32,#141419)}
+[data-theme-pick="advocate"] .theme-swatch-dot{background:linear-gradient(145deg,#FAFBFC 46%,#22262B 46%)}
 [data-theme-pick="warm"]  .theme-swatch-dot{background:linear-gradient(145deg,#8A7059,#3B2F27)}
 [data-theme-pick="quantiva"] .theme-swatch-dot{background:linear-gradient(145deg,#FBF5E8 46%,#12503C 46%)}
+[data-theme-pick="belle"] .theme-swatch-dot{background:linear-gradient(145deg,#F7F1EE 46%,#22384A 46%)}
+[data-theme-pick="egnis"]    .theme-swatch-dot{background:linear-gradient(145deg,#14454F 46%,#0B1519 46%)}
+[data-theme-pick="procyon"]  .theme-swatch-dot{background:linear-gradient(145deg,#FDF3EA 46%,#F97316 46%)}
+[data-theme-pick="empowerx"] .theme-swatch-dot{background:linear-gradient(145deg,#FFFFFF 46%,#8B1A1E 46%)}
 /* A ring rather than a tick: it reads at 17px, where a glyph would not. */
 .theme-swatch.is-active{box-shadow:0 0 0 2px var(--accent)}
 .theme-swatch:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -3951,6 +3957,276 @@ html[data-theme="dark"]{
 
 /* The mesh gradient is what the frost was blurring; with no blur it would
    just be a coloured smear behind flat panels. */
+/* ============================================================
+   EGNIS — cinematic teal-black, one tight grotesk
+   ============================================================
+   A skin over the DARK base, like Warm Glass. It is the only cool dark
+   theme in the set: Warm Glass is warm, and Dark itself was retired, so
+   this fills that gap rather than duplicating anything.
+
+   The reference is a film studio site — near-black with deep teal light
+   pooling behind it, a very large tight grotesk, and monospaced
+   small-caps labels. The labels are the one thing not reproduced: the app
+   has no separate label font role, and adding one would have meant
+   touching every label rule in the stylesheet. Noted rather than faked.
+
+   On the lightest panel (worst case for light text): ink 14.04:1,
+   muted 7.14:1, accents 6.66-10.28:1.
+   ============================================================ */
+html[data-skin="egnis"]{
+  --font-display:'Archivo','Inter',sans-serif;
+  --font-body:'Inter',sans-serif;
+  --paper:#0B1519; --card:#12222839; --ink:#EFF4F5; --muted:#9FB3B9;
+  --line:#22383F; --lilac:#132227; --lilac-deep:#1B2F36;
+  --accent:#7FC7D2; --accent-ink:#A6DBE3; --accent2:#E4B87C;
+  --sand:#1C2A2A; --sage:#152A2B; --blush:#2A1F22; --sky:#132B33;
+  --ok:#5FC79B; --warn:#E0B368; --danger:#F0907C; --danger-bg:#33201D; --secondary:#E4B87C;
+  --nav-ink:#C2D2D7; --nav-ink-strong:#EFF4F5; --nav-label:#9FB3B9;
+  --nav-hover:rgba(255,255,255,.07);
+  --glass-bg:rgba(11,21,25,.62);
+  --glass-bg-strong:rgba(14,27,32,.80);
+  --glass-border:rgba(200,236,243,.18);
+  --glass-line:rgba(200,236,243,.16);
+  --glass-highlight:inset 0 1px 0 rgba(200,236,243,.14);
+  --shadow:0 1px 2px rgba(0,0,0,.45),0 12px 30px -16px rgba(0,0,0,.7);
+  --shadow-glass:0 1px 2px rgba(0,0,0,.45),0 12px 30px -16px rgba(0,0,0,.7);
+  --shadow-glass-lift:0 4px 12px rgba(0,0,0,.5),0 22px 46px -20px rgba(0,0,0,.78);
+  --r:8px; /* the reference is squared off almost everywhere */
+  --t-bg:#0D1B20; --t-card:#152A31; --t-ink:#EFF4F5; --t-ink2:#9FB3B9; --t-border:#22383F;
+}
+html[data-skin="egnis"] body{
+  background:
+    radial-gradient(1200px 900px at 78% -14%, #14454F 0%, transparent 58%),
+    radial-gradient(900px 760px at 18% 8%, #123A44 0%, transparent 56%),
+    radial-gradient(900px 800px at 60% 90%, #0F2A31 0%, transparent 60%),
+    linear-gradient(165deg,#0E2029 0%,#0B1519 60%,#080F12 100%);
+  background-attachment:fixed;
+}
+/* Very large, very tight — the reference's headline is set almost solid. */
+html[data-skin="egnis"] :is(h1,h2,.display,.brand-name,.section-title,.greet h1){
+  font-weight:700;letter-spacing:-.03em;
+}
+
+/* ============================================================
+   PROCYON — cream, black, orange, monospaced throughout
+   ============================================================
+   A skin over the LIGHT base.
+
+   The reference sets EVERYTHING in a monospace, headings and body alike,
+   on cream with black rules and an orange accent. That is reproduced
+   faithfully, with one warning worth stating plainly: the Notebook is a
+   full-page text editor, and monospace body copy at length is tiring to
+   read. Changing --font-body below to 'Inter' keeps the look and gives
+   the reading back — a one-line edit if it bothers you.
+
+   The orange also had to move. The reference's #F97316 is a FILL colour
+   behind black text; used as text on cream it measures 4.31:1. It is kept
+   at full strength for fills (black on it reads 6.57:1) and deepened to
+   #B84E08 wherever it has to carry text.
+
+   On the darkest panel: ink 17.60:1, muted 6.86:1, accents 4.86-6.07:1.
+   ============================================================ */
+html[data-skin="procyon"]{
+  --font-display:'JetBrains Mono','SFMono-Regular',monospace;
+  --font-body:'JetBrains Mono','SFMono-Regular',monospace;
+  --paper:#FDF3EA; --card:#FFFBF6; --ink:#141414; --muted:#5B5750;
+  --line:#E4D8CA; --lilac:#F7EDE2; --lilac-deep:#E9DBCB;
+  --accent:#141414; --accent-ink:#000000; --accent2:#B84E08;
+  --sand:#F8EAD8; --sage:#E9EEE6; --blush:#FBE6D8; --sky:#E3EFF0;
+  --ok:#1F6F4B; --warn:#8A5A0B; --danger:#A83A2C; --danger-bg:#F8E6E2; --secondary:#1F6F76;
+  --nav-ink:#3A362F; --nav-ink-strong:#141414; --nav-label:#666158;
+  --nav-hover:rgba(249,115,22,.10);
+  --glass-bg:rgba(255,251,246,.84);
+  --glass-bg-strong:rgba(255,251,246,.94);
+  --glass-border:rgba(20,20,20,.14);
+  --glass-line:rgba(20,20,20,.14);
+  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.6);
+  /* Hard-edged shadows: the reference outlines in solid black rather than
+     blurring, and a soft shadow under a black rule looks like a mistake. */
+  --shadow:0 2px 0 rgba(20,20,20,.10);
+  --shadow-glass:0 2px 0 rgba(20,20,20,.10);
+  --shadow-glass-lift:0 4px 0 rgba(20,20,20,.14);
+  --r:4px;
+  --t-bg:#F8EEE3; --t-card:#FFFBF6; --t-ink:#141414; --t-ink2:#5B5750; --t-border:#E4D8CA;
+}
+html[data-skin="procyon"] body{
+  background:
+    radial-gradient(1000px 800px at 88% -10%, rgba(249,115,22,.10), transparent 58%),
+    radial-gradient(900px 760px at 8% 84%, rgba(31,111,118,.08), transparent 60%),
+    linear-gradient(170deg,#FEF6EE 0%,#FDF3EA 60%,#FBEDE2 100%);
+  background-attachment:fixed;
+}
+html[data-skin="procyon"] :is(h1,h2,.display,.brand-name,.section-title,.greet h1){
+  font-weight:700;letter-spacing:-.01em;
+}
+
+/* ============================================================
+   EMPOWERX — white, near-black, deep crimson
+   ============================================================
+   A skin over the LIGHT base.
+
+   The reference is a consulting site: white pages, black type, and a deep
+   crimson band that carries the brand. The crimson is used here as the
+   accent rather than as a full-bleed band, since the app has no
+   equivalent of a hero strip.
+
+   On the darkest panel: ink 18.14:1, muted 7.21:1, accents 5.39-11.65:1.
+   ============================================================ */
+html[data-skin="empowerx"]{
+  --font-display:'Jost','Inter',sans-serif;
+  --font-body:'Inter',sans-serif;
+  --paper:#F5F1F1; --card:#FFFFFF; --ink:#141414; --muted:#5A5556;
+  --line:#E4DDDD; --lilac:#F3EDED; --lilac-deep:#E2D8D8;
+  --accent:#8B1A1E; --accent-ink:#6E1417; --accent2:#A33036;
+  --sand:#F6EFEA; --sage:#EAEFEB; --blush:#F8EAEA; --sky:#EBEFF3;
+  --ok:#2E6B4F; --warn:#8A6212; --danger:#A33036; --danger-bg:#F8E7E7; --secondary:#A33036;
+  --nav-ink:#3B3738; --nav-ink-strong:#141414; --nav-label:#6A6566;
+  --nav-hover:rgba(139,26,30,.08);
+  --glass-bg:rgba(255,255,255,.86);
+  --glass-bg-strong:rgba(255,255,255,.95);
+  --glass-border:rgba(255,255,255,.9);
+  --glass-line:rgba(20,20,20,.09);
+  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.8);
+  --shadow:0 1px 2px rgba(20,20,20,.05),0 12px 28px -18px rgba(20,20,20,.26);
+  --shadow-glass:0 1px 2px rgba(20,20,20,.05),0 12px 28px -18px rgba(20,20,20,.26);
+  --shadow-glass-lift:0 4px 12px rgba(20,20,20,.07),0 22px 44px -20px rgba(20,20,20,.3);
+  --r:12px;
+  --t-bg:#F2EDED; --t-card:#FFFFFF; --t-ink:#141414; --t-ink2:#5A5556; --t-border:#E4DDDD;
+}
+html[data-skin="empowerx"] body{
+  background:
+    radial-gradient(1100px 860px at 12% -10%, #FFFFFF, transparent 60%),
+    radial-gradient(1000px 820px at 90% 4%, rgba(139,26,30,.10), transparent 56%),
+    linear-gradient(160deg,#FAF8F8 0%,#F5F1F1 60%,#F0EAEA 100%);
+  background-attachment:fixed;
+}
+/* Light and open, as the reference's headline is. */
+html[data-skin="empowerx"] :is(h1,h2,.display,.brand-name,.section-title,.greet h1){
+  font-weight:400;letter-spacing:-.01em;
+}
+
+/* ============================================================
+   BELLE AMOUR — blush paper, deep navy, a light old-style serif
+   ============================================================
+   A skin over the LIGHT base, like Advocate and Quantiva.
+
+   The reference is a wedding template: warm blush-tinted paper, deep
+   navy-teal type, and a dusty rose used only for small marks. Its display
+   face is a light, wide-set old-style serif, which is where nearly all of
+   the character lives.
+
+   Two colours from the reference had to be darkened to be usable as TEXT.
+   The dusty rose it uses for icons measures 3.23:1 on this paper — fine
+   for an icon, which carries no reading load, but the app spends that
+   variable on labels and counts as well. Deepened until it cleared 4.5,
+   and the same for the nav label grey. Everything else is the reference's
+   own value.
+
+   On the darkest panel: ink 11.38:1, muted 5.51:1, accents 4.84-12.71:1,
+   white on the navy button 12.12:1.
+   ============================================================ */
+html[data-skin="belle"]{
+  /* A light old-style serif against a humanist sans — the pairing this
+     genre is built on. Both are best-guess identifications; see the note
+     in the reply. */
+  --font-display:'Cormorant Garamond',Georgia,serif;
+  --font-body:'Nunito Sans','Inter',sans-serif;
+
+  --paper:#F7F1EE; --card:#FDFAF8; --ink:#22384A; --muted:#5B6670;
+  --line:#E8DED8; --lilac:#F3EAE6; --lilac-deep:#E3D6D0;
+  --accent:#1D4A50; --accent-ink:#16323A; --accent2:#A65449;
+  --sand:#F5EAE1; --sage:#E7EDE8; --blush:#F6E7E2; --sky:#E7EEF1;
+  --ok:#3F7A5E; --warn:#976213; --danger:#A9433A; --danger-bg:#F8E7E3; --secondary:#A65449;
+  --nav-ink:#3B4A56; --nav-ink-strong:#22384A; --nav-label:#636E79;
+  --nav-hover:rgba(255,255,255,.72);
+  --glass-bg:rgba(253,250,248,.82);
+  --glass-bg-strong:rgba(253,250,248,.94);
+  --glass-border:rgba(255,255,255,.9);
+  --glass-line:rgba(34,56,74,.10);
+  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.75);
+  --shadow:0 1px 2px rgba(34,56,74,.05),0 12px 30px -18px rgba(34,56,74,.24);
+  --shadow-glass:0 1px 2px rgba(34,56,74,.05),0 12px 30px -18px rgba(34,56,74,.24);
+  --shadow-glass-lift:0 4px 12px rgba(34,56,74,.07),0 22px 46px -20px rgba(34,56,74,.3);
+  --r:10px; /* the reference's buttons are near-square outlines */
+  --t-bg:#F4ECE8; --t-card:#FDFAF8; --t-ink:#22384A; --t-ink2:#5B6670; --t-border:#E8DED8;
+}
+/* Warm blush wash with the faintest rose and sage pooling. */
+html[data-skin="belle"] body{
+  background:
+    radial-gradient(1100px 860px at 10% -8%, #FDF8F5, transparent 60%),
+    radial-gradient(900px 760px at 88% 6%, rgba(196,117,108,.10), transparent 58%),
+    radial-gradient(900px 780px at 74% 82%, rgba(29,74,80,.07), transparent 60%),
+    linear-gradient(160deg,#FBF6F3 0%,#F7F1EE 58%,#F3EBE7 100%);
+  background-attachment:fixed;
+}
+/* Light and wide-set, which is how the reference's headings read. A
+   light weight at UI sizes needs the extra tracking to stay legible. */
+html[data-skin="belle"] :is(h1,h2,.display,.brand-name,.section-title,.greet h1){
+  font-weight:500;letter-spacing:.02em;
+}
+
+/* ============================================================
+   ADVOCATE — cool paper, charcoal, a high-contrast serif
+   ============================================================
+   Replaces Dark in the theme picker. A skin over the LIGHT base, the
+   same shape as Quantiva.
+
+   IMPORTANT: the html[data-theme="dark"] rules are NOT removed. Warm
+   Glass is built on them — it is the dark theme repainted — so deleting
+   them to "remove dark" would have taken Warm Glass with it. Dark is
+   gone from the picker; its rule set stays as Warm Glass's foundation,
+   and Warm Glass is now the dark-appearing option.
+
+   The reference is monochrome: a cool white-to-silver page, near-black
+   charcoal for buttons and headings, and no colour accent anywhere. The
+   character comes from the typography rather than from hue, so the
+   functional colours are held back to the quietest values that still
+   read as green/amber/red at a glance.
+
+   Contrast on the darkest panel this glass produces: ink 16.9:1, muted
+   6.14:1, every accent 4.84-17.99:1, white on charcoal 15.2:1.
+   ============================================================ */
+html[data-skin="advocate"]{
+  /* A Didone display against a neutral grotesque — the pairing the
+     reference is built on. Inter is already loaded for the app. */
+  --font-display:'Playfair Display',Georgia,serif;
+  --font-body:'Inter',sans-serif;
+
+  --paper:#EEF1F4; --card:#FFFFFF; --ink:#171A1D; --muted:#5A6067;
+  --line:#DEE3E8; --lilac:#EDEFF2; --lilac-deep:#DADFE5;
+  --accent:#22262B; --accent-ink:#101316; --accent2:#4A5158;
+  --sand:#F0EFEB; --sage:#E7ECE8; --blush:#F1EAE8; --sky:#E6EBF0;
+  --ok:#2E6B4F; --warn:#8A6212; --danger:#A33A30; --danger-bg:#F6E7E4; --secondary:#4A5158;
+  --nav-ink:#3A4046; --nav-ink-strong:#171A1D; --nav-label:#697077;
+  --nav-hover:rgba(255,255,255,.75);
+  --glass-bg:rgba(255,255,255,.80);
+  --glass-bg-strong:rgba(255,255,255,.93);
+  --glass-border:rgba(255,255,255,.9);
+  --glass-line:rgba(23,26,29,.10);
+  --glass-highlight:inset 0 1px 0 rgba(255,255,255,.8);
+  --shadow:0 1px 2px rgba(23,26,29,.05),0 12px 28px -18px rgba(23,26,29,.28);
+  --shadow-glass:0 1px 2px rgba(23,26,29,.05),0 12px 28px -18px rgba(23,26,29,.28);
+  --shadow-glass-lift:0 4px 12px rgba(23,26,29,.07),0 22px 44px -20px rgba(23,26,29,.32);
+  /* Squarer than the other themes: the reference's restraint comes partly
+     from tighter corners. */
+  --r:14px;
+  --t-bg:#EDF0F3; --t-card:#FFFFFF; --t-ink:#171A1D; --t-ink2:#5A6067; --t-border:#DEE3E8;
+}
+/* No colour pools — a cool silver wash, light at the top left and
+   deepening toward the lower right, as in the reference. */
+html[data-skin="advocate"] body{
+  background:
+    radial-gradient(1200px 900px at 12% -10%, #FFFFFF, transparent 60%),
+    radial-gradient(1000px 820px at 88% 8%, #F4F6F8, transparent 58%),
+    linear-gradient(155deg,#FAFBFC 0%,#EEF1F4 55%,#E4E9EE 100%);
+  background-attachment:fixed;
+}
+/* A Didone at UI sizes needs its hairlines given room, so headings run
+   slightly larger and looser than the other themes' display face. */
+html[data-skin="advocate"] :is(h1,h2,.display,.brand-name,.section-title,.greet h1){
+  font-weight:600;letter-spacing:0;
+}
+
 /* ============================================================
    QUANTIVA — cream paper, deep green, one geometric sans
    ============================================================

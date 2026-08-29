@@ -12,12 +12,16 @@
      from a module it would land after first paint and every load of a
      dark-themed app would flash a full-brightness page inside the frame. */
   (function () {
-    var BASE = { light:"light", dark:"dark", warm:"dark", quantiva:"light" };
-    var SKIN = { warm:"warm", quantiva:"quantiva" };
+    var BASE = { light:"light", advocate:"light", belle:"light", empowerx:"light",
+                 procyon:"light", quantiva:"light", egnis:"dark", warm:"dark" };
+    var SKIN = { warm:"warm", quantiva:"quantiva", advocate:"advocate", belle:"belle",
+                 empowerx:"empowerx", procyon:"procyon", egnis:"egnis" };
+    var RETIRED = { dark:"warm" }; /* see js/theme.js */
     function apply(v) {
       var r = document.documentElement;
+      if (RETIRED[v]) v = RETIRED[v];
       if (!BASE[v]) {
-        v = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "dark" : "light";
+        v = (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches) ? "warm" : "light";
       }
       r.setAttribute("data-theme", BASE[v]);
       if (SKIN[v]) r.setAttribute("data-skin", SKIN[v]); else r.removeAttribute("data-skin");
@@ -43,7 +47,7 @@
     }
   })();
 </script>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&family=Cormorant+Garamond:wght@400;500;600&family=Nunito+Sans:wght@400;600;700&family=Archivo:wght@600;700&family=JetBrains+Mono:wght@400;500;700&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 :root{
   --paper:#EDF0F4;
@@ -111,6 +115,73 @@ html[data-theme="dark"]{
   --margin-rule:#D96A5B;
   --board:#243A33;
   --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -14px rgba(0,0,0,.7);
+}
+html[data-skin="egnis"]{
+  --display:"Archivo","Inter",sans-serif; --body:"Inter",sans-serif;
+  --paper:#0B1519; --card:#12232A; --ink:#EFF4F5; --ink-soft:#C2D2D7; --ink-faint:#9FB3B9;
+  --rule:#22383F;
+  --blue:#7FC7D2;  --blue-tint:#122C33;
+  --green:#5FC79B; --green-tint:#122A25;
+  --red:#F0907C;   --red-tint:#2E1D1A;
+  --amber:#E0B368; --amber-tint:#2C2418;
+  --margin-rule:#7FC7D2; --board:#123138;
+  --shadow:0 1px 2px rgba(0,0,0,.45), 0 8px 24px -14px rgba(0,0,0,.75);
+}
+html[data-skin="procyon"]{
+  --display:"JetBrains Mono",monospace; --body:"JetBrains Mono",monospace;
+  --paper:#FDF3EA; --card:#FFFBF6; --ink:#141414; --ink-soft:#403C36; --ink-faint:#5B5750;
+  --rule:#E4D8CA;
+  --blue:#1F6F76;  --blue-tint:#E4EFF0;
+  --green:#1F6F4B; --green-tint:#E4EFE9;
+  --red:#A83A2C;   --red-tint:#F8E6E2;
+  --amber:#8A5A0B; --amber-tint:#F6EEDC;
+  --margin-rule:#B84E08; --board:#1F2A2B;
+  --shadow:0 2px 0 rgba(20,20,20,.10);
+}
+html[data-skin="empowerx"]{
+  --display:"Jost","Inter",sans-serif; --body:"Inter",sans-serif;
+  --paper:#F5F1F1; --card:#FFFFFF; --ink:#141414; --ink-soft:#3B3738; --ink-faint:#5A5556;
+  --rule:#E4DDDD;
+  --blue:#8B1A1E;  --blue-tint:#F6E9E9;
+  --green:#2E6B4F; --green-tint:#E6EEE9;
+  --red:#A33036;   --red-tint:#F8E7E7;
+  --amber:#8A6212; --amber-tint:#F4EEDF;
+  --margin-rule:#8B1A1E; --board:#3A2224;
+  --shadow:0 1px 2px rgba(20,20,20,.05), 0 8px 24px -14px rgba(20,20,20,.3);
+}
+html[data-skin="belle"]{
+  --display:"Cormorant Garamond",Georgia,serif;
+  --body:"Nunito Sans","Inter",sans-serif;
+  --paper:#F7F1EE;
+  --card:#FDFAF8;
+  --ink:#22384A;
+  --ink-soft:#44515C;
+  --ink-faint:#5B6670;
+  --rule:#E8DED8;
+  --blue:#1D4A50;      --blue-tint:#E6EEF0;
+  --green:#3F7A5E;     --green-tint:#E7F0EB;
+  --red:#A9433A;       --red-tint:#F8E7E3;
+  --amber:#976213;     --amber-tint:#F6EEE0;
+  --margin-rule:#A65449;
+  --board:#22384A;
+  --shadow:0 1px 2px rgba(34,56,74,.05), 0 8px 24px -14px rgba(34,56,74,.3);
+}
+html[data-skin="advocate"]{
+  --display:"Playfair Display",Georgia,serif;
+  --body:"Inter",system-ui,sans-serif;
+  --paper:#EEF1F4;
+  --card:#FFFFFF;
+  --ink:#171A1D;
+  --ink-soft:#3F464C;
+  --ink-faint:#5A6067;
+  --rule:#DEE3E8;
+  --blue:#22262B;      --blue-tint:#E9EDF1;
+  --green:#2E6B4F;     --green-tint:#E6EEE9;
+  --red:#A33A30;       --red-tint:#F6E7E4;
+  --amber:#8A6212;     --amber-tint:#F4EEDF;
+  --margin-rule:#22262B;
+  --board:#22303A;
+  --shadow:0 1px 2px rgba(23,26,29,.05), 0 8px 24px -14px rgba(23,26,29,.3);
 }
 html[data-skin="quantiva"]{
   /* One sans throughout, as in the reference — this page normally pairs
