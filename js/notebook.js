@@ -217,12 +217,33 @@ function ensureOpenSeed(activeId) {
     }
   } catch (_) {}
 }
-export function toggleNotebookSectionOpen(id) {
+function toggleSectionFold(id) {
   const set = openSectionSet();
   if (set.has(id)) set.delete(id); else set.add(id);
   saveOpenSections(set);
   renderNotebook();
 }
+
+/* ONE behaviour for the whole section row, triangle included.
+
+   Splitting them meant the triangle folded without selecting while the
+   name selected without folding, so which of the two things happened
+   depended on where in the row you landed. Now:
+
+     • a section you are NOT in  → move into it and unfold it
+     • the section you ARE in    → fold it, or unfold it again
+
+   So the first click always takes you somewhere, and clicking the same
+   section again is what closes it. The triangle does exactly this too —
+   it stays as the indicator of open/closed, but it can no longer disagree
+   with the row it sits in. */
+export function notebookSectionClick(id) {
+  const nb = ensureNotebook();
+  if (nb.activeSection === id) { toggleSectionFold(id); return; }
+  switchNotebookSection(id); // selects, and unfolds as part of selecting
+}
+// Kept as the named fold action for anything that wants it directly.
+export const toggleNotebookSectionOpen = toggleSectionFold;
 
 /* Adding a page to a named section, rather than to "whichever section the
    header happens to be showing". Switches to that section first so the new
@@ -301,11 +322,11 @@ export function renderNotebook() {
       return `
       <div class="nb-sec" data-sec="${s.id}">
         <div class="nb-row nb-row-sec ${s.id === sec.id ? "active" : ""}" data-id="${s.id}"
-          onclick="switchNotebookSection('${s.id}')" ondblclick="renameOnDoubleClick('sec','${s.id}')">
+          onclick="notebookSectionClick('${s.id}')" ondblclick="renameOnDoubleClick('sec','${s.id}')">
           <span class="nb-color-bar" style="background:${NB_COLORS[s.color % NB_COLORS.length]}"></span>
           <button class="nb-twisty ${open ? "is-open" : ""}" aria-expanded="${open}"
-            title="${open ? "Collapse" : "Expand"} section"
-            onclick="event.stopPropagation();toggleNotebookSectionOpen('${s.id}')">▶</button>
+            title="${s.id === sec.id ? (open ? "Collapse section" : "Expand section") : "Open section"}"
+            onclick="event.stopPropagation();notebookSectionClick('${s.id}')">▶</button>
           ${rowName("sec", s, "Untitled section")}
           <button class="nb-row-act" title="Rename section" onclick="event.stopPropagation();startNotebookRename('sec','${s.id}')">✎</button>
           ${nb.sections.length > 1 ? `<button class="nb-row-del" title="Delete section" onclick="event.stopPropagation();delNotebookSection('${s.id}')">✕</button>` : ""}
