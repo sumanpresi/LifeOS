@@ -806,9 +806,19 @@ let renderQueued = false;
    The deadline is the safety valve. body.is-dragging is cleared by
    Sortable's own onEnd AND by the pointer-release net in app.js, so it
    should never stick; if it somehow does, a stalled interface is a far
-   worse failure than a redraw landing mid-drag, so after a second the
-   render goes through regardless. */
-const DRAG_RENDER_DEADLINE_MS = 1000;
+   worse failure than a redraw landing mid-drag, so after the deadline the
+   render goes through regardless.
+
+   1000ms used to be that deadline, but a deliberate human drag — pausing
+   over a column, dragging on a touch screen, crossing a wide board —
+   routinely runs longer than a second on its own. Any background render
+   that arrived during that first second (a sync pull, a calendar refresh)
+   would then force itself through WHILE the card was still actually being
+   held, rewriting the board out from under the pointer: the exact
+   mid-drag flash/reset this whole mechanism exists to prevent. Stretching
+   the valve to 8s keeps it as a backstop for a genuinely stuck flag
+   without it firing on ordinary, unhurried drags. */
+const DRAG_RENDER_DEADLINE_MS = 8000;
 export function rerender() {
   if (!renderer || renderQueued) return;
   renderQueued = true;
