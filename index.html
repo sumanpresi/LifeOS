@@ -73,14 +73,14 @@
      which shows up as new controls rendering completely unstyled — and is
      nearly impossible to diagnose from a screenshot, because the code on
      disk is correct. Bump on every release. -->
-<link rel="stylesheet" href="css/style.css?v=202608281420">
+<link rel="stylesheet" href="css/style.css?v=202608282210">
 <!-- Foldable/tablet/mobile layout layer — loaded after style.css on purpose.
      It overrides that file's tablet breakpoint (wrap-to-grid board,
      off-canvas drawer sidebar) with an icon-rail sidebar and a
      horizontally-scrolling, fixed-width Kanban board for Z Fold 6 inner
      (~883px), iPad mini/iPad (~768–1024px), and a bottom tab bar for
      phones (<=600px, incl. iPhone 17 Pro Max ~440px and fold cover screens). -->
-<link rel="stylesheet" href="css/responsive-foldable.css?v=202608281420">
+<link rel="stylesheet" href="css/responsive-foldable.css?v=202608282210">
 </head>
 <body>
 <div class="shell">
@@ -1216,27 +1216,28 @@
     <section class="page" id="page-notebook">
       <h1 class="display" style="font-size:28px;margin-bottom:14px">Notebook</h1>
       <div class="nb-layout">
-        <div class="nb-pane nb-pane-sections">
+        <!-- One tree instead of two columns: sections, with their pages
+             nested underneath. The width that the second column used to
+             occupy goes to the editor. -->
+        <div class="nb-pane nb-pane-tree">
           <div class="nb-pane-head">
             <span class="nb-pane-title">Sections</span>
             <button class="btn btn-ghost nb-add-btn" onclick="addNotebookSection()">+ Add section</button>
           </div>
-          <div class="nb-list" id="nbSectionList"></div>
-        </div>
-        <div class="nb-pane nb-pane-pages">
-          <div class="nb-pane-head">
-            <span class="nb-pane-title" id="nbActiveSectionLabel">Pages</span>
-            <button class="btn btn-ghost nb-add-btn" id="nbAddPageBtn" onclick="addNotebookPage()">+ Add page</button>
-          </div>
-          <div class="nb-list" id="nbPageList"></div>
+          <div class="nb-list nb-tree" id="nbSectionList"></div>
         </div>
         <div class="nb-pane nb-editor-pane">
           <div class="nb-editor-head">
+            <!-- Folds the tree away entirely. Visible where width is
+                 scarce; on a wide screen the tree costs little enough
+                 that hiding it is not worth a control. -->
+            <button class="nb-tree-toggle" id="nbTreeToggle" onclick="toggleNotebookTree()"
+              aria-label="Hide sections" aria-pressed="false" title="Sections">☰</button>
             <input type="text" id="nbPageTitleInput" class="nb-page-title" placeholder="Untitled page"
               onchange="renameNotebookPage(this.value)">
             <button class="del" id="nbPageDelBtn" onclick="delNotebookPage()" title="Delete this page">✕</button>
           </div>
-          <div class="nb-page-meta" id="nbPageMeta"></div>
+          <div class="nb-page-meta"><span id="nbCrumb" class="nb-crumb"></span><span id="nbPageMeta"></span></div>
           <div class="mm-rich-editor nb-rich-editor" id="nbPageEditor"></div>
         </div>
       </div>
@@ -1671,6 +1672,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script type="module" src="js/app.js?v=202608281420"></script>
+<script type="module" src="js/app.js?v=202608282210"></script>
 </body>
 </html>
