@@ -27,11 +27,9 @@
    ============================================================ */
 
 const KEY = "lifeos-theme";
-export const THEMES = ["light", "advocate", "belle", "empowerx", "procyon", "quantiva", "egnis", "warm"];
-const LABEL = { light: "Light", advocate: "Advocate", belle: "Belle Amour", empowerx: "EmpowerX",
-                procyon: "Procyon", quantiva: "Quantiva", egnis: "Egnis", warm: "Warm Glass" };
-const ICON = { light: "☀", advocate: "§", belle: "❦", empowerx: "◆", procyon: "▤",
-               quantiva: "◈", egnis: "◐", warm: "✦" };
+export const THEMES = ["light", "quantiva", "egnis", "warm"];
+const LABEL = { light: "Light", quantiva: "Quantiva", egnis: "Egnis", warm: "Warm Glass" };
+const ICON = { light: "☀", quantiva: "◈", egnis: "◐", warm: "✦" };
 
 /* Dark is no longer offered, but it is still REACHABLE state: it is the
    base Warm Glass is built on, and anyone who chose it before this change
@@ -45,12 +43,9 @@ const RETIRED = { dark: "warm" };
    ones — and the skin repaints the variables on top. Warm Glass is dark
    repainted; Quantiva is light repainted. Keeping this as a table means a
    new theme is one row here rather than another branch in four places. */
-const BASE = { light: "light", advocate: "light", belle: "light", empowerx: "light",
-               procyon: "light", quantiva: "light", egnis: "dark", warm: "dark" };
-const SKIN = { warm: "warm", quantiva: "quantiva", advocate: "advocate", belle: "belle",
-               empowerx: "empowerx", procyon: "procyon", egnis: "egnis" };
-const BAR  = { light: "#F3EEE4", advocate: "#EEF1F4", belle: "#F7F1EE", empowerx: "#F5F1F1",
-               procyon: "#FDF3EA", quantiva: "#FBF5E8", egnis: "#0B1519", warm: "#2A211A" };
+const BASE = { light: "light", quantiva: "light", egnis: "dark", warm: "dark" };
+const SKIN = { warm: "warm", quantiva: "quantiva", egnis: "egnis" };
+const BAR  = { light: "#F3EEE4", quantiva: "#FBF5E8", egnis: "#0B1519", warm: "#2A211A" };
 
 function stored() {
   try {
