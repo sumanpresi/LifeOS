@@ -2744,11 +2744,17 @@ html[data-theme="dark"]{--t-cal-chip-personal-bg:#33402F; --t-cal-chip-overdue-b
 /* ---- Card entrance — fades/lifts in once per page visit, then gets
    out of the way so the existing hover-lift (.card:hover) still works. ---- */
 @keyframes cardEnter{from{opacity:0;transform:translateY(10px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
-.page.visible .card{animation:cardEnter .3s var(--ease) backwards}
-.page.visible .card:nth-of-type(1){animation-delay:0ms}
-.page.visible .card:nth-of-type(2){animation-delay:40ms}
-.page.visible .card:nth-of-type(3){animation-delay:80ms}
-.page.visible .card:nth-of-type(4){animation-delay:120ms}
+/* `.page-entering` is set by go() in ui.js and expires after 460ms.
+   Without it this matched on EVERY render — cards are rebuilt from
+   scratch each time, so a fresh element replayed the fade-and-rise after
+   a task was moved, after a sync landed, after any edit. The board
+   appeared to reload. The animation is for arriving at a page, and now
+   only runs when that is what happened. */
+.page.visible.page-entering .card{animation:cardEnter .3s var(--ease) backwards}
+.page.visible.page-entering .card:nth-of-type(1){animation-delay:0ms}
+.page.visible.page-entering .card:nth-of-type(2){animation-delay:40ms}
+.page.visible.page-entering .card:nth-of-type(3){animation-delay:80ms}
+.page.visible.page-entering .card:nth-of-type(4){animation-delay:120ms}
 /* Desktop hover already exists (.card:hover) — this just brightens the
    glass slightly on top of the existing lift+shadow, per "brighten the
    glass panel" on hover. Desktop-only: coarse-pointer/touch devices
