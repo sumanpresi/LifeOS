@@ -176,53 +176,142 @@ export function commitNotebookRename(kind, id, v) {
   renderNotebook(); // rename*() returns early on a blank value, so render unconditionally
 }
 
+/* ---- which sections are unfolded ----
+   Per-device in localStorage, like every other view preference here: it
+   describes one screen's shape, not the notebook's contents, so it has no
+   business syncing or bumping the document rev. The section you are in is
+   always treated as open — collapsing the one you are reading would hide
+   the page you are looking at. */
+const NB_OPEN_KEY = "lifeos-nb-open";
+function openSectionSet() {
+  try { return new Set(JSON.parse(localStorage.getItem(NB_OPEN_KEY) || "[]")); }
+  catch (_) { return new Set(); }
+}
+function saveOpenSections(set) {
+  try { localStorage.setItem(NB_OPEN_KEY, JSON.stringify([...set])); } catch (_) {}
+}
+function isSectionOpen(id, activeId) {
+  return id === activeId || openSectionSet().has(id);
+}
+export function toggleNotebookSectionOpen(id) {
+  const sec = activeNbSection();
+  const set = openSectionSet();
+  /* Folding the active section would leave its open page invisible in the
+     tree, so folding it moves the selection out of it first — to the next
+     section along, which is what the person is evidently heading for. */
+  if (sec && sec.id === id && !set.has(id)) {
+    const nb = ensureNotebook();
+    const other = nb.sections.find(x => x.id !== id);
+    if (other) { set.delete(id); saveOpenSections(set); switchNotebookSection(other.id); return; }
+  }
+  if (set.has(id)) set.delete(id); else set.add(id);
+  saveOpenSections(set);
+  renderNotebook();
+}
+
+/* Adding a page to a named section, rather than to "whichever section the
+   header happens to be showing". Switches to that section first so the new
+   page opens where it was asked for. */
+export function addNotebookPageTo(sectionId) {
+  const nb = ensureNotebook();
+  if (nb.activeSection !== sectionId && nb.sections.some(s => s.id === sectionId)) {
+    const set = openSectionSet(); set.add(sectionId); saveOpenSections(set);
+    switchNotebookSection(sectionId);
+  }
+  addNotebookPage();
+}
+
+/* On a narrow screen the tree and the editor cannot both have the room
+   they want, so the tree folds away and the editor takes the width. */
+const NB_TREE_KEY = "lifeos-nb-tree";
+export function isNotebookTreeHidden() {
+  try { return localStorage.getItem(NB_TREE_KEY) === "hidden"; } catch (_) { return false; }
+}
+export function toggleNotebookTree(force) {
+  const hide = typeof force === "boolean" ? force : !isNotebookTreeHidden();
+  try { localStorage.setItem(NB_TREE_KEY, hide ? "hidden" : "shown"); } catch (_) {}
+  applyNotebookTreeState();
+}
+function applyNotebookTreeState() {
+  const page = document.getElementById("page-notebook");
+  if (page) page.classList.toggle("nb-tree-hidden", isNotebookTreeHidden());
+  const btn = document.getElementById("nbTreeToggle");
+  if (btn) {
+    const hidden = isNotebookTreeHidden();
+    btn.setAttribute("aria-label", hidden ? "Show sections" : "Hide sections");
+    btn.setAttribute("aria-pressed", hidden ? "true" : "false");
+  }
+}
+
 export function renderNotebook() {
   const nb = ensureNotebook();
   const sec = activeNbSection();
   if (sec && nb.activeSection !== sec.id) nb.activeSection = sec.id;
 
-  /* ---- sections column ---- */
-  const secList = document.getElementById("nbSectionList");
-  /* The rebuild is skipped while focus is inside this list, so a rename in
-     progress isn't yanked out from under the cursor. Selecting a row no
-     longer puts focus in here at all (the row is a plain tap target now),
-     so the `.active` class is reconciled separately below — `data-id` is
-     what that reconciliation matches rows on without rebuilding them. */
-  if (secList && !renamingInside(secList)) {
-    secList.innerHTML = nb.sections.map(s => `
-      <div class="nb-row ${s.id === sec.id ? "active" : ""}" data-id="${s.id}"
-        onclick="switchNotebookSection('${s.id}')" ondblclick="renameOnDoubleClick('sec','${s.id}')">
-        <span class="nb-color-bar" style="background:${NB_COLORS[s.color % NB_COLORS.length]}"></span>
-        ${rowName("sec", s, "Untitled section")}
-        <button class="nb-row-act" title="Rename section" onclick="event.stopPropagation();startNotebookRename('sec','${s.id}')">✎</button>
-        ${nb.sections.length > 1 ? `<button class="nb-row-del" title="Delete section" onclick="event.stopPropagation();delNotebookSection('${s.id}')">✕</button>` : ""}
-      </div>`).join("");
-  }
-  if (secList) secList.querySelectorAll(".nb-row").forEach(r => r.classList.toggle("active", r.dataset.id === sec.id));
+  /* ---- one tree, sections with their pages nested ----
 
-  /* ---- pages column ---- */
+     This replaced two side-by-side columns. Two columns spent roughly
+     420px of width permanently on lists that are mostly empty space, and
+     the pages column could only ever show one section's pages, so the
+     relationship between a page and its section was implied by which
+     column it sat in rather than shown. A tree costs one column, shows
+     that relationship directly, and hands the difference to the editor —
+     which is the part actually being used. */
   const page = activeNbPage(sec);
   if (page && sec.activePage !== page.id) sec.activePage = page.id;
-  const pageList = document.getElementById("nbPageList");
-  if (pageList && !renamingInside(pageList)) {
-    pageList.innerHTML = (sec.pages || []).map(p => `
-      <div class="nb-row ${page && p.id === page.id ? "active" : ""}" data-id="${p.id}"
-        onclick="switchNotebookPage('${p.id}')" ondblclick="renameOnDoubleClick('page','${p.id}')">
-        ${rowName("page", p, "Untitled page")}
-        <button class="nb-row-act" title="Rename page" onclick="event.stopPropagation();startNotebookRename('page','${p.id}')">✎</button>
-        ${sec.pages.length > 1 ? `<button class="nb-row-del" title="Delete page" onclick="event.stopPropagation();delNotebookPage('${p.id}')">✕</button>` : ""}
-      </div>`).join("") || `<p class="hint">No pages yet — "+ Add page" starts one.</p>`;
+
+  const secList = document.getElementById("nbSectionList");
+  /* The rebuild is skipped while a rename input inside it has focus, so
+     the field isn't yanked out from under the cursor. Selecting a row
+     doesn't put focus in here (rows are plain tap targets), so `.active`
+     is reconciled separately below against `data-id`. */
+  if (secList && !renamingInside(secList)) {
+    secList.innerHTML = nb.sections.map(s => {
+      const open = isSectionOpen(s.id, sec.id);
+      const pages = s.pages || [];
+      const pageRows = open ? pages.map(p => `
+        <div class="nb-row nb-row-page ${page && p.id === page.id ? "active" : ""}" data-id="${p.id}"
+          onclick="switchNotebookPage('${p.id}')" ondblclick="renameOnDoubleClick('page','${p.id}')">
+          ${rowName("page", p, "Untitled page")}
+          <button class="nb-row-act" title="Rename page" onclick="event.stopPropagation();startNotebookRename('page','${p.id}')">✎</button>
+          ${pages.length > 1 ? `<button class="nb-row-del" title="Delete page" onclick="event.stopPropagation();delNotebookPage('${p.id}')">✕</button>` : ""}
+        </div>`).join("") : "";
+      /* "+ Add page" belongs to the section it adds to, so it lives inside
+         that section rather than in a header that had to name which
+         section it meant. */
+      const addRow = open
+        ? `<button class="nb-add-page-row" onclick="event.stopPropagation();addNotebookPageTo('${s.id}')">+ Add page</button>`
+        : "";
+      return `
+      <div class="nb-sec" data-sec="${s.id}">
+        <div class="nb-row nb-row-sec ${s.id === sec.id ? "active" : ""}" data-id="${s.id}"
+          onclick="switchNotebookSection('${s.id}')" ondblclick="renameOnDoubleClick('sec','${s.id}')">
+          <span class="nb-color-bar" style="background:${NB_COLORS[s.color % NB_COLORS.length]}"></span>
+          <button class="nb-twisty ${open ? "is-open" : ""}" aria-expanded="${open}"
+            title="${open ? "Collapse" : "Expand"} section"
+            onclick="event.stopPropagation();toggleNotebookSectionOpen('${s.id}')">▶</button>
+          ${rowName("sec", s, "Untitled section")}
+          <button class="nb-row-act" title="Rename section" onclick="event.stopPropagation();startNotebookRename('sec','${s.id}')">✎</button>
+          ${nb.sections.length > 1 ? `<button class="nb-row-del" title="Delete section" onclick="event.stopPropagation();delNotebookSection('${s.id}')">✕</button>` : ""}
+        </div>
+        ${open ? `<div class="nb-sec-pages">${pageRows}${addRow}</div>` : ""}
+      </div>`;
+    }).join("");
   }
-  if (pageList) pageList.querySelectorAll(".nb-row").forEach(r => r.classList.toggle("active", !!page && r.dataset.id === page.id));
+  if (secList) {
+    secList.querySelectorAll(".nb-row-sec").forEach(r => r.classList.toggle("active", r.dataset.id === sec.id));
+    secList.querySelectorAll(".nb-row-page").forEach(r => r.classList.toggle("active", !!page && r.dataset.id === page.id));
+  }
   if (nbRenaming) {
     const inp = document.querySelector(".nb-row-input");
     if (inp && document.activeElement !== inp) { inp.focus(); inp.select(); }
     else if (!inp) nbRenaming = null; // the row it belonged to is gone
   }
-  const label = document.getElementById("nbActiveSectionLabel");
-  if (label) label.textContent = sec ? sec.name : "Pages";
-  const pageAddBtn = document.getElementById("nbAddPageBtn");
-  if (pageAddBtn) pageAddBtn.disabled = !sec;
+  applyNotebookTreeState();
+  /* The editor now says which section the open page belongs to, since
+     there is no longer a column header doing that. */
+  const crumb = document.getElementById("nbCrumb");
+  if (crumb) crumb.textContent = sec ? sec.name : "";
 
   /* ---- editor pane ---- */
   const titleEl = document.getElementById("nbPageTitleInput");
