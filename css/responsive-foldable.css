@@ -1074,7 +1074,28 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
   .top-actions-secondary .theme-swatches{flex:0 0 auto; flex-wrap:nowrap;}
   .theme-swatch{flex:0 0 auto;}
 
-  /* ---- E. The greeting was breaking into six lines --------------
+  /* ---- F. Two more overlays that outranked the tab bar ---------
+     The toast was the one actually eating taps (fixed in style.css —
+     pointer-events, not stacking, so its z-index is left alone). Two
+     others sit above the bar's z-index:40 and would do the same thing in
+     their own contexts, so they are corrected here where only phones can
+     see the change.
+
+     .nb-scrim is a transparent full-viewport click-catcher at z-index 45,
+     rendered whenever the Notebook tree is open — which is its default
+     state. On a phone it covers the whole tab bar, so while the tree is
+     up not one tab is reachable. It only has to sit above the notebook
+     page content, which is all z-index:auto, so 39 does that job just as
+     well and leaves the bar on top. .nb-pane-tree stays at 46, above the
+     scrim, so the panel itself is unaffected. */
+  #page-notebook:not(.nb-tree-hidden) .nb-scrim{z-index:39;}
+
+  /* The oversized-document banner is meant to be seen, so it legitimately
+     sits above everything at z-index 300 — but at bottom:10px it lands on
+     top of the tab bar rather than above it. Lifted clear. */
+  .size-banner{bottom:calc(96px + env(safe-area-inset-bottom));}
+
+  /* ---- G. The greeting was breaking into six lines --------------
      "Good / morning, / Suman" over three lines and "Sunday, 30 / August /
      2026" over three more, because .top-row-main keeps the greeting on
      one row with Backup, Restore and the GitHub chip. Those three are

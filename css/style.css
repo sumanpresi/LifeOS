@@ -434,7 +434,24 @@ code{background:var(--lilac);padding:1px 6px;border-radius:6px;font-size:13px}
 .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(16px);opacity:0;background:var(--ink);color:#fff;
   padding:10px 18px;border-radius:12px;font-weight:700;font-size:14px;transition:transform .28s var(--ease),opacity .28s var(--ease);z-index:60;
   display:flex;align-items:center;gap:12px}
-.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+/* The toast is a PERMANENT element at bottom-centre, z-index 60, and it
+   keeps the text of the last message shown — toast() sets innerHTML and
+   only ever removes the .show class, never the content. opacity:0 hides
+   it but does NOT remove it from hit testing, so an invisible ~40px-tall
+   box has been sitting over the bottom-centre of every screen since the
+   first toast of the session, quietly swallowing taps.
+
+   Nowhere did that matter until the sidebar became a bottom tab bar
+   under 600px: the bar is z-index 40, the toast 60, and the toast lands
+   exactly across the tab LABELS. Which tabs it eats depends on how wide
+   the last message was, which is why the broken ones looked arbitrary
+   and why the far-left and far-right tabs still worked.
+
+   Nothing visual changes anywhere — an element at opacity 0 should never
+   have been interactive. .show restores it, because the Undo button
+   inside a visible toast has to stay clickable. */
+.toast{pointer-events:none}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1;pointer-events:auto}
 .toast-action{flex-shrink:0;color:#fff;font-weight:800;font-size:13px;text-decoration:underline;
   text-underline-offset:2px;padding:2px 0;transition:opacity .15s var(--ease)}
 .toast-action:hover{opacity:.75}
