@@ -272,6 +272,29 @@ export function go(page) {
   }
   document.getElementById("sidebar").classList.remove("open");
   window.scrollTo({ top: 0 });
+  revealActiveTab();
+}
+
+/* ---------- phone only: keep the active tab on screen ----------
+   Under 600px the sidebar becomes a fixed bottom bar with
+   overflow-x:auto, and there are more sections than fit across 440pt —
+   so the tab you just navigated to is frequently off the edge of the
+   strip. Nothing in the app was scrolling it back, which made the bar
+   look like it had lost the selection.
+
+   Guarded on the same 600px breakpoint the bar itself uses, so the
+   601-1024px icon rail and the desktop sidebar — both vertical, both
+   fully visible already — are never touched. inline:"nearest" so it
+   only moves when the item really is out of view, and block:"nearest"
+   so it can never scroll the PAGE while centring a tab. */
+function revealActiveTab() {
+  try {
+    if (!window.matchMedia || !matchMedia("(max-width:600px)").matches) return;
+    const active = document.querySelector(".sidebar .nav-item.active");
+    if (active && active.scrollIntoView) {
+      active.scrollIntoView({ inline: "nearest", block: "nearest", behavior: "smooth" });
+    }
+  } catch (e) { /* scrollIntoView options are advisory; never break navigation over it */ }
 }
 
 export function scrollToEl(id) {
