@@ -1028,9 +1028,30 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
      pushed to a second line where the badge can ellipsis instead of
      bully. */
   #dayTasks .task-row{flex-wrap:wrap;}
-  #dayTasks .task-row > textarea{flex:1 1 55%; min-width:55%;}
+  /* The floor is what forces the badge onto its own line EVERY time, not
+     only when the project name happens to be long.
+
+     Left of the title sits fixed furniture: a 26px checkbox, a 22px
+     number and two 10px gaps — 68px. Giving the title a minimum of
+     100% - 90px leaves at most 12px on the first line once its own
+     trailing gap is counted. A badge cannot be narrower than its own
+     8px-either-side padding, so 16px is the floor for an empty one and
+     ~38px for the shortest real name ("BGD"). Nothing fits in 12px, so
+     no badge can ever sit beside the title and every row gets the same
+     shape: title on one line, project underneath.
+
+     Before this, only the badges too long to fit wrapped. "NGDR Data
+     Management and Analysis Center (NDMAC)" did; "BGD" and "Personal"
+     did not, and sat out to the right of the title instead — two
+     different layouts in one list. */
+  #dayTasks .task-row > textarea{flex:1 1 100%; min-width:calc(100% - 90px);}
+  /* Content-width on its own line, not stretched across it: flex-basis
+     stays auto so the pill still hugs its text, and it is the title's
+     floor above — not anything set here — that does the line breaking.
+     The ellipsis is the backstop for a project name longer than the
+     screen. */
   #dayTasks .task-source-badge{
-    flex-shrink:1; min-width:0; max-width:100%;
+    flex:0 1 auto; min-width:0; max-width:100%;
     overflow:hidden; text-overflow:ellipsis;
   }
 
