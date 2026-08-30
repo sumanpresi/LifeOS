@@ -959,7 +959,51 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
 }
 
 /* ===============================================================
-   17. PHONE FIXES — iPhone 17 Pro Max and other <=600px handsets
+   17. TODAY'S FOCUS — a floor under the task title, at every width
+   ===============================================================
+   Section 18 fixes this for phones by forcing the project badge onto its
+   own line always. The same crush happens on iPad mini and iPad 11in,
+   which resolve as desktop (>1024pt) and so never see that rule — and it
+   is not really a device problem at all. It is a width problem, and the
+   width that matters is the Today's focus COLUMN, not the viewport.
+
+   .task-source-badge is flex-shrink:0 + white-space:nowrap, so a long
+   project name takes its full intrinsic width and gives none of it back.
+   The title textarea is flex:1;min-width:0 — the only thing that can
+   yield, so it yields everything. Measured off the two screenshots, both
+   @2x landscape:
+
+     iPad 11in, 1373pt viewport : title column holds ~17-20 characters, fine
+     iPad mini, 1133pt viewport : title column holds ~2 characters, unusable
+
+   Both are past the 1024pt breakpoint, so both are running the desktop
+   layout; the mini simply gives that two-column grid less room, and
+   "NGDR Data Management and Analysis Center (NDMAC)" is wider than what
+   is left. A desktop window dragged narrow enough would do the same.
+
+   So the fix is a FLOOR rather than another breakpoint. 14ch sits with
+   margin on both sides of the measured range: below the ~17ch the iPad
+   11in has, so nothing there moves, and far above the ~2ch the mini was
+   left with, so there the badge wraps underneath instead — the same
+   shape the phone already uses.
+
+   These three declarations are no-ops wherever the row has room: with
+   free space on the line the textarea's flex:1 grows well past 14ch, the
+   badge never reaches its max-width, and flex-wrap has nothing to wrap.
+   Desktop, Fold 6 and iPad 11in are all in that category and render
+   exactly as they do today.
+   --------------------------------------------------------------- */
+#dayTasks .task-row{flex-wrap:wrap;}
+/* A floor, not a width. Only bites when the badge has taken so much of
+   the line that the title would be crushed below legibility. */
+#dayTasks .task-row > textarea{min-width:14ch;}
+/* Once it has a line of its own, a project name longer than the row has
+   to truncate rather than push the row wider. flex-shrink stays 0 from
+   style.css, so on a line WITH room the pill is untouched. */
+#dayTasks .task-source-badge{min-width:0; max-width:100%; overflow:hidden; text-overflow:ellipsis;}
+
+/* ===============================================================
+   18. PHONE FIXES — iPhone 17 Pro Max and other <=600px handsets
    ===============================================================
    Every rule below is inside @media (max-width:600px). The Fold 6 inner
    screen (~883pt) and iPad (744-1024pt) are served by the 601-1024px
