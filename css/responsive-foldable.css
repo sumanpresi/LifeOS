@@ -957,3 +957,133 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
      title rather than under the grip. */
   .t-board-card-meta{margin-left:20px}
 }
+
+/* ===============================================================
+   17. PHONE FIXES — iPhone 17 Pro Max and other <=600px handsets
+   ===============================================================
+   Every rule below is inside @media (max-width:600px). The Fold 6 inner
+   screen (~883pt) and iPad (744-1024pt) are served by the 601-1024px
+   rail layer, and desktop above that, so none of them can see anything
+   in this section. Nothing here is declared outside the query.
+
+   Four faults were reported from a 440pt phone. Three of them turn out
+   to be one fault wearing different clothes: something is wider than the
+   viewport, so the DOCUMENT gains horizontal scroll, and from then on
+   every layout decision is made against a canvas wider than the screen.
+   That is the case section 10 already states the principle for — "if a
+   narrower device cannot fit it, the TOOLBAR scrolls, the page must not".
+   These rules apply that principle to the rest of the app.
+   --------------------------------------------------------------- */
+@media (max-width:600px){
+
+  /* ---- A. The document must not scroll sideways ----------------
+     THIS IS THE "page moves when changing tabs" BUG.
+
+     go() ends with window.scrollTo({top:0}) — vertical only, which is all
+     that has ever been needed, because on every other target there is
+     nothing to scroll horizontally. Here the document genuinely is wider
+     than the screen, so scrollLeft SURVIVES the tab change and the next
+     page opens already shifted left with its heading cut off. The
+     recording shows exactly that on Finance ("inance"), Travel Plan
+     ("ravel Plan") and Entertainment ("ntertainment").
+
+     It also explains why the notebook top bar ran off the edge instead of
+     wrapping: .nb-topbar has flex-wrap:wrap and would have stacked its
+     buttons quite happily, but an over-wide document handed it room it
+     should never have had, so it stayed on one line.
+
+     `clip`, not `hidden`, deliberately. overflow-x:hidden turns the
+     element into a scroll container, which would break position:sticky on
+     .top; overflow:clip does not, so the header keeps sticking. A browser
+     without `clip` drops the declaration and behaves as it does today —
+     no worse than before. */
+  html, body{overflow-x:clip;}
+  .main, .page{min-width:0; max-width:100%;}
+
+  /* Whatever was doing the pushing now scrolls inside itself, so its
+     content stays reachable rather than merely clipped. */
+  .ql-toolbar.ql-snow{overflow-x:auto; max-width:100%;}
+  /* 1.3fr 1fr 1fr auto cannot fit 440pt: input[type=date] carries a wide
+     intrinsic minimum on iOS that min-width:0 does not override, and the
+     auto column is a button. Two columns, two rows. */
+  .fin-add{grid-template-columns:1fr 1fr;}
+
+  /* ---- B. Today's focus: the task title was one character wide ----
+     THIS IS THE "text of task are not readable" BUG — and it is not a
+     colour problem. The text is present, in a column about one glyph
+     wide, wrapped to a single letter per line. In the recording it reads
+     as a thin dashed vertical rule beside the checkbox.
+
+     .task-row is [checkbox][number][textarea][source badge]. The badge
+     carries flex-shrink:0 AND white-space:nowrap, so a long project name
+     — "NGDR Data Management and Analysis Center (NDMAC)" — takes its full
+     intrinsic width and gives none of it back. The textarea is
+     flex:1;min-width:0, so it is the only thing that CAN yield, and it
+     yields everything. autoGrow() then sets height from scrollHeight,
+     which at one character per line is enormous: hence the very tall,
+     apparently empty card.
+
+     Only #dayTasks renders that badge. The row is allowed to wrap: title
+     on the first line at no less than 55% of the width, badge and link
+     pushed to a second line where the badge can ellipsis instead of
+     bully. */
+  #dayTasks .task-row{flex-wrap:wrap;}
+  #dayTasks .task-row > textarea{flex:1 1 55%; min-width:55%;}
+  #dayTasks .task-source-badge{
+    flex-shrink:1; min-width:0; max-width:100%;
+    overflow:hidden; text-overflow:ellipsis;
+  }
+
+  /* ---- C. The bottom tab bar could not be tapped ---------------
+     THIS IS THE "section tab at bottom not working" BUG.
+
+     Section 2 sets, in one rule, `max-height:64px` and
+     `padding-bottom: calc(6px + env(safe-area-inset-bottom))`. On this
+     phone the inset is ~34px and the items are 52px tall, so the bar
+     needs 6 + 52 + 6 + 34 = 98px. Capped at 64px with overflow-y:hidden,
+     the safe-area padding is the part that gets cut — and that padding is
+     precisely what was holding the bar clear of Safari's own toolbar. The
+     tabs ended up underneath it, so the taps went to Safari, not to the
+     app.
+
+     Height now follows the content and the inset is honoured. max()
+     rather than calc() so it never falls below 6px on a phone that
+     reports no inset at all. */
+  .sidebar{
+    max-height:none; height:auto;
+    padding:6px 4px max(6px, env(safe-area-inset-bottom));
+    overscroll-behavior:contain;  /* panning the tab strip must not scroll the page behind it */
+  }
+  /* The bar is taller, so the runway beneath the content grows with it. */
+  .main{padding-bottom:calc(86px + env(safe-area-inset-bottom));}
+
+  /* ---- D. The theme picker collapsed into a vertical column ----
+     THIS IS THE "colour template position is weird" BUG.
+
+     Section 9 already makes row two of the header a non-wrapping,
+     horizontally scrolling strip, and pins its children with
+     `.top-actions-secondary .pill, .top-actions-secondary .btn
+     {flex-shrink:0}`. .theme-swatches is neither a .pill nor a .btn, so
+     it never received that, and style.css leaves it flex:0 1 auto — the
+     one shrinkable item in a row with no room. It collapsed to a single
+     swatch wide and wrapped its seven themes into a tall thin column
+     standing between Search and the sync pill, which is what the
+     recording shows.
+
+     It only needs what its siblings already have. */
+  .top-actions-secondary .theme-swatches{flex:0 0 auto; flex-wrap:nowrap;}
+  .theme-swatch{flex:0 0 auto;}
+
+  /* ---- E. The greeting was breaking into six lines --------------
+     "Good / morning, / Suman" over three lines and "Sunday, 30 / August /
+     2026" over three more, because .top-row-main keeps the greeting on
+     one row with Backup, Restore and the GitHub chip. Those three are
+     already at their minimum size, so the greeting is what gives — down
+     to about 140pt, which is narrower than the word "morning," needs.
+
+     Letting that row wrap costs one line and returns five. */
+  .top-row-main{flex-wrap:wrap;}
+  .top-row-main .greet{flex:1 1 100%;}
+  .greet h1{font-size:21px; line-height:1.2;}
+  .greet .date{font-size:12.5px;}
+}
