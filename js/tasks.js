@@ -7,6 +7,7 @@
    (a 4-state status, not a simple done/not-done) — this only merges them
    for DISPLAY, routing edits back to the correct underlying data. */
 import { state, uid, esc, persist, rerender, touch } from './state.js';
+import { openDateSheet } from './date-sheet.js';
 import { isComposerOpen, composerHtml, openComposer, nativeColumnAccepts } from './composer.js';
 import { toast, autoGrow, preserveBoardScroll } from './ui.js';
 import { releaseDragGhost } from './drag-cleanup.js';
@@ -711,22 +712,16 @@ export function toggleTaskLinkEdit(evt, id) {
   input.focus();
 }
 export function openDueDatePicker(id) {
-  const input = document.getElementById(`dueInput-${id}`);
-  if (!input) return;
-  if (typeof input.showPicker === "function") {
-    try { input.showPicker(); return; } catch (e) { /* falls through to the older fallback below */ }
-  }
-  input.focus();
-  input.click();
+  /* Was input.showPicker() — the OS date spinner, where "tomorrow" costs
+     three interactions. openDateSheet drives this same hidden input, so
+     the save path below it is untouched. See js/date-sheet.js. */
+  openDateSheet(`dueInput-${id}`);
 }
 export function openPopupDueDatePicker(id) {
-  const input = document.getElementById(`dueInput-popup-${id}`);
-  if (!input) return;
-  if (typeof input.showPicker === "function") {
-    try { input.showPicker(); return; } catch (e) { /* falls through to the older fallback below */ }
-  }
-  input.focus();
-  input.click();
+  /* Was input.showPicker() — the OS date spinner, where "tomorrow" costs
+     three interactions. openDateSheet drives this same hidden input, so
+     the save path below it is untouched. See js/date-sheet.js. */
+  openDateSheet(`dueInput-popup-${id}`);
 }
 
 // ---------- Task detail popup — opened from a calendar chip's title
@@ -1029,6 +1024,27 @@ function sectionHtml(name, label, tasks) {
 // suffer from was a missing overflow-wrap rule, not a length problem, and
 // that is now fixed in .t-board-card-title. Long NGDR filenames wrap and
 // stay fully readable, matching the GSI and Personal boards.
+/* Priority is shown by COLOURING THE CHECKBOX RING rather than by a flag
+   button sitting opposite the title, which is how Todoist does it. The
+   button was fixed furniture on every card, occupying width the title
+   needed and repeating information the ring can carry for free.
+
+   Priority stays fully editable — the task detail already has the real
+   four-level control, and it is a better home for it than a binary
+   toggle: the card was only ever able to express P1 or nothing.
+
+   The same expression the detail panel uses, so a task flagged before
+   priorities existed still reads as P1. Exported because the GSI and
+   Personal boards render the same .t-board-card and need it too. */
+export function prioClass(t) {
+  const p = t.priority || (t.flag ? "p1" : "p4");
+  return p === "p4" ? "" : "prio-" + p;
+}
+export function prioLabel(t) {
+  const p = t.priority || (t.flag ? "p1" : "p4");
+  return p === "p4" ? "Toggle task" : "Toggle task · Priority " + p.slice(1);
+}
+
 function boardCardHtml(t) {
   const due = fmtDue(t.dueDate);
   const tag = t.isGsi
@@ -1039,12 +1055,10 @@ function boardCardHtml(t) {
       onkeydown="if(event.key==='Enter'){event.preventDefault();openTaskCardDetail('${t.id}')}">
       <div class="t-board-card-top">
         <span class="t-board-card-handle" aria-hidden="true">⠿</span>
-        <button class="t-chk ${t.done ? "on" : ""}" onclick="event.stopPropagation();toggleTask('${t.id}')" aria-label="Toggle task">
+        <button class="t-chk ${prioClass(t)} ${t.done ? "on" : ""}" onclick="event.stopPropagation();toggleTask('${t.id}')"
+          aria-label="Toggle task" title="${prioLabel(t)}">
           <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
         <span class="t-board-card-title">${esc(t.text)}</span>
-        <button class="t-board-card-flag ${t.flag ? "on" : ""}" aria-pressed="${!!t.flag}"
-          onclick="event.stopPropagation();toggleFlag('${t.id}')"
-          title="${t.flag ? "Remove priority" : "Mark high priority"}">🚩</button>
       </div>
       <div class="t-board-card-meta">
         ${due ? `<span class="t-board-card-date ${due.cls}">

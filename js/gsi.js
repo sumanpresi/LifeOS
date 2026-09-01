@@ -1,6 +1,7 @@
 /* GSI Workspace: multi-project task tracker, daily work log, structured
    meeting minutes, GSI links, personal & work documents. */
 import { state, uid, esc, persist, rerender, todayKey, touch } from './state.js';
+import { openDateSheet } from './date-sheet.js';
 import { isComposerOpen, composerHtml, openComposer } from './composer.js';
 /* tasks.js already imports gsi.js, so this is a cycle — safe here because
    neither module touches the other's bindings while modules are being
@@ -8,6 +9,9 @@ import { isComposerOpen, composerHtml, openComposer } from './composer.js';
 import { markDragJustEnded, boardColHeadHtml, isColCollapsed, capBoardColumnHeights, initBoardWheelScroll,
          applyHorizon, horizonWrapHtml } from './tasks.js';
 import { toast, autoGrow, preserveBoardScroll } from './ui.js';
+/* Priority now colours the checkbox ring instead of a flag button — the
+   helper lives in tasks.js so all three boards agree. */
+import { prioClass } from './tasks.js';
 import { releaseDragGhost } from './drag-cleanup.js';
 import { describeLink } from './attach.js';
 import { moveToTrash } from './trash.js';
@@ -285,12 +289,9 @@ function gsiBoardCardHtml(item) {
       onclick="openTaskCardDetail('${item.id}')" role="button" tabindex="0"
       onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();openTaskCardDetail('${item.id}')}">
       <div class="t-board-card-top">
-        <button class="t-chk ${item.status === "done" ? "on" : ""}" onclick="event.stopPropagation();setTaskStatus('${item.id}','${item.status === "done" ? "todo" : "done"}')" aria-label="Toggle done">
+        <button class="t-chk ${prioClass(item)} ${item.status === "done" ? "on" : ""}" onclick="event.stopPropagation();setTaskStatus('${item.id}','${item.status === "done" ? "todo" : "done"}')" aria-label="Toggle done">
           <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
         <span class="gsi-board-card-title">${esc(item.text)}</span>
-        <button class="t-board-card-flag ${item.flag ? "on" : ""}" aria-pressed="${!!item.flag}"
-          onclick="event.stopPropagation();toggleProjectTaskFlag('${item.id}')"
-          title="${item.flag ? "Remove priority" : "Mark high priority"}">🚩</button>
       </div>
       <div class="t-board-card-meta">
         <span class="t-board-card-date ${due && due.cls === "gsi-overdue" ? "overdue" : ""}">
@@ -494,13 +495,10 @@ function renderProjects() {
      gone as well so the intent is unambiguous. */
 }
 export function openGsiDatePicker(id) {
-  const input = document.getElementById(`gsi-board-date-${id}`);
-  if (!input) return;
-  if (typeof input.showPicker === "function") {
-    try { input.showPicker(); return; } catch (e) { /* falls through to the older fallback below */ }
-  }
-  input.focus();
-  input.click();
+  /* Was input.showPicker() — the OS date spinner, where "tomorrow" costs
+     three interactions. openDateSheet drives this same hidden input, so
+     the save path below it is untouched. See js/date-sheet.js. */
+  openDateSheet(`gsi-board-date-${id}`);
 }
 export function toggleGsiLinkEdit(evt, id) {
   evt.stopPropagation();

@@ -21,8 +21,12 @@
    parallel project system into it would roughly double that surface
    area for a feature nobody's asked for yet. Easy to add later if so. */
 import { state, uid, esc, persist, rerender, touch } from './state.js';
+import { openDateSheet } from './date-sheet.js';
 import { isComposerOpen, composerHtml, openComposer } from './composer.js';
 import { toast, autoGrow, preserveBoardScroll } from './ui.js';
+/* Priority now colours the checkbox ring instead of a flag button — the
+   helper lives in tasks.js so all three boards agree. */
+import { prioClass } from './tasks.js';
 import { releaseDragGhost } from './drag-cleanup.js';
 import { describeLink } from './attach.js';
 import { moveToTrash } from './trash.js';
@@ -190,13 +194,10 @@ function pwBoardCardHtml(item) {
       onclick="openTaskCardDetail('${item.id}')" role="button" tabindex="0"
       onkeydown="if(event.key==='Enter'){event.preventDefault();openTaskCardDetail('${item.id}')}">
       <div class="t-board-card-top">
-        <button class="t-chk ${item.status === "done" ? "on" : ""}" onclick="event.stopPropagation();setPwTaskStatus('${item.id}','${item.status === "done" ? "todo" : "done"}')" aria-label="Toggle done">
+        <button class="t-chk ${prioClass(item)} ${item.status === "done" ? "on" : ""}" onclick="event.stopPropagation();setPwTaskStatus('${item.id}','${item.status === "done" ? "todo" : "done"}')" aria-label="Toggle done">
           <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
         <textarea class="gsi-board-card-title pw-board-card-title" rows="1" onclick="event.stopPropagation()"
           onchange="editPwProjectTask('${item.id}','text',this.value)" oninput="autoGrow(this)">${esc(item.text)}</textarea>
-        <button class="t-board-card-flag ${item.flag ? "on" : ""}" aria-pressed="${!!item.flag}"
-          onclick="event.stopPropagation();togglePwProjectTaskFlag('${item.id}')"
-          title="${item.flag ? "Remove priority" : "Mark high priority"}">🚩</button>
       </div>
       <div class="t-board-card-meta">
         <span class="t-board-card-date ${due && due.cls === "gsi-overdue" ? "overdue" : ""}">
@@ -390,13 +391,10 @@ function renderPwProjects() {
   }
 }
 export function openPwDatePicker(id) {
-  const input = document.getElementById(`pw-board-date-${id}`);
-  if (!input) return;
-  if (typeof input.showPicker === "function") {
-    try { input.showPicker(); return; } catch (e) { /* falls through to the older fallback below */ }
-  }
-  input.focus();
-  input.click();
+  /* Was input.showPicker() — the OS date spinner, where "tomorrow" costs
+     three interactions. openDateSheet drives this same hidden input, so
+     the save path below it is untouched. See js/date-sheet.js. */
+  openDateSheet(`pw-board-date-${id}`);
 }
 export function togglePwTaskLinkEdit(evt, id) {
   evt.stopPropagation();
