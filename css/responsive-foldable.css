@@ -1290,11 +1290,18 @@ html[data-theme="dark"]{
 .ds-row-ico{flex:0 0 auto;font-size:15px;line-height:1;width:20px;text-align:center}
 .ds-row-label{flex:1 1 auto;min-width:0}
 .ds-row-hint{flex:0 0 auto;color:var(--muted);font-weight:600;font-size:12.5px}
+/* Month title on the left, the three controls together on the right —
+   the arrangement in the reference. Grouping them means the pointer
+   travels between ‹ and › without crossing the title. */
 .ds-cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
 .ds-cal-title{font-size:14px;font-weight:700}
+.ds-cal-nav{display:inline-flex;gap:4px}
 .ds-nav{border:1px solid var(--line);background:var(--card);color:var(--ink);
-  width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:16px;line-height:1}
+  width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:16px;line-height:1;
+  display:inline-flex;align-items:center;justify-content:center}
 .ds-nav:hover{background:var(--lilac)}
+.ds-nav:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+@media (pointer:coarse){ .ds-nav{width:38px;height:38px} }
 .ds-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
 .ds-grid-dow{margin-bottom:2px}
 .ds-dow{text-align:center;font-size:10.5px;font-weight:700;color:var(--muted);padding:4px 0}
@@ -1357,3 +1364,41 @@ html[data-theme="dark"]{
      give it the same reading width the desktop gets. */
   .date-sheet{max-width:440px}
 }
+
+/* ===============================================================
+   25. DATE CHIP — the whole thing is the button
+   ===============================================================
+   The date used to be a tiny 🗓 button with the date text sitting inert
+   beside it: the target was about 16px square, and the part everybody
+   actually aims at — "30 Aug" — did nothing. Now the icon and the text
+   are one button, so tapping anywhere on the chip opens the date sheet.
+
+   Same treatment in all five places a due date is shown (board cards on
+   Tasks, GSI and Personal, the list row, and the calendar popup), so the
+   date behaves identically wherever it appears.
+
+   Inherits its type from .t-board-card-date rather than setting a size,
+   which is what keeps section 16's per-breakpoint scale working.
+   --------------------------------------------------------------- */
+.t-due-chip{
+  display:inline-flex; align-items:center; gap:4px;
+  border:none; background:none; cursor:pointer;
+  font:inherit; color:inherit;
+  padding:3px 5px; margin:-3px -5px;   /* negative margin: a bigger hit area that costs no layout */
+  border-radius:6px;
+  transition:background 120ms ease;
+}
+.t-due-chip:hover{background:rgba(0,0,0,.06)}
+html[data-theme="dark"] .t-due-chip:hover{background:rgba(255,255,255,.08)}
+.t-due-chip:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.t-due-chip-ico{line-height:1;flex:0 0 auto}
+
+/* Touch devices — phone and the Fold's inner screen alike — get a target
+   that clears the 44px guidance without changing how the chip looks. */
+@media (pointer:coarse){
+  .t-due-chip{padding:7px 7px;margin:-7px -7px}
+}
+
+/* The task detail's due-date row opens the same sheet, so it gets the
+   same affordance as a card: a pointer, and a hint on hover. */
+.tm-prop-value[aria-haspopup="dialog"]{cursor:pointer}
