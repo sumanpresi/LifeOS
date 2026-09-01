@@ -21,6 +21,7 @@
 import { state, esc, persist, rerender, uid } from './state.js';
 import { toast } from './ui.js';
 import { findAnyTask, toggleTask, toggleFlag, editTask, editTaskMeta, changeTaskProject, delTask } from './tasks.js';
+import { openDateSheet } from './date-sheet.js';
 import { getProjectList } from './gsi.js';
 import { getPwProjectList, changePwTaskProject } from './personal.js';
 import { sanitizeHtml } from './sanitize.js';
@@ -169,6 +170,32 @@ export function taskModalStep(delta) {
 }
 
 /* ---------- rendering ---------- */
+/* Due date does not use propRow's swap-to-an-editor pattern.
+
+   Every other property here becomes a <select> or a text box when you
+   click it, which suits them. A date is different: the editor it swapped
+   in was a native <input type="date">, i.e. the OS spinner — the same
+   control the board cards were moved off, and for the same reason.
+   Setting "tomorrow" through it is a three-step operation.
+
+   So this row opens the shared date sheet instead. The hidden input is
+   what the sheet drives, and its onchange is the ordinary save path this
+   row always used, so nothing downstream changes. The separate "Clear"
+   button is gone because the sheet's own "No date" row does that job.
+
+   .t-due-hidden-input is the same off-screen-input class the board cards
+   use — no new CSS, and the two behave identically by construction. */
+function dateRow(due) {
+  return `
+    <div class="tm-prop">
+      <div class="tm-prop-label" id="tmLabel-date">Due date</div>
+      <button class="tm-prop-value" aria-labelledby="tmLabel-date" aria-haspopup="dialog"
+        onclick="openTaskModalDatePicker()">${due ? esc(fmtDate(due)) : `<span class="tm-empty">Add due date</span>`}</button>
+      <input type="date" class="t-due-hidden-input" id="tmDueInput" value="${esc(due)}"
+        onchange="taskModalSetDate(this.value)">
+    </div>`;
+}
+
 function propRow(field, label, valueHtml, editorHtml) {
   const editing = editingField === field;
   return `
@@ -322,9 +349,7 @@ function sideHtml(found) {
                ${getProjectList().map(p => `<option value="${p.id}" ${project && p.id === project.id ? "selected" : ""}>${esc(p.name)}</option>`).join("")}
              </select>`)}
 
-      ${propRow("date", "Due date", due ? esc(fmtDate(due)) : "",
-        `<input type="date" value="${esc(due)}" autofocus onchange="taskModalSetDate(this.value)">
-         ${due ? `<button class="tm-clear" onclick="taskModalSetDate('')">Clear</button>` : ""}`)}
+      ${dateRow(due)}
 
       ${propRow("priority", "Priority",
         `<span class="tm-prio" style="color:${PRIORITIES.find(p => p[0] === priority)?.[2]}">⚑ ${esc(PRIORITIES.find(p => p[0] === priority)?.[1] || "Priority 4")}</span>`,
@@ -418,6 +443,9 @@ export function taskModalEditField(field, v) {
   persist(); renderTaskModalSide();
 }
 export function taskModalToggleDone() { if (openId) { toggleTask(openId); renderTaskModalSide(); } }
+export function openTaskModalDatePicker() {
+  openDateSheet("tmDueInput");
+}
 export function taskModalSetDate(v) {
   editingField = null;
   editTaskMeta(openId, "dueDate", v);

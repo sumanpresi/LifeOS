@@ -915,10 +915,10 @@ function renderTaskPopup(id) {
       <button class="t-flag ${t.flag ? "on" : ""}" onclick="popupToggleFlag('${id}')" title="${t.flag ? "Unflag" : "Flag as priority"}">🚩</button>
     </div>
     ${due ? `<div class="t-due ${due.cls === "overdue" ? "t-overdue" : due.cls === "" ? "t-future" : ""}" style="margin:12px 0 0 38px">
-      <button class="t-due-icon" onclick="openPopupDueDatePicker('${id}')" title="Change due date">📅</button>
+      <button class="t-due-chip" onclick="openPopupDueDatePicker('${id}')" title="Change due date">
+        <span class="t-due-chip-ico" aria-hidden="true">📅</span>${due.text}</button>
       <input type="date" class="t-due-hidden-input" id="dueInput-popup-${id}" value="${isGsi ? (t.date || "") : (t.dueDate || "")}"
         onchange="popupEditDate('${id}',this.value)">
-      <span>${due.text}</span>
     </div>` : ""}
     <div style="margin:10px 0 0 38px"><span class="t-board-card-tag">${tag}</span></div>
     ${t.link ? `<a href="${esc(t.link.startsWith("http") ? t.link : "https://" + t.link)}" target="_blank" rel="noopener" class="t-link-go" style="margin:12px 0 0 38px;display:inline-block">🔗 Open link</a>` : ""}
@@ -957,10 +957,10 @@ function taskRowHtml(t) {
             title="${t.flag ? "Unflag" : "Flag as priority"}">🚩</button>
         </div>
         ${due ? `<div class="t-due ${due.cls==="overdue"?"t-overdue":due.cls===""?"t-future":""}">
-          <button class="t-due-icon" onclick="event.stopPropagation();openDueDatePicker('${t.id}')" title="Change due date">📅</button>
+          <button class="t-due-chip" onclick="event.stopPropagation();openDueDatePicker('${t.id}')" title="Change due date">
+            <span class="t-due-chip-ico" aria-hidden="true">📅</span>${due.text}</button>
           <input type="date" class="t-due-hidden-input" id="dueInput-${t.id}" value="${t.dueDate}"
             onclick="event.stopPropagation()" onchange="event.stopPropagation();editTaskMeta('${t.id}','dueDate',this.value)">
-          <span>${due.text}</span>
         </div>` : `<div class="t-due t-due-empty">
           <button class="t-add-date-btn" onclick="event.stopPropagation();openDueDatePicker('${t.id}')">📅 Add date</button>
           <input type="date" class="t-due-hidden-input" id="dueInput-${t.id}" value=""
@@ -1062,10 +1062,11 @@ function boardCardHtml(t) {
       </div>
       <div class="t-board-card-meta">
         ${due ? `<span class="t-board-card-date ${due.cls}">
-          <button class="t-due-icon" onclick="event.stopPropagation();openDueDatePicker('${t.id}')" title="Change due date">🗓</button>
+          <button class="t-due-chip" onclick="event.stopPropagation();openDueDatePicker('${t.id}')" title="Change due date">
+            <span class="t-due-chip-ico" aria-hidden="true">🗓</span>${due.text}</button>
           <input type="date" class="t-due-hidden-input" id="dueInput-${t.id}" value="${t.isGsi ? (t.date || "") : (t.dueDate || "")}"
             onclick="event.stopPropagation()" onchange="event.stopPropagation();editTaskMeta('${t.id}','dueDate',this.value)">
-          ${due.text}</span>` : `<span class="t-board-card-date">
+          </span>` : `<span class="t-board-card-date">
           <button class="t-add-date-btn" onclick="event.stopPropagation();openDueDatePicker('${t.id}')">🗓 Add date</button>
           <input type="date" class="t-due-hidden-input" id="dueInput-${t.id}" value=""
             onclick="event.stopPropagation()" onchange="event.stopPropagation();editTaskMeta('${t.id}','dueDate',this.value)">

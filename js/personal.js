@@ -201,10 +201,11 @@ function pwBoardCardHtml(item) {
       </div>
       <div class="t-board-card-meta">
         <span class="t-board-card-date ${due && due.cls === "gsi-overdue" ? "overdue" : ""}">
-          <button class="${due ? "t-due-icon" : "t-add-date-btn"}" onclick="event.stopPropagation();openPwDatePicker('${item.id}')" title="Change due date">🗓${due ? "" : " Add date"}</button>
+          <button class="${due ? "t-due-chip" : "t-add-date-btn"}" onclick="event.stopPropagation();openPwDatePicker('${item.id}')" title="Change due date">
+            <span class="t-due-chip-ico" aria-hidden="true">🗓</span>${due ? due.text : " Add date"}</button>
           <input type="date" class="t-due-hidden-input" id="pw-board-date-${item.id}" value="${esc(item.date||"")}"
             onclick="event.stopPropagation()" onchange="event.stopPropagation();editPwProjectTask('${item.id}','date',this.value)">
-          ${due ? due.text : ""}</span>
+          </span>
         ${item.link
           ? `<a href="${esc(item.link.startsWith("http")?item.link:"https://"+item.link)}" target="_blank" rel="noopener" class="t-board-card-tag" style="text-decoration:none" onclick="event.stopPropagation()">🔗 Link</a>`
           : `<button class="t-add-link-btn" onclick="togglePwTaskLinkEdit(event,'${item.id}')">+ Link</button>`}

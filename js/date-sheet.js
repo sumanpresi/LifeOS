@@ -25,7 +25,14 @@ const SHEET_ID = "dateSheet";
 let inputId = null;      // the hidden input this sheet is currently driving
 let viewYear = 0, viewMonth = 0;
 
-const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+/* Two different orderings, which is why they are two arrays.
+   WEEKDAY is indexed by Date.getDay(), so it must stay Sunday-first — it
+   feeds the preset hints ("Tue", "Wed").
+   DOW is the calendar's column header and is Monday-first, matching the
+   reference and the convention here. Reusing one array for both is the
+   bug waiting to happen. */
+const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const DOW = ["M", "T", "W", "T", "F", "S", "S"];
 const MONTH = ["January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"];
 
@@ -82,7 +89,8 @@ function presetRow(icon, label, hint, value) {
 
 function calendarHtml(selected) {
   const first = new Date(viewYear, viewMonth, 1);
-  const lead = first.getDay();                       // Sun-first, matching DAY above
+  /* Monday-first: shift getDay()'s Sunday-based index round by six. */
+  const lead = (first.getDay() + 6) % 7;
   const days = new Date(viewYear, viewMonth + 1, 0).getDate();
   const todayKey = ymd(new Date());
   const cells = [];
@@ -97,11 +105,15 @@ function calendarHtml(selected) {
   return `
     <div class="ds-cal">
       <div class="ds-cal-head">
-        <button type="button" class="ds-nav" data-nav="-1" aria-label="Previous month">‹</button>
-        <span class="ds-cal-title">${MONTH[viewMonth]} ${viewYear}</span>
+        <span class="ds-cal-title">${MONTH[viewMonth].slice(0, 3)} ${viewYear}</span>
+        <span class="ds-cal-nav">
+          <button type="button" class="ds-nav" data-nav="-1" aria-label="Previous month">‹</button>
+          <button type="button" class="ds-nav" data-nav="today" aria-label="Back to this month">○</button>
+          <button type="button" class="ds-nav" data-nav="1" aria-label="Next month">›</button>
+        </span>
         <button type="button" class="ds-nav" data-nav="1" aria-label="Next month">›</button>
       </div>
-      <div class="ds-grid ds-grid-dow">${DAY.map(d => `<span class="ds-dow">${d[0]}</span>`).join("")}</div>
+      <div class="ds-grid ds-grid-dow">${DOW.map(d => `<span class="ds-dow">${d}</span>`).join("")}</div>
       <div class="ds-grid">${cells.join("")}</div>
     </div>`;
 }
@@ -123,10 +135,10 @@ function render() {
       </div>
       ${sel ? `<div class="ds-current">🗓 ${esc(sel.toDateString().slice(4))}</div>` : ""}
       <div class="ds-presets">
-        ${presetRow("📅", "Today", DAY[today.getDay()], ymd(today))}
-        ${presetRow("🌤", "Tomorrow", DAY[addDays(today, 1).getDay()], ymd(addDays(today, 1)))}
-        ${presetRow("🛋", "This weekend", "Sat " + thisWeekend(today).getDate(), ymd(thisWeekend(today)))}
-        ${presetRow("➡", "Next week", "Mon " + nextWeek(today).getDate(), ymd(nextWeek(today)))}
+        ${presetRow("📅", "Today", WEEKDAY[today.getDay()], ymd(today))}
+        ${presetRow("🌤", "Tomorrow", WEEKDAY[addDays(today, 1).getDay()], ymd(addDays(today, 1)))}
+        ${presetRow("🛋", "This weekend", "Sat", ymd(thisWeekend(today)))}
+        ${presetRow("➡", "Next week", "Mon " + nextWeek(today).getDate() + " " + MONTH[nextWeek(today).getMonth()].slice(0, 3), ymd(nextWeek(today)))}
         ${presetRow("🚫", "No date", "", "")}
       </div>
       ${calendarHtml(selected)}
@@ -136,10 +148,15 @@ function render() {
     b.addEventListener("click", () => commit(b.getAttribute("data-date"))));
   el.querySelectorAll("[data-nav]").forEach(b =>
     b.addEventListener("click", () => {
-      const step = Number(b.getAttribute("data-nav"));
-      viewMonth += step;
-      if (viewMonth < 0) { viewMonth = 11; viewYear--; }
-      if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+      const nav = b.getAttribute("data-nav");
+      if (nav === "today") {
+        const n = new Date();
+        viewYear = n.getFullYear(); viewMonth = n.getMonth();
+      } else {
+        viewMonth += Number(nav);
+        if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+        if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+      }
       render();
     }));
   const close = el.querySelector("[data-close]");
