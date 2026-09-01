@@ -1566,7 +1566,7 @@ html[data-theme="dark"] .t-board::-webkit-scrollbar-thumb{background:rgba(255,25
      row, and a status stripe down the left edge so a column can be read at
      a glance rather than by its heading. */
   .t-board-card{padding:8px 9px;border-radius:9px}
-  .t-board-card-title{-webkit-line-clamp:2;font-size:13px}
+  .t-board-card-title{font-size:13px}
   .t-board-card-meta{margin-top:6px;margin-left:26px;gap:5px}
   .t-board-card-tag,.t-board-project-sel{font-size:10px;padding:1px 5px}
   .t-board-col-body{padding:8px;gap:6px}
@@ -1644,13 +1644,13 @@ html[data-theme="dark"] .t-board::-webkit-scrollbar-thumb{background:rgba(255,25
 
    word-break:break-word is the older spelling, kept for Samsung Internet
    and other WebKit builds that predate overflow-wrap:anywhere. */
-/* A board card is for scanning, not reading. A pasted paragraph — the
-   NGDR note runs to twelve lines — is clamped to three here and shown in
-   full when the card is opened. The card keeps its shape whatever is in
-   it, which is what makes a column skimmable. */
+/* The title is shown in full. It was clamped to three lines to keep every
+   card the same shape, but the Todoist reference this board is modelled on
+   does not do that — its card grows to hold the whole title and the column
+   scrolls instead. A task you cannot finish reading is a task you have to
+   open to identify, which defeats the point of a board. */
 .t-board-card-title{
-  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;
-  overflow:hidden;
+  overflow:visible;
   flex:1;min-width:0;font-family:'Inter',sans-serif;font-size:13.5px;font-weight:500;color:var(--t-ink);
   line-height:1.35;display:block;white-space:normal;word-break:break-word;overflow-wrap:anywhere}
 .gsi-board-card-title{flex:1;min-width:0;font-family:'Inter',sans-serif;font-size:13.5px;font-weight:500;color:var(--t-ink);

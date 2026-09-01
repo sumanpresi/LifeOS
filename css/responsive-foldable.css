@@ -373,27 +373,37 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
    --------------------------------------------------------------- */
 .t-board-card{
   box-sizing:border-box;
-  height:var(--t-card-h);       /* fixed — a 3-word title and a 30-word title render the same size. Defined in section 16. */
+  /* min-height, not height. The fixed slot was built on the belief that
+     "Todoist's card is a fixed slot at every width" — the reference
+     screenshots show otherwise: a Todoist card GROWS to hold its whole
+     title, four lines if that is what the text needs, and only the
+     column scrolls. The slot survives as a floor so short cards still
+     line up, but a long title is no longer cut off mid-sentence. */
+  min-height:var(--t-card-h);
+  height:auto;
   display:flex;
   flex-direction:column;
-  overflow:hidden;
+  overflow:visible;
   padding:9px 10px;
 }
 .t-board-card-top{
   flex:1 1 auto;
-  min-height:0;                 /* required for a flex child to actually shrink/clip instead of pushing the card taller */
-  overflow:hidden;
+  min-height:0;
+  overflow:visible;             /* was hidden, to clip the title into the fixed slot */
   align-items:flex-start;
 }
+/* No clamp. overflow-wrap:anywhere in style.css already guarantees that
+   even an unbreakable NGDR filename wraps rather than blowing the column
+   out, so nothing here needs protecting against length any more. */
 .t-board-card-title,
 .gsi-board-card-title{
-  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
-  overflow:hidden;max-height:100%;
+  display:block;-webkit-line-clamp:none;
+  overflow:visible;max-height:none;
 }
 .t-board-card-meta{
-  flex:0 0 auto;                 /* meta row is a fixed strip at the card's bottom, not part of what clips */
-  max-height:36px;
-  overflow:hidden;
+  flex:0 0 auto;
+  max-height:none;               /* nothing clips now, so the chips wrap instead of vanishing */
+  overflow:visible;
   margin-top:6px;
   margin-left:0;                 /* reclaim the desktop checkbox-alignment indent — compact cards need the width more */
   gap:4px;
@@ -402,9 +412,8 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
 }
 .t-board-project-sel{max-width:64px}
-/* One unusually long task no longer stretches its column: every card
-   in every column shares the same 120px slot, so column height is
-   driven purely by card COUNT, same as Todoist. */
+/* Column height is driven by content again, which is what the reference
+   actually does — the board scrolls, the text does not truncate. */
 
 
 /* ---------------------------------------------------------------
@@ -827,7 +836,6 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
 }
 
 .t-board-card-meta{
-  max-height:56px;      /* 3 chip lines — replaces section 5's 36px */
   margin-top:5px;
   gap:4px 5px;
 }
@@ -838,8 +846,9 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
 .t-board-project-sel{font-size:10px;padding:1px 5px;max-width:64px}
 .t-board-card-meta .t-archive-btn{padding:1px 5px;font-size:10px}
 
-/* The checkbox and flag are fixed furniture — trimming them gives the
-   title a little more of the line it actually has to fit into. */
+/* The checkbox is fixed furniture — trimming it gives the title a little
+   more of the line. (The flag button that used to sit opposite it is
+   gone; priority now colours the checkbox ring — see section 22.) */
 .t-board-card .t-chk{width:19px;height:19px}
 .t-board-card .t-chk svg{width:11px;height:11px}
 .t-board-card-top{gap:7px}
@@ -959,9 +968,9 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
 }
 
 /* ===============================================================
-   17. TODAY'S FOCUS — a floor under the task title, at every width
+   20. TODAY'S FOCUS — a floor under the task title, at every width
    ===============================================================
-   Section 18 fixes this for phones by forcing the project badge onto its
+   Section 21 fixes this for phones by forcing the project badge onto its
    own line always. The same crush happens on iPad mini and iPad 11in,
    which resolve as desktop (>1024pt) and so never see that rule — and it
    is not really a device problem at all. It is a width problem, and the
@@ -1003,7 +1012,7 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
 #dayTasks .task-source-badge{min-width:0; max-width:100%; overflow:hidden; text-overflow:ellipsis;}
 
 /* ===============================================================
-   18. PHONE FIXES — iPhone 17 Pro Max and other <=600px handsets
+   21. PHONE FIXES — iPhone 17 Pro Max and other <=600px handsets
    ===============================================================
    Every rule below is inside @media (max-width:600px). The Fold 6 inner
    screen (~883pt) and iPad (744-1024pt) are served by the 601-1024px
@@ -1014,7 +1023,7 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
    to be one fault wearing different clothes: something is wider than the
    viewport, so the DOCUMENT gains horizontal scroll, and from then on
    every layout decision is made against a canvas wider than the screen.
-   That is the case section 10 already states the principle for — "if a
+   That is the case section 3 already states the principle for — "if a
    narrower device cannot fit it, the TOOLBAR scrolls, the page must not".
    These rules apply that principle to the rest of the app.
    --------------------------------------------------------------- */
@@ -1172,4 +1181,179 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
   .top-row-main .greet{flex:1 1 100%;}
   .greet h1{font-size:21px; line-height:1.2;}
   .greet .date{font-size:12.5px;}
+}
+
+/* ===============================================================
+   22. PRIORITY ON THE CHECKBOX RING
+   ===============================================================
+   The flag button opposite every board title is gone. It was fixed
+   furniture on every card, spending width the title needed to say
+   information the checkbox can carry for nothing — which is exactly what
+   the Todoist reference does.
+
+   Colours are the four the task detail already uses (PRIORITIES in
+   js/task-modal.js), so the ring and the detail panel cannot disagree.
+   P4 is the default and gets no colour at all; only P1-P3 tint.
+
+   The tint on the fill is deliberately faint. This is a CHECKBOX first —
+   its job is to read as unticked-or-ticked at a glance — and a strongly
+   filled circle reads as done. The ring carries the priority, the fill
+   carries the state.
+   --------------------------------------------------------------- */
+/* Two sets, because one cannot work. The detail panel's PRIORITIES hexes
+   were chosen against cream paper and are far too dark on the dark skins:
+   measured on their card surfaces, P1 falls to 2.30:1 on Investra and P3
+   to 2.15:1 on Capra. A 1.5px ring is a non-text graphic, so 3:1 is the
+   bar it has to clear, and those do not.
+
+   Light skins (worst card measured across Light, Quantiva, Credix):
+       P1 #B5533F 4.25:1   P2 #A9762F 3.41:1   P3 #4F6D9A 4.56:1
+   Dark skins (worst card across Warm, Capra, Egnis, Investra, Redsun):
+       P1 #E88A74 4.48:1   P2 #E7BE79 6.48:1   P3 #8FAEDA 4.97:1
+
+   P2 is lifted from the panel's #C08A3E, which reads only 2.61:1 on
+   white — the ring keeps the hue, not the exact value. */
+:root{
+  --prio-1:#B5533F; --prio-2:#A9762F; --prio-3:#4F6D9A;
+}
+html[data-theme="dark"]{
+  --prio-1:#E88A74; --prio-2:#E7BE79; --prio-3:#8FAEDA;
+}
+.t-chk.prio-p1{border-color:var(--prio-1);background:color-mix(in srgb, var(--prio-1) 12%, transparent)}
+.t-chk.prio-p2{border-color:var(--prio-2);background:color-mix(in srgb, var(--prio-2) 12%, transparent)}
+.t-chk.prio-p3{border-color:var(--prio-3);background:color-mix(in srgb, var(--prio-3) 12%, transparent)}
+.t-chk.prio-p1:hover{border-color:var(--prio-1)}
+.t-chk.prio-p2:hover{border-color:var(--prio-2)}
+.t-chk.prio-p3:hover{border-color:var(--prio-3)}
+/* Ticked wins: a completed task is done regardless of how urgent it was,
+   so .on keeps the accent fill it has always had. */
+.t-chk.on{background:var(--t-accent);border-color:var(--t-accent)}
+
+/* The stripe down the card's left edge was the flag's other signal. Two
+   signals for one fact, and it collided with the per-column stripe
+   (overdue/today) that means something else entirely. The ring says it
+   once. */
+.t-board-card.flagged{border-left:none}
+
+/* ===============================================================
+   23. DATE SHEET — Todoist-style presets over a month calendar
+   ===============================================================
+   Panel markup and behaviour: js/date-sheet.js.
+
+   Two shapes from one stylesheet. Under 600px it is a bottom sheet,
+   thumb-reachable and clear of the tab bar's safe-area inset. From 601px
+   up — Fold 6 inner, iPad, desktop — it is a centred card, because on a
+   wide screen a full-width bottom sheet is a 900px-long row of nothing.
+   --------------------------------------------------------------- */
+.date-sheet-bg{
+  position:fixed; inset:0; z-index:1100;   /* above the task modal (50), below link previews (1200) */
+  display:flex; align-items:flex-end; justify-content:center;
+  background:rgba(12,14,18,.45);
+  -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px);
+  opacity:0; pointer-events:none;
+  transition:opacity .18s ease;
+}
+.date-sheet-bg.open{opacity:1; pointer-events:auto}
+.date-sheet{
+  width:100%; max-width:420px;
+  max-height:86vh; overflow-y:auto; overscroll-behavior:contain;
+  background:var(--card); color:var(--ink);
+  border:1px solid var(--line); border-bottom:none;
+  border-radius:20px 20px 0 0;
+  padding:8px 14px calc(16px + env(safe-area-inset-bottom));
+  box-shadow:0 -8px 40px -12px rgba(0,0,0,.45);
+  transform:translateY(14px); transition:transform .2s var(--ease);
+}
+.date-sheet-bg.open .date-sheet{transform:translateY(0)}
+.ds-grip{width:36px;height:4px;border-radius:99px;background:var(--line);margin:2px auto 10px}
+.ds-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.ds-title{margin:0;font-size:17px;font-weight:700;letter-spacing:-.01em}
+.ds-close{border:none;background:transparent;color:var(--muted);font-size:15px;
+  cursor:pointer;padding:6px 8px;border-radius:8px;line-height:1}
+.ds-close:hover{background:var(--lilac);color:var(--ink)}
+.ds-current{
+  display:flex;align-items:center;gap:8px;
+  background:var(--lilac);border-radius:12px;
+  padding:10px 12px;margin-bottom:12px;
+  font-size:13.5px;font-weight:600;color:var(--ink);
+}
+.ds-presets{display:flex;flex-direction:column;gap:1px;
+  background:var(--line);border-radius:12px;overflow:hidden;margin-bottom:14px}
+.ds-row{
+  display:flex;align-items:center;gap:12px;width:100%;
+  border:none;background:var(--card);color:var(--ink);
+  padding:12px 12px;                       /* 44px+ tall: a comfortable touch target */
+  font-size:14px;font-weight:600;text-align:left;cursor:pointer;
+  transition:background .12s ease;
+}
+.ds-row:hover{background:var(--lilac)}
+.ds-row-ico{flex:0 0 auto;font-size:15px;line-height:1;width:20px;text-align:center}
+.ds-row-label{flex:1 1 auto;min-width:0}
+.ds-row-hint{flex:0 0 auto;color:var(--muted);font-weight:600;font-size:12.5px}
+.ds-cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.ds-cal-title{font-size:14px;font-weight:700}
+.ds-nav{border:1px solid var(--line);background:var(--card);color:var(--ink);
+  width:32px;height:32px;border-radius:9px;cursor:pointer;font-size:16px;line-height:1}
+.ds-nav:hover{background:var(--lilac)}
+.ds-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.ds-grid-dow{margin-bottom:2px}
+.ds-dow{text-align:center;font-size:10.5px;font-weight:700;color:var(--muted);padding:4px 0}
+.ds-cell{
+  aspect-ratio:1/1; min-height:36px;
+  display:flex;align-items:center;justify-content:center;
+  border:none;background:transparent;color:var(--ink);
+  border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;
+}
+.ds-cell:hover{background:var(--lilac)}
+.ds-cell-empty{pointer-events:none}
+.ds-cell.is-today{color:var(--accent);font-weight:800}
+.ds-cell.is-selected{background:var(--accent);color:#fff}
+.ds-cell.is-selected.is-today{color:#fff}
+
+/* From the Fold 6 inner screen up, a centred card rather than a sheet
+   pinned to the bottom edge. */
+@media (min-width:601px){
+  .date-sheet-bg{align-items:center}
+  .date-sheet{
+    border-radius:18px; border-bottom:1px solid var(--line);
+    padding:8px 16px 16px;
+    max-height:80vh;
+    box-shadow:0 24px 60px -20px rgba(0,0,0,.5);
+  }
+  .ds-grip{display:none}
+  .ds-cell{min-height:34px}
+}
+@media(prefers-reduced-motion:reduce){
+  .date-sheet-bg,.date-sheet{transition:none}
+}
+
+/* ===============================================================
+   24. FOLD 6 INNER SCREEN — spend the width it actually has
+   ===============================================================
+   883pt is wider than an iPad mini in portrait, but section 3 gives it
+   the same 280px column and section 16 the same clipped chip widths that
+   were sized for a 390pt phone. The result is a board with three
+   columns' worth of room rendering phone-sized cards and a project
+   dropdown truncated to "NGD...".
+
+   Scoped to (min-width:821px) and (max-width:1099px): the Fold's inner
+   screen and iPad landscape only. iPad mini portrait (768) and iPad
+   portrait (820) stay exactly as they are — they genuinely are tight.
+   --------------------------------------------------------------- */
+@media (min-width:821px) and (max-width:1099px){
+  /* Three columns visible instead of two-and-a-peek. */
+  .t-board-col{width:300px}
+  .t-board{gap:14px}
+
+  /* The chips were capped for a phone column. A 300px card can afford to
+     show a project name rather than an abbreviation of one. */
+  .t-board-project-sel{max-width:120px;font-size:11px}
+  .t-board-card-tag{max-width:190px;font-size:10.5px}
+  .t-board-card-title,
+  .gsi-board-card-title{font-size:13.5px;line-height:1.35}
+  .t-board-card{padding:10px 12px}
+
+  /* The date sheet is a dialog on a large screen, not a phone overlay —
+     give it the same reading width the desktop gets. */
+  .date-sheet{max-width:440px}
 }
