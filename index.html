@@ -95,14 +95,14 @@
      which shows up as new controls rendering completely unstyled — and is
      nearly impossible to diagnose from a screenshot, because the code on
      disk is correct. Bump on every release. -->
-<link rel="stylesheet" href="css/style.css?v=202609032200">
+<link rel="stylesheet" href="css/style.css?v=202609040200">
 <!-- Foldable/tablet/mobile layout layer — loaded after style.css on purpose.
      It overrides that file's tablet breakpoint (wrap-to-grid board,
      off-canvas drawer sidebar) with an icon-rail sidebar and a
      horizontally-scrolling, fixed-width Kanban board for Z Fold 6 inner
      (~883px), iPad mini/iPad (~768–1024px), and a bottom tab bar for
      phones (<=600px, incl. iPhone 17 Pro Max ~440px and fold cover screens). -->
-<link rel="stylesheet" href="css/responsive-foldable.css?v=202609032200">
+<link rel="stylesheet" href="css/responsive-foldable.css?v=202609040200">
 </head>
 <body>
 <div class="shell">
@@ -260,45 +260,21 @@
         </div>
       </div></div>
 
-      <div class="card" id="tasksCard">
-        <div class="card-head"><h2>Tasks</h2><span class="hint" id="taskCount"></span>
-          <button class="btn btn-ghost t-archive-all-btn" id="taskArchiveAllBtn" onclick="archiveAllCompleted()" title="Archive all completed tasks">
-            <span class="t-archive-all-label">🗂 Archive Completed</span></button>
-          <button class="expand-btn" onclick="expandView('tasksCardContent','Tasks')" title="View large">
-            <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-          </button>
-        </div>
-        <div id="tasksCardContent">
-        <div class="card-body" style="padding-bottom:0">
-          <div class="row t-toolbar" style="justify-content:space-between">
-            <div class="seg" id="taskFilterBar">
-              <button data-filter="all" class="on" onclick="setTaskFilter('all')">All</button>
-              <button data-filter="work" onclick="setTaskFilter('work')">Work</button>
-              <button data-filter="personal" onclick="setTaskFilter('personal')">Personal</button>
-            </div>
-            <div class="seg" id="taskViewSwitch">
-              <button data-view="board" onclick="setTaskView('board')">▦ Board</button>
-              <button data-view="list" onclick="setTaskView('list')">☰ List</button>
-              <button data-view="calendar" onclick="setTaskView('calendar')">📅 Calendar</button>
-              <button type="button" class="t-archive-tab" onclick="openArchivedTasksModal()" title="View archived tasks">🗂 Archive</button>
-            </div>
-            <button class="btn btn-ghost" id="taskSortBtn" onclick="toggleSortByDate()">📅 Sort by date</button>
-          </div>
-          <p class="hint" id="taskDragHint" style="display:none;margin-top:8px">↕️ Manual ordering is available only in Default Sort.</p>
-        </div>
-        <div class="t-add-row">
-          <span class="t-add-icon">＋</span>
-          <input type="text" id="newTask" placeholder="Add a task" autocomplete="off"
-                 oninput="saveNewTaskDraft(this.value)"
-                 onkeydown="if(event.key==='Enter')addTask()">
-          <select id="newTaskProject" class="t-add-project" title="Add to a GSI project (optional)">
-            <option value="">No project</option>
-          </select>
-          <button class="t-add-btn" onclick="addTask()">Add task</button>
-        </div>
-        <div class="card-body" id="taskList"></div>
-        </div>
-      </div>
+      <!-- The Tasks card was removed from Overview.
+
+           Nothing behind it was touched: state.tasks are still real, still
+           counted, still synced, and still reachable from the Calendar day
+           view, search and the task detail sheet (which opens from a
+           ?task=<id> link). Only this card's markup is gone.
+
+           Restoring it is putting this block back — renderTasks() returns
+           early while #taskList is absent and picks up again the moment it
+           exists, so no JS needs changing either way. The removed markup is
+           in git history; it is ~40 lines beginning with a card element
+           whose id is tasksCard. (Written out rather than shown as markup
+           on purpose — a literal tag inside a comment still matches a
+           grep for it, and looks like live markup to anyone auditing
+           this file later.) -->
 
       <div class="card">
         <div class="card-head">
@@ -1748,6 +1724,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script type="module" src="js/app.js?v=202609032200"></script>
+<script type="module" src="js/app.js?v=202609040200"></script>
 </body>
 </html>
