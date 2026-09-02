@@ -22,7 +22,7 @@
    (the same mistake this app already hit once with its Leaflet maps)
    would wipe out an active editing session and its cursor position. */
 
-import { sanitizeHtml } from './sanitize.js';
+import { sanitizeHtml } from './sanitize.js?v=202609031400';
 
 const instances = {}; // containerId -> quill instance
 

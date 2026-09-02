@@ -1,12 +1,12 @@
 /* Links, news feeds, quotes, meditation, Day Of page + journal. */
-import { state, uid, esc, persist, rerender, todayKey } from './state.js';
-import { toast, autoGrow, registerBusyCheck, markFieldClean } from './ui.js';
-import { moveToTrash } from './trash.js';
-import { isLogged, streak } from './habits.js';
-import { getAllGsiTasksFlat } from './gsi.js';
-import { getAllPwTasksFlat } from './personal.js';
-import { mountRichEditor, getRichEditor } from './rich-text.js';
-import { sanitizeHtml } from './sanitize.js';
+import { state, uid, esc, persist, rerender, todayKey } from './state.js?v=202609031400';
+import { toast, autoGrow, registerBusyCheck, markFieldClean } from './ui.js?v=202609031400';
+import { moveToTrash } from './trash.js?v=202609031400';
+import { isLogged, streak } from './habits.js?v=202609031400';
+import { getAllGsiTasksFlat } from './gsi.js?v=202609031400';
+import { getAllPwTasksFlat } from './personal.js?v=202609031400';
+import { mountRichEditor, getRichEditor } from './rich-text.js?v=202609031400';
+import { sanitizeHtml } from './sanitize.js?v=202609031400';
 
 /* ---------- important links ---------- */
 let openLinkEditId = null; // which single link's inline edit panel is open — UI-only, not persisted

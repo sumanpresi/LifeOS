@@ -18,14 +18,14 @@
    and a change on the board cannot diverge, and nothing has to be kept
    in sync. */
 
-import { state, esc, persist, rerender, uid } from './state.js';
-import { toast } from './ui.js';
-import { findAnyTask, toggleTask, toggleFlag, editTask, editTaskMeta, changeTaskProject, delTask } from './tasks.js';
-import { openDateSheet } from './date-sheet.js';
-import { getProjectList } from './gsi.js';
-import { getPwProjectList, changePwTaskProject } from './personal.js';
-import { sanitizeHtml } from './sanitize.js';
-import { mountRichEditor, getRichEditor, unmountRichEditor } from './rich-text.js';
+import { state, esc, persist, rerender, uid } from './state.js?v=202609031400';
+import { toast } from './ui.js?v=202609031400';
+import { findAnyTask, toggleTask, toggleFlag, editTask, editTaskMeta, changeTaskProject, delTask } from './tasks.js?v=202609031400';
+import { openDateSheet } from './date-sheet.js?v=202609031400';
+import { getProjectList } from './gsi.js?v=202609031400';
+import { getPwProjectList, changePwTaskProject } from './personal.js?v=202609031400';
+import { sanitizeHtml } from './sanitize.js?v=202609031400';
+import { mountRichEditor, getRichEditor, unmountRichEditor } from './rich-text.js?v=202609031400';
 
 const DESC_EDITOR_ID = "taskDescEditor";
 const PRIORITIES = [
@@ -532,11 +532,11 @@ function subComposerHtml(editing) {
           onclick="taskModalSubPicker('project', ${forEdit})" aria-haspopup="listbox"
           aria-expanded="${isOwnPicker && subPicker === "project"}" title="Project">
           # ${d.projectName ? esc(d.projectName) : "Project"}</button>
-        <label class="composer-chip composer-chip-date${d.date ? " on" : ""}" title="Due date">
-          🗓 <input type="date" id="${dateId}" value="${esc(d.date)}"
-            onchange="taskModalSubDraft('date', this.value, ${forEdit})">
-          ${d.date ? `<b>${esc(fmtShort(d.date))}</b>` : "Date"}
-        </label>
+        <button type="button" class="composer-chip composer-chip-date${d.date ? " on" : ""}"
+          onclick="taskModalSubOpenDatePicker(${forEdit})" title="Due date">
+          🗓 ${d.date ? `<b>${esc(fmtShort(d.date))}</b>` : "Date"}</button>
+        <input type="date" class="t-due-hidden-input" id="${dateId}" value="${esc(d.date)}"
+          onchange="taskModalSubDraft('date', this.value, ${forEdit})">
         <button type="button" class="composer-chip${d.priority && d.priority !== "p4" ? " on" : ""}"
           onclick="taskModalSubCyclePriority(${forEdit})" title="Priority"
           style="${d.priority && d.priority !== "p4" ? `color:${subPrioColor(d.priority)}` : ""}">
@@ -700,6 +700,15 @@ export function taskModalSubDraft(field, v, forEdit) {
     d[field] = v || "";
   }
   repaintSubComposer(forEdit);
+}
+/* Same shared date sheet the task's own due-date row and every board
+   card use (see dateRow() above) — the sub-task composer used to hand
+   this off to a bare native <input type="date"> instead, which is the
+   OS spinner the rest of the app was moved off of. The hidden input
+   below still carries the value and still fires the same "change" that
+   taskModalSubDraft listens for; only how it gets opened changes. */
+export function taskModalSubOpenDatePicker(forEdit) {
+  openDateSheet(forEdit ? "taskModalSubEditDate" : "taskModalSubDate");
 }
 /* One control, four states — a four-way picker would be a menu, and a
    menu inside a half-height sheet inside a modal is a lot of layers for
@@ -976,7 +985,17 @@ export function taskModalSubEditStart(sid, focus) {
   subPicker = null; subPickerFor = null; subPickerQuery = "";
   renderSubtasks();
   setTimeout(() => {
-    if (focus === "date") document.getElementById("taskModalSubEditDate")?.showPicker?.();
+    /* The same shared date sheet the chip inside this composer opens, and
+       the same one the task's own due-date row and every board card use.
+       This path used to call showPicker() on the input directly, which was
+       wrong twice over: it opened the OS spinner the rest of the app was
+       deliberately moved off, so one field had two different pickers
+       depending on which control you tapped — and the input is now
+       visually hidden (opacity:0, pointer-events:none), which some
+       Chromium builds refuse to open a picker for at all. It threw inside
+       a setTimeout, so the tap did nothing and said nothing.
+       openDateSheet bails safely when the input is missing, so no guard. */
+    if (focus === "date") openDateSheet("taskModalSubEditDate");
     else document.getElementById("taskModalSubEditInput")?.focus();
   }, 40);
 }
