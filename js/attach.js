@@ -27,8 +27,8 @@
    that opens in a browser.
    ============================================================ */
 
-import { state, uid, persist, rerender } from './state.js?v=202609031400';
-import { toast } from './ui.js?v=202609031400';
+import { state, uid, persist, rerender } from './state.js?v=202609031800';
+import { toast } from './ui.js?v=202609031800';
 
 /* Recognise where a link points so an attachment can be labelled with the
    app it belongs to rather than a bare URL. Matching is on hostname and

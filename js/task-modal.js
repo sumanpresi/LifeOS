@@ -18,14 +18,14 @@
    and a change on the board cannot diverge, and nothing has to be kept
    in sync. */
 
-import { state, esc, persist, rerender, uid } from './state.js?v=202609031400';
-import { toast } from './ui.js?v=202609031400';
-import { findAnyTask, toggleTask, toggleFlag, editTask, editTaskMeta, changeTaskProject, delTask } from './tasks.js?v=202609031400';
-import { openDateSheet } from './date-sheet.js?v=202609031400';
-import { getProjectList } from './gsi.js?v=202609031400';
-import { getPwProjectList, changePwTaskProject } from './personal.js?v=202609031400';
-import { sanitizeHtml } from './sanitize.js?v=202609031400';
-import { mountRichEditor, getRichEditor, unmountRichEditor } from './rich-text.js?v=202609031400';
+import { state, esc, persist, rerender, uid } from './state.js?v=202609031800';
+import { toast } from './ui.js?v=202609031800';
+import { findAnyTask, toggleTask, toggleFlag, editTask, editTaskMeta, changeTaskProject, delTask } from './tasks.js?v=202609031800';
+import { openDateSheet } from './date-sheet.js?v=202609031800';
+import { getProjectList } from './gsi.js?v=202609031800';
+import { getPwProjectList, changePwTaskProject } from './personal.js?v=202609031800';
+import { sanitizeHtml } from './sanitize.js?v=202609031800';
+import { mountRichEditor, getRichEditor, unmountRichEditor } from './rich-text.js?v=202609031800';
 
 const DESC_EDITOR_ID = "taskDescEditor";
 const PRIORITIES = [
@@ -138,6 +138,7 @@ export function openTaskModal(id, siblings) {
   subDraft = { date: "", priority: "", labels: [], projectId: "", projectName: "" };
   subPicker = null; subPickerFor = null; subPickerQuery = "";
   editingSubId = null; editDraft = null;
+  taskLabelQuery = "";
 
   const bg = document.getElementById("taskModalBg");
   if (!bg) return;
@@ -589,7 +590,10 @@ function subPickerHtml(forEdit) {
         value="${esc(subPickerQuery)}" oninput="taskModalSubPickerFilter(this.value)"
         onkeydown="if(event.key==='Escape'){event.stopPropagation();taskModalSubPicker(null, ${forEdit})}">
       <div class="tm-picker-list">
-        ${rows || `<div class="tm-picker-empty">No matches</div>`}
+        ${rows || `<div class="tm-picker-empty">${
+          subPicker === "labels" && !subPickerQuery.trim()
+            ? "No labels yet — type one to create it"
+            : "No matches"}</div>`}
         ${isNew ? `<button type="button" class="tm-picker-row tm-picker-new"
           onclick="taskModalSubToggleLabel('${esc(subPickerQuery.trim()).replace(/'/g, "\\'")}', ${forEdit})">
           <span class="tm-picker-ico">+</span> Create “${esc(subPickerQuery.trim())}”</button>` : ""}
@@ -628,6 +632,66 @@ function subLabelRows(q, forEdit) {
         aria-checked="${chosen.has(l)}">
         <span class="tm-picker-ico">🏷</span> ${esc(l)}
         <span class="tm-picker-box${chosen.has(l) ? " on" : ""}" aria-hidden="true"></span></button>`).join("");
+}
+
+/* The task's own label picker. Deliberately reuses the sub-task picker's
+   row markup and CSS rather than growing a second visual language for the
+   same job; only the click target differs, because this one writes
+   straight to the task instead of to a pending draft. */
+let taskLabelQuery = "";
+function taskLabelPickerHtml() {
+  const found = openId && taskOf(openId);
+  const chosen = new Set(Array.isArray(found?.task.labels) ? found.task.labels : []);
+  const q = taskLabelQuery.trim().toLowerCase();
+  const rows = allLabels()
+    .filter(l => !q || l.toLowerCase().includes(q))
+    .map(l => `
+      <button type="button" class="tm-picker-row${chosen.has(l) ? " is-on" : ""}"
+        onclick="taskModalToggleLabel('${esc(l).replace(/'/g, "\\'")}')" role="checkbox"
+        aria-checked="${chosen.has(l)}">
+        <span class="tm-picker-ico">🏷</span> ${esc(l)}
+        <span class="tm-picker-box${chosen.has(l) ? " on" : ""}" aria-hidden="true"></span></button>`).join("");
+  const typed = taskLabelQuery.trim();
+  const isNew = typed && !allLabels().some(l => l.toLowerCase() === q);
+  return `
+    <div class="tm-picker tm-picker-inline" role="dialog" aria-label="Choose labels">
+      <input type="text" class="tm-picker-search" id="taskModalLabelSearch" autofocus
+        placeholder="Type a label" value="${esc(taskLabelQuery)}"
+        oninput="taskModalLabelFilter(this.value)"
+        onkeydown="if(event.key==='Enter'&&this.value.trim()){event.preventDefault();taskModalToggleLabel(this.value.trim())}">
+      <div class="tm-picker-list">
+        ${rows || `<div class="tm-picker-empty">${typed ? "No matches" : "No labels yet — type one to create it"}</div>`}
+        ${isNew ? `<button type="button" class="tm-picker-row tm-picker-new"
+          onclick="taskModalToggleLabel('${esc(typed).replace(/'/g, "\\'")}')">
+          <span class="tm-picker-ico">+</span> Create “${esc(typed)}”</button>` : ""}
+      </div>
+    </div>`;
+}
+export function taskModalLabelFilter(v) {
+  taskLabelQuery = v;
+  // Rebuild the list only, so the search field keeps its caret.
+  const list = document.querySelector("#taskModalBody .tm-picker-inline .tm-picker-list");
+  if (!list) { renderTaskModalSide(); return; }
+  const holder = document.createElement("div");
+  holder.innerHTML = taskLabelPickerHtml();
+  const fresh = holder.querySelector(".tm-picker-list");
+  if (fresh) list.innerHTML = fresh.innerHTML;
+}
+/* Stays open, like the sub-task one: labels are a set, and closing after
+   each pick would mean reopening for every label on the task. */
+export function taskModalToggleLabel(label) {
+  const f = openId && taskOf(openId);
+  if (!f || !label) return;
+  const cur = Array.isArray(f.task.labels) ? [...f.task.labels] : [];
+  const i = cur.indexOf(label);
+  if (i === -1) cur.push(label); else cur.splice(i, 1);
+  taskModalSetLabels(cur.join(", "));
+  taskLabelQuery = "";
+  // taskModalSetLabels re-renders the side pane, which closes the editor;
+  // reopen it on the same field so a run of picks isn't interrupted.
+  editingField = "labels";
+  renderTaskModalSide();
+  setTimeout(() => document.getElementById("taskModalLabelSearch")?.focus(), 20);
 }
 
 export function taskModalSubPicker(which, forEdit) {
@@ -803,9 +867,20 @@ function sideHtml(found) {
 
       ${propRow("labels", "Labels",
         labels.length ? labels.map(l => `<span class="tm-label">${esc(l)}</span>`).join("") : "",
-        `<input type="text" list="taskModalLabelOptions" value="${esc(labels.join(", "))}" autofocus
-           placeholder="Comma separated" onchange="taskModalSetLabels(this.value)">
-         <datalist id="taskModalLabelOptions">${allLabels().map(l => `<option value="${esc(l)}">`).join("")}</datalist>`)}
+        /* A checkbox list, not a comma-separated text box.
+
+           The old editor was an <input list="…"> over a <datalist>, which
+           looks like a picker and is not one: a datalist only suggests
+           once you have typed a character, so clicking the field showed
+           nothing at all, and it can't indicate which labels are ALREADY
+           on the task. Both of the things you want from a label control,
+           missing from the control.
+
+           This is the same popover the sub-task chip opens — same rows,
+           same checkboxes, same "create it" affordance for a name that
+           doesn't exist yet — so labels behave identically wherever they
+           are set. */
+        taskLabelPickerHtml())}
 
       <div class="tm-prop static">
         <div class="tm-prop-label">Created</div>
@@ -820,13 +895,35 @@ function sideHtml(found) {
     </aside>`;
 }
 
+/* Every label in use anywhere, which is what the picker offers back.
+
+   This used to walk TASKS only, and missed the one place the picker
+   itself writes: sub-tasks. So creating "to do" on a sub-task worked,
+   stored correctly, rendered on the row — and then was gone from the list
+   the next time the picker opened, because nothing looked there. The
+   picker could create labels but never accumulate them, which made it
+   feel broken exactly when it had just been used.
+
+   Sub-tasks are walked in all three stores, not just native ones: a GSI or
+   Personal task's sub-tasks are edited through this same panel and can
+   carry labels for the same reason. */
 function allLabels() {
   const set = new Set();
-  const add = t => (t.labels || []).forEach(l => set.add(l));
+  const add = t => {
+    if (!t) return;
+    (Array.isArray(t.labels) ? t.labels : []).forEach(l => set.add(l));
+    (Array.isArray(t.subtasks) ? t.subtasks : []).forEach(st =>
+      (Array.isArray(st.labels) ? st.labels : []).forEach(l => set.add(l)));
+  };
   (state.tasks || []).forEach(add);
   (state.gsi?.projects || []).forEach(p => (p.tasks || []).forEach(add));
   (state.personal?.projects || []).forEach(p => (p.tasks || []).forEach(add));
-  return [...set].sort();
+  /* Labels chosen for a sub-task that has not been submitted yet. Without
+     this, picking two labels in a row would drop the first one off the
+     list between taps — it exists in the draft but nowhere in state. */
+  (subDraft?.labels || []).forEach(l => set.add(l));
+  (editDraft?.labels || []).forEach(l => set.add(l));
+  return [...set].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
 }
 
 /* ---------- description ----------

@@ -1,10 +1,10 @@
 /* Generic life-space pages: Communication, Finance, Health, Travel, Reference.
    (Work has a dedicated GSI page in gsi.js.) */
-import { state, uid, esc, persist, rerender, onStateReplaced, SECTION_META } from './state.js?v=202609031400';
-import { toast } from './ui.js?v=202609031400';
-import { moveToTrash } from './trash.js?v=202609031400';
-import { mountRichEditor, unmountRichEditor, getRichEditor } from './rich-text.js?v=202609031400';
-import { attachNoteInk, detachNoteInk, noteHasInk } from './note-ink.js?v=202609031400';
+import { state, uid, esc, persist, rerender, onStateReplaced, SECTION_META } from './state.js?v=202609031800';
+import { toast } from './ui.js?v=202609031800';
+import { moveToTrash } from './trash.js?v=202609031800';
+import { mountRichEditor, unmountRichEditor, getRichEditor } from './rich-text.js?v=202609031800';
+import { attachNoteInk, detachNoteInk, noteHasInk } from './note-ink.js?v=202609031800';
 
 export function buildSectionPages() {
   document.getElementById("sectionPages").innerHTML =
