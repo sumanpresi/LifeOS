@@ -1864,3 +1864,23 @@ html[data-theme="dark"] .t-due-chip:hover{background:rgba(255,255,255,.08)}
   font-family:inherit;font-size:13.5px;color:var(--ink)}
 .tm-sub-edit.composer-quick .composer-text:focus{outline:none}
 .tm-sub-edit.composer-quick .composer-chips{margin-top:7px}
+
+/* ===============================================================
+   32. TASK LABELS — the picker in the right rail
+   ===============================================================
+   Same rows, checkboxes and "create it" affordance as the sub-task
+   picker, but laid out in flow rather than floating: it opens inside the
+   Labels property row, which is already a container that expands, so
+   there is nothing to anchor a popover to and nothing that needs
+   escaping. Absolute positioning here would only give it a chance to
+   clip against the rail's own scroll.
+   --------------------------------------------------------------- */
+.tm-picker-inline{
+  position:static;left:auto;right:auto;top:auto;
+  width:100%;margin-top:4px;box-shadow:none;
+  border:1px solid var(--line);border-radius:10px;padding:7px}
+.tm-picker-inline .tm-picker-list{max-height:min(38vh,220px)}
+/* The rail is narrow, so the row loses the icon before it loses the name. */
+@media (max-width:520px){
+  .tm-picker-inline .tm-picker-ico{display:none}
+}
