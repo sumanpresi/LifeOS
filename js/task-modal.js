@@ -65,6 +65,14 @@ let subDraft = { date: "", priority: "", labels: [], projectId: "", projectName:
    sheet is a stack of layers nobody can read. */
 let subPicker = null;
 let subPickerQuery = "";
+/* Which sub-task is open for editing, and its working copy. A sub-task
+   being edited needs exactly the same four chips the composer offers, so
+   rather than build a second set of pickers that would drift, both share
+   one set pointed at whichever draft is live. */
+let editingSubId = null;
+let editDraft = null;
+function draftRef() { return editingSubId && editDraft ? editDraft : subDraft; }
+function blankDraft() { return { date: "", priority: "", labels: [], projectId: "", projectName: "" }; }
 
 /* ---------- helpers ---------- */
 function taskOf(id) { return findAnyTask(id); }
@@ -116,6 +124,7 @@ export function openTaskModal(id, siblings) {
   descOpen = !!(found.task.desc || "").replace(/<[^>]*>/g, "").trim();
   subDraft = { date: "", priority: "", labels: [], projectId: "", projectName: "" };
   subPicker = null; subPickerQuery = "";
+  editingSubId = null; editDraft = null;
 
   const bg = document.getElementById("taskModalBg");
   if (!bg) return;
@@ -474,7 +483,7 @@ function subtasksHtml(subtasks) {
   return `
     <div class="tm-section-head">Sub-tasks ${subtasks.length ? `<span class="tm-count">${subtasks.filter(s => s.done).length}/${subtasks.length}</span>` : ""}</div>
     <div class="tm-subtasks">
-      ${subtasks.map(st => `
+      ${subtasks.map(st => editingSubId === st.id ? subComposerHtml(st) : `
         <div class="tm-subtask ${st.done ? "done" : ""}">
           <button class="t-chk small ${st.done ? "on" : ""}" onclick="taskModalToggleSubtask('${st.id}')" aria-label="Toggle sub-task">
             <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
@@ -483,7 +492,11 @@ function subtasksHtml(subtasks) {
               onchange="taskModalEditSubtask('${st.id}', this.value)">`}
             ${subMetaHtml(st)}
           </div>
-          <button class="del" onclick="taskModalDelSubtask('${st.id}')" aria-label="Delete sub-task">✕</button>
+          <div class="tm-sub-actions">
+            <button class="tm-sub-act" onclick="taskModalSubEditStart('${st.id}')" title="Edit sub-task" aria-label="Edit sub-task">✏️</button>
+            <button class="tm-sub-act" onclick="taskModalSubEditStart('${st.id}', 'date')" title="Set date" aria-label="Set date">🗓</button>
+            <button class="tm-sub-act tm-sub-act-del" onclick="taskModalDelSubtask('${st.id}')" title="Delete sub-task" aria-label="Delete sub-task">✕</button>
+          </div>
         </div>`).join("")}
     </div>
     ${subComposerHtml()}`;
@@ -491,35 +504,39 @@ function subtasksHtml(subtasks) {
 
 /* Same shape as the board's quick add: the field, then one horizontal row
    of chips with the send button pinned to its right end. */
-function subComposerHtml() {
-  const labels = Array.isArray(subDraft.labels) ? subDraft.labels : [];
+function subComposerHtml(editing) {
+  const d = draftRef();
+  const labels = Array.isArray(d.labels) ? d.labels : [];
   return `
-    <div class="tm-subtask-add composer-quick">
-      <input type="text" id="taskModalNewSubtask" class="composer-text" placeholder="Sub-task name"
-        onkeydown="if(event.key==='Enter')taskModalAddSubtask()">
+    <div class="${editing ? "tm-sub-edit" : "tm-subtask-add"} composer-quick">
+      <input type="text" id="${editing ? "taskModalSubEditInput" : "taskModalNewSubtask"}" class="composer-text"
+        placeholder="Sub-task name" value="${editing ? esc(editing.text || "") : ""}"
+        onkeydown="if(event.key==='Enter'){${editing ? "taskModalSubEditSave()" : "taskModalAddSubtask()"}}">
       <div class="composer-chips">
-        <button type="button" class="composer-chip${subDraft.projectId ? " on" : ""}"
+        <button type="button" class="composer-chip${d.projectId ? " on" : ""}"
           onclick="taskModalSubPicker('project')" aria-haspopup="listbox"
           aria-expanded="${subPicker === "project"}" title="Project">
-          # ${subDraft.projectName ? esc(subDraft.projectName) : "Project"}</button>
-        <label class="composer-chip composer-chip-date${subDraft.date ? " on" : ""}" title="Due date">
-          🗓 <input type="date" id="taskModalSubDate" value="${esc(subDraft.date)}"
+          # ${d.projectName ? esc(d.projectName) : "Project"}</button>
+        <label class="composer-chip composer-chip-date${d.date ? " on" : ""}" title="Due date">
+          🗓 <input type="date" id="taskModalSubDate" value="${esc(d.date)}"
             onchange="taskModalSubDraft('date', this.value)">
-          ${subDraft.date ? `<b>${esc(fmtShort(subDraft.date))}</b>` : "Date"}
+          ${d.date ? `<b>${esc(fmtShort(d.date))}</b>` : "Date"}
         </label>
-        <button type="button" class="composer-chip${subDraft.priority && subDraft.priority !== "p4" ? " on" : ""}"
+        <button type="button" class="composer-chip${d.priority && d.priority !== "p4" ? " on" : ""}"
           onclick="taskModalSubCyclePriority()" title="Priority"
-          style="${subDraft.priority && subDraft.priority !== "p4" ? `color:${subPrioColor(subDraft.priority)}` : ""}">
-          ⚑ ${subDraft.priority && subDraft.priority !== "p4" ? esc(subDraft.priority.toUpperCase()) : "Priority"}</button>
+          style="${d.priority && d.priority !== "p4" ? `color:${subPrioColor(d.priority)}` : ""}">
+          ⚑ ${d.priority && d.priority !== "p4" ? esc(d.priority.toUpperCase()) : "Priority"}</button>
         <button type="button" class="composer-chip${labels.length ? " on" : ""}"
           onclick="taskModalSubPicker('labels')" aria-haspopup="listbox"
           aria-expanded="${subPicker === "labels"}" title="Labels">
           🏷 ${labels.length ? esc(labels.length === 1 ? labels[0] : labels.length + " labels") : "Labels"}</button>
         <span class="composer-spacer"></span>
-        <button type="button" class="composer-icon-btn composer-cancel" onclick="taskModalSubClear()"
-          title="Clear" aria-label="Clear sub-task fields">✕</button>
-        <button type="button" class="composer-icon-btn composer-send" onclick="taskModalAddSubtask()"
-          title="Add sub-task" aria-label="Add sub-task">
+        <button type="button" class="composer-icon-btn composer-cancel"
+          onclick="${editing ? "taskModalSubEditCancel()" : "taskModalSubClear()"}"
+          title="${editing ? "Cancel" : "Clear"}" aria-label="${editing ? "Cancel editing" : "Clear sub-task fields"}">✕</button>
+        <button type="button" class="composer-icon-btn composer-send"
+          onclick="${editing ? "taskModalSubEditSave()" : "taskModalAddSubtask()"}"
+          title="${editing ? "Save changes" : "Add sub-task"}" aria-label="${editing ? "Save changes" : "Add sub-task"}">
           <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
             <path d="M4 12h13M12 5l7 7-7 7" fill="none" stroke="currentColor"
               stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -565,24 +582,25 @@ function subPickerHtml() {
    different stores and moving between them is not allowed anywhere else
    in the app either. */
 function subProjectRows(q) {
+  const d = draftRef();
   const groups = [["Work · GSI", getProjectList()], ["Personal", getPwProjectList()]];
-  let html = `<button type="button" class="tm-picker-row${subDraft.projectId ? "" : " is-on"}"
+  let html = `<button type="button" class="tm-picker-row${d.projectId ? "" : " is-on"}"
     onclick="taskModalSubSetProject('','')"><span class="tm-picker-ico">🗂</span> No project
-    ${subDraft.projectId ? "" : `<span class="tm-picker-tick">✓</span>`}</button>`;
+    ${d.projectId ? "" : `<span class="tm-picker-tick">✓</span>`}</button>`;
   groups.forEach(([label, list]) => {
     const hits = list.filter(p => !q || p.name.toLowerCase().includes(q));
     if (!hits.length) return;
     html += `<div class="tm-picker-head">${esc(label)}</div>`;
     html += hits.map(p => `
-      <button type="button" class="tm-picker-row${subDraft.projectId === p.id ? " is-on" : ""}"
+      <button type="button" class="tm-picker-row${d.projectId === p.id ? " is-on" : ""}"
         onclick="taskModalSubSetProject('${p.id}', '${esc(p.name).replace(/'/g, "\\'")}')">
         <span class="tm-picker-ico tm-picker-hash">#</span> ${esc(p.name)}
-        ${subDraft.projectId === p.id ? `<span class="tm-picker-tick">✓</span>` : ""}</button>`).join("");
+        ${d.projectId === p.id ? `<span class="tm-picker-tick">✓</span>` : ""}</button>`).join("");
   });
   return html;
 }
 function subLabelRows(q) {
-  const chosen = new Set(subDraft.labels);
+  const chosen = new Set(draftRef().labels);
   return allLabels()
     .filter(l => !q || l.toLowerCase().includes(q))
     .map(l => `
@@ -610,16 +628,18 @@ export function taskModalSubPickerFilter(v) {
   if (fresh) list.innerHTML = fresh.innerHTML;
 }
 export function taskModalSubSetProject(id, name) {
-  subDraft.projectId = id || "";
-  subDraft.projectName = id ? name : "";
+  const d = draftRef();
+  d.projectId = id || "";
+  d.projectName = id ? name : "";
   subPicker = null; subPickerQuery = "";
   repaintSubComposer();
 }
 /* Stays open: choosing labels is a set operation, and closing after each
    one would mean reopening the picker for every label on the task. */
 export function taskModalSubToggleLabel(label) {
-  const i = subDraft.labels.indexOf(label);
-  if (i === -1) subDraft.labels.push(label); else subDraft.labels.splice(i, 1);
+  const d = draftRef();
+  const i = d.labels.indexOf(label);
+  if (i === -1) d.labels.push(label); else d.labels.splice(i, 1);
   subPickerQuery = "";
   repaintSubComposer();
   setTimeout(() => document.getElementById("taskModalSubPickerSearch")?.focus(), 20);
@@ -637,10 +657,11 @@ document.addEventListener("click", (e) => {
 /* The chips write into subDraft rather than into a sub-task, because the
    sub-task does not exist until the text is submitted. */
 export function taskModalSubDraft(field, v) {
+  const d = draftRef();
   if (field === "labels") {
-    subDraft.labels = [...new Set(String(v).split(",").map(x => x.trim()).filter(Boolean))];
+    d.labels = [...new Set(String(v).split(",").map(x => x.trim()).filter(Boolean))];
   } else {
-    subDraft[field] = v || "";
+    d[field] = v || "";
   }
   repaintSubComposer();
 }
@@ -650,8 +671,9 @@ export function taskModalSubDraft(field, v) {
    P3, so the cycle also clears. */
 export function taskModalSubCyclePriority() {
   const order = ["p4", "p1", "p2", "p3"];
-  const i = order.indexOf(subDraft.priority || "p4");
-  subDraft.priority = order[(i + 1) % order.length];
+  const d = draftRef();
+  const i = order.indexOf(d.priority || "p4");
+  d.priority = order[(i + 1) % order.length];
   repaintSubComposer();
 }
 export function taskModalSubClear() {
@@ -667,16 +689,19 @@ export function taskModalSubClear() {
    person is typing into, which is the same caret-loss problem
    renderTaskModalSide() exists to avoid one level up. */
 function repaintSubComposer() {
-  const box = document.querySelector("#taskModalSubtaskSection .tm-subtask-add");
+  const editing = editingSubId ? currentSub(editingSubId) : null;
+  const sel = editing ? ".tm-sub-edit" : ".tm-subtask-add";
+  const box = document.querySelector("#taskModalSubtaskSection " + sel);
   if (!box) { renderSubtasks(); return; }
-  const typed = document.getElementById("taskModalNewSubtask")?.value || "";
+  const inputId = editing ? "taskModalSubEditInput" : "taskModalNewSubtask";
+  const typed = document.getElementById(inputId)?.value ?? null;
   const holder = document.createElement("div");
-  holder.innerHTML = subComposerHtml();
+  holder.innerHTML = subComposerHtml(editing ? { ...editing, text: typed ?? editing.text } : null);
   const fresh = holder.firstElementChild;
   if (!fresh) return;
   box.replaceWith(fresh);
-  const el = document.getElementById("taskModalNewSubtask");
-  if (el) { el.value = typed; el.focus(); }
+  const el = document.getElementById(inputId);
+  if (el) { if (typed !== null) el.value = typed; el.focus(); }
 }
 /* Sub-tasks repaint on their own, for the same reason the sidebar does:
    a full render would drop and rebuild the description editor, losing the
@@ -887,6 +912,55 @@ export function taskModalAddSubtask() {
      thing cleared. */
   touch(f); persist(); renderSubtasks();
   document.getElementById("taskModalNewSubtask")?.focus();
+}
+function currentSub(sid) {
+  const f = taskOf(openId); if (!f) return null;
+  return subs(f).find(x => x.id === sid) || null;
+}
+/* Editing opens the same composer the add row uses, in the row's place —
+   so a sub-task is edited with the controls it was created with, rather
+   than a bare text box that can reach none of its own chips. This is also
+   the ONLY way to edit a referenced sub-task: that row renders as a link
+   so it can open its target, which leaves it with nothing to type into.
+   The pencil is what gives it back. */
+export function taskModalSubEditStart(sid, focus) {
+  const st = currentSub(sid); if (!st) return;
+  editingSubId = sid;
+  editDraft = {
+    date: st.date || "", priority: st.priority || "",
+    labels: Array.isArray(st.labels) ? [...st.labels] : [],
+    projectId: st.projectId || "", projectName: st.projectName || ""
+  };
+  subPicker = null; subPickerQuery = "";
+  renderSubtasks();
+  setTimeout(() => {
+    if (focus === "date") document.getElementById("taskModalSubDate")?.showPicker?.();
+    else document.getElementById("taskModalSubEditInput")?.focus();
+  }, 40);
+}
+export function taskModalSubEditCancel() {
+  editingSubId = null; editDraft = null;
+  subPicker = null; subPickerQuery = "";
+  renderSubtasks();
+}
+export function taskModalSubEditSave() {
+  const f = taskOf(openId);
+  const st = editingSubId && currentSub(editingSubId);
+  if (!f || !st) { taskModalSubEditCancel(); return; }
+  const v = (document.getElementById("taskModalSubEditInput")?.value || "").trim();
+  const d = editDraft || blankDraft();
+  /* A reference keeps its link; renaming it renames only the label you
+     see, never where it points. Clearing the text restores the target's
+     own name on the next render rather than leaving a blank row. */
+  if (v || !st.refId) st.text = v;
+  if (d.date) st.date = d.date; else delete st.date;
+  if (d.priority && d.priority !== "p4") st.priority = d.priority; else delete st.priority;
+  if (d.labels.length) st.labels = [...d.labels]; else delete st.labels;
+  if (d.projectId) { st.projectId = d.projectId; st.projectName = d.projectName; }
+  else { delete st.projectId; delete st.projectName; }
+  editingSubId = null; editDraft = null;
+  subPicker = null; subPickerQuery = "";
+  touch(f); persist(); renderSubtasks();
 }
 export function taskModalToggleSubtask(sid) {
   const f = taskOf(openId); if (!f) return;
