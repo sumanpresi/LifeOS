@@ -1402,3 +1402,139 @@ html[data-theme="dark"] .t-due-chip:hover{background:rgba(255,255,255,.08)}
 /* The task detail's due-date row opens the same sheet, so it gets the
    same affordance as a card: a pointer, and a hint on hover. */
 .tm-prop-value[aria-haspopup="dialog"]{cursor:pointer}
+
+/* ===============================================================
+   24. TODOIST PARITY — the board card, the column, the quick add
+   ===============================================================
+   This section is LAST in the last stylesheet on purpose. Everything it
+   changes was already set earlier — section 16 sizes the card, section 5
+   sizes the meta row, css/style.css sizes both — so a rule written
+   anywhere else simply loses. That is why the earlier attempt at this
+   had no visible effect on the Fold: it was written in style.css, and
+   this file overrode it on the next line.
+
+   THE OBSERVATION. Put the two boards side by side and the difference is
+   not the spacing, it is the inventory. A Todoist card carries the title
+   and then only what the task actually HAS — a date if it is dated, a
+   description if it has one, a comment count if there are comments. A
+   LifeOS card carries five slots whether or not they hold anything: a
+   date chip OR an "Add date" placeholder, a link OR a "+ Link"
+   placeholder, a Work/Personal pill, a project <select>, and a grip.
+   In a 270px column that cannot fit on one line, so it wraps, and a card
+   with a one-line title still spends two lines on chrome it isn't using.
+
+   So the card loses the empty slots, not the information. Every control
+   removed here already exists in the task detail panel, which is what a
+   tap on the card opens — including the link field, which is where a URL
+   is realistically pasted anyway.
+   --------------------------------------------------------------- */
+
+/* ---- 24.1 The card ---- */
+/* Uniform-height cards were section 16's answer to a meta row that
+   wrapped unpredictably. With the row down to one line the cards can
+   size to their own content again, the way Todoist's do — a one-line
+   task gets a small card instead of padding out to match a three-line
+   one, which is where most of the recovered space comes from. */
+.t-board-card{
+  padding:11px 13px;
+  border-radius:11px;
+  border-left-width:1px !important;   /* no accent bar: Todoist has none, and it
+                                         cost 3px of every title's line */
+}
+.t-board-card-top{gap:9px;align-items:flex-start}
+.t-board-card-title,
+.gsi-board-card-title{
+  font-size:14px;
+  line-height:1.4;
+  font-weight:400;
+}
+
+/* The checkbox is a ring, sized and centred on the title's first line. */
+.t-board-card .t-chk{width:21px;height:21px;border-width:1.6px;margin-top:1px}
+.t-board-card .t-chk svg{width:12px;height:12px}
+
+/* ---- 24.2 The meta row: only what the task has ---- */
+/* Placeholders out. These are offers, not facts, and they were the whole
+   reason the row wrapped. Both live in the detail panel. */
+.t-board-card .t-add-date-btn,
+.t-board-card .t-add-link-btn{display:none !important}
+/* The project picker is a control, not information — and a board column
+   is already an answer to "which project". Changing a task's project
+   stays available in the detail panel and in List view's meta row. */
+.t-board-card .t-board-project-sel{display:none !important}
+/* An empty date slot should take no width at all once its button is gone. */
+.t-board-card-date:empty{display:none}
+
+.t-board-card-meta{
+  margin-top:6px;
+  margin-left:30px;          /* under the title, clear of the checkbox */
+  gap:4px 8px;
+  flex-wrap:wrap;
+}
+.t-board-card-date,
+.t-board-card-tag{font-size:11px}
+.t-board-card-tag{
+  background:transparent;padding:0;border-radius:0;
+  font-weight:500;opacity:.62;max-width:none}
+
+/* ---- 24.3 The grip ---- */
+/* Kept, because it is the one spot on the card with touch-action:none —
+   the place a press is guaranteed to mean "pick this up" rather than
+   being taken for a scroll. But narrowed to a quiet edge rather than a
+   glyph competing with the title, since initBoardSorting() gives
+   Sortable no `handle` and long-pressing the card body works too. */
+@media (pointer:coarse){
+  .t-board-card-handle{
+    width:14px; margin:-11px 0 -11px -9px;
+    font-size:11px; opacity:.22;
+  }
+  .t-board-card-meta{margin-left:26px}
+}
+
+/* ---- 24.4 The column ---- */
+/* Tighter gutters and a narrower track: with the meta row on one line the
+   titles no longer need 270px to read well, and the point of a board is
+   how much of it you can see at once. */
+@media (max-width:1024px){
+  .t-board{gap:10px;padding:10px 12px 14px}
+  .t-board-col{width:min(252px,72vw) !important;min-width:230px !important;max-width:252px !important}
+  .t-board-col[data-board-col="completed"]{width:min(252px,72vw) !important}
+  .t-board-col-body{padding:9px;gap:7px}
+}
+
+/* ---- 24.5 Quick add ---- */
+/* One field, one row of chips, send pinned to the right — the shape of
+   Todoist's add sheet. The old form was five stacked rows, which in a
+   column on the Fold pushed the board off the bottom of the screen. */
+.composer-quick{padding:10px 11px;border-radius:11px}
+.composer-quick .composer-text{
+  min-height:0;font-size:14px;line-height:1.4;padding:2px 0;
+  border:none;background:transparent;resize:none;width:100%}
+.composer-quick .composer-text:focus{outline:none;box-shadow:none}
+.composer-quick .composer-chips{
+  display:flex;align-items:center;gap:6px;margin-top:8px;
+  flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;
+  scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.composer-quick .composer-chips::-webkit-scrollbar{display:none}
+.composer-quick .composer-chip{flex:0 0 auto;font-size:11px;padding:4px 9px;border-radius:99px}
+.composer-quick .composer-project{flex:0 0 auto;font-size:11px;opacity:.7}
+/* Pushes ✕ and send to the far end, and stops the chips being stretched. */
+.composer-quick .composer-spacer{flex:1 0 12px}
+.composer-icon-btn{
+  flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
+  width:32px;height:32px;border-radius:50%;border:none;cursor:pointer;
+  background:transparent;color:var(--t-ink2);font-size:14px;line-height:1;
+  transition:background 120ms ease,color 120ms ease}
+.composer-icon-btn:active{transform:scale(.94)}
+.composer-send{background:var(--t-accent,#dc4c3e);color:#fff}
+.composer-send:disabled{opacity:.45}
+.composer-cancel:hover{color:var(--t-ink)}
+
+/* The empty date slot is a <span> holding the hidden <input type="date">
+   the picker writes into, so it is never :empty and the flex gap still
+   paid for it. :has() asks the question that actually matters — "is the
+   only thing in here a placeholder?" — and collapses the slot. Browsers
+   without :has() keep a 0-width span and one stray gap, which is the
+   behaviour being improved on rather than depended on. */
+.t-board-card-date:has(> .t-add-date-btn){display:none}
+.t-board-card-meta:not(:has(.t-board-card-date:not(:has(> .t-add-date-btn)))):not(:has(a.t-board-card-tag)):not(:has(.t-archive-btn)) .t-board-card-tag{margin-left:0}
