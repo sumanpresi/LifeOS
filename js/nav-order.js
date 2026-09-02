@@ -51,6 +51,12 @@ function readOrder(group) {
 export function initNavSorting() {
   const group = document.getElementById(GROUP_ID);
   if (!group || typeof Sortable === "undefined") return;
+  /* At <=600px the sidebar is a bottom bar and .nav-group is
+     display:contents, so it has no layout box for Sortable to measure
+     against — every drop would compute against a zero-size rect. Checked
+     at the computed style rather than by re-testing the breakpoint here,
+     so the CSS stays the single place the breakpoint is written down. */
+  if (getComputedStyle(group).display === "contents") return;
   if (group.dataset.sortable === "1") return;   // idempotent: safe to call on every render
   group.dataset.sortable = "1";
 
