@@ -59,7 +59,12 @@ let descOpen = false;
    the text is submitted, so a date or a priority chosen beforehand has
    nowhere to live yet — same problem the board composer solves with its
    own `draft`, and solved the same way. Reset on open and after each add. */
-let subDraft = { date: "", priority: "", labels: [] };
+let subDraft = { date: "", priority: "", labels: [], projectId: "", projectName: "" };
+/* Which sub-task picker is open, if any: "project" | "labels" | null.
+   One at a time — two popovers on screen at once inside a half-height
+   sheet is a stack of layers nobody can read. */
+let subPicker = null;
+let subPickerQuery = "";
 
 /* ---------- helpers ---------- */
 function taskOf(id) { return findAnyTask(id); }
@@ -109,7 +114,8 @@ export function openTaskModal(id, siblings) {
   // A description that exists is content, not a control, so it opens with
   // the task. An empty one stays out of the way until asked for.
   descOpen = !!(found.task.desc || "").replace(/<[^>]*>/g, "").trim();
-  subDraft = { date: "", priority: "", labels: [] };
+  subDraft = { date: "", priority: "", labels: [], projectId: "", projectName: "" };
+  subPicker = null; subPickerQuery = "";
 
   const bg = document.getElementById("taskModalBg");
   if (!bg) return;
@@ -417,8 +423,9 @@ function subMetaHtml(st) {
   if (st.priority && st.priority !== "p4") {
     bits.push(`<span class="tm-sub-chip tm-sub-prio" style="color:${subPrioColor(st.priority)}">⚑ ${esc(st.priority.toUpperCase())}</span>`);
   }
+  if (st.projectName) bits.push(`<span class="tm-sub-chip tm-sub-proj"># ${esc(st.projectName)}</span>`);
   (Array.isArray(st.labels) ? st.labels : []).forEach(l =>
-    bits.push(`<span class="tm-sub-chip tm-sub-label">${esc(l)}</span>`));
+    bits.push(`<span class="tm-sub-chip tm-sub-label">🏷 ${esc(l)}</span>`));
   return bits.length ? `<div class="tm-sub-meta">${bits.join("")}</div>` : "";
 }
 function fmtShort(iso) {
@@ -426,6 +433,41 @@ function fmtShort(iso) {
   const d = new Date(iso + (iso.length === 10 ? "T00:00:00" : ""));
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+}
+
+/* A reference resolves through findAnyTask on every render, so it reads as
+   whatever the target is called NOW. A dangling one says so rather than
+   pretending — the sub-task is still yours to keep or delete. */
+function subRefHtml(st) {
+  const target = taskOf(st.refId);
+  if (!target) {
+    return `<span class="tm-sub-ref is-gone" title="This task no longer exists">
+      <span class="tm-sub-ref-ico">🔗</span> ${esc(st.text || "Linked task")} <em>(deleted)</em></span>`;
+  }
+  return `<button type="button" class="tm-sub-ref" onclick="openTaskModal('${st.refId}')"
+      title="Open ${esc(target.task.text || "task")}">
+      <span class="tm-sub-ref-ico">🔗</span> Task: ${esc(target.task.text || "Untitled")}</button>`;
+}
+
+/* Todoist lets you type the project straight into the text as #Name
+   rather than reaching for the chip — faster when you already know where
+   it goes, and it is how their composer is designed to be used. Matched
+   against real project names longest-first, so "#NGDR 2.0" wins over
+   "#NGDR" when both exist. The token is removed from the text: it was an
+   instruction, not part of the title. */
+function extractProjectToken(text) {
+  const t = String(text || "");
+  if (!t.includes("#")) return null;
+  const all = [...getProjectList(), ...getPwProjectList()]
+    .slice().sort((a, b) => b.name.length - a.name.length);
+  for (const p of all) {
+    const i = t.toLowerCase().indexOf("#" + p.name.toLowerCase());
+    if (i !== -1) {
+      const rest = (t.slice(0, i) + t.slice(i + 1 + p.name.length)).replace(/\s{2,}/g, " ").trim();
+      return { project: p, text: rest };
+    }
+  }
+  return null;
 }
 
 function subtasksHtml(subtasks) {
@@ -437,8 +479,8 @@ function subtasksHtml(subtasks) {
           <button class="t-chk small ${st.done ? "on" : ""}" onclick="taskModalToggleSubtask('${st.id}')" aria-label="Toggle sub-task">
             <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
           <div class="tm-sub-main">
-            <input type="text" value="${esc(st.text)}" aria-label="Sub-task"
-              onchange="taskModalEditSubtask('${st.id}', this.value)">
+            ${st.refId ? subRefHtml(st) : `<input type="text" value="${esc(st.text)}" aria-label="Sub-task"
+              onchange="taskModalEditSubtask('${st.id}', this.value)">`}
             ${subMetaHtml(st)}
           </div>
           <button class="del" onclick="taskModalDelSubtask('${st.id}')" aria-label="Delete sub-task">✕</button>
@@ -456,6 +498,10 @@ function subComposerHtml() {
       <input type="text" id="taskModalNewSubtask" class="composer-text" placeholder="Sub-task name"
         onkeydown="if(event.key==='Enter')taskModalAddSubtask()">
       <div class="composer-chips">
+        <button type="button" class="composer-chip${subDraft.projectId ? " on" : ""}"
+          onclick="taskModalSubPicker('project')" aria-haspopup="listbox"
+          aria-expanded="${subPicker === "project"}" title="Project">
+          # ${subDraft.projectName ? esc(subDraft.projectName) : "Project"}</button>
         <label class="composer-chip composer-chip-date${subDraft.date ? " on" : ""}" title="Due date">
           🗓 <input type="date" id="taskModalSubDate" value="${esc(subDraft.date)}"
             onchange="taskModalSubDraft('date', this.value)">
@@ -465,12 +511,10 @@ function subComposerHtml() {
           onclick="taskModalSubCyclePriority()" title="Priority"
           style="${subDraft.priority && subDraft.priority !== "p4" ? `color:${subPrioColor(subDraft.priority)}` : ""}">
           ⚑ ${subDraft.priority && subDraft.priority !== "p4" ? esc(subDraft.priority.toUpperCase()) : "Priority"}</button>
-        <label class="composer-chip${labels.length ? " on" : ""}" title="Labels, comma separated">
-          🏷 <input type="text" id="taskModalSubLabels" class="tm-sub-label-input"
-            list="taskModalSubLabelOptions" value="${esc(labels.join(", "))}" placeholder="Labels"
-            onchange="taskModalSubDraft('labels', this.value)">
-          <datalist id="taskModalSubLabelOptions">${allLabels().map(l => `<option value="${esc(l)}">`).join("")}</datalist>
-        </label>
+        <button type="button" class="composer-chip${labels.length ? " on" : ""}"
+          onclick="taskModalSubPicker('labels')" aria-haspopup="listbox"
+          aria-expanded="${subPicker === "labels"}" title="Labels">
+          🏷 ${labels.length ? esc(labels.length === 1 ? labels[0] : labels.length + " labels") : "Labels"}</button>
         <span class="composer-spacer"></span>
         <button type="button" class="composer-icon-btn composer-cancel" onclick="taskModalSubClear()"
           title="Clear" aria-label="Clear sub-task fields">✕</button>
@@ -482,8 +526,113 @@ function subComposerHtml() {
           </svg>
         </button>
       </div>
+      ${subPickerHtml()}
     </div>`;
 }
+
+/* ---------- the two pickers ----------
+   Both are the same popover: a search field over a scrolling list. The
+   only difference is what a row does when tapped — a project replaces the
+   choice and closes, a label toggles a checkbox and stays open, because
+   labels are a set and projects are not.
+
+   A <datalist> was what the labels chip used before, and it was the wrong
+   control in two ways: it only suggests while you type, so there is no way
+   to SEE which labels exist, and it cannot show what is already selected.
+   The reference's checkbox list answers both. */
+function subPickerHtml() {
+  if (!subPicker) return "";
+  const q = subPickerQuery.trim().toLowerCase();
+  const rows = subPicker === "project" ? subProjectRows(q) : subLabelRows(q);
+  const isNew = subPicker === "labels" && subPickerQuery.trim() &&
+    !allLabels().some(l => l.toLowerCase() === q);
+  return `
+    <div class="tm-picker" role="dialog" aria-label="${subPicker === "project" ? "Choose project" : "Choose labels"}">
+      <input type="text" class="tm-picker-search" id="taskModalSubPickerSearch"
+        placeholder="${subPicker === "project" ? "Type a project name" : "Type a label"}"
+        value="${esc(subPickerQuery)}" oninput="taskModalSubPickerFilter(this.value)"
+        onkeydown="if(event.key==='Escape'){event.stopPropagation();taskModalSubPicker(null)}">
+      <div class="tm-picker-list">
+        ${rows || `<div class="tm-picker-empty">No matches</div>`}
+        ${isNew ? `<button type="button" class="tm-picker-row tm-picker-new"
+          onclick="taskModalSubToggleLabel('${esc(subPickerQuery.trim()).replace(/'/g, "\\'")}')">
+          <span class="tm-picker-ico">+</span> Create “${esc(subPickerQuery.trim())}”</button>` : ""}
+      </div>
+    </div>`;
+}
+/* Both trees, each under its own heading — the same separation the task's
+   own project picker keeps, because a GSI project and a personal one are
+   different stores and moving between them is not allowed anywhere else
+   in the app either. */
+function subProjectRows(q) {
+  const groups = [["Work · GSI", getProjectList()], ["Personal", getPwProjectList()]];
+  let html = `<button type="button" class="tm-picker-row${subDraft.projectId ? "" : " is-on"}"
+    onclick="taskModalSubSetProject('','')"><span class="tm-picker-ico">🗂</span> No project
+    ${subDraft.projectId ? "" : `<span class="tm-picker-tick">✓</span>`}</button>`;
+  groups.forEach(([label, list]) => {
+    const hits = list.filter(p => !q || p.name.toLowerCase().includes(q));
+    if (!hits.length) return;
+    html += `<div class="tm-picker-head">${esc(label)}</div>`;
+    html += hits.map(p => `
+      <button type="button" class="tm-picker-row${subDraft.projectId === p.id ? " is-on" : ""}"
+        onclick="taskModalSubSetProject('${p.id}', '${esc(p.name).replace(/'/g, "\\'")}')">
+        <span class="tm-picker-ico tm-picker-hash">#</span> ${esc(p.name)}
+        ${subDraft.projectId === p.id ? `<span class="tm-picker-tick">✓</span>` : ""}</button>`).join("");
+  });
+  return html;
+}
+function subLabelRows(q) {
+  const chosen = new Set(subDraft.labels);
+  return allLabels()
+    .filter(l => !q || l.toLowerCase().includes(q))
+    .map(l => `
+      <button type="button" class="tm-picker-row${chosen.has(l) ? " is-on" : ""}"
+        onclick="taskModalSubToggleLabel('${esc(l).replace(/'/g, "\\'")}')" role="checkbox"
+        aria-checked="${chosen.has(l)}">
+        <span class="tm-picker-ico">🏷</span> ${esc(l)}
+        <span class="tm-picker-box${chosen.has(l) ? " on" : ""}" aria-hidden="true"></span></button>`).join("");
+}
+
+export function taskModalSubPicker(which) {
+  subPicker = (which && which !== subPicker) ? which : null;
+  subPickerQuery = "";
+  repaintSubComposer();
+  if (subPicker) setTimeout(() => document.getElementById("taskModalSubPickerSearch")?.focus(), 30);
+}
+export function taskModalSubPickerFilter(v) {
+  subPickerQuery = v;
+  // Only the list is rebuilt, so the search field keeps its caret.
+  const list = document.querySelector("#taskModalSubtaskSection .tm-picker-list");
+  if (!list) { repaintSubComposer(); return; }
+  const holder = document.createElement("div");
+  holder.innerHTML = subPickerHtml();
+  const fresh = holder.querySelector(".tm-picker-list");
+  if (fresh) list.innerHTML = fresh.innerHTML;
+}
+export function taskModalSubSetProject(id, name) {
+  subDraft.projectId = id || "";
+  subDraft.projectName = id ? name : "";
+  subPicker = null; subPickerQuery = "";
+  repaintSubComposer();
+}
+/* Stays open: choosing labels is a set operation, and closing after each
+   one would mean reopening the picker for every label on the task. */
+export function taskModalSubToggleLabel(label) {
+  const i = subDraft.labels.indexOf(label);
+  if (i === -1) subDraft.labels.push(label); else subDraft.labels.splice(i, 1);
+  subPickerQuery = "";
+  repaintSubComposer();
+  setTimeout(() => document.getElementById("taskModalSubPickerSearch")?.focus(), 20);
+}
+/* A tap anywhere outside closes it — the same dismissal every other
+   popover in the app uses, bound once at module load. */
+document.addEventListener("click", (e) => {
+  if (!subPicker) return;
+  if (e.target.closest?.(".tm-picker")) return;
+  if (e.target.closest?.('.composer-chip[aria-haspopup="listbox"]')) return;
+  subPicker = null; subPickerQuery = "";
+  repaintSubComposer();
+}, true);
 
 /* The chips write into subDraft rather than into a sub-task, because the
    sub-task does not exist until the text is submitted. */
@@ -506,7 +655,8 @@ export function taskModalSubCyclePriority() {
   repaintSubComposer();
 }
 export function taskModalSubClear() {
-  subDraft = { date: "", priority: "", labels: [] };
+  subDraft = { date: "", priority: "", labels: [], projectId: "", projectName: "" };
+  subPicker = null; subPickerQuery = "";
   const el = document.getElementById("taskModalNewSubtask");
   if (el) el.value = "";
   repaintSubComposer();
@@ -709,10 +859,26 @@ export function taskModalAddSubtask() {
   const v = (el?.value || "").trim();
   if (!v) return;
   const f = taskOf(openId); if (!f) return;
-  const st = { id: uid(), text: v, done: false };
+  let v2 = v;
+  /* A pasted task link becomes a REFERENCE, not a title. Checked before
+     anything else, because a URL happens to contain "#" fragments and
+     would otherwise be mangled by the project-token pass below. */
+  const refId = parseTaskLink(v2);
+  const tok = refId ? null : extractProjectToken(v2);
+  if (tok) {
+    v2 = tok.text;
+    subDraft.projectId = tok.project.id;
+    subDraft.projectName = tok.project.name;
+    if (!v2) { // "#Project" alone sets the chip and waits for a title
+      el.value = ""; repaintSubComposer(); return;
+    }
+  }
+  const st = { id: uid(), text: v2, done: false };
+  if (refId) { st.refId = refId; st.text = taskOf(refId)?.task.text || v2; }
   if (subDraft.date) st.date = subDraft.date;
   if (subDraft.priority && subDraft.priority !== "p4") st.priority = subDraft.priority;
   if (subDraft.labels.length) st.labels = [...subDraft.labels];
+  if (subDraft.projectId) { st.projectId = subDraft.projectId; st.projectName = subDraft.projectName; }
   subs(f).push(st);
   el.value = "";
   /* The date, priority and labels are KEPT for the next one. Sub-tasks are
@@ -736,6 +902,105 @@ export function taskModalDelSubtask(sid) {
   const f = taskOf(openId); if (!f) return;
   f.task.subtasks = subs(f).filter(x => x.id !== sid);
   touch(f); persist(); renderSubtasks();
+}
+
+/* ============================================================
+   TASK LINKS — a task is a place you can point at
+   ============================================================
+   The modal already puts ?task=<id> in the address bar every time one
+   opens, so a durable link to any task has existed all along; there was
+   simply no way to get hold of one without reading the URL bar, which on
+   a phone is not a thing anyone does.
+
+   Two halves, and they only pay off together:
+
+     Copy link to task  — hands you that URL.
+     Paste it back      — anywhere a sub-task is typed, the URL resolves
+                          to the task it points at and becomes a live
+                          reference to it rather than 90 characters of
+                          unreadable query string.
+
+   The reference stores the target's ID, not its title. A title copied at
+   paste time would be a snapshot that quietly goes stale the moment the
+   other task is renamed; resolving through findAnyTask() on every render
+   means the reference always reads as whatever that task is called now,
+   and can say so plainly when the target has been deleted.
+   ============================================================ */
+export function taskLinkFor(id) {
+  const url = new URL(location.href);
+  url.search = ""; url.hash = "";
+  url.searchParams.set("task", id);
+  return url.toString();
+}
+/* Accepts a full link, or a bare id pasted on its own. Deliberately does
+   NOT accept any URL with a ?task= — it must be this deployment, or a
+   link to somebody else's LifeOS would resolve against your data. */
+export function parseTaskLink(text) {
+  const raw = String(text || "").trim();
+  if (!raw) return null;
+  try {
+    const u = new URL(raw, location.href);
+    if (u.origin !== location.origin) return null;
+    const id = u.searchParams.get("task");
+    if (id && taskOf(id)) return id;
+  } catch (e) { /* not a URL — fall through to the bare-id case */ }
+  if (/^[A-Za-z0-9_-]{4,}$/.test(raw) && taskOf(raw)) return raw;
+  return null;
+}
+
+export function taskModalToggleMenu(evt) {
+  evt?.stopPropagation();
+  const menu = document.getElementById("taskModalMenu");
+  const btn = document.getElementById("taskModalMore");
+  if (!menu) return;
+  const open = menu.hidden;
+  menu.hidden = !open;
+  btn?.setAttribute("aria-expanded", String(open));
+}
+function closeTaskMenu() {
+  const menu = document.getElementById("taskModalMenu");
+  if (menu && !menu.hidden) { menu.hidden = true; document.getElementById("taskModalMore")?.setAttribute("aria-expanded", "false"); }
+}
+document.addEventListener("click", (e) => {
+  if (e.target.closest?.("#taskModalMenu") || e.target.closest?.("#taskModalMore")) return;
+  closeTaskMenu();
+}, true);
+
+export async function taskModalCopyLink() {
+  closeTaskMenu();
+  if (!openId) return;
+  const link = taskLinkFor(openId);
+  /* navigator.clipboard needs a secure context and is absent in a few
+     Android WebViews, so the textarea fallback stays — a copy action that
+     silently does nothing is worse than an old API. */
+  try {
+    if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(link);
+    else {
+      const ta = document.createElement("textarea");
+      ta.value = link; ta.setAttribute("readonly", "");
+      ta.style.cssText = "position:fixed;top:-1000px;opacity:0";
+      document.body.appendChild(ta); ta.select();
+      document.execCommand("copy"); ta.remove();
+    }
+    toast("Link copied — paste it into any sub-task");
+  } catch (e) { toast("Couldn't copy the link"); }
+}
+
+export function taskModalDuplicate() {
+  closeTaskMenu();
+  const f = openId && taskOf(openId);
+  if (!f) return;
+  if (f.isGsi || f.isPersonal) { toast("Duplicate works on Overview tasks for now"); return; }
+  const copy = JSON.parse(JSON.stringify(f.task));
+  copy.id = uid();
+  copy.text = (copy.text || "Task") + " (copy)";
+  copy.done = false; copy.completedAt = null; copy.archived = false;
+  copy.googleEventId = null;
+  copy.position = (f.task.position ?? 0) + 1;   // lands directly after its original
+  (copy.subtasks || []).forEach(st => { st.id = uid(); st.done = false; });
+  state.tasks.push(copy);
+  persist(); rerender();
+  toast("Task duplicated", "Open it", `openTaskModal('${copy.id}')`);
 }
 
 /* ---------- keyboard, overlay, history ----------
