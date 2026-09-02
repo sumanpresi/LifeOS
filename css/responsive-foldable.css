@@ -1987,3 +1987,9 @@ body.is-dragging .nav-item{user-select:none;-webkit-user-select:none}
   user-select:text;
   -webkit-touch-callout:default;
 }
+
+/* The Personal card title was a <textarea> and is now a <span>, so it
+   inherits .gsi-board-card-title — which still carries cursor:text from
+   when that element was editable on this board. The card is a button that
+   opens the task now, so the cursor should say so. */
+.pw-board-card-title{cursor:pointer}
