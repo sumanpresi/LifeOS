@@ -1649,3 +1649,62 @@ html[data-theme="dark"] .t-due-chip:hover{background:rgba(255,255,255,.08)}
 @media (pointer:coarse){
   .tm-desc .ql-editor{min-height:88px}
 }
+
+/* ===============================================================
+   27. TASK DETAIL — a bottom sheet, not a page
+   ===============================================================
+   style.css already has a sheet, but it is written as
+   @media (max-width:768px) and it is FULL height. Neither part reaches
+   the Fold: the inner screen reports wider than 768px in Samsung
+   Internet, so it gets the desktop centred dialog instead — the big
+   floating form in the recording — and even if it did match, 100dvh is a
+   page, not a sheet.
+
+   Todoist's task detail covers roughly the lower half of the screen and
+   leaves the board visible above it. That visible strip is not
+   decoration: it is what tells you the task belongs to the column behind
+   it, and it makes dismissing the sheet a downward flick at a thing you
+   can see rather than a hunt for a back button.
+
+   Keyed to (pointer:coarse) rather than to a width, because this is a
+   fact about the input device, not about how many pixels it reports —
+   which is the assumption that made the existing rule miss.
+   --------------------------------------------------------------- */
+@media (pointer:coarse){
+  .tm-bg{padding:0 !important;align-items:flex-end !important}
+
+  .tm-shell{
+    width:100% !important;max-width:100% !important;
+    height:62dvh !important;max-height:62dvh !important;
+    border-radius:18px 18px 0 0 !important;
+    transform:translateY(100%) !important;
+    transition:transform 240ms cubic-bezier(.2,.8,.3,1) !important;
+    opacity:1 !important;
+    box-shadow:0 -8px 32px -8px rgba(16,18,22,.28);
+  }
+  .tm-bg.open .tm-shell{transform:translateY(0) !important}
+
+  /* The grabber. Purely a signal — it says "this slides" before anyone
+     has tried — and it costs no markup, so it can't get out of step with
+     the header it sits above. */
+  .tm-head{position:relative;padding-top:18px !important}
+  .tm-head::before{
+    content:"";position:absolute;top:7px;left:50%;transform:translateX(-50%);
+    width:36px;height:4px;border-radius:99px;background:var(--line);opacity:.9}
+
+  /* One column, and the whole thing scrolls as one surface — a sheet this
+     short cannot afford a pane that scrolls independently of its own
+     header. */
+  .tm-body{grid-template-columns:1fr !important;grid-template-rows:auto auto !important;
+    overflow-y:auto !important;-webkit-overflow-scrolling:touch}
+  .tm-main{overflow:visible !important;padding:14px 16px 20px !important}
+  .tm-side{border-left:none !important;border-top:1px solid var(--line);
+    overflow:visible !important;padding:12px 16px 20px !important}
+
+  /* The title is the sheet's subject, so it stays prominent — but 21px in
+     a half-height sheet spends two lines on most NGDR task names. */
+  .tm-title{font-size:17px !important;padding:2px 6px !important}
+  .tm-section{margin-top:14px}
+  .tm-crumb{display:block}
+  .tm-icon{width:36px;height:36px}
+}
