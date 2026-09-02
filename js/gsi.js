@@ -1,23 +1,23 @@
 /* GSI Workspace: multi-project task tracker, daily work log, structured
    meeting minutes, GSI links, personal & work documents. */
-import { state, uid, esc, persist, rerender, todayKey, touch, commitWithoutRender } from './state.js?v=202609041200';
-import { openDateSheet } from './date-sheet.js?v=202609041200';
-import { isComposerOpen, composerHtml, openComposer } from './composer.js?v=202609041200';
+import { state, uid, esc, persist, rerender, todayKey, touch, commitWithoutRender } from './state.js?v=202609041400';
+import { openDateSheet } from './date-sheet.js?v=202609041400';
+import { isComposerOpen, composerHtml, openComposer } from './composer.js?v=202609041400';
 /* tasks.js already imports gsi.js, so this is a cycle — safe here because
    neither module touches the other's bindings while modules are being
    evaluated, only inside functions called later at runtime. */
 import { markDragJustEnded, boardColHeadHtml, isColCollapsed, capBoardColumnHeights, initBoardWheelScroll,
-         applyHorizon, horizonWrapHtml } from './tasks.js?v=202609041200';
-import { toast, autoGrow, preserveBoardScroll } from './ui.js?v=202609041200';
+         applyHorizon, horizonWrapHtml } from './tasks.js?v=202609041400';
+import { toast, autoGrow, preserveBoardScroll } from './ui.js?v=202609041400';
 /* Priority now colours the checkbox ring instead of a flag button — the
    helper lives in tasks.js so all three boards agree. */
-import { prioClass } from './tasks.js?v=202609041200';
-import { releaseDragGhost } from './drag-cleanup.js?v=202609041200';
-import { describeLink } from './attach.js?v=202609041200';
-import { moveToTrash } from './trash.js?v=202609041200';
-import { checkGrammar } from './text-tools.js?v=202609041200';
-import { mountRichEditor, unmountRichEditor, getRichEditor } from './rich-text.js?v=202609041200';
-import { syncTaskToGoogle } from './google-calendar.js?v=202609041200';
+import { prioClass } from './tasks.js?v=202609041400';
+import { releaseDragGhost } from './drag-cleanup.js?v=202609041400';
+import { describeLink } from './attach.js?v=202609041400';
+import { moveToTrash } from './trash.js?v=202609041400';
+import { checkGrammar } from './text-tools.js?v=202609041400';
+import { mountRichEditor, unmountRichEditor, getRichEditor } from './rich-text.js?v=202609041400';
+import { syncTaskToGoogle } from './google-calendar.js?v=202609041400';
 
 // GSI project tasks use different field names than native Overview
 // tasks (date, not dueDate; status, not done) — this bridges that so
@@ -443,6 +443,22 @@ function initGsiBoardSorting() {
         if (!taskId || !toStatus) return;
         commitWithoutRender(() => setTaskStatus(taskId, toStatus));
 
+        /* Where the card was dropped WITHIN the column is data too.
+
+           Under Default sort the board renders project.tasks in array
+           order, so a reorder that isn't written back to that array lasts
+           exactly until the next render and then springs back somewhere
+           else. That is the card "moving to a different place": it was
+           never saved, so what you saw afterwards was the original order
+           re-asserting itself.
+
+           Written by splicing the task in ahead of whichever card now
+           follows it on screen, rather than rebuilding the array from the
+           DOM — the DOM only holds the cards currently rendered, and
+           anything folded behind "show N later tasks" would be silently
+           dropped from the project by a wholesale rebuild. */
+        persistGsiCardOrder(taskId, toColEl);
+
         requestAnimationFrame(() => {
           patchGsiCardInPlace(taskId);
           bumpGsiColCount(fromColEl, -1);
@@ -465,6 +481,25 @@ function initGsiBoardSorting() {
    change is the card's own chips, which is precisely what the drop
    changed. Sortable binds to the COLUMN, not to the cards inside it, so
    swapping a child out doesn't disturb it. */
+function persistGsiCardOrder(taskId, colEl) {
+  if (!colEl) return;
+  const { project } = findProjectTask(taskId);
+  const arr = project?.tasks;
+  if (!Array.isArray(arr)) return;
+
+  const cards = [...colEl.querySelectorAll(".t-board-col-body > .t-board-card")];
+  const at = cards.findIndex(c => c.dataset.taskId === taskId);
+  if (at === -1) return;
+  const nextId = cards[at + 1]?.dataset.taskId || null;
+
+  const i = arr.findIndex(t => t.id === taskId);
+  if (i === -1) return;
+  const [moved] = arr.splice(i, 1);
+  const j = nextId ? arr.findIndex(t => t.id === nextId) : -1;
+  if (j === -1) arr.push(moved); else arr.splice(j, 0, moved);
+  persist();
+}
+
 function patchGsiCardInPlace(id) {
   const card = document.querySelector(`#ngdrList .t-board-card[data-task-id="${gsiCssId(id)}"]`);
   if (!card) return;

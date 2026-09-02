@@ -20,19 +20,19 @@
    was purpose-built for GSI's tasks specifically; wiring a second,
    parallel project system into it would roughly double that surface
    area for a feature nobody's asked for yet. Easy to add later if so. */
-import { state, uid, esc, persist, rerender, touch, commitWithoutRender } from './state.js?v=202609041200';
-import { openDateSheet } from './date-sheet.js?v=202609041200';
-import { isComposerOpen, composerHtml, openComposer } from './composer.js?v=202609041200';
-import { toast, autoGrow, preserveBoardScroll } from './ui.js?v=202609041200';
+import { state, uid, esc, persist, rerender, touch, commitWithoutRender } from './state.js?v=202609041400';
+import { openDateSheet } from './date-sheet.js?v=202609041400';
+import { isComposerOpen, composerHtml, openComposer } from './composer.js?v=202609041400';
+import { toast, autoGrow, preserveBoardScroll } from './ui.js?v=202609041400';
 /* Priority now colours the checkbox ring instead of a flag button — the
    helper lives in tasks.js so all three boards agree. */
-import { prioClass } from './tasks.js?v=202609041200';
-import { releaseDragGhost } from './drag-cleanup.js?v=202609041200';
-import { describeLink } from './attach.js?v=202609041200';
-import { moveToTrash } from './trash.js?v=202609041200';
+import { prioClass } from './tasks.js?v=202609041400';
+import { releaseDragGhost } from './drag-cleanup.js?v=202609041400';
+import { describeLink } from './attach.js?v=202609041400';
+import { moveToTrash } from './trash.js?v=202609041400';
 import { markDragJustEnded, boardColHeadHtml, isColCollapsed, capBoardColumnHeights, initBoardWheelScroll,
-         applyHorizon, horizonWrapHtml } from './tasks.js?v=202609041200';
-import { syncTaskToGoogle } from './google-calendar.js?v=202609041200';
+         applyHorizon, horizonWrapHtml } from './tasks.js?v=202609041400';
+import { syncTaskToGoogle } from './google-calendar.js?v=202609041400';
 
 // Personal Workspace tasks use the same field names as GSI project tasks
 // (date, not dueDate; status, not done) — reuses the same bridging
@@ -333,6 +333,8 @@ function initPwBoardSorting() {
         if (!taskId || !toStatus) return;
         commitWithoutRender(() => setPwTaskStatus(taskId, toStatus));
 
+        persistPwCardOrder(taskId, toColEl);   // see the GSI board — same reasoning
+
         requestAnimationFrame(() => {
           patchPwCardInPlace(taskId);
           bumpPwColCount(fromColEl, -1);
@@ -348,6 +350,26 @@ function initPwBoardSorting() {
 function pwCssId(id) {
   return (window.CSS && CSS.escape) ? CSS.escape(String(id)) : String(id).replace(/["\\]/g, "\\$&");
 }
+/* Writes back where the card was dropped within its column. Splices ahead
+   of the card that now follows it rather than rebuilding from the DOM,
+   so tasks folded behind the horizon are not dropped from the project. */
+function persistPwCardOrder(taskId, colEl) {
+  if (!colEl) return;
+  const { project } = findPwProjectTask(taskId);
+  const arr = project?.tasks;
+  if (!Array.isArray(arr)) return;
+  const cards = [...colEl.querySelectorAll(".t-board-col-body > .t-board-card")];
+  const at = cards.findIndex(c => c.dataset.taskId === taskId);
+  if (at === -1) return;
+  const nextId = cards[at + 1]?.dataset.taskId || null;
+  const i = arr.findIndex(t => t.id === taskId);
+  if (i === -1) return;
+  const [moved] = arr.splice(i, 1);
+  const j = nextId ? arr.findIndex(t => t.id === nextId) : -1;
+  if (j === -1) arr.push(moved); else arr.splice(j, 0, moved);
+  persist();
+}
+
 function patchPwCardInPlace(id) {
   const card = document.querySelector(`#pwTaskList .t-board-card[data-task-id="${pwCssId(id)}"]`);
   if (!card) return;

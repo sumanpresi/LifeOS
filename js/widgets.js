@@ -1,12 +1,12 @@
 /* Links, news feeds, quotes, meditation, Day Of page + journal. */
-import { state, uid, esc, persist, rerender, todayKey } from './state.js?v=202609041200';
-import { toast, autoGrow, registerBusyCheck, markFieldClean } from './ui.js?v=202609041200';
-import { moveToTrash } from './trash.js?v=202609041200';
-import { isLogged, streak } from './habits.js?v=202609041200';
-import { getAllGsiTasksFlat } from './gsi.js?v=202609041200';
-import { getAllPwTasksFlat } from './personal.js?v=202609041200';
-import { mountRichEditor, getRichEditor } from './rich-text.js?v=202609041200';
-import { sanitizeHtml } from './sanitize.js?v=202609041200';
+import { state, uid, esc, persist, rerender, todayKey } from './state.js?v=202609041400';
+import { toast, autoGrow, registerBusyCheck, markFieldClean } from './ui.js?v=202609041400';
+import { moveToTrash } from './trash.js?v=202609041400';
+import { isLogged, streak } from './habits.js?v=202609041400';
+import { getAllGsiTasksFlat } from './gsi.js?v=202609041400';
+import { getAllPwTasksFlat } from './personal.js?v=202609041400';
+import { mountRichEditor, getRichEditor } from './rich-text.js?v=202609041400';
+import { sanitizeHtml } from './sanitize.js?v=202609041400';
 
 /* ---------- important links ---------- */
 let openLinkEditId = null; // which single link's inline edit panel is open — UI-only, not persisted

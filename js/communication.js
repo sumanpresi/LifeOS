@@ -3,7 +3,7 @@
    and class clashes — both apps use names like .card, .btn, #toast), but its
    DATA now round-trips through state.js -> persist() -> Supabase, exactly
    like every other module. */
-import { state, persist, rerender } from './state.js?v=202609041200';
+import { state, persist, rerender } from './state.js?v=202609041400';
 
 let iframeEl = null;
 
