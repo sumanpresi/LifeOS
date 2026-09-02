@@ -1,23 +1,23 @@
 /* GSI Workspace: multi-project task tracker, daily work log, structured
    meeting minutes, GSI links, personal & work documents. */
-import { state, uid, esc, persist, rerender, todayKey, touch } from './state.js?v=202609041000';
-import { openDateSheet } from './date-sheet.js?v=202609041000';
-import { isComposerOpen, composerHtml, openComposer } from './composer.js?v=202609041000';
+import { state, uid, esc, persist, rerender, todayKey, touch, commitWithoutRender } from './state.js?v=202609041200';
+import { openDateSheet } from './date-sheet.js?v=202609041200';
+import { isComposerOpen, composerHtml, openComposer } from './composer.js?v=202609041200';
 /* tasks.js already imports gsi.js, so this is a cycle — safe here because
    neither module touches the other's bindings while modules are being
    evaluated, only inside functions called later at runtime. */
 import { markDragJustEnded, boardColHeadHtml, isColCollapsed, capBoardColumnHeights, initBoardWheelScroll,
-         applyHorizon, horizonWrapHtml } from './tasks.js?v=202609041000';
-import { toast, autoGrow, preserveBoardScroll } from './ui.js?v=202609041000';
+         applyHorizon, horizonWrapHtml } from './tasks.js?v=202609041200';
+import { toast, autoGrow, preserveBoardScroll } from './ui.js?v=202609041200';
 /* Priority now colours the checkbox ring instead of a flag button — the
    helper lives in tasks.js so all three boards agree. */
-import { prioClass } from './tasks.js?v=202609041000';
-import { releaseDragGhost } from './drag-cleanup.js?v=202609041000';
-import { describeLink } from './attach.js?v=202609041000';
-import { moveToTrash } from './trash.js?v=202609041000';
-import { checkGrammar } from './text-tools.js?v=202609041000';
-import { mountRichEditor, unmountRichEditor, getRichEditor } from './rich-text.js?v=202609041000';
-import { syncTaskToGoogle } from './google-calendar.js?v=202609041000';
+import { prioClass } from './tasks.js?v=202609041200';
+import { releaseDragGhost } from './drag-cleanup.js?v=202609041200';
+import { describeLink } from './attach.js?v=202609041200';
+import { moveToTrash } from './trash.js?v=202609041200';
+import { checkGrammar } from './text-tools.js?v=202609041200';
+import { mountRichEditor, unmountRichEditor, getRichEditor } from './rich-text.js?v=202609041200';
+import { syncTaskToGoogle } from './google-calendar.js?v=202609041200';
 
 // GSI project tasks use different field names than native Overview
 // tasks (date, not dueDate; status, not done) — this bridges that so
@@ -414,24 +414,95 @@ function initGsiBoardSorting() {
         document.body.classList.remove("is-dragging");
         markDragJustEnded(); // so the click that trails a drop doesn't open the task
         const taskId = evt.item.dataset.taskId;
-        const toStatus = evt.to.closest(".t-board-col")?.dataset.boardCol;
-        /* setTaskStatus re-renders internally, so the whole call is
-           wrapped rather than the render — otherwise the scroll would be
-           restored before the DOM it applies to has been rebuilt. */
-        preserveBoardScroll(() => {
-          if (taskId && toStatus) setTaskStatus(taskId, toStatus); // already persists, syncs, and re-renders
-          /* rerender() rather than renderProjects(): onEnd runs inside
-             Sortable's _onDrop, and a synchronous render re-enters
-             destroy() -> _onDrop() while the outer one is still cleaning
-             up. Deferred, it also coalesces with the render the status
-             setter above already queued instead of doubling it. */
-          else rerender();
+        const fromColEl = evt.from.closest(".t-board-col");
+        const toColEl = evt.to.closest(".t-board-col");
+        const toStatus = toColEl?.dataset.boardCol;
+
+        /* THE BOARD IS NOT REBUILT ON A DROP.
+
+           Sortable has already put the card where the finger let go, and
+           every column here is defined by exactly the field the drop
+           writes — drop on In Progress and the status BECOMES "progress".
+           So the card is, by construction, already in the column its data
+           says it belongs to, and a rebuild could only put it back where
+           it already is.
+
+           What the rebuild actually cost was the whole page. renderProjects()
+           replaces #ngdrList wholesale: the page height collapses and
+           re-expands while the innerHTML is swapped, the browser clamps
+           scrollTop somewhere in the middle of that, and the board lands
+           somewhere other than where it was left. preserveBoardScroll()
+           was trying to undo that afterwards and losing, because the
+           height changes across frames rather than within one. That is the
+           board jumping after a move, and the fix is not a better restore
+           — it is not asking for the repaint.
+
+           Only the moved card's own chips change (its status pill, the
+           strike-through), so only that card is repainted, on the next
+           frame so Sortable can finish its own cleanup first. */
+        if (!taskId || !toStatus) return;
+        commitWithoutRender(() => setTaskStatus(taskId, toStatus));
+
+        requestAnimationFrame(() => {
+          patchGsiCardInPlace(taskId);
+          bumpGsiColCount(fromColEl, -1);
+          bumpGsiColCount(toColEl, +1);
+          syncGsiColEmptyState(fromColEl);
+          syncGsiColEmptyState(toColEl);
+          /* Deliberately NOTHING else. The task detail sheet rebuilds from
+             state every time it opens, and the other boards render on
+             their own pages, so there is no stale view left behind that a
+             repaint here would fix — and any repaint here would be paid
+             for in exactly the jump this change removes. */
         });
       },
     }));
   });
 }
 
+/* Re-render exactly one card, in place. The replacement lands at the same
+   index in the same column, so nothing around it moves — the only visible
+   change is the card's own chips, which is precisely what the drop
+   changed. Sortable binds to the COLUMN, not to the cards inside it, so
+   swapping a child out doesn't disturb it. */
+function patchGsiCardInPlace(id) {
+  const card = document.querySelector(`#ngdrList .t-board-card[data-task-id="${gsiCssId(id)}"]`);
+  if (!card) return;
+  const { task } = findProjectTask(id);
+  if (!task) { card.remove(); return; }
+  const holder = document.createElement("div");
+  holder.innerHTML = gsiBoardCardHtml(task);
+  const fresh = holder.firstElementChild;
+  if (fresh) card.replaceWith(fresh);
+}
+/* Adjusted by a delta rather than recounted from the DOM: the badge shows
+   the column's TRUE total including anything folded away behind "show N
+   later tasks" (see applyHorizon), so counting the cards actually on
+   screen would quietly undercount it. */
+function bumpGsiColCount(colEl, delta) {
+  const badge = colEl?.querySelector(".t-board-col-count");
+  if (!badge) return;
+  badge.textContent = String(Math.max(0, (parseInt(badge.textContent, 10) || 0) + delta));
+}
+/* A column emptied by a drop needs its placeholder back, and one that has
+   just received its first card needs it gone. */
+function syncGsiColEmptyState(colEl) {
+  const body = colEl?.querySelector(".t-board-col-body");
+  if (!body) return;
+  const hasCards = !!body.querySelector(".t-board-card");
+  const hint = body.querySelector(":scope > p.hint");
+  if (hasCards && hint) hint.remove();
+  if (!hasCards && !hint) {
+    const p = document.createElement("p");
+    p.className = "hint";
+    p.style.padding = "10px 4px";
+    p.textContent = "Nothing here.";
+    body.appendChild(p);
+  }
+}
+function gsiCssId(id) {
+  return (window.CSS && CSS.escape) ? CSS.escape(String(id)) : String(id).replace(/["\\]/g, "\\$&");
+}
 function renderProjects() {
   if (gsiTaskView === null) {
     gsiTaskView = state.gsiTaskViewPref || "board";

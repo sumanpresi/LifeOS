@@ -20,19 +20,19 @@
    was purpose-built for GSI's tasks specifically; wiring a second,
    parallel project system into it would roughly double that surface
    area for a feature nobody's asked for yet. Easy to add later if so. */
-import { state, uid, esc, persist, rerender, touch } from './state.js?v=202609041000';
-import { openDateSheet } from './date-sheet.js?v=202609041000';
-import { isComposerOpen, composerHtml, openComposer } from './composer.js?v=202609041000';
-import { toast, autoGrow, preserveBoardScroll } from './ui.js?v=202609041000';
+import { state, uid, esc, persist, rerender, touch, commitWithoutRender } from './state.js?v=202609041200';
+import { openDateSheet } from './date-sheet.js?v=202609041200';
+import { isComposerOpen, composerHtml, openComposer } from './composer.js?v=202609041200';
+import { toast, autoGrow, preserveBoardScroll } from './ui.js?v=202609041200';
 /* Priority now colours the checkbox ring instead of a flag button — the
    helper lives in tasks.js so all three boards agree. */
-import { prioClass } from './tasks.js?v=202609041000';
-import { releaseDragGhost } from './drag-cleanup.js?v=202609041000';
-import { describeLink } from './attach.js?v=202609041000';
-import { moveToTrash } from './trash.js?v=202609041000';
+import { prioClass } from './tasks.js?v=202609041200';
+import { releaseDragGhost } from './drag-cleanup.js?v=202609041200';
+import { describeLink } from './attach.js?v=202609041200';
+import { moveToTrash } from './trash.js?v=202609041200';
 import { markDragJustEnded, boardColHeadHtml, isColCollapsed, capBoardColumnHeights, initBoardWheelScroll,
-         applyHorizon, horizonWrapHtml } from './tasks.js?v=202609041000';
-import { syncTaskToGoogle } from './google-calendar.js?v=202609041000';
+         applyHorizon, horizonWrapHtml } from './tasks.js?v=202609041200';
+import { syncTaskToGoogle } from './google-calendar.js?v=202609041200';
 
 // Personal Workspace tasks use the same field names as GSI project tasks
 // (date, not dueDate; status, not done) — reuses the same bridging
@@ -318,19 +318,66 @@ function initPwBoardSorting() {
         document.body.classList.remove("is-dragging");
         markDragJustEnded(); // the click trailing a drop must not open the task
         const taskId = evt.item.dataset.taskId;
-        const toStatus = evt.to.closest(".t-board-col")?.dataset.boardCol;
-        preserveBoardScroll(() => {
-          if (taskId && toStatus) setPwTaskStatus(taskId, toStatus); // already persists, syncs, and re-renders
-          /* rerender() rather than renderPwProjects(): onEnd runs inside
-             Sortable's _onDrop, and a synchronous render re-enters
-             destroy() -> _onDrop() while the outer one is still cleaning
-             up. Deferred, it also coalesces with the render the status
-             setter above already queued instead of doubling it. */
-          else rerender();
+        const fromColEl = evt.from.closest(".t-board-col");
+        const toColEl = evt.to.closest(".t-board-col");
+        const toStatus = toColEl?.dataset.boardCol;
+
+        /* No rebuild on a drop — same reasoning as the GSI board, and the
+           same bug before it. Sortable has already placed the card, and
+           each column IS the status the drop writes, so the card is
+           already where its data says it belongs. Rebuilding #pwTaskList
+           collapsed and re-expanded the page height mid-swap, the browser
+           clamped scrollTop on the way through, and the board landed
+           somewhere else. Only the moved card's own chips changed, so only
+           that card is repainted. */
+        if (!taskId || !toStatus) return;
+        commitWithoutRender(() => setPwTaskStatus(taskId, toStatus));
+
+        requestAnimationFrame(() => {
+          patchPwCardInPlace(taskId);
+          bumpPwColCount(fromColEl, -1);
+          bumpPwColCount(toColEl, +1);
+          syncPwColEmptyState(fromColEl);
+          syncPwColEmptyState(toColEl);
         });
       },
     }));
   });
+}
+
+function pwCssId(id) {
+  return (window.CSS && CSS.escape) ? CSS.escape(String(id)) : String(id).replace(/["\\]/g, "\\$&");
+}
+function patchPwCardInPlace(id) {
+  const card = document.querySelector(`#pwTaskList .t-board-card[data-task-id="${pwCssId(id)}"]`);
+  if (!card) return;
+  const { task } = findPwProjectTask(id);
+  if (!task) { card.remove(); return; }
+  const holder = document.createElement("div");
+  holder.innerHTML = pwBoardCardHtml(task);
+  const fresh = holder.firstElementChild;
+  if (fresh) card.replaceWith(fresh);
+}
+/* Delta rather than a DOM recount — the badge carries the column's true
+   total including anything folded behind the horizon "show N later". */
+function bumpPwColCount(colEl, delta) {
+  const badge = colEl?.querySelector(".t-board-col-count");
+  if (!badge) return;
+  badge.textContent = String(Math.max(0, (parseInt(badge.textContent, 10) || 0) + delta));
+}
+function syncPwColEmptyState(colEl) {
+  const body = colEl?.querySelector(".t-board-col-body");
+  if (!body) return;
+  const hasCards = !!body.querySelector(".t-board-card");
+  const hint = body.querySelector(":scope > p.hint");
+  if (hasCards && hint) hint.remove();
+  if (!hasCards && !hint) {
+    const p = document.createElement("p");
+    p.className = "hint";
+    p.style.padding = "10px 4px";
+    p.textContent = "Nothing here.";
+    body.appendChild(p);
+  }
 }
 
 function renderPwProjects() {

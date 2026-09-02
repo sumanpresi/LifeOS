@@ -6,19 +6,19 @@
    in two different places. GSI tasks keep their own storage and schema
    (a 4-state status, not a simple done/not-done) — this only merges them
    for DISPLAY, routing edits back to the correct underlying data. */
-import { state, uid, esc, persist, rerender, touch, commitWithoutRender } from './state.js?v=202609041000';
-import { openDateSheet } from './date-sheet.js?v=202609041000';
-import { isComposerOpen, composerHtml, openComposer, nativeColumnAccepts } from './composer.js?v=202609041000';
-import { toast, autoGrow } from './ui.js?v=202609041000';
-import { releaseDragGhost } from './drag-cleanup.js?v=202609041000';
-import { moveToTrash } from './trash.js?v=202609041000';
-import { syncTaskToGoogle } from './google-calendar.js?v=202609041000';
+import { state, uid, esc, persist, rerender, touch, commitWithoutRender } from './state.js?v=202609041200';
+import { openDateSheet } from './date-sheet.js?v=202609041200';
+import { isComposerOpen, composerHtml, openComposer, nativeColumnAccepts } from './composer.js?v=202609041200';
+import { toast, autoGrow } from './ui.js?v=202609041200';
+import { releaseDragGhost } from './drag-cleanup.js?v=202609041200';
+import { moveToTrash } from './trash.js?v=202609041200';
+import { syncTaskToGoogle } from './google-calendar.js?v=202609041200';
 import { getAllGsiTasksFlat, findProjectTask, editProjectTask, setTaskStatus as setGsiTaskStatus,
   delProjectTask, toggleProjectTaskFlag, archiveGsiTaskEntry,
-  getProjectList, addProjectTaskRaw, moveProjectTask, pluckProjectTask, renderGsi } from './gsi.js?v=202609041000';
+  getProjectList, addProjectTaskRaw, moveProjectTask, pluckProjectTask, renderGsi } from './gsi.js?v=202609041200';
 import { changePwTaskProject, findPwProjectTask, editPwProjectTask, setPwTaskStatus, togglePwProjectTaskFlag, delPwProjectTask,
   getAllPwTasksFlat, archivePwTaskEntry, getPwProjectList,
-  addPwProjectTaskRaw, pluckPwProjectTask, renderPersonalWorkspace } from './personal.js?v=202609041000';
+  addPwProjectTaskRaw, pluckPwProjectTask, renderPersonalWorkspace } from './personal.js?v=202609041200';
 
 let taskFilter = "all"; // "all" | "work" | "personal"
 let sortByDate = false;
