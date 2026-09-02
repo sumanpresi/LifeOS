@@ -14,7 +14,7 @@
    sidebar sortable — the boundary is enforced by the DOM, so it cannot
    drift later.
    ============================================================ */
-import { state, persist } from './state.js';
+import { state, persist, onStateReplaced } from './state.js';
 
 const GROUP_ID = "navSpaces";
 
@@ -86,3 +86,11 @@ export function initNavSorting() {
     }
   });
 }
+
+/* A cloud pull swaps the whole state object out, so an order set on
+   another device arrives with no repaint behind it — the sidebar is not
+   part of any renderer. Re-applying here is what makes the order actually
+   cross devices rather than merely survive a reload on the one it was set
+   on. Moving nodes that are already in the right place is a no-op, so
+   this is safe to run on every replace. */
+onStateReplaced(() => applyNavOrder());

@@ -56,6 +56,12 @@ export const DEFAULT_STATE = {
   calendarScalePref: "month", // "week" | "month" | "year" | "years" — which range the Calendar view opens on, chosen from the dropdown beside Today
   gsiTaskViewPref: "board", // "board" | "list" — same idea, for GSI Workspace's own task list
   pwTaskViewPref: "board", // "board" | "list" — same idea again, for Personal Workspace
+  /* Order of the Spaces in the sidebar, as data-page keys. Has to exist in
+     DEFAULT_STATE rather than only being written when someone drags
+     something: merge() builds every document from these defaults, so a key
+     that is absent here is a key the cloud copy will not carry, and the
+     sidebar order would be dropped the first time any device saved. */
+  navOrder: [],
   name: "Suman",
   tasks: [
     { id: "t1", text: "Review NGDR upload tracker", done: false, category: "work", flag: false, link: "", dueDate: "" },

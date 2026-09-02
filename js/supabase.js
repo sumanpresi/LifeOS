@@ -1,16 +1,16 @@
 /* GitHub sign-in (via Supabase Auth), cloud storage, live sync. */
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=202609040800';
-import { state, replaceState, persist, setRemoteSaver, uid, esc, rerender, flushPendingSave } from './state.js?v=202609040800';
-import { setSyncPill, nowTime, toast, isUserTyping } from './ui.js?v=202609040800';
-import { pushCommunicationUpdate, mergeCommunication } from './communication-bridge.js?v=202609040800';
-import { pushNgdrTrackerUpdate } from './ngdr-tracker-bridge.js?v=202609040800';
-import { mergeBoardData } from './whiteboard.js?v=202609040800';
-import { takeSnapshot } from './backup.js?v=202609040800';
-import { moveToTrash } from './trash.js?v=202609040800';
-import { mergeNoteInk, redrawAllInk } from './note-ink.js?v=202609040800';
-import { hasUnsavedComposerDraft } from './composer.js?v=202609040800';
-import { flushJournalEditor } from './widgets.js?v=202609040800';
-import { flushNotebookEditor } from './notebook.js?v=202609040800';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=202609041000';
+import { state, replaceState, persist, setRemoteSaver, uid, esc, rerender, flushPendingSave } from './state.js?v=202609041000';
+import { setSyncPill, nowTime, toast, isUserTyping } from './ui.js?v=202609041000';
+import { pushCommunicationUpdate, mergeCommunication } from './communication-bridge.js?v=202609041000';
+import { pushNgdrTrackerUpdate } from './ngdr-tracker-bridge.js?v=202609041000';
+import { mergeBoardData } from './whiteboard.js?v=202609041000';
+import { takeSnapshot } from './backup.js?v=202609041000';
+import { moveToTrash } from './trash.js?v=202609041000';
+import { mergeNoteInk, redrawAllInk } from './note-ink.js?v=202609041000';
+import { hasUnsavedComposerDraft } from './composer.js?v=202609041000';
+import { flushJournalEditor } from './widgets.js?v=202609041000';
+import { flushNotebookEditor } from './notebook.js?v=202609041000';
 
 const CLIENT_ID = uid() + uid();
 const GH_SVG = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.54-3.87-1.54-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.26.72-1.55-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12v3.14c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>';
@@ -964,6 +964,24 @@ function mergeIncomingTasks(remote) {
   // Handed to mergeIncomingRecords() so the rest of the app's lists get
   // the same deletion set and the same tie-breaker.
   lastMergeVerdict = { gone, remoteWins };
+
+  /* Sidebar order. replaceState() takes every top-level field straight
+     from `remote`, so any field the merge does not explicitly decide is
+     simply the cloud's copy — which is why dragging a Space, then having
+     a pull land, reverted the sidebar and made it look like the drag had
+     never saved. It had; it was overwritten a moment later.
+
+     An EMPTY order is treated as "this device has no opinion" rather than
+     as a deliberate reset, so a device still running an older build — or
+     one that has simply never been reordered — cannot wipe an order set
+     on another. Only two non-empty, differing orders are a real conflict,
+     and that falls to the same document verdict as everything else. */
+  const myOrder = Array.isArray(state.navOrder) ? state.navOrder : [];
+  const theirOrder = Array.isArray(remote.navOrder) ? remote.navOrder : [];
+  if (!theirOrder.length) remote.navOrder = myOrder;
+  else if (!myOrder.length) remote.navOrder = theirOrder;
+  else remote.navOrder = remoteWins ? theirOrder : myOrder;
+  state.navOrder = remote.navOrder;
 
   // Read BEFORE any list is merged: union-by-id is about to erase the
   // very provenance this needs.

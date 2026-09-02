@@ -1,6 +1,6 @@
 /* Universal search (Ctrl/Cmd+K) across everything in LifeOS. */
-import { state, esc, SECTION_META } from './state.js?v=202609040800';
-import { go, scrollToEl } from './ui.js?v=202609040800';
+import { state, esc, SECTION_META } from './state.js?v=202609041000';
+import { go, scrollToEl } from './ui.js?v=202609041000';
 
 let items = [], results = [], sel = 0;
 let includeArchivedTasks = false; // default OFF, per spec — archived tasks stay out of everyday search unless explicitly opted in
