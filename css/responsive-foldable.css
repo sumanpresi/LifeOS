@@ -1993,3 +1993,51 @@ body.is-dragging .nav-item{user-select:none;-webkit-user-select:none}
    when that element was editable on this board. The card is a button that
    opens the task now, so the cursor should say so. */
 .pw-board-card-title{cursor:pointer}
+
+/* ===============================================================
+   36. QUICK ADD — every tool visible, none scrolled off
+   ===============================================================
+   Section 24.5 made the chip row a horizontal scroller
+   (flex-wrap:nowrap; overflow-x:auto). That was the wrong call. It keeps
+   the composer one line tall, which was the goal, but it does it by
+   hiding tools past the right edge — and a tool you cannot see is a tool
+   you do not know exists. The reference does the opposite: it wraps to as
+   many rows as it needs and shows all eight at once, because the whole
+   point of the chip row is that the options are legible at a glance.
+
+   There is also a specific reason scrolling is worse HERE than it looks.
+   The row lives inside a board column that itself scrolls horizontally,
+   so a sideways swipe on the chips had two plausible targets — the chips
+   or the board — and which one moved depended on where the finger landed.
+   Wrapping removes that ambiguity entirely: nothing in the composer
+   scrolls sideways any more, so a horizontal swipe always means the
+   board.
+   --------------------------------------------------------------- */
+.composer-quick .composer-chips{
+  flex-wrap:wrap;
+  overflow:visible;
+  gap:6px;                     /* applies to both axes now that rows wrap */
+}
+/* Grows to fill the last line when there is room, so ✕ and send sit at
+   the right end of the chips; when the chips fill the width it wraps and
+   takes the buttons with it. margin-left:auto keeps them right-aligned on
+   that new line, which is where the reference puts them. */
+.composer-quick .composer-spacer{flex:1 1 12px;min-width:0}
+.composer-quick .composer-cancel{margin-left:auto}
+
+/* With the row free to wrap, chips no longer have to be shrunk to fit a
+   single line — so they get back the padding that makes them tappable.
+   Still under the 44px guidance, but these sit inside a composer the
+   person has deliberately opened, not on a card being dragged past. */
+.composer-quick .composer-chip{
+  padding:6px 10px;
+  font-size:11.5px;
+  line-height:1.25;
+}
+@media (pointer:coarse){
+  .composer-quick .composer-chip{padding:8px 11px;font-size:12px}
+  .composer-quick .composer-chips{gap:7px}
+}
+/* The label chip holds a live input; without a cap it can grow wide
+   enough to force every other chip onto its own row. */
+.tm-sub-label-input{max-width:120px}
