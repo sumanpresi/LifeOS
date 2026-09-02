@@ -1,6 +1,6 @@
 /* Life goals with progress sliders. */
-import { state, uid, esc, persist, rerender } from './state.js?v=202609040600';
-import { moveToTrash } from './trash.js?v=202609040600';
+import { state, uid, esc, persist, rerender } from './state.js?v=202609040800';
+import { moveToTrash } from './trash.js?v=202609040800';
 
 export function renderGoals() {
   const el = document.getElementById("goalsList");

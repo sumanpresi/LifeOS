@@ -20,8 +20,8 @@
    open after each add so you can keep typing.
    ============================================================ */
 
-import { state, uid, esc, persist, rerender, todayKey } from './state.js?v=202609040600';
-import { createNativeTask, insertNativeBoardCard } from './tasks.js?v=202609040600';
+import { state, uid, esc, persist, rerender, todayKey } from './state.js?v=202609040800';
+import { createNativeTask, insertNativeBoardCard } from './tasks.js?v=202609040800';
 
 /* Which column, on which board, currently has the composer open.
    Null means closed. Kept here rather than in state: it is transient UI,

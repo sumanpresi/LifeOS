@@ -31,8 +31,8 @@ export function toggleSidebar(force) {
 }
 
 /* Navigation, toasts, header, sync pill. */
-import { state, esc } from './state.js?v=202609040600';
-import { resizeWhiteboardIfVisible } from './whiteboard.js?v=202609040600';
+import { state, esc } from './state.js?v=202609040800';
+import { resizeWhiteboardIfVisible } from './whiteboard.js?v=202609040800';
 
 let toastTimer = null;
 /* ---------- sticky header ----------
@@ -274,7 +274,7 @@ export function go(page) {
        column capped while its page was hidden was capped against zeroed
        offsets. Dynamically imported to keep ui.js free of a static
        dependency on tasks.js, which imports from here. */
-    import("./tasks.js?v=202609040600").then(m => m.capBoardColumnHeights()).catch(() => {});
+    import("./tasks.js?v=202609040800").then(m => m.capBoardColumnHeights()).catch(() => {});
     if (page === "work") resizeWhiteboardIfVisible("gsi");
     /* The Whiteboard's surface is still called "overview" for data
        compatibility, but the card renders on Communication now. */
@@ -282,7 +282,7 @@ export function go(page) {
     /* The Scratch board's surface is still called "dayof" for data
        compatibility, but the card renders on the Personal page now. */
     if (page === "personal") resizeWhiteboardIfVisible("dayof");
-    if (page === "reference") import("./reference.js?v=202609040600").then(m => m.showWorldMap());
+    if (page === "reference") import("./reference.js?v=202609040800").then(m => m.showWorldMap());
   }
   document.getElementById("sidebar").classList.remove("open");
   window.scrollTo({ top: 0 });

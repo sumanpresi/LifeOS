@@ -1,23 +1,23 @@
 /* GSI Workspace: multi-project task tracker, daily work log, structured
    meeting minutes, GSI links, personal & work documents. */
-import { state, uid, esc, persist, rerender, todayKey, touch } from './state.js?v=202609040600';
-import { openDateSheet } from './date-sheet.js?v=202609040600';
-import { isComposerOpen, composerHtml, openComposer } from './composer.js?v=202609040600';
+import { state, uid, esc, persist, rerender, todayKey, touch } from './state.js?v=202609040800';
+import { openDateSheet } from './date-sheet.js?v=202609040800';
+import { isComposerOpen, composerHtml, openComposer } from './composer.js?v=202609040800';
 /* tasks.js already imports gsi.js, so this is a cycle — safe here because
    neither module touches the other's bindings while modules are being
    evaluated, only inside functions called later at runtime. */
 import { markDragJustEnded, boardColHeadHtml, isColCollapsed, capBoardColumnHeights, initBoardWheelScroll,
-         applyHorizon, horizonWrapHtml } from './tasks.js?v=202609040600';
-import { toast, autoGrow, preserveBoardScroll } from './ui.js?v=202609040600';
+         applyHorizon, horizonWrapHtml } from './tasks.js?v=202609040800';
+import { toast, autoGrow, preserveBoardScroll } from './ui.js?v=202609040800';
 /* Priority now colours the checkbox ring instead of a flag button — the
    helper lives in tasks.js so all three boards agree. */
-import { prioClass } from './tasks.js?v=202609040600';
-import { releaseDragGhost } from './drag-cleanup.js?v=202609040600';
-import { describeLink } from './attach.js?v=202609040600';
-import { moveToTrash } from './trash.js?v=202609040600';
-import { checkGrammar } from './text-tools.js?v=202609040600';
-import { mountRichEditor, unmountRichEditor, getRichEditor } from './rich-text.js?v=202609040600';
-import { syncTaskToGoogle } from './google-calendar.js?v=202609040600';
+import { prioClass } from './tasks.js?v=202609040800';
+import { releaseDragGhost } from './drag-cleanup.js?v=202609040800';
+import { describeLink } from './attach.js?v=202609040800';
+import { moveToTrash } from './trash.js?v=202609040800';
+import { checkGrammar } from './text-tools.js?v=202609040800';
+import { mountRichEditor, unmountRichEditor, getRichEditor } from './rich-text.js?v=202609040800';
+import { syncTaskToGoogle } from './google-calendar.js?v=202609040800';
 
 // GSI project tasks use different field names than native Overview
 // tasks (date, not dueDate; status, not done) — this bridges that so
