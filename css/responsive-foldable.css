@@ -1832,3 +1832,35 @@ html[data-theme="dark"] .t-due-chip:hover{background:rgba(255,255,255,.08)}
   .tm-menu{right:8px;left:8px;min-width:0}
   .tm-menu button{padding:12px 10px;font-size:14px}
 }
+
+/* ===============================================================
+   31. SUB-TASK ROW ACTIONS
+   ===============================================================
+   Always visible, not hover-revealed. Todoist can hide these behind a
+   hover because it is showing a desktop pointer; on the Fold there is no
+   hover to reveal them with, and a control that only exists for a mouse
+   is a control this app does not have. Dimmed instead, so they stay
+   quiet without becoming unreachable — the same mistake section 24 made
+   with the card placeholders, not repeated here.
+   --------------------------------------------------------------- */
+.tm-sub-actions{display:flex;align-items:center;gap:2px;flex:0 0 auto;margin-top:2px}
+.tm-sub-act{
+  border:none;background:none;cursor:pointer;padding:6px;border-radius:7px;
+  font-size:12px;line-height:1;opacity:.4;
+  transition:opacity 120ms ease,background 120ms ease}
+.tm-sub-act:hover,.tm-sub-act:focus-visible{opacity:1;background:var(--paper)}
+.tm-subtask:hover .tm-sub-act{opacity:.75}
+.tm-sub-act-del{color:var(--danger)}
+@media (pointer:coarse){
+  .tm-sub-act{padding:9px;font-size:14px;opacity:.55}
+}
+/* The editor takes the row's place, so it needs the row's rhythm rather
+   than the add-row's separation. */
+.tm-sub-edit.composer-quick{
+  display:block;margin:6px 0;padding:9px 10px;
+  border:1px solid var(--ink);border-radius:11px;background:var(--card);position:relative}
+.tm-sub-edit.composer-quick .composer-text{
+  width:100%;border:none;background:transparent;padding:2px 0;
+  font-family:inherit;font-size:13.5px;color:var(--ink)}
+.tm-sub-edit.composer-quick .composer-text:focus{outline:none}
+.tm-sub-edit.composer-quick .composer-chips{margin-top:7px}
