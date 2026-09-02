@@ -20,19 +20,19 @@
    was purpose-built for GSI's tasks specifically; wiring a second,
    parallel project system into it would roughly double that surface
    area for a feature nobody's asked for yet. Easy to add later if so. */
-import { state, uid, esc, persist, rerender, touch, commitWithoutRender } from './state.js?v=202609041400';
-import { openDateSheet } from './date-sheet.js?v=202609041400';
-import { isComposerOpen, composerHtml, openComposer } from './composer.js?v=202609041400';
-import { toast, autoGrow, preserveBoardScroll } from './ui.js?v=202609041400';
+import { state, uid, esc, persist, rerender, touch, commitWithoutRender } from './state.js?v=202609041600';
+import { openDateSheet } from './date-sheet.js?v=202609041600';
+import { isComposerOpen, composerHtml, openComposer } from './composer.js?v=202609041600';
+import { toast, autoGrow, preserveBoardScroll } from './ui.js?v=202609041600';
 /* Priority now colours the checkbox ring instead of a flag button — the
    helper lives in tasks.js so all three boards agree. */
-import { prioClass } from './tasks.js?v=202609041400';
-import { releaseDragGhost } from './drag-cleanup.js?v=202609041400';
-import { describeLink } from './attach.js?v=202609041400';
-import { moveToTrash } from './trash.js?v=202609041400';
+import { prioClass } from './tasks.js?v=202609041600';
+import { releaseDragGhost } from './drag-cleanup.js?v=202609041600';
+import { describeLink } from './attach.js?v=202609041600';
+import { moveToTrash } from './trash.js?v=202609041600';
 import { markDragJustEnded, boardColHeadHtml, isColCollapsed, capBoardColumnHeights, initBoardWheelScroll,
-         applyHorizon, horizonWrapHtml } from './tasks.js?v=202609041400';
-import { syncTaskToGoogle } from './google-calendar.js?v=202609041400';
+         applyHorizon, horizonWrapHtml } from './tasks.js?v=202609041600';
+import { syncTaskToGoogle } from './google-calendar.js?v=202609041600';
 
 // Personal Workspace tasks use the same field names as GSI project tasks
 // (date, not dueDate; status, not done) — reuses the same bridging
@@ -196,8 +196,27 @@ function pwBoardCardHtml(item) {
       <div class="t-board-card-top">
         <button class="t-chk ${prioClass(item)} ${item.status === "done" ? "on" : ""}" onclick="event.stopPropagation();setPwTaskStatus('${item.id}','${item.status === "done" ? "todo" : "done"}')" aria-label="Toggle done">
           <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
-        <textarea class="gsi-board-card-title pw-board-card-title" rows="1" onclick="event.stopPropagation()"
-          onchange="editPwProjectTask('${item.id}','text',this.value)" oninput="autoGrow(this)">${esc(item.text)}</textarea>
+        <!-- A span, not a <textarea>. The inline editor was the cause of
+             both drag problems on this board, and neither was fixable
+             while it stayed:
+
+             1. Sortable's filter list includes "textarea", so a press on
+                the title could never start a drag. The title covers most
+                of the card, so most of the card was undraggable — you had
+                to find the padding. That is the "not smooth" here; the
+                GSI board has always felt better for exactly this reason,
+                because its title is already a span.
+
+             2. A long-press on a textarea is Android's text-selection
+                gesture, so the title highlighted and the keyboard opened
+                instead of the card lifting.
+
+             The title is still fully editable — tapping the card opens the
+             detail sheet, which is where the GSI and Overview boards have
+             always edited it, and where the date, priority, labels and
+             sub-tasks already live. Todoist works the same way: a board
+             card is a summary you pick up and move, not a text field. -->
+        <span class="gsi-board-card-title pw-board-card-title">${esc(item.text)}</span>
       </div>
       <div class="t-board-card-meta">
         <span class="t-board-card-date ${due && due.cls === "gsi-overdue" ? "overdue" : ""}">
