@@ -41,6 +41,20 @@ let siblingIds = [];        // the list the caller was looking at, for prev/next
 let lastFocused = null;     // restored on close, so Tab order isn't lost
 let editingField = null;    // which right-rail property is currently an editor
 let descLoadedFor = null;
+/* Whether the Description section is expanded. Todoist keeps a task's
+   notes behind a tap: a task that HAS a description shows it, and a task
+   that doesn't shows one quiet "Add description" line instead of a
+   permanently-mounted editor with a toolbar.
+
+   Two reasons this matters beyond looks. The rich editor is the single
+   tallest thing in the sheet — its toolbar alone is a row of eighteen
+   controls — so on the Fold it pushed the properties, the link and the
+   sub-tasks below the fold on every open, for a field most tasks never
+   use. And mounting Quill costs real time on open; leaving it unmounted
+   until asked for is why the sheet now appears immediately.
+
+   Per-open, not persisted: it is a state of the panel, not of the task. */
+let descOpen = false;
 
 /* ---------- helpers ---------- */
 function taskOf(id) { return findAnyTask(id); }
@@ -87,6 +101,9 @@ export function openTaskModal(id, siblings) {
   lastFocused = document.activeElement;
   editingField = null;
   descLoadedFor = null;
+  // A description that exists is content, not a control, so it opens with
+  // the task. An empty one stays out of the way until asked for.
+  descOpen = !!(found.task.desc || "").replace(/<[^>]*>/g, "").trim();
 
   const bg = document.getElementById("taskModalBg");
   if (!bg) return;
@@ -260,9 +277,14 @@ export function renderTaskModal() {
           oninput="autoGrow(this)" onchange="taskModalEditTitle(this.value)">${esc(t.text || "")}</textarea>
       </div>
 
-      <div class="tm-section">
-        <div class="tm-section-head">Description</div>
-        <div id="${DESC_EDITOR_ID}" class="mm-rich-editor tm-desc"></div>
+      <div class="tm-section tm-desc-section ${descOpen ? "is-open" : ""}">
+        <button type="button" class="tm-desc-toggle" onclick="taskModalToggleDesc()"
+          aria-expanded="${descOpen}" aria-controls="${DESC_EDITOR_ID}">
+          <span class="tm-desc-chevron" aria-hidden="true">▾</span>
+          <span class="tm-section-head">Description</span>
+          ${descOpen ? "" : `<span class="tm-desc-preview">${esc(descPreview(t)) || "Add description"}</span>`}
+        </button>
+        <div id="${DESC_EDITOR_ID}" class="mm-rich-editor tm-desc" ${descOpen ? "" : "hidden"}></div>
       </div>
 
       <div class="tm-section">
@@ -279,7 +301,58 @@ export function renderTaskModal() {
 
   const titleEl = document.getElementById("taskModalTitle");
   if (titleEl) { titleEl.style.height = "auto"; titleEl.style.height = titleEl.scrollHeight + "px"; }
-  mountDescription(t);
+  if (descOpen) mountDescription(t);
+}
+
+/* The first line of the notes, as plain text, so a collapsed section still
+   says what is inside it rather than just that something is. Truncated
+   here rather than in CSS because the string also has to fit the button's
+   accessible name. */
+function descPreview(t) {
+  const text = String(t.desc || "")
+    .replace(/<br\s*\/?>/gi, " ")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.length > 60 ? text.slice(0, 59) + "…" : text;
+}
+
+/* Opening mounts the editor; closing flushes it and takes it back down,
+   so a collapsed section holds no live Quill instance at all. Only this
+   one section is repainted — a full renderTaskModal() would rebuild the
+   title and the sub-tasks too, and the title is very often mid-edit when
+   someone reaches for the description. */
+export function taskModalToggleDesc() {
+  const found = openId && taskOf(openId);
+  if (!found) return;
+  if (descOpen) { flushDescription(); unmountRichEditor(DESC_EDITOR_ID); descLoadedFor = null; }
+  descOpen = !descOpen;
+
+  const section = document.querySelector("#taskModalBody .tm-desc-section");
+  const editor = document.getElementById(DESC_EDITOR_ID);
+  const toggle = section?.querySelector(".tm-desc-toggle");
+  if (!section || !editor || !toggle) { renderTaskModal(); return; }
+
+  section.classList.toggle("is-open", descOpen);
+  toggle.setAttribute("aria-expanded", String(descOpen));
+  editor.hidden = !descOpen;
+
+  let preview = toggle.querySelector(".tm-desc-preview");
+  if (descOpen) {
+    preview?.remove();
+    mountDescription(found.task);
+    // Land the cursor in the editor: the tap that opened it was a request
+    // to write, not merely to look.
+    setTimeout(() => getRichEditor(DESC_EDITOR_ID)?.focus(), 40);
+  } else {
+    if (!preview) {
+      preview = document.createElement("span");
+      preview.className = "tm-desc-preview";
+      toggle.appendChild(preview);
+    }
+    preview.textContent = descPreview(found.task) || "Add description";
+  }
 }
 
 /* Repaints only the properties column. Everything that edits a property
