@@ -55,6 +55,11 @@ let descLoadedFor = null;
 
    Per-open, not persisted: it is a state of the panel, not of the task. */
 let descOpen = false;
+/* The sub-task composer's pending chips. A sub-task is not created until
+   the text is submitted, so a date or a priority chosen beforehand has
+   nowhere to live yet — same problem the board composer solves with its
+   own `draft`, and solved the same way. Reset on open and after each add. */
+let subDraft = { date: "", priority: "", labels: [] };
 
 /* ---------- helpers ---------- */
 function taskOf(id) { return findAnyTask(id); }
@@ -104,6 +109,7 @@ export function openTaskModal(id, siblings) {
   // A description that exists is content, not a control, so it opens with
   // the task. An empty one stays out of the way until asked for.
   descOpen = !!(found.task.desc || "").replace(/<[^>]*>/g, "").trim();
+  subDraft = { date: "", priority: "", labels: [] };
 
   const bg = document.getElementById("taskModalBg");
   if (!bg) return;
@@ -389,6 +395,39 @@ export function renderTaskModalSide() {
   document.getElementById("taskModalTitle")?.classList.toggle("done", done);
 }
 
+/* Which of Todoist's quick-add chips a LifeOS sub-task can actually
+   honour. The reference row shows eight — Project, Labels, Date,
+   Deadline, Reminders, Location, Priority, Attachment — and four of them
+   have no counterpart anywhere in this data model: there is no deadline
+   distinct from a due date, no reminder scheduler, no geofencing, and no
+   file store. Rendering them would put four controls on screen that do
+   nothing when tapped, which is worse than not offering them.
+
+   Project is deliberately out too, for a different reason: a sub-task
+   belongs to its parent by definition, so a project picker on it would
+   be offering to contradict that.
+
+   That leaves the three the app already understands and already renders
+   everywhere else — Date, Priority and Labels. */
+const SUB_PRIOS = [["p1", "#B5533F"], ["p2", "#C08A3E"], ["p3", "#4F6D9A"], ["p4", "#8A8A85"]];
+function subPrioColor(p) { return (SUB_PRIOS.find(x => x[0] === p) || SUB_PRIOS[3])[1]; }
+function subMetaHtml(st) {
+  const bits = [];
+  if (st.date) bits.push(`<span class="tm-sub-chip tm-sub-date">🗓 ${esc(fmtShort(st.date))}</span>`);
+  if (st.priority && st.priority !== "p4") {
+    bits.push(`<span class="tm-sub-chip tm-sub-prio" style="color:${subPrioColor(st.priority)}">⚑ ${esc(st.priority.toUpperCase())}</span>`);
+  }
+  (Array.isArray(st.labels) ? st.labels : []).forEach(l =>
+    bits.push(`<span class="tm-sub-chip tm-sub-label">${esc(l)}</span>`));
+  return bits.length ? `<div class="tm-sub-meta">${bits.join("")}</div>` : "";
+}
+function fmtShort(iso) {
+  if (!iso) return "";
+  const d = new Date(iso + (iso.length === 10 ? "T00:00:00" : ""));
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+}
+
 function subtasksHtml(subtasks) {
   return `
     <div class="tm-section-head">Sub-tasks ${subtasks.length ? `<span class="tm-count">${subtasks.filter(s => s.done).length}/${subtasks.length}</span>` : ""}</div>
@@ -397,16 +436,97 @@ function subtasksHtml(subtasks) {
         <div class="tm-subtask ${st.done ? "done" : ""}">
           <button class="t-chk small ${st.done ? "on" : ""}" onclick="taskModalToggleSubtask('${st.id}')" aria-label="Toggle sub-task">
             <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
-          <input type="text" value="${esc(st.text)}" aria-label="Sub-task"
-            onchange="taskModalEditSubtask('${st.id}', this.value)">
+          <div class="tm-sub-main">
+            <input type="text" value="${esc(st.text)}" aria-label="Sub-task"
+              onchange="taskModalEditSubtask('${st.id}', this.value)">
+            ${subMetaHtml(st)}
+          </div>
           <button class="del" onclick="taskModalDelSubtask('${st.id}')" aria-label="Delete sub-task">✕</button>
         </div>`).join("")}
     </div>
-    <div class="tm-subtask-add">
-      <input type="text" id="taskModalNewSubtask" placeholder="Add a sub-task"
+    ${subComposerHtml()}`;
+}
+
+/* Same shape as the board's quick add: the field, then one horizontal row
+   of chips with the send button pinned to its right end. */
+function subComposerHtml() {
+  const labels = Array.isArray(subDraft.labels) ? subDraft.labels : [];
+  return `
+    <div class="tm-subtask-add composer-quick">
+      <input type="text" id="taskModalNewSubtask" class="composer-text" placeholder="Sub-task name"
         onkeydown="if(event.key==='Enter')taskModalAddSubtask()">
-      <button class="btn btn-ghost" onclick="taskModalAddSubtask()">Add</button>
+      <div class="composer-chips">
+        <label class="composer-chip composer-chip-date${subDraft.date ? " on" : ""}" title="Due date">
+          🗓 <input type="date" id="taskModalSubDate" value="${esc(subDraft.date)}"
+            onchange="taskModalSubDraft('date', this.value)">
+          ${subDraft.date ? `<b>${esc(fmtShort(subDraft.date))}</b>` : "Date"}
+        </label>
+        <button type="button" class="composer-chip${subDraft.priority && subDraft.priority !== "p4" ? " on" : ""}"
+          onclick="taskModalSubCyclePriority()" title="Priority"
+          style="${subDraft.priority && subDraft.priority !== "p4" ? `color:${subPrioColor(subDraft.priority)}` : ""}">
+          ⚑ ${subDraft.priority && subDraft.priority !== "p4" ? esc(subDraft.priority.toUpperCase()) : "Priority"}</button>
+        <label class="composer-chip${labels.length ? " on" : ""}" title="Labels, comma separated">
+          🏷 <input type="text" id="taskModalSubLabels" class="tm-sub-label-input"
+            list="taskModalSubLabelOptions" value="${esc(labels.join(", "))}" placeholder="Labels"
+            onchange="taskModalSubDraft('labels', this.value)">
+          <datalist id="taskModalSubLabelOptions">${allLabels().map(l => `<option value="${esc(l)}">`).join("")}</datalist>
+        </label>
+        <span class="composer-spacer"></span>
+        <button type="button" class="composer-icon-btn composer-cancel" onclick="taskModalSubClear()"
+          title="Clear" aria-label="Clear sub-task fields">✕</button>
+        <button type="button" class="composer-icon-btn composer-send" onclick="taskModalAddSubtask()"
+          title="Add sub-task" aria-label="Add sub-task">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path d="M4 12h13M12 5l7 7-7 7" fill="none" stroke="currentColor"
+              stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
+      </div>
     </div>`;
+}
+
+/* The chips write into subDraft rather than into a sub-task, because the
+   sub-task does not exist until the text is submitted. */
+export function taskModalSubDraft(field, v) {
+  if (field === "labels") {
+    subDraft.labels = [...new Set(String(v).split(",").map(x => x.trim()).filter(Boolean))];
+  } else {
+    subDraft[field] = v || "";
+  }
+  repaintSubComposer();
+}
+/* One control, four states — a four-way picker would be a menu, and a
+   menu inside a half-height sheet inside a modal is a lot of layers for
+   choosing between four values. P4 is "none" and is where it lands after
+   P3, so the cycle also clears. */
+export function taskModalSubCyclePriority() {
+  const order = ["p4", "p1", "p2", "p3"];
+  const i = order.indexOf(subDraft.priority || "p4");
+  subDraft.priority = order[(i + 1) % order.length];
+  repaintSubComposer();
+}
+export function taskModalSubClear() {
+  subDraft = { date: "", priority: "", labels: [] };
+  const el = document.getElementById("taskModalNewSubtask");
+  if (el) el.value = "";
+  repaintSubComposer();
+  document.getElementById("taskModalNewSubtask")?.focus();
+}
+/* Repaints the chip row only, carrying the typed text across by hand.
+   Rebuilding the whole sub-task section would replace the input the
+   person is typing into, which is the same caret-loss problem
+   renderTaskModalSide() exists to avoid one level up. */
+function repaintSubComposer() {
+  const box = document.querySelector("#taskModalSubtaskSection .tm-subtask-add");
+  if (!box) { renderSubtasks(); return; }
+  const typed = document.getElementById("taskModalNewSubtask")?.value || "";
+  const holder = document.createElement("div");
+  holder.innerHTML = subComposerHtml();
+  const fresh = holder.firstElementChild;
+  if (!fresh) return;
+  box.replaceWith(fresh);
+  const el = document.getElementById("taskModalNewSubtask");
+  if (el) { el.value = typed; el.focus(); }
 }
 /* Sub-tasks repaint on their own, for the same reason the sidebar does:
    a full render would drop and rebuild the description editor, losing the
@@ -589,8 +709,16 @@ export function taskModalAddSubtask() {
   const v = (el?.value || "").trim();
   if (!v) return;
   const f = taskOf(openId); if (!f) return;
-  subs(f).push({ id: uid(), text: v, done: false });
+  const st = { id: uid(), text: v, done: false };
+  if (subDraft.date) st.date = subDraft.date;
+  if (subDraft.priority && subDraft.priority !== "p4") st.priority = subDraft.priority;
+  if (subDraft.labels.length) st.labels = [...subDraft.labels];
+  subs(f).push(st);
   el.value = "";
+  /* The date, priority and labels are KEPT for the next one. Sub-tasks are
+     entered in runs and a run usually shares them — the same reasoning as
+     the board composer's keepOpen, and the same reason the text is the one
+     thing cleared. */
   touch(f); persist(); renderSubtasks();
   document.getElementById("taskModalNewSubtask")?.focus();
 }
