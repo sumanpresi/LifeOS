@@ -1928,3 +1928,23 @@ html[data-theme="dark"] .t-due-chip:hover{background:rgba(255,255,255,.08)}
 @media (prefers-reduced-motion:reduce){
   .t-board-card.just-completed{animation:none;opacity:.4}
 }
+
+/* ===============================================================
+   34. SIDEBAR — reorderable Spaces
+   =============================================================== */
+/* gap:inherit is the point of this rule: the buttons used to be direct
+   children of .sidebar and picked up its gap. Nesting them a level deeper
+   would otherwise collapse the spacing between them, so the group takes
+   the sidebar's own gap rather than hard-coding a number that would drift
+   the next time the sidebar's spacing changes. */
+.nav-group{display:flex;flex-direction:column;gap:inherit;min-height:0}
+.nav-item-ghost{opacity:.35}
+.nav-item-chosen{
+  background:var(--paper);
+  box-shadow:0 6px 18px -8px rgba(16,18,22,.45);
+  transform:scale(1.02)}
+/* No text selection while a long-press turns into a drag — on Android a
+   press-and-hold on a label otherwise starts the text selection handles
+   and the drag never begins. */
+body.is-dragging .nav-group,
+body.is-dragging .nav-item{user-select:none;-webkit-user-select:none}
