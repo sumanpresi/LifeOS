@@ -1676,6 +1676,87 @@ html[data-theme="dark"] .t-board::-webkit-scrollbar-thumb{background:rgba(255,25
 .t-board-project-sel{font-size:10.5px;font-weight:600;color:var(--t-ink2);background:var(--t-bg);
   border:1px solid var(--t-border);border-radius:99px;padding:2px 6px;max-width:88px;cursor:pointer}
 .t-board-card-meta .t-archive-btn{margin-left:auto;padding:2px 6px;font-size:11px}
+
+/* ============================================================
+   Board card density — more of the board, less of the card
+   ============================================================
+   The complaint was that too few cards fit in a column, and the cause is
+   not the title: it is the meta row underneath it. Every card renders the
+   same five slots whether or not they hold anything — a date chip or an
+   "Add date" placeholder, a link or an "+ Link" placeholder, a
+   Work/Personal tag, a project picker, an archive button — and in a 230px
+   column that row cannot fit on one line, so it wraps. A card whose title
+   is one line still costs two lines of chrome underneath it.
+
+   Todoist's card shows what the task HAS and nothing else: a date if it
+   is dated, a label if it is labelled. There is no empty slot standing by
+   in case you might want one, because the card is a summary and the
+   detail view is where you edit.
+
+   So the information stays exactly as it was and only the empty
+   placeholders recede. Nothing is removed, and nothing becomes
+   unreachable — tapping the card still opens the detail panel, which has
+   always held the real controls.
+   ============================================================ */
+
+/* 1. Tighter box. ~8px per card, which is most of a sixth card per column. */
+.t-board-card{padding:8px 9px}
+.t-board-col-body{padding:9px;gap:6px}
+.t-board-card-meta{margin-top:5px;margin-left:28px;gap:4px 6px}
+.t-board-card-top{gap:7px}
+
+/* 2. The two placeholders read as background rather than as content. They
+      are offers, not facts, and they were carrying the same visual weight
+      as a real due date. */
+.t-board-card .t-add-date-btn,
+.t-board-card .t-add-link-btn{
+  font-size:10.5px;font-weight:500;opacity:.45;
+  transition:opacity 120ms ease,color 120ms ease}
+.t-board-card:hover .t-add-date-btn,
+.t-board-card:hover .t-add-link-btn,
+.t-board-card:focus-within .t-add-date-btn,
+.t-board-card:focus-within .t-add-link-btn{opacity:1}
+
+/* 3. On a mouse, where hovering a card is free and reliable, the empty
+      slots collapse out of the row entirely and come back on hover. This
+      is what actually recovers the wrapped second line.
+
+      Deliberately behind (hover:hover) and (pointer:fine): on the Fold and
+      on phones there is no hover to reveal them with, so there they stay
+      visible — one tap to add a date from the board is worth more on touch
+      than the pixels it costs, and touch is where the detail panel is
+      already the natural place to edit anyway. */
+@media (hover:hover) and (pointer:fine){
+  .t-board-card .t-add-date-btn,
+  .t-board-card .t-add-link-btn{display:none}
+  .t-board-card:hover .t-add-date-btn,
+  .t-board-card:hover .t-add-link-btn,
+  .t-board-card:focus-within .t-add-date-btn,
+  .t-board-card:focus-within .t-add-link-btn{display:inline-block;opacity:1}
+  /* A card with nothing at all in its meta row shouldn't reserve the
+     row's height either. :has() is the only way to ask that question in
+     CSS; browsers without it simply keep today's spacing, which is the
+     behaviour being improved on rather than depended on. */
+  .t-board-card:not(:hover):not(:focus-within) .t-board-card-meta:has(.t-add-date-btn):has(.t-add-link-btn){
+    margin-top:3px}
+}
+
+/* 4. The project picker was sized to show a project name in full, which no
+      230px column can afford next to a date and a tag. Narrower here, full
+      width on hover, and the full name is in its own tooltip and in the
+      detail panel regardless. */
+.t-board-card .t-board-project-sel{max-width:72px;transition:max-width 140ms ease}
+.t-board-card:hover .t-board-project-sel,
+.t-board-card:focus-within .t-board-project-sel{max-width:132px}
+
+/* 5. One more column on screen at the fold's inner width. The 272px floor
+      was set when a column had to hold that wrapped two-line meta row;
+      with the row down to one line the tracks can be narrower without the
+      titles suffering, and a Kanban board is worth more the more of it you
+      can see at once. */
+@media(min-width:768px){
+  .t-board-col{flex:1 1 clamp(244px, 18vw, 320px);min-width:244px}
+}
 @media(max-width:767px){
   .t-board{padding:10px 12px 14px}
   /* `min-width:78vw` was how the old horizontal scroller showed one column
