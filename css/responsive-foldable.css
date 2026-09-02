@@ -1884,3 +1884,47 @@ html[data-theme="dark"] .t-due-chip:hover{background:rgba(255,255,255,.08)}
 @media (max-width:520px){
   .tm-picker-inline .tm-picker-ico{display:none}
 }
+
+/* ===============================================================
+   33. THE COMPLETION CHECKBOX — a target you can actually hit
+   ===============================================================
+   The circle is 21px. On the Fold that is roughly 3.5mm of glass, less
+   than half the 44px both Apple's and Google's guidance put as the
+   floor for a touch target — and it sits 9px from a title that opens the
+   task. So a tap that drifts by a couple of pixels does not miss and do
+   nothing; it hits the card underneath and OPENS THE TASK. That is what
+   the recording shows: the detail sheet sliding up where a tick was
+   meant to appear.
+
+   It reads as "marking isn't working" because the failure is silent and
+   plausible — the sheet opening looks like something you did on purpose.
+   The bug is not in toggleTask, which is correct; it is that the button
+   was never reliably reachable with a thumb.
+
+   The circle stays 21px, because 44px of ink on a card this size would
+   dominate it and Todoist's is small too. Only the HIT AREA grows, via a
+   pseudo-element that extends past the button's own box: 10px above and
+   below, 4px left, 14px right. Asymmetric on purpose — the left side has
+   to stay clear of the drag grip, which is the one element on the card
+   carrying touch-action:none and must keep receiving its own presses.
+   --------------------------------------------------------------- */
+.t-board-card .t-chk{position:relative}
+.t-board-card .t-chk::after{
+  content:"";position:absolute;
+  top:-11px;bottom:-11px;left:-4px;right:-14px;
+  border-radius:12px;
+}
+/* The tick needs to be SEEN before the board rebuilds and the card leaves
+   for a column that is usually off-screen. 180ms of filled checkbox is
+   the difference between "it worked" and "did that do anything?" */
+.t-chk.on svg{stroke-dashoffset:0}
+.t-board-card.just-completed{
+  animation:cardCompleted 260ms ease both}
+@keyframes cardCompleted{
+  0%{opacity:1;transform:none}
+  60%{opacity:.5;transform:scale(.98)}
+  100%{opacity:0;transform:scale(.96)}
+}
+@media (prefers-reduced-motion:reduce){
+  .t-board-card.just-completed{animation:none;opacity:.4}
+}
