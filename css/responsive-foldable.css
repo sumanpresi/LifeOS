@@ -1708,3 +1708,37 @@ html[data-theme="dark"] .t-due-chip:hover{background:rgba(255,255,255,.08)}
   .tm-crumb{display:block}
   .tm-icon{width:36px;height:36px}
 }
+
+/* ===============================================================
+   28. SUB-TASKS — the quick-add row, and the chips it leaves behind
+   ===============================================================
+   Reuses .composer-quick from section 24.5 rather than restyling a
+   second composer: the sub-task row and the board's add row are the same
+   control doing the same job in a different container, and two
+   near-identical stylesheets for that is how they drift apart.
+   --------------------------------------------------------------- */
+.tm-subtask-add.composer-quick{
+  display:block;margin-top:10px;padding:9px 10px;
+  border:1px solid var(--line);border-radius:11px;background:var(--card)}
+.tm-subtask-add.composer-quick .composer-text{
+  width:100%;border:none;background:transparent;padding:2px 0;
+  font-family:inherit;font-size:13.5px;color:var(--ink)}
+.tm-subtask-add.composer-quick .composer-text:focus{outline:none;border:none}
+.tm-subtask-add.composer-quick .composer-chips{margin-top:7px}
+/* The labels chip holds a real text input, so it has to size to what is
+   typed into it rather than to the chip's own padding. */
+.tm-sub-label-input{
+  border:none;background:transparent;font:inherit;font-size:11px;
+  color:inherit;width:62px;min-width:0;padding:0}
+.tm-sub-label-input:focus{outline:none;width:110px}
+
+/* A sub-task row now has two lines when it carries chips, so the checkbox
+   aligns to the first one rather than to the middle of the pair. */
+.tm-subtask{align-items:flex-start}
+.tm-subtask .t-chk.small{margin-top:5px;flex:0 0 auto}
+.tm-sub-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.tm-sub-main input{width:100%}
+.tm-sub-meta{display:flex;flex-wrap:wrap;gap:4px 7px;padding:0 7px 2px}
+.tm-sub-chip{font-size:10.5px;font-weight:600;color:var(--muted);line-height:1.4}
+.tm-sub-label{background:var(--paper);border-radius:99px;padding:1px 7px}
+.tm-subtask.done .tm-sub-meta{opacity:.55}
