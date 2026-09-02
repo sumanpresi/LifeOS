@@ -283,11 +283,24 @@ export function composerHtml(board, status) {
       ? ((state.personal?.projects || []).find(p => p.id === state.personal.activeProject)?.name || "Personal")
       : ((state.gsi?.projects || []).find(p => p.id === state.gsi.activeProject)?.name || "Project");
 
+  /* Laid out the way Todoist's quick-add is: the field you type in, then
+     ONE horizontal row of chips with the send button pinned to its right
+     end. What it no longer has is the separate "Link (optional)" box and
+     the Cancel / Add task button pair underneath — five stacked rows in a
+     Kanban column, which on the Fold pushed the column it was adding to
+     off the bottom of the screen.
+
+     Nothing is lost. The link field exists in the task detail panel,
+     which is one tap away and is where a URL is actually pasted in
+     practice; a quick-add is for capturing the sentence before it's
+     forgotten. Cancel becomes the ✕ at the end of the chip row, and Add
+     becomes the send button — both still one tap, both now on a row that
+     was already there. */
   return `
-    <div class="composer" onclick="event.stopPropagation()">
-      <textarea id="composerText" class="composer-text" rows="2"
+    <div class="composer composer-quick" onclick="event.stopPropagation()">
+      <textarea id="composerText" class="composer-text" rows="1"
         placeholder="Task name"
-        oninput="composerSyncText(this.value)"
+        oninput="composerSyncText(this.value);autoGrow(this)"
         onkeydown="composerKey(event)">${esc(draft.text)}</textarea>
 
       <div class="composer-chips">
@@ -300,17 +313,19 @@ export function composerHtml(board, status) {
             onchange="composerDateChanged()">
           ${draft.date ? `<b>${prettyDate(draft.date)}</b>` : ""}
         </label>
-        <button class="composer-chip ${draft.flag ? "on" : ""}" data-composer-flag onclick="composerToggleFlag()"
-          aria-pressed="${draft.flag}" title="Mark high priority">🚩 Priority</button>
-      </div>
+        <button class="composer-chip composer-chip-flag ${draft.flag ? "on" : ""}" data-composer-flag
+          onclick="composerToggleFlag()" aria-pressed="${draft.flag}" title="Mark high priority">🚩</button>
 
-      <input type="url" id="composerLink" class="composer-link" placeholder="Link (optional)"
-        value="${esc(draft.link)}" onkeydown="composerKey(event)">
-
-      <div class="composer-actions">
-        <span class="composer-hint">Enter to add another · Esc to close</span>
-        <button class="btn btn-ghost" onclick="closeComposer()">Cancel</button>
-        <button class="btn btn-primary" onclick="composerSubmit(false)">Add task</button>
+        <span class="composer-spacer"></span>
+        <button class="composer-icon-btn composer-cancel" onclick="closeComposer()"
+          title="Cancel" aria-label="Cancel">✕</button>
+        <button class="composer-icon-btn composer-send" onclick="composerSubmit(false)"
+          title="Add task" aria-label="Add task">
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true">
+            <path d="M4 12h13M12 5l7 7-7 7" fill="none" stroke="currentColor"
+              stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </button>
       </div>
     </div>`;
 }
