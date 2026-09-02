@@ -1742,3 +1742,93 @@ html[data-theme="dark"] .t-due-chip:hover{background:rgba(255,255,255,.08)}
 .tm-sub-chip{font-size:10.5px;font-weight:600;color:var(--muted);line-height:1.4}
 .tm-sub-label{background:var(--paper);border-radius:99px;padding:1px 7px}
 .tm-subtask.done .tm-sub-meta{opacity:.55}
+
+/* ===============================================================
+   29. SUB-TASK PICKERS — project and labels
+   ===============================================================
+   One popover serving both chips: a search field over a scrolling list.
+   Anchored to the composer rather than to the chip, because the chip row
+   scrolls horizontally — a popover pinned to a chip would slide off with
+   it, and on a 250px column it would be half off-screen to begin with.
+   --------------------------------------------------------------- */
+.tm-subtask-add.composer-quick{position:relative}
+.tm-picker{
+  position:absolute;left:8px;right:8px;top:calc(100% - 4px);z-index:60;
+  background:var(--card);border:1px solid var(--line);border-radius:12px;
+  box-shadow:0 12px 32px -10px rgba(16,18,22,.35);
+  padding:8px;display:flex;flex-direction:column;gap:6px;
+}
+.tm-picker-search{
+  width:100%;border:1px solid var(--line);border-radius:8px;padding:7px 9px;
+  font-family:inherit;font-size:13px;background:var(--paper);color:var(--ink)}
+.tm-picker-search:focus{outline:none;border-color:var(--ink)}
+/* Capped so the list scrolls instead of the sheet: a long label list
+   inside a 62dvh sheet would otherwise push the send button off. */
+.tm-picker-list{max-height:min(46vh,260px);overflow-y:auto;-webkit-overflow-scrolling:touch}
+.tm-picker-head{
+  font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--muted);padding:8px 8px 4px}
+.tm-picker-row{
+  display:flex;align-items:center;gap:9px;width:100%;
+  border:none;background:none;cursor:pointer;text-align:left;
+  padding:9px 8px;border-radius:8px;font-family:inherit;font-size:13px;color:var(--ink)}
+.tm-picker-row:hover{background:var(--paper)}
+.tm-picker-row.is-on{background:var(--paper)}
+.tm-picker-ico{flex:0 0 auto;width:18px;text-align:center;opacity:.7;font-size:12px}
+.tm-picker-hash{color:var(--danger);font-weight:800;opacity:1}
+.tm-picker-tick{margin-left:auto;color:var(--accent-ink);font-weight:800}
+/* The checkbox is drawn rather than an <input>: the row is already the
+   control, and a real checkbox inside a button is a second tap target
+   for the same action. */
+.tm-picker-box{
+  margin-left:auto;flex:0 0 auto;width:17px;height:17px;border-radius:4px;
+  border:1.6px solid var(--line);position:relative}
+.tm-picker-box.on{background:var(--accent-ink);border-color:var(--accent-ink)}
+.tm-picker-box.on::after{
+  content:"";position:absolute;left:5px;top:1px;width:5px;height:10px;
+  border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.tm-picker-empty{padding:14px 8px;font-size:12.5px;color:var(--muted);text-align:center}
+.tm-picker-new{color:var(--accent-ink);font-weight:700}
+.tm-sub-proj{color:var(--danger);font-weight:700}
+
+/* Touch targets: the rows are the whole interaction, so they clear 44px. */
+@media (pointer:coarse){
+  .tm-picker-row{padding:11px 9px}
+  .tm-picker-search{padding:9px 10px;font-size:14px}
+}
+
+/* ===============================================================
+   30. TASK LINKS — the ••• menu, and referenced sub-tasks
+   =============================================================== */
+.tm-head{position:relative}
+.tm-menu{
+  position:absolute;top:calc(100% - 2px);right:10px;z-index:70;min-width:216px;
+  background:var(--card);border:1px solid var(--line);border-radius:12px;
+  box-shadow:0 14px 36px -12px rgba(16,18,22,.4);padding:6px;
+  display:flex;flex-direction:column;gap:1px}
+.tm-menu[hidden]{display:none}
+.tm-menu button{
+  display:flex;align-items:center;gap:10px;width:100%;
+  border:none;background:none;cursor:pointer;text-align:left;
+  padding:10px 10px;border-radius:8px;font-family:inherit;font-size:13.5px;color:var(--ink)}
+.tm-menu button:hover{background:var(--paper)}
+.tm-menu-ico{flex:0 0 auto;width:18px;text-align:center;opacity:.75;font-size:13px}
+.tm-menu-danger{color:var(--danger)}
+
+/* A referenced sub-task reads as a link, because that is what it is —
+   the row opens the task it points at instead of editing its own text. */
+.tm-sub-ref{
+  display:inline-flex;align-items:center;gap:6px;max-width:100%;
+  border:none;background:none;cursor:pointer;text-align:left;
+  padding:5px 7px;border-radius:7px;font-family:inherit;font-size:13px;
+  color:var(--accent-ink);text-decoration:underline;text-underline-offset:2px}
+.tm-sub-ref:hover{background:var(--paper)}
+.tm-sub-ref-ico{flex:0 0 auto;opacity:.75;text-decoration:none}
+.tm-sub-ref.is-gone{color:var(--muted);text-decoration:line-through;cursor:default}
+.tm-sub-ref.is-gone em{font-style:normal;opacity:.8;text-decoration:none}
+.tm-subtask.done .tm-sub-ref{opacity:.6}
+
+@media (pointer:coarse){
+  .tm-menu{right:8px;left:8px;min-width:0}
+  .tm-menu button{padding:12px 10px;font-size:14px}
+}
