@@ -3,7 +3,7 @@
    its own DOM/CSS/JS (avoids id and class clashes — both apps use names like
    .card, .btn, #toast), but its DATA round-trips through state.js ->
    persist() -> Supabase, exactly like every other module. */
-import { state, persist } from './state.js?v=202609041600';
+import { state, persist } from './state.js?v=202609041800';
 
 let iframeEl = null;
 

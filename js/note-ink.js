@@ -46,8 +46,8 @@
    The stroke shape deliberately matches whiteboard.js so the two can
    share a mental model (and, if it ever matters, code).
    ============================================================ */
-import { state, uid, persist } from './state.js?v=202609041600';
-import { toast, registerBusyCheck } from './ui.js?v=202609041600';
+import { state, uid, persist } from './state.js?v=202609041800';
+import { toast, registerBusyCheck } from './ui.js?v=202609041800';
 
 /* The locked column width, and the reference the stored coordinates mean.
    794px is A4 at 96dpi, which is what the non-ink note already used. */
