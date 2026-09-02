@@ -15,9 +15,9 @@
    until one does. The file is a plain .json anyone can read, on purpose:
    a backup you can only restore with the app that broke is a weak one. */
 
-import { state, replaceState, persist, rerender, esc } from './state.js?v=202609040400';
-import { toast } from './ui.js?v=202609040400';
-import { findOrphanedWhiteboards, dropOrphanedWhiteboards } from './whiteboard.js?v=202609040400';
+import { state, replaceState, persist, rerender, esc } from './state.js?v=202609040600';
+import { toast } from './ui.js?v=202609040600';
+import { findOrphanedWhiteboards, dropOrphanedWhiteboards } from './whiteboard.js?v=202609040600';
 
 const SNAP_KEY = "lifeos-snapshots";
 const LAST_BACKUP_KEY = "lifeos-last-backup";
@@ -172,8 +172,8 @@ async function applyRestoredState(next) {
   // copy of the data; rerender() doesn't reach inside them, so without
   // this they'd keep showing whatever was there before the restore.
   try {
-    const { pushCommunicationUpdate } = await import("./communication-bridge.js?v=202609040400");
-    const { pushNgdrTrackerUpdate } = await import("./ngdr-tracker-bridge.js?v=202609040400");
+    const { pushCommunicationUpdate } = await import("./communication-bridge.js?v=202609040600");
+    const { pushNgdrTrackerUpdate } = await import("./ngdr-tracker-bridge.js?v=202609040600");
     pushCommunicationUpdate();
     pushNgdrTrackerUpdate();
   } catch (e) { /* bridge not loaded — the main app is still correctly restored */ }

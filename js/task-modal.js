@@ -18,14 +18,14 @@
    and a change on the board cannot diverge, and nothing has to be kept
    in sync. */
 
-import { state, esc, persist, rerender, uid } from './state.js?v=202609040400';
-import { toast } from './ui.js?v=202609040400';
-import { findAnyTask, toggleTask, toggleFlag, editTask, editTaskMeta, changeTaskProject, delTask } from './tasks.js?v=202609040400';
-import { openDateSheet } from './date-sheet.js?v=202609040400';
-import { getProjectList } from './gsi.js?v=202609040400';
-import { getPwProjectList, changePwTaskProject } from './personal.js?v=202609040400';
-import { sanitizeHtml } from './sanitize.js?v=202609040400';
-import { mountRichEditor, getRichEditor, unmountRichEditor } from './rich-text.js?v=202609040400';
+import { state, esc, persist, rerender, uid } from './state.js?v=202609040600';
+import { toast } from './ui.js?v=202609040600';
+import { findAnyTask, toggleTask, toggleFlag, editTask, editTaskMeta, changeTaskProject, delTask } from './tasks.js?v=202609040600';
+import { openDateSheet } from './date-sheet.js?v=202609040600';
+import { getProjectList } from './gsi.js?v=202609040600';
+import { getPwProjectList, changePwTaskProject } from './personal.js?v=202609040600';
+import { sanitizeHtml } from './sanitize.js?v=202609040600';
+import { mountRichEditor, getRichEditor, unmountRichEditor } from './rich-text.js?v=202609040600';
 
 const DESC_EDITOR_ID = "taskDescEditor";
 const PRIORITIES = [

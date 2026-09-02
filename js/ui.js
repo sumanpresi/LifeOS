@@ -31,8 +31,8 @@ export function toggleSidebar(force) {
 }
 
 /* Navigation, toasts, header, sync pill. */
-import { state, esc } from './state.js?v=202609040400';
-import { resizeWhiteboardIfVisible } from './whiteboard.js?v=202609040400';
+import { state, esc } from './state.js?v=202609040600';
+import { resizeWhiteboardIfVisible } from './whiteboard.js?v=202609040600';
 
 let toastTimer = null;
 /* ---------- sticky header ----------
@@ -238,6 +238,20 @@ function markPageEntering(el) {
 }
 
 export function go(page) {
+  /* Today was merged into Overview, so "dayof" no longer names a page.
+     It is redirected rather than deleted because the name survives in
+     three places that would otherwise dead-end: search results link to
+     it for journal hits, "lifeos-last-page" in localStorage still holds
+     it for anyone whose last session ended there, and an old bookmark
+     may carry it. Without this, every one of those lands on a page that
+     does not exist — go() finds no #page-dayof, adds .visible to
+     nothing, and the app shows a blank body with no error to explain it.
+
+     (The whiteboard surface also called "dayof" is a different thing
+     entirely — it is a key into state.whiteboards for the Scratch board
+     on the Personal page, and is untouched by this.) */
+  if (page === "dayof") page = "overview";
+
   // A page change is *supposed* to jump to the top; don't let a render
   // queued by this navigation restore the old page's scroll position.
   skipScrollRestoreBriefly();
@@ -260,7 +274,7 @@ export function go(page) {
        column capped while its page was hidden was capped against zeroed
        offsets. Dynamically imported to keep ui.js free of a static
        dependency on tasks.js, which imports from here. */
-    import("./tasks.js?v=202609040400").then(m => m.capBoardColumnHeights()).catch(() => {});
+    import("./tasks.js?v=202609040600").then(m => m.capBoardColumnHeights()).catch(() => {});
     if (page === "work") resizeWhiteboardIfVisible("gsi");
     /* The Whiteboard's surface is still called "overview" for data
        compatibility, but the card renders on Communication now. */
@@ -268,7 +282,7 @@ export function go(page) {
     /* The Scratch board's surface is still called "dayof" for data
        compatibility, but the card renders on the Personal page now. */
     if (page === "personal") resizeWhiteboardIfVisible("dayof");
-    if (page === "reference") import("./reference.js?v=202609040400").then(m => m.showWorldMap());
+    if (page === "reference") import("./reference.js?v=202609040600").then(m => m.showWorldMap());
   }
   document.getElementById("sidebar").classList.remove("open");
   window.scrollTo({ top: 0 });
