@@ -1,41 +1,42 @@
 /* LifeOS v0.3 — entry point: wires modules together and boots the app. */
-import { setRenderer } from './state.js?v=202609040200';
-import * as ui from './ui.js?v=202609040200';
-import * as tasks from './tasks.js?v=202609040200';
-import * as goals from './goals.js?v=202609040200';
-import * as habits from './habits.js?v=202609040200';
-import * as widgets from './widgets.js?v=202609040200';
-import * as sections from './sections.js?v=202609040200';
-import * as gsi from './gsi.js?v=202609040200';
-import * as personal from './personal.js?v=202609040200';
-import * as share from './share.js?v=202609040200';
-import * as theme from './theme.js?v=202609040200';
-import { initCursorGlow } from './cursor-glow.js?v=202609040200';
-import { releaseDragGhost } from './drag-cleanup.js?v=202609040200';
-import * as composer from './composer.js?v=202609040200';
-import { initDropToAttach, handleIncomingShare } from './attach.js?v=202609040200';
-import * as finance from './finance.js?v=202609040200';
-import * as health from './health.js?v=202609040200';
-import * as travel from './travel.js?v=202609040200';
-import * as reference from './reference.js?v=202609040200';
-import * as notebook from './notebook.js?v=202609040200';
-import * as trash from './trash.js?v=202609040200';
-import * as backup from './backup.js?v=202609040200';
-import * as entertainment from './entertainment.js?v=202609040200';
-import * as taskModal from './task-modal.js?v=202609040200';
-import { decorateLinkRows } from './link-preview.js?v=202609040200';
-import { flushLocalSave } from './state.js?v=202609040200';
-import * as healthCheck from './health-check.js?v=202609040200';
-import * as dateShortcuts from './date-shortcuts.js?v=202609040200';
-import * as expandView from './expand-view.js?v=202609040200';
-import * as mapCoords from './map-click-coords.js?v=202609040200';
-import * as calScribble from './calendar-scribble.js?v=202609040200';
-import * as whiteboard from './whiteboard.js?v=202609040200';
-import * as search from './search.js?v=202609040200';
-import * as cloud from './supabase.js?v=202609040200';
-import * as gcal from './google-calendar.js?v=202609040200';
-import { initCommunicationBridge } from './communication-bridge.js?v=202609040200';
-import { initNgdrTrackerBridge } from './ngdr-tracker-bridge.js?v=202609040200';
+import { setRenderer } from './state.js?v=202609040400';
+import * as ui from './ui.js?v=202609040400';
+import * as tasks from './tasks.js?v=202609040400';
+import * as goals from './goals.js?v=202609040400';
+import * as habits from './habits.js?v=202609040400';
+import * as widgets from './widgets.js?v=202609040400';
+import * as sections from './sections.js?v=202609040400';
+import * as gsi from './gsi.js?v=202609040400';
+import * as personal from './personal.js?v=202609040400';
+import * as share from './share.js?v=202609040400';
+import * as theme from './theme.js?v=202609040400';
+import { initCursorGlow } from './cursor-glow.js?v=202609040400';
+import { releaseDragGhost } from './drag-cleanup.js?v=202609040400';
+import * as composer from './composer.js?v=202609040400';
+import { initDropToAttach, handleIncomingShare } from './attach.js?v=202609040400';
+import * as finance from './finance.js?v=202609040400';
+import * as health from './health.js?v=202609040400';
+import * as travel from './travel.js?v=202609040400';
+import * as reference from './reference.js?v=202609040400';
+import * as notebook from './notebook.js?v=202609040400';
+import * as trash from './trash.js?v=202609040400';
+import * as backup from './backup.js?v=202609040400';
+import * as entertainment from './entertainment.js?v=202609040400';
+import * as taskModal from './task-modal.js?v=202609040400';
+import { decorateLinkRows } from './link-preview.js?v=202609040400';
+import { flushLocalSave } from './state.js?v=202609040400';
+import * as healthCheck from './health-check.js?v=202609040400';
+import * as dateShortcuts from './date-shortcuts.js?v=202609040400';
+import * as expandView from './expand-view.js?v=202609040400';
+import * as mapCoords from './map-click-coords.js?v=202609040400';
+import * as calScribble from './calendar-scribble.js?v=202609040400';
+import * as whiteboard from './whiteboard.js?v=202609040400';
+import * as search from './search.js?v=202609040400';
+import * as cloud from './supabase.js?v=202609040400';
+import { applyNavOrder, initNavSorting } from './nav-order.js?v=202609040400';
+import * as gcal from './google-calendar.js?v=202609040400';
+import { initCommunicationBridge } from './communication-bridge.js?v=202609040400';
+import { initNgdrTrackerBridge } from './ngdr-tracker-bridge.js?v=202609040400';
 
 /* One render pass repaints everything — the app is small enough
    that this keeps every module fully decoupled. */
@@ -281,6 +282,11 @@ trash.purgeOldTrash();
 // Before renderAll, so the very first snapshot captures the data exactly
 // as it was loaded rather than after any render-time normalisation.
 backup.autoSnapshotIfDue();
+/* Before the first render, so the sidebar never paints in file order and
+   then visibly jump into the user's order a frame later. */
+applyNavOrder();
+initNavSorting();
+
 renderAll();
 try {
   const lastPage = localStorage.getItem("lifeos-last-page");
@@ -289,7 +295,7 @@ try {
   /* Diagnostic only, and only on request: ?debug=shake. Dynamically
      imported so the file is never fetched on a normal load. */
   if (/[?&]debug=shake\b/.test(location.search)) {
-    import("./shake-probe.js?v=202609040200")
+    import("./shake-probe.js?v=202609040400")
       .then(m => m.startShakeProbe())
       .catch(e => console.warn("[shake] probe failed to load", e));
   }
