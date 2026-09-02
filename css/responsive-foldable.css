@@ -2041,3 +2041,32 @@ body.is-dragging .nav-item{user-select:none;-webkit-user-select:none}
 /* The label chip holds a live input; without a cap it can grow wide
    enough to force every other chip onto its own row. */
 .tm-sub-label-input{max-width:120px}
+
+/* ===============================================================
+   37. THE NAV GROUP MUST NOT EXIST IN THE BOTTOM BAR
+   ===============================================================
+   Section 34 wrapped the Spaces in #navSpaces so they could be dragged
+   as a group. That wrapper is a flex COLUMN, which is right in the
+   desktop sidebar and completely wrong at ≤600px, where .sidebar becomes
+   a horizontal bottom bar: the wrapper collapses to a single item in that
+   row, and all nine Spaces stack vertically inside it. Overview sits to
+   its left, Trash to its right, and the Spaces run off the top of the
+   screen — which is exactly the screenshot.
+
+   display:contents removes the wrapper from layout entirely while leaving
+   it in the DOM, so the buttons become direct flex items of the bar again
+   and lay out as they did before section 34 existed.
+
+   The cost is that dragging to reorder does not work in the bottom bar —
+   Sortable needs a real layout box to measure, and display:contents has
+   none. That is the right trade: the bar is a 64px strip of eleven icons
+   where a long-press-and-drag is fiddly at best, the order still syncs
+   from wherever it was set, and a broken bar is worse than an unorderable
+   one. Reordering stays available at every width where the sidebar is a
+   sidebar.
+   --------------------------------------------------------------- */
+@media (max-width:600px){
+  .nav-group{
+    display:contents;
+  }
+}
