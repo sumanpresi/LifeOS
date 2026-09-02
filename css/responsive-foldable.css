@@ -1948,3 +1948,42 @@ html[data-theme="dark"] .t-due-chip:hover{background:rgba(255,255,255,.08)}
    and the drag never begins. */
 body.is-dragging .nav-group,
 body.is-dragging .nav-item{user-select:none;-webkit-user-select:none}
+
+/* ===============================================================
+   35. LONG-PRESS ON A CARD MEANS PICK IT UP, NOT SELECT IT
+   ===============================================================
+   A Kanban card is lifted by pressing and holding it. On Android that is
+   also the gesture for selecting text — so the press raced two
+   interpretations, and the browser usually won: the title highlighted
+   blue and the Copy / Translate / Select all / Share bar slid in, while
+   Sortable's 200ms timer was still counting. The drag then either never
+   started or started with a selection already active and fought it the
+   whole way. That is the roughness; the drag code was fine.
+
+   style.css already has this rule — but scoped to (display-mode:
+   standalone), i.e. only when LifeOS is installed as an app. In Samsung
+   Internet as an ordinary tab it never applied, which is exactly where
+   this was being used.
+
+   Scoped here to the cards and their text, not to body: selecting a task
+   title is not a thing anyone does, but selecting a journal entry or a
+   note very much is, and a blanket rule would take that away.
+   --------------------------------------------------------------- */
+.t-board-card,
+.t-board-card-title,
+.gsi-board-card-title,
+.t-board-card-top,
+.t-board-card-meta,
+.t-board-col-head{
+  -webkit-user-select:none;
+  user-select:none;
+  -webkit-touch-callout:none;   /* no press-and-hold context menu mid-lift */
+}
+/* Inputs inside a card are the exception — the inline link box and the
+   composer still have to be typed into and selected within. */
+.t-board-card :is(input, textarea, [contenteditable="true"]),
+.composer :is(input, textarea){
+  -webkit-user-select:text;
+  user-select:text;
+  -webkit-touch-callout:default;
+}
