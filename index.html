@@ -95,14 +95,14 @@
      which shows up as new controls rendering completely unstyled — and is
      nearly impossible to diagnose from a screenshot, because the code on
      disk is correct. Bump on every release. -->
-<link rel="stylesheet" href="css/style.css?v=202609040800">
+<link rel="stylesheet" href="css/style.css?v=202609041000">
 <!-- Foldable/tablet/mobile layout layer — loaded after style.css on purpose.
      It overrides that file's tablet breakpoint (wrap-to-grid board,
      off-canvas drawer sidebar) with an icon-rail sidebar and a
      horizontally-scrolling, fixed-width Kanban board for Z Fold 6 inner
      (~883px), iPad mini/iPad (~768–1024px), and a bottom tab bar for
      phones (<=600px, incl. iPhone 17 Pro Max ~440px and fold cover screens). -->
-<link rel="stylesheet" href="css/responsive-foldable.css?v=202609040800">
+<link rel="stylesheet" href="css/responsive-foldable.css?v=202609041000">
 </head>
 <body>
 <div class="shell">
@@ -123,6 +123,12 @@
     <button class="nav-item" data-page="personal" onclick="go('personal')" data-tooltip="Personal">
       <svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
       <span class="nav-item-label">Personal</span></button>
+    <button class="nav-item" data-page="work" onclick="go('work')" data-tooltip="Work · GSI">
+      <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      <span class="nav-item-label">Work · GSI</span></button>
+    <button class="nav-item" data-page="notebook" onclick="go('notebook')" data-tooltip="Notebook">
+      <svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 3v18M4 8h2M4 13h2M4 18h2"/></svg>
+      <span class="nav-item-label">Notebook</span></button>
     <button class="nav-item" data-page="health" onclick="go('health')" data-tooltip="Health">
       <svg viewBox="0 0 24 24"><path d="M12 21s-8-4.9-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 6.1-8 11-8 11z"/></svg>
       <span class="nav-item-label">Health</span></button>
@@ -135,18 +141,12 @@
     <button class="nav-item" data-page="travel" onclick="go('travel')" data-tooltip="Travel Plan">
       <svg viewBox="0 0 24 24"><path d="M2 16l20-7-9 11-2-6-6-2z"/></svg>
       <span class="nav-item-label">Travel Plan</span></button>
-    <button class="nav-item" data-page="work" onclick="go('work')" data-tooltip="Work · GSI">
-      <svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-      <span class="nav-item-label">Work · GSI</span></button>
-    <button class="nav-item" data-page="reference" onclick="go('reference')" data-tooltip="Reference">
-      <svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2zm0 0a2 2 0 0 1 2-2h13"/></svg>
-      <span class="nav-item-label">Reference</span></button>
-    <button class="nav-item" data-page="notebook" onclick="go('notebook')" data-tooltip="Notebook">
-      <svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 3v18M4 8h2M4 13h2M4 18h2"/></svg>
-      <span class="nav-item-label">Notebook</span></button>
     <button class="nav-item" data-page="entertainment" onclick="go('entertainment')" data-tooltip="Entertainment">
       <svg viewBox="0 0 24 24"><path d="M4 5h16v11H4zM8 20h8M12 16v4"/><path d="M9 8l5 2.5L9 13z"/></svg>
       <span class="nav-item-label">Entertainment</span></button>
+    <button class="nav-item" data-page="reference" onclick="go('reference')" data-tooltip="Reference">
+      <svg viewBox="0 0 24 24"><path d="M4 19V5a2 2 0 0 1 2-2h13v18H6a2 2 0 0 1-2-2zm0 0a2 2 0 0 1 2-2h13"/></svg>
+      <span class="nav-item-label">Reference</span></button>
     </div>
 
     <!-- Trash sits below the Spaces, outside the sortable group. It is not
@@ -1749,6 +1749,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script type="module" src="js/app.js?v=202609040800"></script>
+<script type="module" src="js/app.js?v=202609041000"></script>
 </body>
 </html>
