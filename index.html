@@ -95,14 +95,14 @@
      which shows up as new controls rendering completely unstyled — and is
      nearly impossible to diagnose from a screenshot, because the code on
      disk is correct. Bump on every release. -->
-<link rel="stylesheet" href="css/style.css?v=202609040400">
+<link rel="stylesheet" href="css/style.css?v=202609040600">
 <!-- Foldable/tablet/mobile layout layer — loaded after style.css on purpose.
      It overrides that file's tablet breakpoint (wrap-to-grid board,
      off-canvas drawer sidebar) with an icon-rail sidebar and a
      horizontally-scrolling, fixed-width Kanban board for Z Fold 6 inner
      (~883px), iPad mini/iPad (~768–1024px), and a bottom tab bar for
      phones (<=600px, incl. iPhone 17 Pro Max ~440px and fold cover screens). -->
-<link rel="stylesheet" href="css/responsive-foldable.css?v=202609040400">
+<link rel="stylesheet" href="css/responsive-foldable.css?v=202609040600">
 </head>
 <body>
 <div class="shell">
@@ -114,12 +114,6 @@
     <button class="nav-item active" data-page="overview" onclick="go('overview')" data-tooltip="Overview">
       <svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/></svg>
       <span class="nav-item-label">Overview</span></button>
-    <button class="nav-item" data-page="dayof" onclick="go('dayof')" data-tooltip="Today">
-      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
-      <span class="nav-item-label">Today</span></button>
-    <button class="nav-item" data-page="trash" onclick="go('trash')" data-tooltip="Trash">
-      <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>
-      <span class="nav-item-label">Trash</span><span class="hint" id="trashNavCount" style="margin-left:auto"></span></button>
     <p class="nav-label">Spaces</p>
     <!-- Wrapper exists so the Spaces can be reordered as a group. Every
          sidebar rule is a descendant selector (.sidebar .nav-item), never a
@@ -154,6 +148,14 @@
       <svg viewBox="0 0 24 24"><path d="M4 5h16v11H4zM8 20h8M12 16v4"/><path d="M9 8l5 2.5L9 13z"/></svg>
       <span class="nav-item-label">Entertainment</span></button>
     </div>
+
+    <!-- Trash sits below the Spaces, outside the sortable group. It is not
+         a place you keep things, so it does not belong among the places you
+         do — and being outside #navSpaces means it cannot be dragged into
+         the middle of them either. -->
+    <button class="nav-item" data-page="trash" onclick="go('trash')" data-tooltip="Trash">
+      <svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>
+      <span class="nav-item-label">Trash</span><span class="hint" id="trashNavCount" style="margin-left:auto"></span></button>
       <div class="sidebar-foot">
       <button class="gh-chip" onclick="openGhModal()" id="ghChip" data-tooltip="GitHub">
         <svg id="ghChipIcon" viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.54-3.87-1.54-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.26.72-1.55-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12v3.14c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>
@@ -256,6 +258,97 @@
 
     <!-- ======== PAGE: OVERVIEW ======== -->
     <section class="page visible" id="page-overview">
+      <!-- Today, then Overview. The two pages were merged, and the order is
+           by how soon each card is acted on rather than by which page it
+           came from:
+
+             Today's focus + habits  — what is being done now
+             Journal                 — where today gets written down
+             Important links         — reached for during the work above
+             Habit tracking          — the same habits, over weeks
+             News / Quote / Meditation, Google Calendar — ambient
+
+           Today's focus leads because a page that opens on links and charts
+           makes you scroll to find out what you are supposed to be doing.
+           Habit tracking sits below the journal so the day's ticks and the
+           six-week trend read as one idea seen at two distances, which is
+           what they are. -->
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-head"><h2>Today's focus</h2>
+            <button class="expand-btn" onclick="expandView('dayTasksContent','Today\'s focus')" title="View large">
+              <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            </button>
+          </div>
+          <div id="dayTasksContent"><div class="card-body" id="dayTasks"></div>
+            <!-- Overdue work, summarised on one line so a missed deadline
+                 stays visible without taking over today's list. -->
+            <div id="dayOverdue"></div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Today's habits</h2></div>
+          <div class="card-body" id="dayHabits"></div>
+        </div>
+      </div>
+      <div class="grid-2" style="margin-top:16px;align-items:start">
+        <div class="card">
+          <div class="card-head">
+            <h2>Journal — <span id="journalEditingLabel"></span></h2>
+            <div style="display:flex;gap:8px;align-items:center">
+              <div class="jcal-wrap">
+                <input type="date" id="journalDatePicker" onchange="selectJournalDate(this.value)" title="Jump to a date">
+                <button class="jcal-btn" onclick="toggleJournalCalendar(event)" title="Month view — days with an entry are marked">
+                  <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+                </button>
+                <div class="jcal-pop" id="journalCalPop">
+                  <div class="jcal-head">
+                    <button class="jcal-nav" onclick="shiftJournalCalMonth(-1)" title="Previous month">‹</button>
+                    <span id="journalCalLabel"></span>
+                    <button class="jcal-nav" onclick="shiftJournalCalMonth(1)" title="Next month">›</button>
+                  </div>
+                  <div class="jcal-dow"><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div><div>S</div></div>
+                  <div class="jcal-days" id="journalCalGrid"></div>
+                  <div class="jcal-foot"><span class="jcal-legend"><i></i>has entry</span><span id="journalCalCount"></span></div>
+                </div>
+              </div>
+              <button class="btn btn-ghost" id="journalTodayBtn" onclick="journalGoToday()" style="display:none">Today</button>
+              <button class="expand-btn" onclick="expandView('journalEditorContent','Journal')" title="View large">
+                <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+              </button>
+            </div>
+          </div>
+          <div id="journalEditorContent"><div class="card-body">
+            <div id="dayJournalEditor" class="mm-rich-editor journal-rich-editor"></div>
+          </div></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Past entries</h2><button class="journal-sort-btn" id="journalSortBtn" onclick="toggleJournalSort()" title="Showing newest first — click for oldest first">↓ Most recent first</button>
+            <button class="expand-btn" onclick="expandView('journalListContent','Past entries')" title="View large">
+              <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+            </button>
+          </div>
+          <div id="journalListContent">
+          <div class="card-body" style="padding-bottom:0">
+            <div class="journal-search-row">
+              <span class="journal-search-icon">🔍</span>
+              <input type="search" id="journalSearchInput" placeholder="Search entries — a word or a phrase" oninput="applyJournalSearch()">
+              <button class="journal-search-clear" id="journalSearchClearBtn" onclick="clearJournalSearch()" title="Clear search" style="display:none">✕</button>
+              <span class="hint" id="journalSearchStat"></span>
+            </div>
+            <div class="journal-filter-row">
+              <input type="date" id="journalFilterFrom" onchange="applyJournalFilter()" title="From date">
+              <span style="color:var(--muted);font-weight:700">–</span>
+              <input type="date" id="journalFilterTo" onchange="applyJournalFilter()" title="To date">
+              <button class="btn btn-ghost" id="journalFilterClearBtn" onclick="clearJournalFilter()" style="display:none">✕ Clear</button>
+              <button class="btn btn-ghost journal-export-btn" id="journalExportBtn" onclick="exportJournalRange()">⭳ Export .txt</button>
+            </div>
+          </div>
+          <div class="card-body" id="journalList" style="max-height:340px;overflow-y:auto"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="card"><div class="card-body">
         <div class="link-grid" id="linksGrid"></div>
         <div class="add-inline">
@@ -373,84 +466,6 @@
             <button class="btn btn-primary" id="gcalConnectBtn" onclick="connectGoogleCalendar()">Connect</button>
             <button class="btn btn-ghost" id="gcalSyncNowBtn" onclick="syncAllPendingToGoogle()" style="display:none" title="Push every dated task that has no calendar event yet">Sync now</button>
             <button class="btn btn-ghost" id="gcalDisconnectBtn" onclick="disconnectGoogleCalendar()" style="display:none">Disconnect</button>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ======== PAGE: DAY OF ======== -->
-    <section class="page" id="page-dayof">
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-head"><h2>Today's focus</h2>
-            <button class="expand-btn" onclick="expandView('dayTasksContent','Today\'s focus')" title="View large">
-              <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-            </button>
-          </div>
-          <div id="dayTasksContent"><div class="card-body" id="dayTasks"></div>
-            <!-- Overdue work, summarised on one line so a missed deadline
-                 stays visible without taking over today's list. -->
-            <div id="dayOverdue"></div></div>
-        </div>
-        <div class="card">
-          <div class="card-head"><h2>Today's habits</h2></div>
-          <div class="card-body" id="dayHabits"></div>
-        </div>
-      </div>
-      <div class="grid-2" style="margin-top:16px;align-items:start">
-        <div class="card">
-          <div class="card-head">
-            <h2>Journal — <span id="journalEditingLabel"></span></h2>
-            <div style="display:flex;gap:8px;align-items:center">
-              <div class="jcal-wrap">
-                <input type="date" id="journalDatePicker" onchange="selectJournalDate(this.value)" title="Jump to a date">
-                <button class="jcal-btn" onclick="toggleJournalCalendar(event)" title="Month view — days with an entry are marked">
-                  <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-                </button>
-                <div class="jcal-pop" id="journalCalPop">
-                  <div class="jcal-head">
-                    <button class="jcal-nav" onclick="shiftJournalCalMonth(-1)" title="Previous month">‹</button>
-                    <span id="journalCalLabel"></span>
-                    <button class="jcal-nav" onclick="shiftJournalCalMonth(1)" title="Next month">›</button>
-                  </div>
-                  <div class="jcal-dow"><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div><div>S</div></div>
-                  <div class="jcal-days" id="journalCalGrid"></div>
-                  <div class="jcal-foot"><span class="jcal-legend"><i></i>has entry</span><span id="journalCalCount"></span></div>
-                </div>
-              </div>
-              <button class="btn btn-ghost" id="journalTodayBtn" onclick="journalGoToday()" style="display:none">Today</button>
-              <button class="expand-btn" onclick="expandView('journalEditorContent','Journal')" title="View large">
-                <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-              </button>
-            </div>
-          </div>
-          <div id="journalEditorContent"><div class="card-body">
-            <div id="dayJournalEditor" class="mm-rich-editor journal-rich-editor"></div>
-          </div></div>
-        </div>
-        <div class="card">
-          <div class="card-head"><h2>Past entries</h2><button class="journal-sort-btn" id="journalSortBtn" onclick="toggleJournalSort()" title="Showing newest first — click for oldest first">↓ Most recent first</button>
-            <button class="expand-btn" onclick="expandView('journalListContent','Past entries')" title="View large">
-              <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-            </button>
-          </div>
-          <div id="journalListContent">
-          <div class="card-body" style="padding-bottom:0">
-            <div class="journal-search-row">
-              <span class="journal-search-icon">🔍</span>
-              <input type="search" id="journalSearchInput" placeholder="Search entries — a word or a phrase" oninput="applyJournalSearch()">
-              <button class="journal-search-clear" id="journalSearchClearBtn" onclick="clearJournalSearch()" title="Clear search" style="display:none">✕</button>
-              <span class="hint" id="journalSearchStat"></span>
-            </div>
-            <div class="journal-filter-row">
-              <input type="date" id="journalFilterFrom" onchange="applyJournalFilter()" title="From date">
-              <span style="color:var(--muted);font-weight:700">–</span>
-              <input type="date" id="journalFilterTo" onchange="applyJournalFilter()" title="To date">
-              <button class="btn btn-ghost" id="journalFilterClearBtn" onclick="clearJournalFilter()" style="display:none">✕ Clear</button>
-              <button class="btn btn-ghost journal-export-btn" id="journalExportBtn" onclick="exportJournalRange()">⭳ Export .txt</button>
-            </div>
-          </div>
-          <div class="card-body" id="journalList" style="max-height:340px;overflow-y:auto"></div>
           </div>
         </div>
       </div>
@@ -1730,6 +1745,6 @@
 </div>
 
 <div class="toast" id="toast"></div>
-<script type="module" src="js/app.js?v=202609040400"></script>
+<script type="module" src="js/app.js?v=202609040600"></script>
 </body>
 </html>
