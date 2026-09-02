@@ -114,9 +114,29 @@ export function openTaskModal(id, siblings) {
   document.body.classList.add("modal-locked");
   renderTaskModal();
   pushUrl(id);
-  // Focus lands on the title, not the close button — the first thing
-  // someone wants after opening a task is usually to read or edit it.
-  setTimeout(() => document.getElementById("taskModalTitle")?.focus(), 60);
+  /* Where focus lands depends on what focus COSTS on the device.
+
+     With a keyboard, the title is right: the first thing someone wants
+     after opening a task is usually to read or edit it, and a caret in
+     the title costs nothing.
+
+     On touch it is the opposite. The title is a <textarea>, so focusing
+     it summons the on-screen keyboard — which on the Fold covers half
+     the sheet and puts the task straight into edit mode before anyone
+     asked to edit anything. Tapping a card is a request to LOOK at a
+     task; typing is a separate decision, and tapping the title is how it
+     gets made.
+
+     So on a coarse pointer focus goes to the close button instead. That
+     still gives the focus trap somewhere inside the dialog to start from
+     — which is what the focus was actually for — without a keyboard. */
+  const coarse = !!window.matchMedia?.("(pointer:coarse)").matches;
+  setTimeout(() => {
+    const el = coarse
+      ? document.querySelector("#taskModalBg .tm-close")
+      : document.getElementById("taskModalTitle");
+    try { el?.focus({ preventScroll: true }); } catch (e) { el?.focus(); }
+  }, 60);
 }
 
 /* Reads the title and link fields back before the modal goes away.
