@@ -819,7 +819,46 @@ let renderQueued = false;
    the valve to 8s keeps it as a backstop for a genuinely stuck flag
    without it firing on ordinary, unhurried drags. */
 const DRAG_RENDER_DEADLINE_MS = 8000;
+
+/* ---------- committing a change WITHOUT repainting ----------
+
+   Every mutation helper (toggleTask, editTaskMeta, archiveTask, and the
+   GSI/Personal equivalents) ends in rerender(), which is right for a tap
+   on a checkbox: the caller has no idea what the change looks like, so
+   the app redraws and finds out.
+
+   A DROP is the one case where that is exactly backwards. SortableJS has
+   already put the card where the person let go of it — the screen is
+   ALREADY correct — and the only thing left to do is write the data down.
+   Redrawing then rebuilds the board out from under a finger that has only
+   just lifted: #taskList is replaced wholesale, the page height collapses
+   and re-expands, the scroll position gets clamped on the way through, and
+   the board lands somewhere other than where it was. That is the "page
+   moves after I move a card" report, and it is not a bug in the scroll
+   restore — the restore is fighting a repaint that should never have been
+   asked for.
+
+   Todoist does not repaint on a drop, and neither do we now. This lets the
+   drop handler run the ordinary mutation helpers — so sync, Google
+   Calendar, Trash and persistence all still go through the one code path
+   they always did — while swallowing the repaint each of them requests,
+   and then patch the single card that actually changed.
+
+   Deliberately a counter and not a boolean: nested suppressed commits
+   (moveTaskToColumn calls toggleTask, which is itself suppressible) must
+   not have the inner one hand the repaint back early. */
+let renderSuppressed = 0;
+export function commitWithoutRender(fn) {
+  renderSuppressed++;
+  try { return fn(); } finally { renderSuppressed--; }
+}
+
 export function rerender() {
+  /* Swallowed, not deferred. Deferring would only move the repaint one
+     frame later, which is precisely the flash being removed — the caller
+     inside commitWithoutRender() has taken responsibility for updating
+     the DOM itself. */
+  if (renderSuppressed) return;
   if (!renderer || renderQueued) return;
   renderQueued = true;
   const deadline = Date.now() + DRAG_RENDER_DEADLINE_MS;

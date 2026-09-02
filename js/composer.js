@@ -21,7 +21,7 @@
    ============================================================ */
 
 import { state, uid, esc, persist, rerender, todayKey } from './state.js';
-import { createNativeTask } from './tasks.js';
+import { createNativeTask, insertNativeBoardCard } from './tasks.js';
 
 /* Which column, on which board, currently has the composer open.
    Null means closed. Kept here rather than in state: it is transient UI,
@@ -102,32 +102,74 @@ function syncDraft() {
   if (l) draft.link = l.value;
 }
 
+/* ---------- the chips repaint THEMSELVES, not the app ----------
+
+   Tapping "Tomorrow" or "Priority" used to call rerender(), which repaints
+   every card on every board on the page in order to change the state of
+   one button. On a phone that is the whole screen rebuilding under an open
+   keyboard: the composer's textarea is destroyed and recreated, focus has
+   to be chased back onto it a frame later, and the page moves. Todoist's
+   chips just... turn on.
+
+   Nothing here touches `state` — a composer draft is not data until it is
+   submitted — so there was never anything for a render to discover. These
+   three now write the draft and paint the two elements that reflect it. */
+function paintComposerChips() {
+  const root = document.querySelector(".composer");
+  if (!root) return;
+
+  // The date input and its label's pretty-printed value.
+  const dateInput = root.querySelector("#composerDate");
+  if (dateInput && dateInput.value !== (draft.date || "")) dateInput.value = draft.date || "";
+  const dateLabel = root.querySelector(".composer-chip-date");
+  if (dateLabel) {
+    let b = dateLabel.querySelector("b");
+    if (draft.date) {
+      if (!b) { b = document.createElement("b"); dateLabel.appendChild(b); }
+      b.textContent = prettyDate(draft.date);
+    } else if (b) b.remove();
+    dateLabel.classList.toggle("on", !!draft.date);
+  }
+
+  // Which quick chip, if any, matches the date currently held.
+  root.querySelectorAll("[data-composer-chip]").forEach(btn => {
+    btn.classList.toggle("on", !!draft.date && quickDateFor(btn.dataset.composerChip) === draft.date);
+  });
+
+  const flagBtn = root.querySelector("[data-composer-flag]");
+  if (flagBtn) {
+    flagBtn.classList.toggle("on", !!draft.flag);
+    flagBtn.setAttribute("aria-pressed", String(!!draft.flag));
+  }
+}
+
+function quickDateFor(which) {
+  const d = new Date();
+  if (which === "tomorrow") d.setDate(d.getDate() + 1);
+  if (which === "nextweek") d.setDate(d.getDate() + 7);
+  return todayKey(d);
+}
+
 export function composerToggleFlag() {
   syncDraft();
   draft.flag = !draft.flag;
-  rerender();
-  requestAnimationFrame(() => document.getElementById("composerText")?.focus());
+  paintComposerChips();
 }
 
 export function composerSetQuickDate(which) {
   syncDraft();
-  const d = new Date();
-  if (which === "tomorrow") d.setDate(d.getDate() + 1);
-  if (which === "nextweek") d.setDate(d.getDate() + 7);
-  const next = todayKey(d);
+  const next = quickDateFor(which);
   // Tapping the chip that's already set clears it, so the same control
   // both sets and unsets rather than needing a separate "no date".
   draft.date = (draft.date === next) ? "" : next;
-  rerender();
-  requestAnimationFrame(() => document.getElementById("composerText")?.focus());
+  paintComposerChips();
 }
 
 /* The native date picker writes straight into the field; this just keeps
    the draft and the chip label in step. */
 export function composerDateChanged() {
   syncDraft();
-  rerender();
-  requestAnimationFrame(() => document.getElementById("composerText")?.focus());
+  paintComposerChips();
 }
 
 /* `keepOpen` distinguishes Enter (add another) from the Add button
@@ -148,10 +190,12 @@ export function composerSubmit(keepOpen) {
     googleEventId: null
   };
 
+  let added = null;
   if (board === "native") {
     const t = createNativeTask(text, draft.date || "");
     t.flag = !!draft.flag;
     t.link = (draft.link || "").trim();
+    added = t;
   } else if (board === "personal") {
     const p = (state.personal?.projects || []).find(x => x.id === state.personal.activeProject);
     if (!p) return;
@@ -169,8 +213,35 @@ export function composerSubmit(keepOpen) {
   } else {
     openAt = null;
   }
-  persist(); rerender();
-  if (keepOpen) requestAnimationFrame(() => document.getElementById("composerText")?.focus());
+  persist();
+
+  /* Enter means "and another one". Repainting the app to answer it is what
+     made bulk entry on a phone unusable: the textarea the person is typing
+     into is destroyed and rebuilt, so the keyboard drops, focus has to be
+     hunted back down a frame later, and the board jumps. Todoist slides the
+     new task into the column and leaves the cursor exactly where it was.
+
+     So when the card can be placed directly — the Overview board, in Board
+     view, with the column on screen — it is, and nothing else on the page
+     is touched. Anything else (the GSI or Personal board, List or Calendar
+     view, a folded column) falls back to the render it always did, which is
+     correct if not free. */
+  const placed = keepOpen && board === "native" && added
+    ? insertNativeBoardCard(added, status)
+    : false;
+
+  if (!placed) {
+    rerender();
+    if (keepOpen) requestAnimationFrame(() => document.getElementById("composerText")?.focus());
+    return;
+  }
+
+  // Clear the two fields that don't repeat, in place, without disturbing
+  // the caret or the keyboard.
+  const t = document.getElementById("composerText");
+  const l = document.getElementById("composerLink");
+  if (t) { t.value = ""; t.focus(); }
+  if (l) l.value = "";
 }
 
 /* Cheap per-keystroke sync — just captures the value into `draft`, no
@@ -222,13 +293,14 @@ export function composerHtml(board, status) {
       <div class="composer-chips">
         <span class="composer-project" title="Adding to ${esc(projName)}">#&nbsp;${esc(projName)}</span>
         ${DATE_CHIPS.map(c => `
-          <button class="composer-chip" onclick="composerSetQuickDate('${c.key}')">${c.label}</button>`).join("")}
-        <label class="composer-chip composer-chip-date" title="Pick a due date">
+          <button class="composer-chip${draft.date && quickDateFor(c.key) === draft.date ? " on" : ""}"
+            data-composer-chip="${c.key}" onclick="composerSetQuickDate('${c.key}')">${c.label}</button>`).join("")}
+        <label class="composer-chip composer-chip-date${draft.date ? " on" : ""}" title="Pick a due date">
           🗓 <input type="date" id="composerDate" value="${esc(draft.date)}"
             onchange="composerDateChanged()">
           ${draft.date ? `<b>${prettyDate(draft.date)}</b>` : ""}
         </label>
-        <button class="composer-chip ${draft.flag ? "on" : ""}" onclick="composerToggleFlag()"
+        <button class="composer-chip ${draft.flag ? "on" : ""}" data-composer-flag onclick="composerToggleFlag()"
           aria-pressed="${draft.flag}" title="Mark high priority">🚩 Priority</button>
       </div>
 

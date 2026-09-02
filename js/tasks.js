@@ -6,19 +6,19 @@
    in two different places. GSI tasks keep their own storage and schema
    (a 4-state status, not a simple done/not-done) — this only merges them
    for DISPLAY, routing edits back to the correct underlying data. */
-import { state, uid, esc, persist, rerender, touch } from './state.js';
+import { state, uid, esc, persist, rerender, touch, commitWithoutRender } from './state.js';
 import { openDateSheet } from './date-sheet.js';
 import { isComposerOpen, composerHtml, openComposer, nativeColumnAccepts } from './composer.js';
-import { toast, autoGrow, preserveBoardScroll } from './ui.js';
+import { toast, autoGrow } from './ui.js';
 import { releaseDragGhost } from './drag-cleanup.js';
 import { moveToTrash } from './trash.js';
 import { syncTaskToGoogle } from './google-calendar.js';
 import { getAllGsiTasksFlat, findProjectTask, editProjectTask, setTaskStatus as setGsiTaskStatus,
   delProjectTask, toggleProjectTaskFlag, archiveGsiTaskEntry,
-  getProjectList, addProjectTaskRaw, moveProjectTask, pluckProjectTask } from './gsi.js';
+  getProjectList, addProjectTaskRaw, moveProjectTask, pluckProjectTask, renderGsi } from './gsi.js';
 import { changePwTaskProject, findPwProjectTask, editPwProjectTask, setPwTaskStatus, togglePwProjectTaskFlag, delPwProjectTask,
   getAllPwTasksFlat, archivePwTaskEntry, getPwProjectList,
-  addPwProjectTaskRaw, pluckPwProjectTask } from './personal.js';
+  addPwProjectTaskRaw, pluckPwProjectTask, renderPersonalWorkspace } from './personal.js';
 
 let taskFilter = "all"; // "all" | "work" | "personal"
 let sortByDate = false;
@@ -132,7 +132,18 @@ function handleTaskDragEnd(evt) {
   markDragJustEnded(); // a drop lands a click on the card — don't let it open the task
   const draggedId = evt.item.dataset.taskId;
   const draggedTask = state.tasks.find(t => t.id === draggedId);
-  if (!draggedTask) { rerender(); return; } // shouldn't happen — GSI rows can't be dragged — but stay safe rather than silently do nothing
+  /* No native task behind this id means a GSI or Personal card, reordered
+     within one board column. Those have no `position` field, so there is
+     nothing to write down — manual order is a native-task idea and Board
+     view moves those cards BETWEEN columns (by status and date) rather
+     than within one.
+     
+     This used to re-render, which snapped the card back to its data order
+     and repainted the whole board to do it. Leaving it alone is the
+     smaller surprise of the two: the card stays where it was put, and the
+     next full render — a sync, an edit, a view switch — restores the real
+     order without anything having to flash to say so. */
+  if (!draggedTask) { reuniteRowMeta(evt.item, draggedId); return; }
   const orderedIds = Array.from(evt.to.children).map(el => el.dataset.taskId).filter(Boolean);
   const idx = orderedIds.indexOf(draggedId);
   // Walk outward past any interspersed GSI task ids (which have no
@@ -158,19 +169,40 @@ function handleTaskDragEnd(evt) {
     afterPos == null ? beforePos + 1000 :
     (beforePos + afterPos) / 2;
   persist();
-  /* rerender() rather than renderTasks(). Two reasons, both visible.
+  /* NO RENDER. The list on screen is already the answer.
 
-     Ordering: onEnd runs INSIDE Sortable's _onDrop, so a synchronous
-     render re-enters destroy() -> _onDrop() while the outer _onDrop is
-     still walking its own cleanup. Deferring by a frame lets Sortable
-     finish first.
+     Sortable moved the row to exactly where it was dropped, and the only
+     thing that changed in the data is one task's `position` — a field
+     nothing on the card displays. Rebuilding the list could therefore
+     only ever reproduce what is already there, at the cost of replacing
+     every row in it: the page height collapses and re-expands while the
+     innerHTML is swapped, the scroll position is clamped somewhere in the
+     middle of that, and the list lands somewhere other than where the
+     person left it. That is the jump after a move.
 
-     Flicker: the mutation helpers already call rerender(), which
-     coalesces to one frame. A synchronous render on top of that rebuilt
-     the list immediately AND again a frame later — two full passes per
-     drop, each replaying the card entry animation. That double rebuild
-     is the flash after a move. */
-  rerender();
+     The one loose end is the row's own .t-meta panel, which is a SIBLING
+     of the row rather than a child of it, so Sortable — which is told to
+     drag `.t-row` — leaves it behind. Reuniting the two is a two-line DOM
+     move, and much cheaper than a rebuild. */
+  reuniteRowMeta(evt.item, draggedId);
+}
+/* Each task in List view renders as two sibling elements: the visible
+   .t-row and the .t-meta editor panel that expands beneath it. Only the
+   row is draggable, so after a reorder the panel is stranded next to
+   whichever row has taken its old place. The panel carries data-meta-for
+   so it can be found again by task id and put back under its own row. */
+function reuniteRowMeta(rowEl, id) {
+  if (!rowEl || !id) return;
+  const container = rowEl.parentElement;
+  if (!container) return;
+  const meta = container.querySelector(`.t-meta[data-meta-for="${cssId(id)}"]`);
+  if (meta && rowEl.nextElementSibling !== meta) rowEl.after(meta);
+}
+/* Task ids come from uid(), but they still get interpolated into selectors
+   here, so escape them rather than trusting the generator's alphabet to
+   stay the way it is today. */
+function cssId(id) {
+  return (window.CSS && CSS.escape) ? CSS.escape(String(id)) : String(id).replace(/["\\]/g, "\\$&");
 }
 
 // ---------- Board view drag-and-drop (six columns, cross-column moves) ----------
@@ -270,7 +302,20 @@ const BOARD_CARDS_BEFORE_SCROLL = 5;
 const BOARD_ROOTS = ["#taskList", "#ngdrList", "#pwTaskList"];
 const boardSel = (suffix) => BOARD_ROOTS.map(r => `${r} ${suffix}`).join(", ");
 export function capBoardColumnHeights() {
-  document.querySelectorAll(boardSel(".t-board-col-body")).forEach(body => {
+  document.querySelectorAll(boardSel(".t-board-col-body")).forEach(capOneColumnBody);
+}
+/* One column's worth of the above, pulled out so a drop can remeasure only
+   the two columns it actually touched.
+
+   Remeasuring ALL of them costs nothing when the board is being rebuilt
+   anyway — but on a drop, where nothing is being rebuilt, it is the one
+   remaining thing that could still move the page: clearing maxHeight lets
+   every column spring to its full natural height for the duration of the
+   measurement, and a Completed column holding forty cards is a very large
+   spring. Touching only the source and destination keeps that to the two
+   columns whose contents genuinely changed. */
+function capOneColumnBody(body) {
+  {
     // Clear first: the measurement has to happen against the column's
     // natural height, not against last render's cap.
     body.style.maxHeight = "";
@@ -332,7 +377,7 @@ export function capBoardColumnHeights() {
       body.style.maxHeight = `${Math.round(h)}px`;
       body.classList.add("t-board-col-capped");
     }
-  });
+  }
 }
 /* Web fonts land after the first render, and Inter sets taller than the
    fallback: a cap measured before they arrive is a few pixels short and
@@ -401,25 +446,197 @@ function handleBoardDragEnd(evt) {
   if (fromCol === toCol) {
     // Reordering within one column — identical position math to List
     // view's own reorder, it doesn't care what shape the container is.
-    // GSI cards have no position field to reorder by, so handleTaskDragEnd's
-    // own state.tasks lookup misses, it just re-renders, and the card
-    // visually snaps back — cross-column moves (below) are what GSI
-    // cards actually support.
+    // GSI and Personal cards have no position field to reorder by, so
+    // that function's state.tasks lookup misses and it leaves the card
+    // alone; cross-column moves (below) are what those cards support.
     handleTaskDragEnd(evt);
     return;
   }
-  const ok = preserveBoardScroll(() => moveTaskToColumn(draggedId, toCol));
-  /* Always re-render regardless of outcome. The board is rebuilt from
-     real data rather than trying to unpick whatever SortableJS already
-     did to the DOM, so a task always lands where its data says it
-     belongs.
+  /* The board is NOT rebuilt from the data any more, and the reason it no
+     longer needs to be is worth stating plainly: every column on this
+     board is defined by the very field the drop writes. Dropping on Today
+     sets the date to today; on Upcoming, to a future date; on No Date,
+     clears it; on Completed, marks it done. So the card SortableJS has
+     already placed is, by construction, in the column its data says it
+     belongs to. A rebuild could only put it back where it already is.
+
+     What the rebuild was actually paying for was the card's own chips —
+     the date it now carries, the strike-through, the archive button that
+     appears once it's done. Those are patched directly below, on the one
+     card that changed. Everything else on screen stays untouched, which
+     is what makes the board hold still.
 
      No column rejects a drop any more — Overdue was the last one, and it
      now dates the task yesterday instead of refusing. The `ok === false`
      branch is kept as a backstop in case a future column needs to decline
      one, since silently swallowing a refused move would look like a bug. */
-  rerender();   // deferred and coalesced — see handleTaskDragEnd above
-  if (ok === false) toast("That task can't move there");
+  const fromColEl = evt.from.closest(".t-board-col");
+  const toColEl = evt.to.closest(".t-board-col");
+  holdBoardSnap();
+  const ok = commitWithoutRender(() => moveTaskToColumn(draggedId, toCol));
+
+  if (ok === false) {
+    // A refused move is the one case where the DOM really is wrong: the
+    // card is sitting in a column the data rejected. Put it back.
+    toast("That task can't move there");
+    if (evt.from !== evt.to) {
+      const sibling = evt.from.children[evt.oldIndex] || null;
+      evt.from.insertBefore(evt.item, sibling);
+    }
+    syncColumnEmptyState(fromColEl); syncColumnEmptyState(toColEl);
+    return;
+  }
+
+  /* Deferred one frame on purpose. onEnd runs INSIDE Sortable's _onDrop,
+     which is still holding a reference to evt.item and still walking its
+     own cleanup — swapping that node out from under it synchronously is
+     the same re-entrancy the old code deferred its render for. A single
+     frame of stale chips is invisible; the card does not move. */
+  requestAnimationFrame(() => {
+    patchBoardCardInPlace(draggedId);
+    bumpColumnCount(fromColEl, -1);
+    bumpColumnCount(toColEl, +1);
+    syncColumnEmptyState(fromColEl);
+    syncColumnEmptyState(toColEl);
+    refreshTaskCounters();
+    // Only the two columns that changed — see capOneColumnBody.
+    [fromColEl, toColEl].forEach(col => {
+      const body = col?.querySelector(".t-board-col-body");
+      if (body) capOneColumnBody(body);
+    });
+    /* The other two Kanban boards render the same task from their own
+       data and are now one move out of date. They live inside pages that
+       are display:none right now, so redrawing them cannot shift a single
+       pixel of what is on screen — this is the one repaint a drop can
+       afford, because it is guaranteed to be invisible. */
+    refreshHiddenWorkspaceBoards(draggedId);
+  });
+}
+
+/* On the fold and on phones the board scrolls horizontally with
+   scroll-snap-type:x mandatory. Releasing a card hands snapping straight
+   back, and the browser's first act is to "correct" the board to the
+   nearest column edge — which slides the board sideways the instant the
+   finger lifts. body.is-dragging covers the drag itself; this covers the
+   moment just after it, and hands snapping back two frames later once
+   everything has settled. */
+function holdBoardSnap() {
+  const boards = [...document.querySelectorAll(".t-board")];
+  boards.forEach(el => { el.style.scrollSnapType = "none"; });
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    boards.forEach(el => { el.style.scrollSnapType = ""; });
+  }));
+}
+
+/* GSI and Personal tasks reach this board as normalised COPIES (see
+   renderTasks). Re-derive that same shape for a single task, from the real
+   object, so one card can be re-rendered without re-running the whole
+   merge. Native tasks are already the right shape and are returned as-is. */
+function boardCardModel(id) {
+  const found = findAnyTask(id);
+  if (!found) return null;
+  const { task: t, isGsi, isPersonal, project } = found;
+  if (!isGsi && !isPersonal) return t;
+  return {
+    id: t.id, text: t.text, done: t.status === "done",
+    category: isGsi ? "work" : "personal",
+    flag: !!t.flag, priority: t.priority, link: t.link || "",
+    dueDate: t.date || "", completedAt: null,
+    isGsi: !!isGsi, isPersonal: !!isPersonal,
+    projectId: project?.id || t.projectId || "",
+    projectName: project?.name || t.projectName || "",
+    status: t.status
+  };
+}
+/* Re-render exactly one card, in place. The replacement lands at the same
+   index in the same column, so nothing around it moves — the only visible
+   change is the card's own chips, which is precisely what the drop
+   changed. Sortable binds to the COLUMN, not to the cards inside it, so
+   swapping a child out doesn't disturb it. */
+function patchBoardCardInPlace(id) {
+  const card = document.querySelector(`#taskList .t-board-card[data-task-id="${cssId(id)}"]`);
+  if (!card) return false;
+  const model = boardCardModel(id);
+  // Archiving is the one move that takes a task off this board entirely.
+  if (!model || model.archived) { card.remove(); return true; }
+  const holder = document.createElement("div");
+  holder.innerHTML = boardCardHtml(model);
+  const fresh = holder.firstElementChild;
+  if (!fresh) return false;
+  card.replaceWith(fresh);
+  return true;
+}
+/* Adjusted by a delta rather than recounted from the DOM. Upcoming's badge
+   deliberately shows its TRUE total including anything folded away behind
+   "show N later tasks" (see boardColumnHtml), so counting the cards
+   actually on screen would quietly undercount it. */
+function bumpColumnCount(colEl, delta) {
+  const badge = colEl?.querySelector(".t-board-col-count");
+  if (!badge) return;
+  const next = Math.max(0, (parseInt(badge.textContent, 10) || 0) + delta);
+  badge.textContent = String(next);
+}
+/* A column that has just been emptied needs its "Nothing here." back, and
+   one that has just received its first card needs it gone. Rendered by
+   boardColumnHtml on a full pass; maintained here on a drop. */
+function syncColumnEmptyState(colEl) {
+  const body = colEl?.querySelector(".t-board-col-body");
+  if (!body) return;
+  const hasCards = !!body.querySelector(".t-board-card");
+  const hint = body.querySelector(":scope > p.hint");
+  if (hasCards && hint) hint.remove();
+  if (!hasCards && !hint) {
+    const p = document.createElement("p");
+    p.className = "hint";
+    p.style.padding = "10px 4px";
+    p.textContent = "Nothing here.";
+    body.appendChild(p);
+  }
+}
+/* The two open/total readouts renderTasks maintains, kept in step without
+   re-running it. */
+function refreshTaskCounters() {
+  const openCount = state.tasks.filter(t => !t.done).length;
+  const countEl = document.getElementById("taskCount");
+  if (countEl) countEl.textContent = state.tasks.length ? `(${openCount} open)` : "";
+  const catTasksSub = document.getElementById("catTasksSub");
+  if (catTasksSub) catTasksSub.textContent =
+    state.tasks.length ? `${openCount} of ${state.tasks.length} still open` : "Plan your day.";
+  const archiveAllBtn = document.getElementById("taskArchiveAllBtn");
+  if (archiveAllBtn) archiveAllBtn.disabled = !state.tasks.some(t => t.done && !t.archived);
+}
+/* Used by the board composer to show a just-added task without rebuilding
+   anything. Returns false if the card can't be placed — a different view is
+   on screen, the column is folded away — and the composer falls back to a
+   normal render in that case.
+
+   Inserted at the TOP of the column because that is where the data puts
+   it: createNativeTask gives every new task the lowest position on the
+   board, and the column sorts by position. The DOM and a later full render
+   therefore agree, which is the whole requirement for skipping the render. */
+export function insertNativeBoardCard(task, columnKey) {
+  if (taskView !== "board") return false;
+  const col = document.querySelector(`#taskList .t-board-col[data-board-col="${cssId(columnKey)}"]`);
+  const body = col?.querySelector(".t-board-col-body");
+  if (!body) return false;
+  const holder = document.createElement("div");
+  holder.innerHTML = boardCardHtml(task);
+  const el = holder.firstElementChild;
+  if (!el) return false;
+  body.insertBefore(el, body.querySelector(".t-board-card"));
+  bumpColumnCount(col, +1);
+  syncColumnEmptyState(col);
+  refreshTaskCounters();
+  capOneColumnBody(body);
+  return true;
+}
+function refreshHiddenWorkspaceBoards(id) {
+  const found = findAnyTask(id);
+  if (!found) return;
+  try {
+    if (found.isGsi) renderGsi();
+    else if (found.isPersonal) renderPersonalWorkspace();
+  } catch (e) { /* a stale sibling board is never worth breaking a drop over */ }
 }
 // Every actual mutation here goes through the exact same functions the
 // rest of the app already uses (toggleTask, editTaskMeta, archiveTask,
@@ -979,7 +1196,7 @@ function taskRowHtml(t) {
           : `<button class="t-archive-btn" onclick="event.stopPropagation();archiveTask('${t.id}')" title="Archive">🗂 Archive</button>`) : ""}
       </div>
     </div>
-    <div class="t-meta" onclick="event.stopPropagation()">
+    <div class="t-meta" data-meta-for="${t.id}" onclick="event.stopPropagation()">
       ${t.isGsi ? "" : `
       <select onchange="editTaskMeta('${t.id}','category',this.value)">
         <option value="work" ${(t.category||"work")==="work"?"selected":""}>Work</option>
