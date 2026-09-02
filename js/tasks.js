@@ -1164,7 +1164,7 @@ function taskRowHtml(t) {
       onkeydown="if(event.key==='Enter'){event.preventDefault();openTaskCardDetail('${t.id}')}">
       ${t.isGsi ? `<div class="t-drag-handle t-drag-handle-spacer" aria-hidden="true"></div>`
                 : `<div class="t-drag-handle" title="Drag to reorder" onclick="event.stopPropagation()">⠿</div>`}
-      <button class="t-chk ${t.done ? "on" : ""}" onclick="event.stopPropagation();toggleTask('${t.id}')" aria-label="Toggle task">
+      <button class="t-chk ${prioClass(t)} ${t.done ? "on" : ""}" onclick="event.stopPropagation();toggleTask('${t.id}')" aria-label="Toggle task" title="${prioLabel(t)}">
         <svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
       <div class="t-main">
         <div class="t-title-line">

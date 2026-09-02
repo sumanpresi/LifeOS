@@ -62,16 +62,29 @@ let descOpen = false;
 let subDraft = { date: "", priority: "", labels: [], projectId: "", projectName: "" };
 /* Which sub-task picker is open, if any: "project" | "labels" | null.
    One at a time — two popovers on screen at once inside a half-height
-   sheet is a stack of layers nobody can read. */
+   sheet is a stack of layers nobody can read.
+
+   subPickerFor records WHICH composer opened it — "edit" or "add" — so
+   that only that composer renders the popover. Both composers can be on
+   screen together (adding a new sub-task while another one is mid-edit),
+   and without this a picker opened from one would get duplicated into
+   the other's markup too, with duplicate ids fighting over every click. */
 let subPicker = null;
+let subPickerFor = null;
 let subPickerQuery = "";
 /* Which sub-task is open for editing, and its working copy. A sub-task
    being edited needs exactly the same four chips the composer offers, so
    rather than build a second set of pickers that would drift, both share
-   one set pointed at whichever draft is live. */
+   one set of picker UI — but each chip handler is told explicitly which
+   draft it belongs to (via forEdit) rather than guessing from ambient
+   state. Guessing from `editingSubId` alone broke the moment both
+   composers were open together: every chip in the "add a sub-task" row
+   would silently edit whichever OTHER sub-task was open for editing,
+   because that check can't tell which of the two on-screen composers the
+   click actually came from. */
 let editingSubId = null;
 let editDraft = null;
-function draftRef() { return editingSubId && editDraft ? editDraft : subDraft; }
+function draftFor(forEdit) { return forEdit ? (editDraft || blankDraft()) : subDraft; }
 function blankDraft() { return { date: "", priority: "", labels: [], projectId: "", projectName: "" }; }
 
 /* ---------- helpers ---------- */
@@ -123,7 +136,7 @@ export function openTaskModal(id, siblings) {
   // the task. An empty one stays out of the way until asked for.
   descOpen = !!(found.task.desc || "").replace(/<[^>]*>/g, "").trim();
   subDraft = { date: "", priority: "", labels: [], projectId: "", projectName: "" };
-  subPicker = null; subPickerQuery = "";
+  subPicker = null; subPickerFor = null; subPickerQuery = "";
   editingSubId = null; editDraft = null;
 
   const bg = document.getElementById("taskModalBg");
@@ -135,27 +148,17 @@ export function openTaskModal(id, siblings) {
   document.body.classList.add("modal-locked");
   renderTaskModal();
   pushUrl(id);
-  /* Where focus lands depends on what focus COSTS on the device.
-
-     With a keyboard, the title is right: the first thing someone wants
-     after opening a task is usually to read or edit it, and a caret in
-     the title costs nothing.
-
-     On touch it is the opposite. The title is a <textarea>, so focusing
-     it summons the on-screen keyboard — which on the Fold covers half
-     the sheet and puts the task straight into edit mode before anyone
-     asked to edit anything. Tapping a card is a request to LOOK at a
-     task; typing is a separate decision, and tapping the title is how it
-     gets made.
-
-     So on a coarse pointer focus goes to the close button instead. That
-     still gives the focus trap somewhere inside the dialog to start from
-     — which is what the focus was actually for — without a keyboard. */
-  const coarse = !!window.matchMedia?.("(pointer:coarse)").matches;
+  /* Focus goes to the close button, never the title, regardless of
+     pointer type. The title is a <textarea>, so focusing it drops the
+     caret straight in — on touch that also summons the on-screen
+     keyboard, which on the Fold covers half the sheet. Either way,
+     opening a task is a request to LOOK at it; putting it straight into
+     "editing the title" before anyone asked to edit anything is the bug,
+     not a feature worth keeping just for keyboard users. The close
+     button still gives the focus trap somewhere inside the dialog to
+     start from, which is what the focus was actually for. */
   setTimeout(() => {
-    const el = coarse
-      ? document.querySelector("#taskModalBg .tm-close")
-      : document.getElementById("taskModalTitle");
+    const el = document.querySelector("#taskModalBg .tm-close");
     try { el?.focus({ preventScroll: true }); } catch (e) { el?.focus(); }
   }, 60);
 }
@@ -503,10 +506,22 @@ function subtasksHtml(subtasks) {
 }
 
 /* Same shape as the board's quick add: the field, then one horizontal row
-   of chips with the send button pinned to its right end. */
+   of chips with the send button pinned to its right end.
+
+   `editing` is truthy only for the composer standing in for a sub-task
+   that is being edited; every chip handler below is passed the matching
+   `forEdit` boolean explicitly (`!!editing`) so it writes into THIS
+   composer's draft and repaints THIS composer specifically — never a
+   sibling composer that happens to also be on screen (adding a new
+   sub-task while another one is open for editing puts both composers
+   in the DOM at once). Ids are likewise suffixed so the two composers
+   never collide on the same element id. */
 function subComposerHtml(editing) {
-  const d = draftRef();
+  const forEdit = !!editing;
+  const d = draftFor(forEdit);
   const labels = Array.isArray(d.labels) ? d.labels : [];
+  const dateId = forEdit ? "taskModalSubEditDate" : "taskModalSubDate";
+  const isOwnPicker = subPicker && subPickerFor === (forEdit ? "edit" : "add");
   return `
     <div class="${editing ? "tm-sub-edit" : "tm-subtask-add"} composer-quick">
       <input type="text" id="${editing ? "taskModalSubEditInput" : "taskModalNewSubtask"}" class="composer-text"
@@ -514,21 +529,21 @@ function subComposerHtml(editing) {
         onkeydown="if(event.key==='Enter'){${editing ? "taskModalSubEditSave()" : "taskModalAddSubtask()"}}">
       <div class="composer-chips">
         <button type="button" class="composer-chip${d.projectId ? " on" : ""}"
-          onclick="taskModalSubPicker('project')" aria-haspopup="listbox"
-          aria-expanded="${subPicker === "project"}" title="Project">
+          onclick="taskModalSubPicker('project', ${forEdit})" aria-haspopup="listbox"
+          aria-expanded="${isOwnPicker && subPicker === "project"}" title="Project">
           # ${d.projectName ? esc(d.projectName) : "Project"}</button>
         <label class="composer-chip composer-chip-date${d.date ? " on" : ""}" title="Due date">
-          🗓 <input type="date" id="taskModalSubDate" value="${esc(d.date)}"
-            onchange="taskModalSubDraft('date', this.value)">
+          🗓 <input type="date" id="${dateId}" value="${esc(d.date)}"
+            onchange="taskModalSubDraft('date', this.value, ${forEdit})">
           ${d.date ? `<b>${esc(fmtShort(d.date))}</b>` : "Date"}
         </label>
         <button type="button" class="composer-chip${d.priority && d.priority !== "p4" ? " on" : ""}"
-          onclick="taskModalSubCyclePriority()" title="Priority"
+          onclick="taskModalSubCyclePriority(${forEdit})" title="Priority"
           style="${d.priority && d.priority !== "p4" ? `color:${subPrioColor(d.priority)}` : ""}">
           ⚑ ${d.priority && d.priority !== "p4" ? esc(d.priority.toUpperCase()) : "Priority"}</button>
         <button type="button" class="composer-chip${labels.length ? " on" : ""}"
-          onclick="taskModalSubPicker('labels')" aria-haspopup="listbox"
-          aria-expanded="${subPicker === "labels"}" title="Labels">
+          onclick="taskModalSubPicker('labels', ${forEdit})" aria-haspopup="listbox"
+          aria-expanded="${isOwnPicker && subPicker === "labels"}" title="Labels">
           🏷 ${labels.length ? esc(labels.length === 1 ? labels[0] : labels.length + " labels") : "Labels"}</button>
         <span class="composer-spacer"></span>
         <button type="button" class="composer-icon-btn composer-cancel"
@@ -543,7 +558,7 @@ function subComposerHtml(editing) {
           </svg>
         </button>
       </div>
-      ${subPickerHtml()}
+      ${isOwnPicker ? subPickerHtml(forEdit) : ""}
     </div>`;
 }
 
@@ -556,11 +571,15 @@ function subComposerHtml(editing) {
    A <datalist> was what the labels chip used before, and it was the wrong
    control in two ways: it only suggests while you type, so there is no way
    to SEE which labels exist, and it cannot show what is already selected.
-   The reference's checkbox list answers both. */
-function subPickerHtml() {
+   The reference's checkbox list answers both.
+
+   Only ever called by the composer that owns the open picker (see
+   isOwnPicker above), so there is exactly one on screen at a time — no
+   duplicate ids, no ambiguity about which draft a row's tap should hit. */
+function subPickerHtml(forEdit) {
   if (!subPicker) return "";
   const q = subPickerQuery.trim().toLowerCase();
-  const rows = subPicker === "project" ? subProjectRows(q) : subLabelRows(q);
+  const rows = subPicker === "project" ? subProjectRows(q, forEdit) : subLabelRows(q, forEdit);
   const isNew = subPicker === "labels" && subPickerQuery.trim() &&
     !allLabels().some(l => l.toLowerCase() === q);
   return `
@@ -568,11 +587,11 @@ function subPickerHtml() {
       <input type="text" class="tm-picker-search" id="taskModalSubPickerSearch"
         placeholder="${subPicker === "project" ? "Type a project name" : "Type a label"}"
         value="${esc(subPickerQuery)}" oninput="taskModalSubPickerFilter(this.value)"
-        onkeydown="if(event.key==='Escape'){event.stopPropagation();taskModalSubPicker(null)}">
+        onkeydown="if(event.key==='Escape'){event.stopPropagation();taskModalSubPicker(null, ${forEdit})}">
       <div class="tm-picker-list">
         ${rows || `<div class="tm-picker-empty">No matches</div>`}
         ${isNew ? `<button type="button" class="tm-picker-row tm-picker-new"
-          onclick="taskModalSubToggleLabel('${esc(subPickerQuery.trim()).replace(/'/g, "\\'")}')">
+          onclick="taskModalSubToggleLabel('${esc(subPickerQuery.trim()).replace(/'/g, "\\'")}', ${forEdit})">
           <span class="tm-picker-ico">+</span> Create “${esc(subPickerQuery.trim())}”</button>` : ""}
       </div>
     </div>`;
@@ -581,11 +600,11 @@ function subPickerHtml() {
    own project picker keeps, because a GSI project and a personal one are
    different stores and moving between them is not allowed anywhere else
    in the app either. */
-function subProjectRows(q) {
-  const d = draftRef();
+function subProjectRows(q, forEdit) {
+  const d = draftFor(forEdit);
   const groups = [["Work · GSI", getProjectList()], ["Personal", getPwProjectList()]];
   let html = `<button type="button" class="tm-picker-row${d.projectId ? "" : " is-on"}"
-    onclick="taskModalSubSetProject('','')"><span class="tm-picker-ico">🗂</span> No project
+    onclick="taskModalSubSetProject('','', ${forEdit})"><span class="tm-picker-ico">🗂</span> No project
     ${d.projectId ? "" : `<span class="tm-picker-tick">✓</span>`}</button>`;
   groups.forEach(([label, list]) => {
     const hits = list.filter(p => !q || p.name.toLowerCase().includes(q));
@@ -593,55 +612,68 @@ function subProjectRows(q) {
     html += `<div class="tm-picker-head">${esc(label)}</div>`;
     html += hits.map(p => `
       <button type="button" class="tm-picker-row${d.projectId === p.id ? " is-on" : ""}"
-        onclick="taskModalSubSetProject('${p.id}', '${esc(p.name).replace(/'/g, "\\'")}')">
+        onclick="taskModalSubSetProject('${p.id}', '${esc(p.name).replace(/'/g, "\\'")}', ${forEdit})">
         <span class="tm-picker-ico tm-picker-hash">#</span> ${esc(p.name)}
         ${d.projectId === p.id ? `<span class="tm-picker-tick">✓</span>` : ""}</button>`).join("");
   });
   return html;
 }
-function subLabelRows(q) {
-  const chosen = new Set(draftRef().labels);
+function subLabelRows(q, forEdit) {
+  const chosen = new Set(draftFor(forEdit).labels);
   return allLabels()
     .filter(l => !q || l.toLowerCase().includes(q))
     .map(l => `
       <button type="button" class="tm-picker-row${chosen.has(l) ? " is-on" : ""}"
-        onclick="taskModalSubToggleLabel('${esc(l).replace(/'/g, "\\'")}')" role="checkbox"
+        onclick="taskModalSubToggleLabel('${esc(l).replace(/'/g, "\\'")}', ${forEdit})" role="checkbox"
         aria-checked="${chosen.has(l)}">
         <span class="tm-picker-ico">🏷</span> ${esc(l)}
         <span class="tm-picker-box${chosen.has(l) ? " on" : ""}" aria-hidden="true"></span></button>`).join("");
 }
 
-export function taskModalSubPicker(which) {
-  subPicker = (which && which !== subPicker) ? which : null;
+export function taskModalSubPicker(which, forEdit) {
+  const same = subPicker && which === subPicker && subPickerFor === (forEdit ? "edit" : "add");
+  const prevFor = subPickerFor;
+  subPicker = (which && !same) ? which : null;
+  subPickerFor = subPicker ? (forEdit ? "edit" : "add") : null;
   subPickerQuery = "";
-  repaintSubComposer();
+  /* If a picker was already open on the OTHER composer, jumping straight
+     to a chip on this one leaves that other popup stale in the DOM —
+     still showing, still wired to its own composer, just no longer the
+     one "subPicker" describes. Repaint it closed too, or the exact
+     two-popups-at-once bug this file exists to fix would come right
+     back through this one gap. */
+  if (prevFor && prevFor !== (forEdit ? "edit" : "add")) {
+    repaintSubComposer(prevFor === "edit");
+  }
+  repaintSubComposer(forEdit);
   if (subPicker) setTimeout(() => document.getElementById("taskModalSubPickerSearch")?.focus(), 30);
 }
 export function taskModalSubPickerFilter(v) {
   subPickerQuery = v;
+  const forEdit = subPickerFor === "edit";
   // Only the list is rebuilt, so the search field keeps its caret.
   const list = document.querySelector("#taskModalSubtaskSection .tm-picker-list");
-  if (!list) { repaintSubComposer(); return; }
+  if (!list) { repaintSubComposer(forEdit); return; }
   const holder = document.createElement("div");
-  holder.innerHTML = subPickerHtml();
+  holder.innerHTML = subPickerHtml(forEdit);
   const fresh = holder.querySelector(".tm-picker-list");
   if (fresh) list.innerHTML = fresh.innerHTML;
 }
-export function taskModalSubSetProject(id, name) {
-  const d = draftRef();
+export function taskModalSubSetProject(id, name, forEdit) {
+  const d = draftFor(forEdit);
   d.projectId = id || "";
   d.projectName = id ? name : "";
-  subPicker = null; subPickerQuery = "";
-  repaintSubComposer();
+  subPicker = null; subPickerFor = null; subPickerQuery = "";
+  repaintSubComposer(forEdit);
 }
 /* Stays open: choosing labels is a set operation, and closing after each
    one would mean reopening the picker for every label on the task. */
-export function taskModalSubToggleLabel(label) {
-  const d = draftRef();
+export function taskModalSubToggleLabel(label, forEdit) {
+  const d = draftFor(forEdit);
   const i = d.labels.indexOf(label);
   if (i === -1) d.labels.push(label); else d.labels.splice(i, 1);
   subPickerQuery = "";
-  repaintSubComposer();
+  repaintSubComposer(forEdit);
   setTimeout(() => document.getElementById("taskModalSubPickerSearch")?.focus(), 20);
 }
 /* A tap anywhere outside closes it — the same dismissal every other
@@ -650,46 +682,56 @@ document.addEventListener("click", (e) => {
   if (!subPicker) return;
   if (e.target.closest?.(".tm-picker")) return;
   if (e.target.closest?.('.composer-chip[aria-haspopup="listbox"]')) return;
-  subPicker = null; subPickerQuery = "";
-  repaintSubComposer();
+  const forEdit = subPickerFor === "edit";
+  subPicker = null; subPickerFor = null; subPickerQuery = "";
+  repaintSubComposer(forEdit);
 }, true);
 
 /* The chips write into subDraft rather than into a sub-task, because the
-   sub-task does not exist until the text is submitted. */
-export function taskModalSubDraft(field, v) {
-  const d = draftRef();
+   sub-task does not exist until the text is submitted. forEdit says
+   explicitly which composer this came from — the "add a sub-task" row and
+   an in-progress edit of another sub-task can both be on screen together,
+   so there's no safe way to infer the target from ambient state alone. */
+export function taskModalSubDraft(field, v, forEdit) {
+  const d = draftFor(forEdit);
   if (field === "labels") {
     d.labels = [...new Set(String(v).split(",").map(x => x.trim()).filter(Boolean))];
   } else {
     d[field] = v || "";
   }
-  repaintSubComposer();
+  repaintSubComposer(forEdit);
 }
 /* One control, four states — a four-way picker would be a menu, and a
    menu inside a half-height sheet inside a modal is a lot of layers for
    choosing between four values. P4 is "none" and is where it lands after
    P3, so the cycle also clears. */
-export function taskModalSubCyclePriority() {
+export function taskModalSubCyclePriority(forEdit) {
   const order = ["p4", "p1", "p2", "p3"];
-  const d = draftRef();
+  const d = draftFor(forEdit);
   const i = order.indexOf(d.priority || "p4");
   d.priority = order[(i + 1) % order.length];
-  repaintSubComposer();
+  repaintSubComposer(forEdit);
 }
 export function taskModalSubClear() {
   subDraft = { date: "", priority: "", labels: [], projectId: "", projectName: "" };
-  subPicker = null; subPickerQuery = "";
+  if (subPickerFor === "add") { subPicker = null; subPickerFor = null; }
+  subPickerQuery = "";
   const el = document.getElementById("taskModalNewSubtask");
   if (el) el.value = "";
-  repaintSubComposer();
+  repaintSubComposer(false);
   document.getElementById("taskModalNewSubtask")?.focus();
 }
 /* Repaints the chip row only, carrying the typed text across by hand.
    Rebuilding the whole sub-task section would replace the input the
    person is typing into, which is the same caret-loss problem
-   renderTaskModalSide() exists to avoid one level up. */
-function repaintSubComposer() {
-  const editing = editingSubId ? currentSub(editingSubId) : null;
+   renderTaskModalSide() exists to avoid one level up.
+
+   `forEdit` picks which of the (possibly two) on-screen composers to
+   repaint — the caller always knows this, since it's the same composer
+   whose chip was just clicked. It no longer has to be guessed from
+   `editingSubId`, which can't tell the two composers apart. */
+function repaintSubComposer(forEdit) {
+  const editing = forEdit && editingSubId ? currentSub(editingSubId) : null;
   const sel = editing ? ".tm-sub-edit" : ".tm-subtask-add";
   const box = document.querySelector("#taskModalSubtaskSection " + sel);
   if (!box) { renderSubtasks(); return; }
@@ -895,7 +937,7 @@ export function taskModalAddSubtask() {
     subDraft.projectId = tok.project.id;
     subDraft.projectName = tok.project.name;
     if (!v2) { // "#Project" alone sets the chip and waits for a title
-      el.value = ""; repaintSubComposer(); return;
+      el.value = ""; repaintSubComposer(false); return;
     }
   }
   const st = { id: uid(), text: v2, done: false };
@@ -931,16 +973,16 @@ export function taskModalSubEditStart(sid, focus) {
     labels: Array.isArray(st.labels) ? [...st.labels] : [],
     projectId: st.projectId || "", projectName: st.projectName || ""
   };
-  subPicker = null; subPickerQuery = "";
+  subPicker = null; subPickerFor = null; subPickerQuery = "";
   renderSubtasks();
   setTimeout(() => {
-    if (focus === "date") document.getElementById("taskModalSubDate")?.showPicker?.();
+    if (focus === "date") document.getElementById("taskModalSubEditDate")?.showPicker?.();
     else document.getElementById("taskModalSubEditInput")?.focus();
   }, 40);
 }
 export function taskModalSubEditCancel() {
   editingSubId = null; editDraft = null;
-  subPicker = null; subPickerQuery = "";
+  subPicker = null; subPickerFor = null; subPickerQuery = "";
   renderSubtasks();
 }
 export function taskModalSubEditSave() {
@@ -959,7 +1001,7 @@ export function taskModalSubEditSave() {
   if (d.projectId) { st.projectId = d.projectId; st.projectName = d.projectName; }
   else { delete st.projectId; delete st.projectName; }
   editingSubId = null; editDraft = null;
-  subPicker = null; subPickerQuery = "";
+  subPicker = null; subPickerFor = null; subPickerQuery = "";
   touch(f); persist(); renderSubtasks();
 }
 export function taskModalToggleSubtask(sid) {
