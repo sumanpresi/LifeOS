@@ -3,7 +3,7 @@
    communication-bridge.js. The iframe keeps its own DOM/CSS/JS (it has a
    completely different visual design and a Chart.js dependency), but its
    DATA round-trips through state.js -> persist() -> Supabase. */
-import { state, persist } from './state.js?v=202609031800';
+import { state, persist } from './state.js?v=202609032000';
 
 let iframeEl = null;
 

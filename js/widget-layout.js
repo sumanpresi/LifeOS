@@ -24,8 +24,8 @@
    their own popovers/date-pickers that rely on overflow:visible to
    escape the card's box — those can get visually clipped once their
    card has been resized. Not solved here; flagged for awareness. */
-import { state, persist } from './state.js?v=202609031800';
-import { toast } from './ui.js?v=202609031800';
+import { state, persist } from './state.js?v=202609032000';
+import { toast } from './ui.js?v=202609032000';
 
 const LONG_PRESS_MS = 450;     // touch/pen — needs to be long enough to not steal a scroll gesture
 const MOUSE_PRESS_MS = 150;    // mouse — no scroll-gesture ambiguity to protect against, so this can be snappy

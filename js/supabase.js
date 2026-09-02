@@ -1,16 +1,16 @@
 /* GitHub sign-in (via Supabase Auth), cloud storage, live sync. */
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=202609031800';
-import { state, replaceState, persist, setRemoteSaver, uid, esc, rerender, flushPendingSave } from './state.js?v=202609031800';
-import { setSyncPill, nowTime, toast, isUserTyping } from './ui.js?v=202609031800';
-import { pushCommunicationUpdate, mergeCommunication } from './communication-bridge.js?v=202609031800';
-import { pushNgdrTrackerUpdate } from './ngdr-tracker-bridge.js?v=202609031800';
-import { mergeBoardData } from './whiteboard.js?v=202609031800';
-import { takeSnapshot } from './backup.js?v=202609031800';
-import { moveToTrash } from './trash.js?v=202609031800';
-import { mergeNoteInk, redrawAllInk } from './note-ink.js?v=202609031800';
-import { hasUnsavedComposerDraft } from './composer.js?v=202609031800';
-import { flushJournalEditor } from './widgets.js?v=202609031800';
-import { flushNotebookEditor } from './notebook.js?v=202609031800';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=202609032000';
+import { state, replaceState, persist, setRemoteSaver, uid, esc, rerender, flushPendingSave } from './state.js?v=202609032000';
+import { setSyncPill, nowTime, toast, isUserTyping } from './ui.js?v=202609032000';
+import { pushCommunicationUpdate, mergeCommunication } from './communication-bridge.js?v=202609032000';
+import { pushNgdrTrackerUpdate } from './ngdr-tracker-bridge.js?v=202609032000';
+import { mergeBoardData } from './whiteboard.js?v=202609032000';
+import { takeSnapshot } from './backup.js?v=202609032000';
+import { moveToTrash } from './trash.js?v=202609032000';
+import { mergeNoteInk, redrawAllInk } from './note-ink.js?v=202609032000';
+import { hasUnsavedComposerDraft } from './composer.js?v=202609032000';
+import { flushJournalEditor } from './widgets.js?v=202609032000';
+import { flushNotebookEditor } from './notebook.js?v=202609032000';
 
 const CLIENT_ID = uid() + uid();
 const GH_SVG = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.54-3.87-1.54-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.26.72-1.55-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12v3.14c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>';
@@ -821,6 +821,143 @@ function mergeIncomingJournal(remote) {
   remote.journalUpdated = mergedStamps;
 }
 
+/* ============================================================
+   Where a task LIVES is itself a fact that has to be merged
+   ============================================================
+   Every merge above this line reconciles one list against the matching
+   list on the other side: this project's tasks against that project's
+   tasks, Overview's against Overview's. Within a list that is right. The
+   thing it cannot see is a task that CHANGED LIST.
+
+   Move "Hon'ble Union Minister…" from NGDR to BGD on the desktop. The
+   desktop now has it in BGD and nowhere else. The phone, not yet synced,
+   still has it in NGDR. Reconcile:
+
+     NGDR: local has no such task, remote does  -> union keeps it
+     BGD : local has it, remote does not        -> union keeps it
+
+   Both lists are individually correct, and the task is now in two
+   projects. Nothing is corrupted and nothing threw; union-by-id is
+   simply the wrong shape for a value that is supposed to exist once.
+   The same applies to a task archived on one device (tasks ->
+   archivedTasks), and to one converted between Overview and a project by
+   changeTaskProject(), which carries the id across stores intact.
+
+   So the location is decided FIRST, once, across every list at the same
+   time, and then enforced after the per-list merges have run. Deciding
+   before merging is what makes it possible: only the two original
+   snapshots know where each side actually had the task, and that
+   provenance is exactly what union-by-id destroys.
+
+   The rule is the same one used everywhere else here — newest
+   updatedAt wins, document verdict breaks a tie — with one addition: a
+   final tie falls back to comparing the location keys as strings. That
+   last step never fires in practice, but it has to exist, because two
+   devices resolving the same tie in opposite directions would each
+   "fix" the duplicate into the other's copy and hand it straight back.
+   A deterministic answer is what stops a repair loop.
+   ============================================================ */
+function taskHomeIndex(root) {
+  const at = new Map();
+  const scan = (list, key) => (list || []).forEach(t => {
+    if (t && t.id && !at.has(t.id)) at.set(t.id, { key, updatedAt: t.updatedAt || 0 });
+  });
+  scan(root?.tasks, "tasks");
+  ["gsi", "personal"].forEach(store => {
+    (root?.[store]?.projects || []).forEach(p => {
+      if (!p || !p.id) return;
+      scan(p.tasks, store + ":" + p.id + ":tasks");
+      scan(p.archivedTasks, store + ":" + p.id + ":archivedTasks");
+    });
+  });
+  return at;
+}
+function decideTaskHomes(remote, remoteWins) {
+  const mine = taskHomeIndex(state), theirs = taskHomeIndex(remote);
+  const homes = new Map();
+  new Set([...mine.keys(), ...theirs.keys()]).forEach(id => {
+    const a = mine.get(id), b = theirs.get(id);
+    if (!a || !b || a.key === b.key) { homes.set(id, (a || b).key); return; }
+    if (b.updatedAt > a.updatedAt) homes.set(id, b.key);
+    else if (a.updatedAt > b.updatedAt) homes.set(id, a.key);
+    else if (a.updatedAt || b.updatedAt) homes.set(id, remoteWins ? b.key : a.key);
+    else homes.set(id, a.key < b.key ? a.key : b.key);   // deterministic, both devices agree
+  });
+  return homes;
+}
+/* Drops every copy of a task that is sitting somewhere other than the
+   home just decided for it. Runs after the per-list merges, so the
+   surviving copy is whichever version those merges chose — this only
+   settles WHERE it lives, never which fields it has. */
+function enforceTaskHomes(homes) {
+  let removed = 0;
+  const keep = (list, key) => (list || []).filter(t => {
+    if (!t || !t.id) return true;
+    const home = homes.get(t.id);
+    if (!home || home === key) return true;
+    removed++;
+    return false;
+  });
+  state.tasks = keep(state.tasks, "tasks");
+  ["gsi", "personal"].forEach(store => {
+    (state?.[store]?.projects || []).forEach(p => {
+      if (!p || !p.id) return;
+      p.tasks = keep(p.tasks, store + ":" + p.id + ":tasks");
+      p.archivedTasks = keep(p.archivedTasks, store + ":" + p.id + ":archivedTasks");
+    });
+  });
+  if (removed) console.info("[sync] removed " + removed + " stray duplicate task copy/copies");
+  return removed;
+}
+
+/* Duplicates already written to the cloud before the fix above existed
+   will not clear themselves: both copies are legitimately present on
+   both devices now, so every future merge agrees about them. They have
+   to be swept once.
+
+   Kept separate from the merge, and deliberately conservative — it only
+   ever acts on an id it finds in more than one list at the same moment,
+   which is a state the app itself can never produce. The copy kept is
+   the one with the newest updatedAt; ties fall back to the same string
+   comparison the merge uses, so two devices sweeping independently
+   reach the same answer and neither undoes the other. */
+export function sweepDuplicateTasks(quiet) {
+  const seen = new Map();          // id -> [{ key, task }]
+  const visit = (list, key) => (list || []).forEach(t => {
+    if (!t || !t.id) return;
+    if (!seen.has(t.id)) seen.set(t.id, []);
+    seen.get(t.id).push({ key, task: t });
+  });
+  visit(state.tasks, "tasks");
+  ["gsi", "personal"].forEach(store => {
+    (state?.[store]?.projects || []).forEach(p => {
+      if (!p || !p.id) return;
+      visit(p.tasks, store + ":" + p.id + ":tasks");
+      visit(p.archivedTasks, store + ":" + p.id + ":archivedTasks");
+    });
+  });
+
+  const homes = new Map();
+  seen.forEach((hits, id) => {
+    if (hits.length < 2) return;
+    const best = hits.reduce((a, b) => {
+      const ta = a.task.updatedAt || 0, tb = b.task.updatedAt || 0;
+      if (tb > ta) return b;
+      if (ta > tb) return a;
+      return a.key < b.key ? a : b;
+    });
+    homes.set(id, best.key);
+  });
+  if (!homes.size) return 0;
+
+  const removed = enforceTaskHomes(homes);
+  /* `quiet` when called from inside a merge: applyRemote() persists and
+     re-renders once for the whole reconcile, and doing it again from in
+     here would re-enter the save path mid-merge. */
+  if (removed && !quiet) { state.updatedAt = Date.now(); persist(); rerender(); }
+  return removed;
+}
+
 function mergeIncomingTasks(remote) {
   const gone = mergeTrashLog(remote);
   const remoteWins = (remote.updatedAt || 0) >= (state.updatedAt || 0);
@@ -828,17 +965,35 @@ function mergeIncomingTasks(remote) {
   // the same deletion set and the same tie-breaker.
   lastMergeVerdict = { gone, remoteWins };
 
+  // Read BEFORE any list is merged: union-by-id is about to erase the
+  // very provenance this needs.
+  const homes = decideTaskHomes(remote, remoteWins);
+
   state.tasks = mergeTaskArray(state.tasks, remote.tasks, gone, remoteWins);
-  remote.tasks = state.tasks;
 
   if (state.gsi && remote.gsi) {
     state.gsi.projects = mergeProjectTrees(state.gsi.projects, remote.gsi.projects, gone, remoteWins);
-    remote.gsi.projects = state.gsi.projects;
   }
   if (state.personal && remote.personal) {
     state.personal.projects = mergeProjectTrees(state.personal.projects, remote.personal.projects, gone, remoteWins);
-    remote.personal.projects = state.personal.projects;
   }
+
+  enforceTaskHomes(homes);
+  /* And sweep anything that predates this fix. Cheap (one pass over the
+     task lists), a no-op once the data is clean, and it has to run on a
+     merge rather than only at startup — the duplicates arrive FROM the
+     cloud, so a device that was already open when the bad copy landed
+     would otherwise keep showing it until the next reload. */
+  sweepDuplicateTasks(true);
+
+  /* Point the remote snapshot at the reconciled lists only now. Doing it
+     immediately after each merge — as this used to — published the
+     pre-dedupe arrays, so the copy pushed back to the cloud still had
+     the task in both projects even when this device had just resolved
+     it. The duplicate would then come straight back on the next pull. */
+  remote.tasks = state.tasks;
+  if (state.gsi && remote.gsi) remote.gsi.projects = state.gsi.projects;
+  if (state.personal && remote.personal) remote.personal.projects = state.personal.projects;
 }
 
 
