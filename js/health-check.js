@@ -14,9 +14,9 @@
 
    A snapshot is taken before any repair, so even the repair is undoable. */
 
-import { state, uid, persist, rerender } from './state.js?v=202609032200';
-import { toast } from './ui.js?v=202609032200';
-import { renderBackupPanel, requireSnapshot } from './backup.js?v=202609032200';
+import { state, uid, persist, rerender } from './state.js?v=202609040200';
+import { toast } from './ui.js?v=202609040200';
+import { renderBackupPanel, requireSnapshot } from './backup.js?v=202609040200';
 
 /* Each check returns { problem, detail, count, fix } — fix is omitted when
    the only safe action is for a person to look at it themselves. */

@@ -6,19 +6,19 @@
    in two different places. GSI tasks keep their own storage and schema
    (a 4-state status, not a simple done/not-done) — this only merges them
    for DISPLAY, routing edits back to the correct underlying data. */
-import { state, uid, esc, persist, rerender, touch, commitWithoutRender } from './state.js?v=202609032200';
-import { openDateSheet } from './date-sheet.js?v=202609032200';
-import { isComposerOpen, composerHtml, openComposer, nativeColumnAccepts } from './composer.js?v=202609032200';
-import { toast, autoGrow } from './ui.js?v=202609032200';
-import { releaseDragGhost } from './drag-cleanup.js?v=202609032200';
-import { moveToTrash } from './trash.js?v=202609032200';
-import { syncTaskToGoogle } from './google-calendar.js?v=202609032200';
+import { state, uid, esc, persist, rerender, touch, commitWithoutRender } from './state.js?v=202609040200';
+import { openDateSheet } from './date-sheet.js?v=202609040200';
+import { isComposerOpen, composerHtml, openComposer, nativeColumnAccepts } from './composer.js?v=202609040200';
+import { toast, autoGrow } from './ui.js?v=202609040200';
+import { releaseDragGhost } from './drag-cleanup.js?v=202609040200';
+import { moveToTrash } from './trash.js?v=202609040200';
+import { syncTaskToGoogle } from './google-calendar.js?v=202609040200';
 import { getAllGsiTasksFlat, findProjectTask, editProjectTask, setTaskStatus as setGsiTaskStatus,
   delProjectTask, toggleProjectTaskFlag, archiveGsiTaskEntry,
-  getProjectList, addProjectTaskRaw, moveProjectTask, pluckProjectTask, renderGsi } from './gsi.js?v=202609032200';
+  getProjectList, addProjectTaskRaw, moveProjectTask, pluckProjectTask, renderGsi } from './gsi.js?v=202609040200';
 import { changePwTaskProject, findPwProjectTask, editPwProjectTask, setPwTaskStatus, togglePwProjectTaskFlag, delPwProjectTask,
   getAllPwTasksFlat, archivePwTaskEntry, getPwProjectList,
-  addPwProjectTaskRaw, pluckPwProjectTask, renderPersonalWorkspace } from './personal.js?v=202609032200';
+  addPwProjectTaskRaw, pluckPwProjectTask, renderPersonalWorkspace } from './personal.js?v=202609040200';
 
 let taskFilter = "all"; // "all" | "work" | "personal"
 let sortByDate = false;
@@ -1875,6 +1875,17 @@ export function renderTasks() {
     if (switcher) switcher.querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.view === taskView));
   }
   const list = document.getElementById("taskList");
+  /* The Tasks card is not guaranteed to be on the page. It was removed
+     from Overview, and renderTasks() is still called on every render
+     because state.tasks are still real and still sync — they simply have
+     no board to draw on here any more.
+
+     This return has to exist rather than being left to chance: renderAll()
+     calls every section's renderer in one pass, so a single throw on
+     `list.innerHTML` would abort the rest of that pass and take the
+     habit tracker, widgets and everything below it down with it. A
+     missing container is a normal condition, not an error. */
+  if (!list) return;
   /* Board and Calendar carry their own ways to add a task (a per-column
      "+ Add task" composer, and tapping a day cell). The permanent
      "Add a task" bar is redundant there and is hidden by CSS keyed off
@@ -1982,7 +1993,8 @@ export function renderTasks() {
   if (document.getElementById("taskArchiveModalBg")?.classList.contains("open")) renderArchivedTasksModal();
 
   const openCount = state.tasks.filter(t => !t.done).length;
-  document.getElementById("taskCount").textContent = state.tasks.length ? `(${openCount} open)` : "";
+  const countEl = document.getElementById("taskCount");
+  if (countEl) countEl.textContent = state.tasks.length ? `(${openCount} open)` : "";
   const catTasksSub = document.getElementById("catTasksSub");
   if (catTasksSub) catTasksSub.textContent =
     state.tasks.length ? `${openCount} of ${state.tasks.length} still open` : "Plan your day.";

@@ -3,7 +3,7 @@
    already proven for the map's long-press coordinate popup). Strokes
    are stored in normalized 0–1 coordinates so a note drawn on one
    screen size still looks right when reopened on another. */
-import { state, persist, rerender } from './state.js?v=202609032200';
+import { state, persist, rerender } from './state.js?v=202609040200';
 
 let activeDateKey = null;
 let canvas = null, ctx = null;
