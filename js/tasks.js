@@ -6,19 +6,19 @@
    in two different places. GSI tasks keep their own storage and schema
    (a 4-state status, not a simple done/not-done) — this only merges them
    for DISPLAY, routing edits back to the correct underlying data. */
-import { state, uid, esc, persist, rerender, touch, commitWithoutRender } from './state.js?v=202609032000';
-import { openDateSheet } from './date-sheet.js?v=202609032000';
-import { isComposerOpen, composerHtml, openComposer, nativeColumnAccepts } from './composer.js?v=202609032000';
-import { toast, autoGrow } from './ui.js?v=202609032000';
-import { releaseDragGhost } from './drag-cleanup.js?v=202609032000';
-import { moveToTrash } from './trash.js?v=202609032000';
-import { syncTaskToGoogle } from './google-calendar.js?v=202609032000';
+import { state, uid, esc, persist, rerender, touch, commitWithoutRender } from './state.js?v=202609032200';
+import { openDateSheet } from './date-sheet.js?v=202609032200';
+import { isComposerOpen, composerHtml, openComposer, nativeColumnAccepts } from './composer.js?v=202609032200';
+import { toast, autoGrow } from './ui.js?v=202609032200';
+import { releaseDragGhost } from './drag-cleanup.js?v=202609032200';
+import { moveToTrash } from './trash.js?v=202609032200';
+import { syncTaskToGoogle } from './google-calendar.js?v=202609032200';
 import { getAllGsiTasksFlat, findProjectTask, editProjectTask, setTaskStatus as setGsiTaskStatus,
   delProjectTask, toggleProjectTaskFlag, archiveGsiTaskEntry,
-  getProjectList, addProjectTaskRaw, moveProjectTask, pluckProjectTask, renderGsi } from './gsi.js?v=202609032000';
+  getProjectList, addProjectTaskRaw, moveProjectTask, pluckProjectTask, renderGsi } from './gsi.js?v=202609032200';
 import { changePwTaskProject, findPwProjectTask, editPwProjectTask, setPwTaskStatus, togglePwProjectTaskFlag, delPwProjectTask,
   getAllPwTasksFlat, archivePwTaskEntry, getPwProjectList,
-  addPwProjectTaskRaw, pluckPwProjectTask, renderPersonalWorkspace } from './personal.js?v=202609032000';
+  addPwProjectTaskRaw, pluckPwProjectTask, renderPersonalWorkspace } from './personal.js?v=202609032200';
 
 let taskFilter = "all"; // "all" | "work" | "personal"
 let sortByDate = false;
@@ -2088,6 +2088,37 @@ export function addTask() {
    becomes worth showing, so the first completion opens it and records
    it as seen — after that the person's own collapse choice is honoured
    like any other column's. */
+/* Completing a card on the board is the one action whose result you
+   cannot see. The card leaves the column it was in and lands in
+   Completed — which on a phone is three columns to the right and off
+   screen — so the whole visible outcome is that a card silently
+   disappeared. There is nothing to distinguish that from a tap that
+   went wrong, which is why a working toggle can still be reported as
+   broken.
+
+   Two answers, both of which Todoist gives:
+
+   Fill the checkbox first. rerender() is deferred to a frame, so the
+   .on class is painted and the tick animates before the card is torn
+   down — a moment of visible confirmation at the point of contact.
+
+   Then say where it went, with a way back. Undo matters more than usual
+   here precisely because the checkbox is easy to hit by accident when
+   you meant to open the task. */
+function confirmCompletion(id, text) {
+  const card = document.querySelector(`#taskList .t-board-card[data-task-id="${cssId(id)}"]`);
+  if (card) {
+    card.querySelector(".t-chk")?.classList.add("on");
+    card.classList.add("just-completed");
+  }
+  const label = String(text || "Task").trim();
+  toast(
+    (label.length > 28 ? label.slice(0, 27) + "…" : label) + " — completed",
+    "Undo",
+    `toggleTask('${id}')`
+  );
+}
+
 function revealCompletedColumnOnce() {
   try {
     const raw = localStorage.getItem(COLLAPSE_KEY);
@@ -2103,7 +2134,7 @@ export function toggleTask(id) {
   const t = state.tasks.find(x => x.id === id);
   if (t) {
     t.done = !t.done;
-    if (t.done) revealCompletedColumnOnce();
+    if (t.done) { revealCompletedColumnOnce(); confirmCompletion(id, t.text); }
     t.completedAt = t.done ? Date.now() : null;
     touch(t); persist(); rerender();
     syncTaskToGoogle(t, t.done ? "delete" : "create").catch(() => {}); // a completed task has nothing left to remind about; reopening it (with a due date) puts it back

@@ -20,19 +20,19 @@
    was purpose-built for GSI's tasks specifically; wiring a second,
    parallel project system into it would roughly double that surface
    area for a feature nobody's asked for yet. Easy to add later if so. */
-import { state, uid, esc, persist, rerender, touch } from './state.js?v=202609032000';
-import { openDateSheet } from './date-sheet.js?v=202609032000';
-import { isComposerOpen, composerHtml, openComposer } from './composer.js?v=202609032000';
-import { toast, autoGrow, preserveBoardScroll } from './ui.js?v=202609032000';
+import { state, uid, esc, persist, rerender, touch } from './state.js?v=202609032200';
+import { openDateSheet } from './date-sheet.js?v=202609032200';
+import { isComposerOpen, composerHtml, openComposer } from './composer.js?v=202609032200';
+import { toast, autoGrow, preserveBoardScroll } from './ui.js?v=202609032200';
 /* Priority now colours the checkbox ring instead of a flag button — the
    helper lives in tasks.js so all three boards agree. */
-import { prioClass } from './tasks.js?v=202609032000';
-import { releaseDragGhost } from './drag-cleanup.js?v=202609032000';
-import { describeLink } from './attach.js?v=202609032000';
-import { moveToTrash } from './trash.js?v=202609032000';
+import { prioClass } from './tasks.js?v=202609032200';
+import { releaseDragGhost } from './drag-cleanup.js?v=202609032200';
+import { describeLink } from './attach.js?v=202609032200';
+import { moveToTrash } from './trash.js?v=202609032200';
 import { markDragJustEnded, boardColHeadHtml, isColCollapsed, capBoardColumnHeights, initBoardWheelScroll,
-         applyHorizon, horizonWrapHtml } from './tasks.js?v=202609032000';
-import { syncTaskToGoogle } from './google-calendar.js?v=202609032000';
+         applyHorizon, horizonWrapHtml } from './tasks.js?v=202609032200';
+import { syncTaskToGoogle } from './google-calendar.js?v=202609032200';
 
 // Personal Workspace tasks use the same field names as GSI project tasks
 // (date, not dueDate; status, not done) — reuses the same bridging

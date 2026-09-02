@@ -3,20 +3,20 @@
    links, plus a shared World Map for marking places and jotting notes
    about different countries — same Leaflet + freehand sketch setup as the
    Travel Plan maps, with drawings saved as GeoJSON and fully editable. */
-import { state, uid, esc, persist, rerender } from './state.js?v=202609032000';
-import { loadMapLibs } from './lazy-libs.js?v=202609032000';
-import { toast } from './ui.js?v=202609032000';
-import { attachFreehandTool } from './leaflet-freehand.js?v=202609032000';
-import { attachPenAnnotationTool } from './map-pen-annotation.js?v=202609032000';
-import { createToolCoordinator } from './map-tool-state.js?v=202609032000';
-import { geocodeOne } from './geocode.js?v=202609032000';
-import { addBaseLayer, enableClickToScrollZoom, WHEEL_ZOOM_OPTS } from './map-basemap.js?v=202609032000';
-import { addFullscreenControl } from './map-fullscreen.js?v=202609032000';
-import { getCurrentLocation } from './geolocation.js?v=202609032000';
-import { getRoute, formatDuration } from './routing.js?v=202609032000';
-import { attachClickCoordinates } from './map-click-coords.js?v=202609032000';
-import { moveToTrash } from './trash.js?v=202609032000';
-import { parseKml, readKmlOrKmz, kmlLayerToLeaflet, featureLatLng, featureKindLabel } from './map-kml.js?v=202609032000';
+import { state, uid, esc, persist, rerender } from './state.js?v=202609032200';
+import { loadMapLibs } from './lazy-libs.js?v=202609032200';
+import { toast } from './ui.js?v=202609032200';
+import { attachFreehandTool } from './leaflet-freehand.js?v=202609032200';
+import { attachPenAnnotationTool } from './map-pen-annotation.js?v=202609032200';
+import { createToolCoordinator } from './map-tool-state.js?v=202609032200';
+import { geocodeOne } from './geocode.js?v=202609032200';
+import { addBaseLayer, enableClickToScrollZoom, WHEEL_ZOOM_OPTS } from './map-basemap.js?v=202609032200';
+import { addFullscreenControl } from './map-fullscreen.js?v=202609032200';
+import { getCurrentLocation } from './geolocation.js?v=202609032200';
+import { getRoute, formatDuration } from './routing.js?v=202609032200';
+import { attachClickCoordinates } from './map-click-coords.js?v=202609032200';
+import { moveToTrash } from './trash.js?v=202609032200';
+import { parseKml, readKmlOrKmz, kmlLayerToLeaflet, featureLatLng, featureKindLabel } from './map-kml.js?v=202609032200';
 
 function activeRefPage() {
   return state.reference.pages.find(p => p.id === state.reference.activePage) || state.reference.pages[0];
