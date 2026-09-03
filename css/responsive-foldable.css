@@ -1097,7 +1097,25 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
      Management and Analysis Center (NDMAC)" did; "BGD" and "Personal"
      did not, and sat out to the right of the title instead — two
      different layouts in one list. */
-  #dayTasks .task-row > textarea{flex:1 1 100%; min-width:calc(100% - 90px);}
+  /* flex-basis is AUTO, not 100%.
+
+     The intent above is right and the arithmetic is right; the basis was
+     the bug. flex-basis:100% asks for a full container width before any
+     shrinking is considered, and a flex item that wants 100% cannot share
+     a line with anything — so the title dropped below the checkbox and the
+     number, giving three stacked rows: [checkbox][number] / [title] /
+     [badge]. That is the mobile layout in the screenshot, and it is why
+     the tasks looked like they had no checkboxes: the checkbox was there,
+     orphaned on a line of its own above the text it belongs to.
+
+     With basis auto the min-width does the work it was always meant to do.
+     The title asks for (container - 90px); the furniture beside it —
+     26px checkbox, 22px number, two 10px gaps — is 68px, so the pair
+     needs (container - 22px) and fits on one line. The badge cannot be
+     narrower than ~38px for the shortest real project name, so it never
+     fits in the 22px left over and always wraps. Same outcome the comment
+     above describes, now actually produced. */
+  #dayTasks .task-row > textarea{flex:1 1 auto; min-width:calc(100% - 90px);}
   /* Content-width on its own line, not stretched across it: flex-basis
      stays auto so the pill still hugs its text, and it is the title's
      floor above — not anything set here — that does the line breaking.
