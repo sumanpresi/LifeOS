@@ -7,7 +7,7 @@
    scroll-wheel zoom), so having a simple click also pop up coordinates
    made every ordinary click feel cluttered and duplicated. A hold is a
    clear, distinct gesture that doesn't collide with anything else. */
-import { toast } from './ui.js?v=202609042000';
+import { toast } from './ui.js?v=202609042200';
 
 export function formatCoords(lat, lng) {
   return lat.toFixed(6) + ", " + lng.toFixed(6);
