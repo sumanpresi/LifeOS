@@ -1312,6 +1312,30 @@
           <div class="mm-rich-editor nb-rich-editor" id="nbPageEditor"></div>
         </div>
       </div>
+      <!-- Google Links: the same tabbed link strip the GSI page's Work
+           documents card uses, kept at the foot of the Notebook so the
+           Docs/Sheets a page refers to sit next to the page itself. -->
+      <div class="card" style="margin-top:16px">
+        <div class="card-head"><h2>Google Links</h2></div>
+        <div class="card-body" style="padding-bottom:0">
+          <div class="tabs" id="glTabs"></div>
+          <div class="wd-group-row" id="glGroupRow">
+            <input type="text" id="glGroupName" onchange="renameGoogleLinkGroup(this.value)" title="Rename this tab">
+            <button class="icon-btn" onclick="archiveGoogleLinkGroup()" title="Archive this tab — keeps it, just hides it">🗄 Archive</button>
+            <button class="icon-btn" onclick="delGoogleLinkGroup()" title="Delete this tab (recoverable from Trash)">Delete</button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="link-grid" id="glLinks" style="grid-template-columns:1fr"></div>
+          <div class="add-inline">
+            <input type="text" id="glLinkName" placeholder="Link name" onkeydown="if(event.key==='Enter')addGoogleLink()">
+            <input type="text" id="glLinkUrl" placeholder="https://docs.google.com/…" onkeydown="if(event.key==='Enter')addGoogleLink()">
+            <button class="btn btn-ghost" onclick="addGoogleLink()">➕ Add</button>
+          </div>
+          <button class="btn btn-ghost wd-archive-btn" id="glArchiveBtn" onclick="toggleGoogleLinkArchive()" style="display:none">🗄 Archived (0)</button>
+          <div class="wd-archive-panel" id="glArchivePanel"></div>
+        </div>
+      </div>
     </section>
 
     <!-- ======== PAGE: ENTERTAINMENT ======== -->
