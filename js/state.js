@@ -281,6 +281,14 @@ export const DEFAULT_STATE = {
     ],
     activeSection: "nbs1"
   },
+  /* Google Links: the strip of link tabs at the foot of the Notebook page.
+     Same shape as a project's Work-document tabs — named tabs, each with
+     its own links — but it belongs to the notebook rather than to a GSI
+     project, so it sits at the top level rather than inside one. */
+  googleLinks: {
+    groups: [{ id: "gll1", name: "General", archived: false, links: [] }],
+    activeGroup: "gll1"
+  },
   /* One shared recycle bin for deletions from anywhere in the app.
      [{id, type, payload, meta, deletedAt}] — see js/trash.js */
   trash: [],
@@ -404,6 +412,15 @@ function merge(saved) {
   });
   if (!s.notebook.sections.some(sec => sec.id === s.notebook.activeSection)) {
     s.notebook.activeSection = s.notebook.sections[0].id;
+  }
+  /* Same guard for the Notebook's Google Links tabs — a backup or a synced
+     document written before they existed simply has no key here. */
+  if (!s.googleLinks || !Array.isArray(s.googleLinks.groups) || !s.googleLinks.groups.length) {
+    s.googleLinks = structuredClone(DEFAULT_STATE.googleLinks);
+  }
+  s.googleLinks.groups.forEach(g => { if (!Array.isArray(g.links)) g.links = []; });
+  if (!s.googleLinks.groups.some(g => g.id === s.googleLinks.activeGroup)) {
+    s.googleLinks.activeGroup = s.googleLinks.groups[0].id;
   }
   s.sections = Object.assign(structuredClone(DEFAULT_STATE.sections), saved.sections || {});
   /* One-time migration: a section's single free-text Notes box becomes a

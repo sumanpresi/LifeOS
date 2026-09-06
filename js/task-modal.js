@@ -34,7 +34,7 @@ const PRIORITIES = [
   ["p3", "Priority 3", "#4F6D9A"],
   ["p4", "Priority 4", "#8A8A85"],
 ];
-const STATUSES = [["todo", "To do"], ["progress", "In progress"], ["done", "Done"], ["blocked", "Blocked"]];
+const STATUSES = [["todo", "To do"], ["progress", "In progress"], ["blocked", "Blocked"], ["done", "Done"]];
 
 let openId = null;
 let siblingIds = [];        // the list the caller was looking at, for prev/next

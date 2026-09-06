@@ -73,6 +73,8 @@ function labelFor(entry) {
     case "sectionNote": return "Note: " + (p.title || "Untitled note");
     case "notebookSection": return "Notebook section: " + p.name;
     case "notebookPage": return "Notebook page: " + (p.name || "Untitled page");
+    case "googleLinkGroup": return "Google Links tab: " + p.name;
+    case "googleLink": return p.name;
     default: return "(item)";
   }
 }
@@ -85,7 +87,8 @@ const TYPE_NAMES = {
   healthLink: "Health link", bookmarkLink: "Link", feed: "News feed", sectionLink: "Link", sectionNote: "Note",
   pwProject: "Personal project", pwProjectTask: "Personal task", pwLink: "Personal link",
   pwDoc: "Personal document", pwProjectDoc: "Personal project document",
-  notebookSection: "Notebook section", notebookPage: "Notebook page"
+  notebookSection: "Notebook section", notebookPage: "Notebook page",
+  googleLinkGroup: "Google Links tab", googleLink: "Google link"
 };
 
 function timeAgo(ts) {
@@ -323,6 +326,24 @@ export function restoreFromTrash(id) {
         sec.pages.unshift(p);
         sec.activePage = p.id;
         if (sec.id !== m.sectionId) toast("Original section was deleted — restored into \"" + sec.name + "\" instead");
+      }
+      break;
+    }
+    case "googleLinkGroup": {
+      if (!state.googleLinks || !Array.isArray(state.googleLinks.groups)) state.googleLinks = { groups: [], activeGroup: "" };
+      p.archived = false;
+      state.googleLinks.groups.push(p);
+      state.googleLinks.activeGroup = p.id;
+      break;
+    }
+    case "googleLink": {
+      const gl = state.googleLinks;
+      const gr = (gl && gl.groups.find(x => x.id === m.groupId)) || (gl && gl.groups[0]);
+      if (gr) {
+        if (!Array.isArray(gr.links)) gr.links = [];
+        p.archived = false;
+        gr.links.unshift(p);
+        if (gr.id !== m.groupId) toast("Original tab was deleted — restored into \"" + gr.name + "\" instead");
       }
       break;
     }

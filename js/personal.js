@@ -46,7 +46,7 @@ function syncPwTaskToGoogle(t, action) {
 }
 
 const PW_STATUSES = [
-  ["todo", "⚪ To do"], ["progress", "🔵 In progress"], ["done", "🟢 Done"], ["blocked", "🔴 Blocked"]
+  ["todo", "⚪ To do"], ["progress", "🔵 In progress"], ["blocked", "🔴 Blocked"], ["done", "🟢 Done"]
 ];
 
 /* ---------------- Projects ---------------- */

@@ -1272,6 +1272,46 @@ function mergeIncomingNotebook(remote) {
       : conflicts.length + " notebook pages had two versions — the other copies are in Trash");
   }
 }
+/* Google Links (the Notebook page's tabbed link strip) merges by id — tab
+   by tab, and link by link within a tab — exactly as mergeWorkDocGroups
+   does for a project's Work documents, and for the same reason: a tab or
+   a link added on one device must survive a pull from a device that has
+   never seen it, rather than one side's whole list replacing the other's.
+   Neither carries an updatedAt, so an item edited on both sides falls
+   back to the document-level `remoteWins` verdict. */
+function mergeIncomingGoogleLinks(remote) {
+  const { gone, remoteWins } = lastMergeVerdict;
+  const lg = state.googleLinks, rg = remote.googleLinks;
+  if (!rg || !Array.isArray(rg.groups)) { remote.googleLinks = lg; return; }
+  if (!lg || !Array.isArray(lg.groups)) { state.googleLinks = rg; return; }
+
+  const byId = new Map();
+  (lg.groups || []).forEach(g => { if (g && g.id && !gone.has(g.id)) byId.set(g.id, g); });
+  (rg.groups || []).forEach(rgr => {
+    if (!rgr || !rgr.id || gone.has(rgr.id)) return;
+    const lgr = byId.get(rgr.id);
+    if (!lgr) { byId.set(rgr.id, rgr); return; }
+    const links = new Map();
+    (lgr.links || []).forEach(l => { if (l && l.id) links.set(l.id, l); });
+    (rgr.links || []).forEach(l => { if (l && l.id && !gone.has(l.id)) links.set(l.id, l); });
+    const merged = remoteWins ? Object.assign({}, lgr, rgr) : Object.assign({}, lgr);
+    merged.links = [...links.values()].filter(l => !gone.has(l.id));
+    byId.set(rgr.id, merged);
+  });
+
+  const groups = [...byId.values()];
+  /* WHICH TAB IS OPEN IS THIS DEVICE'S BUSINESS — same rule the notebook's
+     own active section and page follow just above. */
+  const out = {
+    groups,
+    activeGroup: groups.some(g => g.id === lg.activeGroup) ? lg.activeGroup : ((groups[0] && groups[0].id) || "")
+  };
+  /* An empty result is left alone deliberately: merge() in state.js and
+     ensureGoogleLinks() both rebuild a starter tab from empty. */
+  state.googleLinks = out;
+  remote.googleLinks = out;
+}
+
 function applyRemote(remote) {
   const token = remote.syncToken || "";
   /* If this device is holding edits the cloud hasn't seen, replacing state
@@ -1320,6 +1360,7 @@ export async function loadRemote(preferRemote = false) {
       mergeIncomingRecords(remote); // after mergeIncomingTasks: reuses the trash log's `gone` set and its verdict
       mergeIncomingJournal(remote); // after the trash log has been merged, which mergeIncomingTasks does
       mergeIncomingNotebook(remote); // after mergeIncomingTasks: needs its `gone` set and verdict
+      mergeIncomingGoogleLinks(remote); // same `gone` set and verdict as the notebook merge above
       /* Course progress is append-shaped, so an incoming copy is combined
          with this device's rather than replacing it — the same reason the
          journal and the ink merge instead of one side winning. */
@@ -1756,6 +1797,7 @@ function startRealtime() {
         mergeIncomingTasks(remote);
         mergeIncomingJournal(remote); // after the trash log has been merged, which mergeIncomingTasks does
         mergeIncomingNotebook(remote); // after mergeIncomingTasks: needs its `gone` set and verdict
+        mergeIncomingGoogleLinks(remote); // same `gone` set and verdict as the notebook merge above
         /* Course progress is append-shaped, so an incoming copy is combined
            with this device's rather than replacing it — the same reason the
            journal and the ink merge instead of one side winning. */

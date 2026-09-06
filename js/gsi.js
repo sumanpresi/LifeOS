@@ -40,7 +40,7 @@ function syncGsiTaskToGoogle(t, action) {
    markdown-insertion toolbar needed. */
 
 const STATUSES = [
-  ["todo", "⚪ To do"], ["progress", "🔵 In progress"], ["done", "🟢 Done"], ["blocked", "🔴 Blocked"]
+  ["todo", "⚪ To do"], ["progress", "🔵 In progress"], ["blocked", "🔴 Blocked"], ["done", "🟢 Done"]
 ];
 const fmtDate = k => {
   const [y, m, d] = k.split("-").map(Number);

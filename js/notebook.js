@@ -10,7 +10,7 @@
 import { state, uid, esc, persist, rerender } from './state.js?v=202609042200';
 import { mountRichEditor, unmountRichEditor, getRichEditor, setEditorHtml } from './rich-text.js?v=202609042200';
 import { moveToTrash } from './trash.js?v=202609042200';
-import { registerBusyCheck } from './ui.js?v=202609042200';
+import { registerBusyCheck, toast } from './ui.js?v=202609042200';
 
 /* Cycled through by section creation order so each section gets a
    distinct colour strip, purely cosmetic — like OneNote's own section
@@ -336,6 +336,11 @@ export function notebookPageClick(id) {
 }
 
 export function renderNotebook() {
+  /* First, and outside everything below: renderNotebook() returns early in
+     several places (no editor box, no page), and the link strip is a
+     separate card that must be painted whether or not there is a page
+     open in the editor. */
+  renderGoogleLinks();
   const nb = ensureNotebook();
   const sec = activeNbSection();
   if (sec && nb.activeSection !== sec.id) nb.activeSection = sec.id;
@@ -614,4 +619,246 @@ export function delNotebookPage(id) {
   sec.pages = sec.pages.filter(x => x.id !== pid);
   sec.activePage = sec.pages[0].id;
   persist(); renderNotebook();
+}
+
+
+/* =====================================================================
+   Google Links — the tabbed strip of links at the foot of the Notebook
+   page. Deliberately the same component as a GSI project's "Work
+   documents": named tabs, each holding its own links, with Archive as
+   the gentle "keep it, hide it" action and Delete routing through Trash
+   for 30-day recovery. The difference is only what it belongs to — this
+   one belongs to the notebook, so it follows you across projects.
+   ===================================================================== */
+
+function ensureGoogleLinks() {
+  const g = state.googleLinks;
+  if (!g || !Array.isArray(g.groups) || !g.groups.length) {
+    const id = uid();
+    state.googleLinks = { groups: [{ id, name: "General", archived: false, links: [] }], activeGroup: id };
+  }
+  state.googleLinks.groups.forEach(gr => { if (!Array.isArray(gr.links)) gr.links = []; });
+  return state.googleLinks;
+}
+function liveGlGroups() { return ensureGoogleLinks().groups.filter(gr => !gr.archived); }
+function currentGlGroup() {
+  const g = ensureGoogleLinks();
+  const live = liveGlGroups();
+  return live.find(gr => gr.id === g.activeGroup) || live[0] || null;
+}
+
+/* Which link's edit popover is open. Same single-open-at-a-time handling
+   gsi.js uses for a work document's ✎ panel, including closing it on a
+   pointerdown anywhere outside it. */
+let openGlEditId = null;
+export function toggleGoogleLinkEdit(id) {
+  openGlEditId = openGlEditId === id ? null : id;
+  renderGoogleLinks();
+  document.querySelectorAll(".card.has-open-popover").forEach(c => c.classList.remove("has-open-popover"));
+  if (openGlEditId) {
+    const panel = document.getElementById(`glEdit-${openGlEditId}`);
+    /* backdrop-filter gives every .card its own stacking context, so the
+       popover's z-index cannot otherwise escape the card — see
+       gsi.js's toggleDocEdit for the same workaround. */
+    panel?.closest(".card")?.classList.add("has-open-popover");
+    panel?.querySelector("input")?.focus();
+  }
+}
+document.addEventListener("pointerdown", evt => {
+  if (!openGlEditId) return;
+  if (evt.target.closest(".link-edit-panel") || evt.target.closest(".link-edit-btn")) return;
+  toggleGoogleLinkEdit(openGlEditId);
+});
+
+function glLinkRowHtml(l) {
+  const url = l.url || "";
+  const fullUrl = /^https?:\/\//i.test(url) ? url : "https://" + url;
+  return `
+    <div class="link-row" data-doc-id="${l.id}">
+      <a href="${esc(fullUrl)}" target="_blank" rel="noopener" class="link-row-title" onclick="linkClickPulse(this)">${esc(l.name || "")}</a>
+      <button class="link-edit-btn" onclick="toggleGoogleLinkEdit('${l.id}')" title="Edit">✎</button>
+      <button class="link-edit-btn" onclick="archiveGoogleLink('${l.id}')" title="Archive — keeps it, just hides it">🗄</button>
+      <button class="del link-del-btn" onclick="delGoogleLink('${l.id}')" title="Delete">✕</button>
+      <div class="link-edit-panel ${openGlEditId === l.id ? "open" : ""}" id="glEdit-${l.id}">
+        <div class="link-edit-panel-inner">
+          <input type="text" value="${esc(l.name || "")}" placeholder="Name" onchange="editGoogleLink('${l.id}','name',this.value)">
+          <input type="text" value="${esc(url)}" placeholder="https://…" onchange="editGoogleLink('${l.id}','url',this.value)">
+        </div>
+      </div>
+    </div>`;
+}
+
+let glArchiveOpen = false;
+export function toggleGoogleLinkArchive() { glArchiveOpen = !glArchiveOpen; renderGoogleLinks(); }
+
+export function renderGoogleLinks() {
+  const g = ensureGoogleLinks();
+  const live = liveGlGroups();
+  const group = currentGlGroup();
+  if (group && g.activeGroup !== group.id) g.activeGroup = group.id;
+
+  const tabsEl = document.getElementById("glTabs");
+  if (!tabsEl) return; // the Notebook markup isn't on this build
+  tabsEl.innerHTML = live.map(gr => `
+    <button class="tab ${group && gr.id === group.id ? "active" : ""}" onclick="switchGoogleLinkGroup('${gr.id}')">${esc(gr.name)}</button>`).join("")
+    + `<button class="tab tab-add" onclick="addGoogleLinkGroup()" title="New tab">＋</button>`;
+
+  const nameRow = document.getElementById("glGroupRow");
+  if (nameRow) nameRow.style.display = group ? "" : "none";
+  const nameEl = document.getElementById("glGroupName");
+  if (nameEl && group && document.activeElement !== nameEl) nameEl.value = group.name;
+
+  const listEl = document.getElementById("glLinks");
+  if (listEl) {
+    if (!group) {
+      listEl.innerHTML = `<p class="hint">Every tab is archived — restore one below, or add a new tab.</p>`;
+    } else {
+      const links = group.links.filter(l => !l.archived);
+      listEl.innerHTML = links.map(glLinkRowHtml).join("") || `<p class="hint">No links in this tab yet.</p>`;
+    }
+  }
+
+  /* The count covers archived tabs plus archived links inside live tabs.
+     Links inside an archived tab aren't listed separately — restoring the
+     tab brings them back with it. */
+  const archivedGroups = g.groups.filter(gr => gr.archived);
+  const archivedLinks = [];
+  live.forEach(gr => gr.links.filter(l => l.archived).forEach(l => archivedLinks.push({ l, gr })));
+  const total = archivedGroups.length + archivedLinks.length;
+
+  const trigger = document.getElementById("glArchiveBtn");
+  if (trigger) {
+    trigger.style.display = total ? "" : "none";
+    trigger.textContent = `🗄 Archived (${total})`;
+  }
+  const panel = document.getElementById("glArchivePanel");
+  if (panel) {
+    if (!total) glArchiveOpen = false;
+    panel.classList.toggle("open", glArchiveOpen);
+    panel.innerHTML = !glArchiveOpen ? "" :
+      archivedGroups.map(gr => `
+        <div class="gsi-archive-row">
+          <span class="gsi-archive-text">📁 ${esc(gr.name)} <span class="hint">— tab, ${gr.links.length} link(s)</span></span>
+          <div class="gsi-archive-actions">
+            <button class="gsi-archive-restore" onclick="restoreGoogleLinkGroup('${gr.id}')">↺ Restore</button>
+            <button class="gsi-archive-remove" onclick="delGoogleLinkGroup('${gr.id}')" title="Delete tab (recoverable from Trash)">✕</button>
+          </div>
+        </div>`).join("")
+      + archivedLinks.map(({ l, gr }) => `
+        <div class="gsi-archive-row">
+          <span class="gsi-archive-text">🔗 ${esc(l.name)} <span class="hint">— in ${esc(gr.name)}</span></span>
+          <div class="gsi-archive-actions">
+            <button class="gsi-archive-restore" onclick="restoreGoogleLink('${gr.id}','${l.id}')">↺ Restore</button>
+            <button class="gsi-archive-remove" onclick="delGoogleLink('${l.id}','${gr.id}')" title="Delete link (recoverable from Trash)">✕</button>
+          </div>
+        </div>`).join("");
+  }
+}
+
+/* ---------------- tabs ---------------- */
+export function addGoogleLinkGroup() {
+  const name = prompt("Name this tab (e.g. Sheets, Drive folders, Shared docs):");
+  if (!name || !name.trim()) return;
+  const g = ensureGoogleLinks();
+  const gr = { id: uid(), name: name.trim(), archived: false, links: [] };
+  g.groups.push(gr);
+  g.activeGroup = gr.id;
+  persist(); rerender(); // rerender, not renderGoogleLinks: link-preview decoration is reapplied there
+}
+export function switchGoogleLinkGroup(id) {
+  ensureGoogleLinks().activeGroup = id;
+  persist(false); rerender();
+}
+export function renameGoogleLinkGroup(v) {
+  const gr = currentGlGroup();
+  if (!gr || !v.trim()) return;
+  gr.name = v.trim();
+  persist(); rerender(); // rerender, not renderGoogleLinks: link-preview decoration is reapplied there
+}
+export function archiveGoogleLinkGroup() {
+  const g = ensureGoogleLinks();
+  const gr = currentGlGroup();
+  if (!gr) return;
+  gr.archived = true;
+  const next = liveGlGroups()[0];
+  g.activeGroup = next ? next.id : "";
+  persist(); rerender(); // rerender, not renderGoogleLinks: link-preview decoration is reapplied there
+  toast(`Archived "${gr.name}" — restore it from Archived`);
+}
+export function restoreGoogleLinkGroup(id) {
+  const g = ensureGoogleLinks();
+  const gr = g.groups.find(x => x.id === id);
+  if (!gr) return;
+  gr.archived = false;
+  g.activeGroup = gr.id;
+  persist(); rerender(); // rerender, not renderGoogleLinks: link-preview decoration is reapplied there
+  toast(`Restored "${gr.name}"`);
+}
+export function delGoogleLinkGroup(id) {
+  const g = ensureGoogleLinks();
+  const gr = g.groups.find(x => x.id === id) || currentGlGroup();
+  if (!gr) return;
+  if (!confirm(`Delete the "${gr.name}" tab and its ${gr.links.length} link(s)? You can restore it from Trash within 30 days.`)) return;
+  moveToTrash("googleLinkGroup", gr);
+  g.groups = g.groups.filter(x => x.id !== gr.id);
+  // At least one tab always remains, otherwise Add has nowhere to go.
+  if (!g.groups.length) g.groups.push({ id: uid(), name: "General", archived: false, links: [] });
+  const next = liveGlGroups()[0] || g.groups[0];
+  g.activeGroup = next.id;
+  persist(); rerender(); // rerender, not renderGoogleLinks: link-preview decoration is reapplied there
+  toast(`Deleted "${gr.name}"`);
+}
+
+/* ---------------- links ---------------- */
+export function addGoogleLink() {
+  const n = document.getElementById("glLinkName"), u = document.getElementById("glLinkUrl");
+  if (!n.value.trim() || !u.value.trim()) return toast("Name and link are required");
+  const gr = currentGlGroup();
+  if (!gr) return toast("Add or restore a tab first");
+  let url = u.value.trim();
+  if (!/^https?:\/\//i.test(url)) url = "https://" + url;
+  gr.links.push({ id: uid(), name: n.value.trim(), url, archived: false });
+  n.value = u.value = "";
+  persist(); rerender(); // rerender so link-preview decoration runs over the new row
+}
+function findGlLink(id, groupId) {
+  const g = ensureGoogleLinks();
+  const gr = groupId
+    ? g.groups.find(x => x.id === groupId)
+    : g.groups.find(x => (x.links || []).some(l => l.id === id));
+  const l = gr && gr.links.find(x => x.id === id);
+  return l ? { link: l, group: gr } : null;
+}
+export function editGoogleLink(id, field, value) {
+  const found = findGlLink(id);
+  if (!found) return;
+  let v = String(value).trim();
+  if (field === "url" && v && !/^https?:\/\//i.test(v)) v = "https://" + v;
+  found.link[field] = v;
+  persist(); rerender();
+}
+export function archiveGoogleLink(id) {
+  const found = findGlLink(id);
+  if (!found) return;
+  found.link.archived = true;
+  persist(); rerender(); // rerender, not renderGoogleLinks: link-preview decoration is reapplied there
+  toast(`Archived "${found.link.name}" — restore it from Archived`);
+}
+export function restoreGoogleLink(groupId, linkId) {
+  const found = findGlLink(linkId, groupId);
+  if (!found) return;
+  found.link.archived = false;
+  persist(); rerender(); // rerender, not renderGoogleLinks: link-preview decoration is reapplied there
+  toast(`Restored "${found.link.name}"`);
+}
+// groupId is optional — supplied from the Archived panel, where the link
+// may sit in a tab that isn't the one currently selected.
+export function delGoogleLink(id, groupId) {
+  const found = findGlLink(id, groupId);
+  if (!found) return;
+  const { link, group } = found;
+  moveToTrash("googleLink", link, { groupId: group.id });
+  group.links = group.links.filter(x => x.id !== id);
+  persist(); rerender(); // rerender, not renderGoogleLinks: link-preview decoration is reapplied there
+  toast(`Deleted "${link.name}"`);
 }
