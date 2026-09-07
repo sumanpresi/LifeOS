@@ -732,9 +732,26 @@ function mergeIncomingJournal(remote) {
   /* Deliberate deletions, by date. Compared on text as well as date so a
      day that was deleted and then written afresh isn't mistaken for the
      old deletion and thrown away again. */
-  const deletedText = new Map(); // date -> Set of plain texts trashed for that date
+  /* ONLY a deletion the person actually made counts here.
+
+     This used to read every "journalEntry" record in the trash log — and
+     the conflict copies filed a few lines below are also written to that
+     log. A copy filed to RESCUE a version was therefore indistinguishable
+     from a record of a version being thrown away, and the two branches
+     underneath treat a match as "the other side deleted this day" and
+     drop the day from `merged` — which is written straight back to both
+     `state.journal` and `remote.journal`. So a day that had ever been
+     through one conflict could later be erased from both devices and the
+     cloud at once, with the entry itself as the thing that triggered it.
+
+     Conflict copies now carry their own type ("journalConflict") and are
+     skipped. Records already in the log from before that carry the old
+     type but a "journal-conflict-" id, so those are skipped by id — a
+     backup written last week must not still be able to delete a day. */
+  const deletedText = new Map(); // date -> Set of plain texts the person deleted on that date
   (remote.trash || []).forEach(e => {
     if (!e || e.type !== "journalEntry" || !e.payload || !e.payload.date) return;
+    if (String(e.payload.id || "").startsWith("journal-conflict-")) return; // legacy conflict copy
     const key = e.payload.date;
     if (!deletedText.has(key)) deletedText.set(key, new Set());
     deletedText.get(key).add(journalPlainForCompare(e.payload.html));
@@ -806,7 +823,10 @@ function mergeIncomingJournal(remote) {
      replacing it (see trash.js). */
   conflicts.forEach(c => {
     try {
-      moveToTrash("journalEntry", { id: "journal-conflict-" + c.date + "-" + uid(), date: c.date, html: c.losing }, { date: c.date });
+      /* "journalConflict", not "journalEntry": this is a version being
+         KEPT, not one being deleted, and the deletion scan above must be
+         able to tell them apart. Restores identically (see trash.js). */
+      moveToTrash("journalConflict", { id: "journal-conflict-" + c.date + "-" + uid(), date: c.date, html: c.losing }, { date: c.date });
     } catch (e) { console.warn("[sync] could not file journal conflict copy", e); }
   });
   if (conflicts.length) {

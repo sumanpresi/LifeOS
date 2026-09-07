@@ -53,6 +53,7 @@ function labelFor(entry) {
     case "workDoc": return p.name;
     case "entertainment": return p.title;
     case "journalEntry": return "Journal — " + p.date;
+    case "journalConflict": return "Journal (other version) — " + p.date;
     case "whiteboardPage": return `Whiteboard contents — ${(p.objects||[]).length} note(s), ${(p.strokes||[]).length} stroke(s)`;
     case "workDocGroup": return "Documents tab: " + p.name;
     case "travelPlan": return "Travel plan: " + p.name;
@@ -81,7 +82,7 @@ function labelFor(entry) {
 const TYPE_NAMES = {
   task: "Task", habit: "Habit", goal: "Goal", gsiProject: "GSI project", gsiProjectTask: "GSI task",
   log: "Work log entry", meeting: "Meeting", gsiLink: "GSI link", personalDoc: "Personal document",
-  workDoc: "Work document", entertainment: "Entertainment entry", journalEntry: "Journal entry", whiteboardPage: "Whiteboard contents", workDocGroup: "Documents tab", travelPlan: "Travel plan", travelStop: "Travel stop", packingItem: "Packing item", packList: "Packing list",
+  workDoc: "Work document", entertainment: "Entertainment entry", journalEntry: "Journal entry", journalConflict: "Journal — second version", whiteboardPage: "Whiteboard contents", workDocGroup: "Documents tab", travelPlan: "Travel plan", travelStop: "Travel stop", packingItem: "Packing item", packList: "Packing list",
   referencePage: "Reference page", referenceLink: "Reference link", financeItem: "Finance item",
   financeLink: "Finance link", medicine: "Medicine", prescription: "Prescription",
   healthLink: "Health link", bookmarkLink: "Link", feed: "News feed", sectionLink: "Link", sectionNote: "Note",
@@ -263,7 +264,13 @@ export function restoreFromTrash(id) {
       if (!state.reference.kmlLayers.some(l => l.id === p.id)) state.reference.kmlLayers.push(p);
       break;
     }
-    case "journalEntry": {
+    /* Both restore the same way. They differ only in how they got here:
+       "journalEntry" is a day the person emptied, "journalConflict" is the
+       version a sync merge didn't pick. Kept as separate types because the
+       journal merge in supabase.js reads the first as evidence of a
+       deliberate deletion and must never read the second that way. */
+    case "journalEntry":
+    case "journalConflict": {
       // If something has since been written on that date, don't overwrite
       // it — append the restored text below instead of replacing it.
       const existing = state.journal[p.date];
