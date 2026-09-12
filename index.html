@@ -103,6 +103,7 @@
      (~883px), iPad mini/iPad (~768–1024px), and a bottom tab bar for
      phones (<=600px, incl. iPhone 17 Pro Max ~440px and fold cover screens). -->
 <link rel="stylesheet" href="css/responsive-foldable.css?v=202609042200">
+<link rel="stylesheet" href="css/health-pulse.css?v=202609042200">
 </head>
 <body>
 <div class="shell">
@@ -1080,50 +1081,28 @@
         </div>
       </div>
 
-      <!-- Notes beside the Dose log: what you write about your health next to
-           what the app recorded about it. Explicit column wrappers rather than
-           two cards flowing through the grid, so neither side's height drags
-           the other down — same reason My Day uses them. -->
-      <div class="grid-2" style="margin-top:16px">
-        <div class="col-stack">
-          <div class="card"><div class="card-head"><h2>Notes</h2>
-              <button class="btn btn-ghost sec-note-add" onclick="addSectionNote('health')">+ New note</button>
-            </div>
-            <div class="card-body">
-              <div class="sec-notes" id="secNotes-health"></div>
-            </div>
-          </div>
+      <!-- Notes. Full width now that the plain Dose log card below it has
+           been folded into Health Pulse's own Recent dose log — same data,
+           same setMedLogFilter/medLogList render path underneath (health.js
+           renderMedLog is unchanged), just no longer duplicated on screen. -->
+      <div class="card" style="margin-top:16px">
+        <div class="card-head"><h2>Notes</h2>
+          <button class="btn btn-ghost sec-note-add" onclick="addSectionNote('health')">+ New note</button>
         </div>
-        <div class="col-stack">
-          <div class="card">
-            <div class="card-head"><h2>Dose log</h2>
-              <select id="medLogFilter" onchange="setMedLogFilter(this.value)" class="status-sel" style="flex-shrink:0"></select>
-            </div>
-            <div class="card-body" id="medLogList" style="max-height:320px;overflow-y:auto"></div>
-          </div>
+        <div class="card-body">
+          <div class="sec-notes" id="secNotes-health"></div>
         </div>
       </div>
 
-      <!-- Medicine insights. Everything in it is derived from the dose log at
-           render time — no stored totals, no list of medicines to maintain —
-           so a medicine added today appears the moment it is first ticked. -->
-      <div class="card" style="margin-top:16px">
-        <div class="card-head">
-          <h2 style="display:flex;align-items:center;gap:12px"><span class="card-head-section">Medicine insights</span>
-            <span class="week-nav">
-              <button onclick="shiftMedStats(-1)" aria-label="Earlier period"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
-              <span class="week-label" id="medStatsLabel"></span>
-              <button id="medStatsNext" onclick="shiftMedStats(1)" aria-label="Later period"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
-            </span>
-          </h2>
-          <div class="seg" id="medStatsRange">
-            <button class="on" data-range="week" onclick="setMedStatsRange('week')">Week</button>
-            <button data-range="month" onclick="setMedStatsRange('month')">Month</button>
-          </div>
-        </div>
-        <div class="card-body" id="medStatsBody"></div>
-      </div>
+      <!-- Health Pulse. Everything inside is derived from state.health at
+           render time by js/health-pulse.js — no stored totals, no second
+           copy of the dose log, so a medicine added today (or a strength
+           changed, or a medicine deleted) appears correctly on the very
+           next render. See health-pulse.js for the full explanation. -->
+      <div class="section-title">Health Pulse</div>
+      <div id="healthPulseRoot" class="hp-root"></div>
     </section>
+
 
     <!-- ======== PAGE: TRAVEL PLAN ======== -->
     <section class="page" id="page-travel">
