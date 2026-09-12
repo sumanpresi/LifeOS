@@ -19,7 +19,7 @@
    back, so it cannot create a sync conflict or a duplicate payload. */
 import { state, esc, todayKey } from './state.js?v=202609042200';
 import { weekDates } from './habits.js?v=202609042200';
-import { medicineName, liveMedicines } from './health.js?v=202609042200';
+import { medicineName } from './health.js?v=202609042200';
 import { parseMedName } from './med-stats.js?v=202609042200';
 
 const SLOTS = [["morning", "Morning"], ["afternoon", "Afternoon"], ["night", "Night"]];
@@ -50,10 +50,6 @@ let hpRange = "week";        // "week" | "month" | "year"
 let hpOffset = 0;
 let hpMedFilter = "all";     // base name, lowercase-matched, or "all"
 let hpStrengthFilter = "all";
-let hpExpanded = new Set();  // medIds with the card expanded (medId, not comboKey — the
-                              // one identifier here that's guaranteed to be an opaque
-                              // uid() rather than free-text off a medicine name, so it's
-                              // safe to splice into an onclick="" attribute unescaped)
 let hpTimelineCombo = null;  // comboKey, chosen lazily once data exists
 let hpTimelineWeekOffset = 0;
 
@@ -61,10 +57,6 @@ export function setHPRange(v) { hpRange = v; hpOffset = 0; renderHealthPulse(); 
 export function shiftHPPeriod(n) { hpOffset += n; if (hpOffset > 0) hpOffset = 0; renderHealthPulse(); }
 export function setHPMed(v) { hpMedFilter = v; hpStrengthFilter = "all"; renderHealthPulse(); }
 export function setHPStrength(v) { hpStrengthFilter = v; renderHealthPulse(); }
-export function toggleHPMedCard(medId) {
-  if (hpExpanded.has(medId)) hpExpanded.delete(medId); else hpExpanded.add(medId);
-  renderHealthPulse();
-}
 export function setHPTimelineCombo(v) { hpTimelineCombo = v; hpTimelineWeekOffset = 0; renderHealthPulse(); }
 export function shiftHPTimelineWeek(n) { hpTimelineWeekOffset += n; if (hpTimelineWeekOffset > 0) hpTimelineWeekOffset = 0; renderHealthPulse(); }
 
@@ -186,82 +178,10 @@ function aggregate(range, offset, baseFilter, strengthFilter) {
   return { type, items: buckets, label, total, perMed, perBase, perCombo, daysCovered: daysWithDose.size, periodLength: items.length, meta, metaById };
 }
 
-/* Longest and current consecutive-day streaks across the WHOLE history —
-   independent of the on-screen period, the way a streak should be. */
-function computeStreaks() {
-  const dated = Object.keys(state.health.medicineLog || {}).filter(k => {
-    const entry = state.health.medicineLog[k];
-    return entry && Object.values(entry).some(slots => SLOTS.some(([s]) => slots && slots[s]));
-  }).sort();
-  if (!dated.length) return { current: 0, longest: 0 };
-  const set = new Set(dated);
-
-  let longest = 0, run = 0, prev = null;
-  dated.forEach(dk => {
-    const d = new Date(dk + "T00:00:00");
-    run = prev && Math.round((d - prev) / 86400000) === 1 ? run + 1 : 1;
-    longest = Math.max(longest, run);
-    prev = d;
-  });
-
-  let cur = 0;
-  const cursor = new Date(todayKey() + "T00:00:00");
-  if (!set.has(todayKey(cursor))) cursor.setDate(cursor.getDate() - 1); // today not logged yet is not a broken streak
-  while (set.has(todayKey(cursor))) { cur++; cursor.setDate(cursor.getDate() - 1); }
-  return { current: cur, longest };
-}
-
-/* Trailing 7 real days (today inclusive), independent of the range
-   selector — used for both KPI sparklines so they read as "recent
-   activity" rather than jumping around with the Week/Month/Year tabs. */
-function trailingDoses(n) {
-  const out = [];
-  const cursor = new Date();
-  for (let i = n - 1; i >= 0; i--) {
-    const d = new Date(cursor); d.setDate(cursor.getDate() - i);
-    const key = todayKey(d);
-    const entry = state.health.medicineLog[key];
-    let count = 0;
-    if (entry) Object.values(entry).forEach(slots => SLOTS.forEach(([s]) => { if (slots && slots[s]) count++; }));
-    out.push({ key, count });
-  }
-  return out;
-}
-
 /* ---------- small SVG builders ---------- */
-function icon(pathD) {
-  return `<span class="hp-kpi-icon"><svg viewBox="0 0 24 24">${pathD}</svg></span>`;
-}
 const ICONS = {
-  pill: '<path d="M4.5 14.5l6-6a4.24 4.24 0 0 1 6 6l-6 6a4.24 4.24 0 0 1-6-6z"/><path d="M8 8l8 8"/>',
-  pulse: '<path d="M3 12h4l2-7 4 14 2-7h6"/>',
-  flame: '<path d="M12 2s5 5 5 10a5 5 0 0 1-10 0c0-2 1-3 1-3s1 2 3 2a2.5 2.5 0 0 0 1-4.7C10 5 9 3.5 9 2c0 0-6 4-6 10a9 9 0 0 0 18 0c0-6-9-10-9-10z"/>',
-  calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
-  waves: '<path d="M3 8c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 14c2-2 4-2 6 0s4 2 6 0 4-2 6 0M3 20c2-2 4-2 6 0s4 2 6 0 4-2 6 0"/>',
-  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/>',
-  pieChart: '<path d="M12 3v9l7.5 4.3A9 9 0 1 1 12 3z"/><path d="M12 3a9 9 0 0 1 9 9h-9z"/>',
-  bars: '<path d="M5 20V10M12 20V4M19 20v-7"/>',
-  list: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
-  grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
-  history: '<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5M12 7v5l3 2"/>',
   empty: '<path d="M9 4.5l6 6-6 6"/><circle cx="12" cy="12" r="9.2"/>'
 };
-
-/* A ring built from stroke-dasharray, same technique the habit donut in
-   index.html already uses, just parameterised. pct is clamped so a
-   filter that momentarily makes today "busier than usual" never draws
-   past a full circle. */
-function ringSvg(pct, size = 64, thickness = 8) {
-  const r = (size - thickness) / 2;
-  const c = 2 * Math.PI * r;
-  const clamped = Math.max(0, Math.min(1, pct));
-  return `<svg class="hp-ring" viewBox="0 0 ${size} ${size}">
-    <circle class="hp-ring-track" cx="${size / 2}" cy="${size / 2}" r="${r}" stroke-width="${thickness}"/>
-    <circle class="hp-ring-val" cx="${size / 2}" cy="${size / 2}" r="${r}" stroke-width="${thickness}"
-      stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${(c * (1 - clamped)).toFixed(1)}"
-      transform="rotate(-90 ${size / 2} ${size / 2})"/>
-  </svg>`;
-}
 
 /* Multi-segment donut. segments = [{value,color,label}]. An empty/zero
    total draws a flat track rather than a divide-by-zero arc, and the
@@ -352,7 +272,6 @@ export function renderHealthPulse() {
   if (!root) return;
 
   const meta = medMeta();
-  const live = liveMedicines();
 
   if (!meta.length) {
     root.innerHTML = `
@@ -366,64 +285,6 @@ export function renderHealthPulse() {
 
   const overall = aggregate(hpRange, hpOffset, "all", "all");
   const filtered = aggregate(hpRange, hpOffset, hpMedFilter, hpStrengthFilter);
-  const streaks = computeStreaks();
-  const recent7 = trailingDoses(7);
-  const recentMax = Math.max(1, ...recent7.map(d => d.count));
-  /* All-time per-combo totals for the medicine cards' expanded view — a
-     third, unbounded aggregate so "all-time" really means all-time
-     regardless of which Week/Month/Year tab is active on screen. */
-  const allTimeStats = aggregateAllTime();
-
-  /* ---- Today's medication ---- */
-  const tKey = todayKey();
-  const todayEntry = state.health.medicineLog[tKey] || {};
-  let todayCount = 0;
-  const todayLines = [];
-  live.forEach(m => {
-    const slots = todayEntry[m.id];
-    if (!slots) return;
-    const taken = SLOTS.filter(([s]) => slots[s]).map(([, n]) => n);
-    if (!taken.length) return;
-    todayCount += taken.length;
-    const { base, strength } = parseMedName(m.name);
-    todayLines.push(`<div class="hp-medline"><span class="hp-check">✓</span>${esc(comboLabel(base, strength))}</div><div class="hint" style="margin:-2px 0 4px 21px">${esc(taken.join(", "))}</div>`);
-  });
-  const last7ExclToday = recent7.slice(0, -1);
-  const avgRecent = last7ExclToday.length ? last7ExclToday.reduce((n, d) => n + d.count, 0) / last7ExclToday.length : 0;
-  const todayPct = avgRecent > 0 ? todayCount / avgRecent : (todayCount > 0 ? 1 : 0);
-
-  const kpiToday = `
-    <div class="hp-kpi">
-      <div class="hp-kpi-title"><span>Today's medication</span>${icon(ICONS.pill)}</div>
-      <div class="hp-kpi-row">
-        <div class="hp-ring-wrap">${ringSvg(todayPct)}<div class="hp-ring-label">${todayCount}</div></div>
-        <div class="hp-medlines">${todayLines.length ? todayLines.join("") : `<span class="hint">No doses logged yet today.</span>`}</div>
-      </div>
-    </div>`;
-
-  const kpiActive = `
-    <div class="hp-kpi">
-      <div class="hp-kpi-title"><span>Active medicines</span>${icon(ICONS.pulse)}</div>
-      <div class="hp-big">${live.length}<span class="hp-unit">medicine${live.length === 1 ? "" : "s"}</span></div>
-      <div class="hp-sub">${overall.total} dose${overall.total === 1 ? "" : "s"} in ${esc(overall.label)}</div>
-      <div class="hp-bars">${recent7.map(d => `<i style="height:${Math.max(8, (d.count / recentMax) * 100)}%" title="${esc(d.key)}: ${d.count}"></i>`).join("")}</div>
-    </div>`;
-
-  const kpiStreak = `
-    <div class="hp-kpi">
-      <div class="hp-kpi-title"><span>Consistency</span>${icon(ICONS.flame)}</div>
-      <div class="hp-big">${streaks.current}<span class="hp-unit">day${streaks.current === 1 ? "" : "s"}</span></div>
-      <div class="hp-sub">Current streak · longest ${streaks.longest}</div>
-      <div class="hp-bars">${recent7.map(d => `<i style="height:${Math.max(8, (d.count / recentMax) * 100)}%"></i>`).join("")}</div>
-    </div>`;
-
-  const perDayAvg = overall.periodLength ? (overall.total / overall.periodLength).toFixed(1) : "0";
-  const kpiPeriod = `
-    <div class="hp-kpi">
-      <div class="hp-kpi-title"><span>${esc(overall.label)}</span>${icon(ICONS.calendar)}</div>
-      <div class="hp-big">${overall.daysCovered}<span class="hp-unit">/ ${overall.periodLength} days</span></div>
-      <div class="hp-sub">${perDayAvg} dose${perDayAvg === "1.0" ? "" : "s"} per day on average</div>
-    </div>`;
 
   /* ---- filter dropdown option lists ---- */
   const bases = [...new Map(meta.map(m => [m.base.toLowerCase(), m.base])).values()].sort((a, b) => a.localeCompare(b));
@@ -491,80 +352,14 @@ export function renderHealthPulse() {
       </div>` : `<p class="hint">No doses ticked in ${esc(overall.label)}.</p>`}
     </div>`;
 
-  /* ---- Dose distribution by strength (respects the shared filter) ---- */
-  const comboRows = [...filtered.perCombo.values()].sort((a, b) => b.total - a.total);
-  const strengthMax = Math.max(1, ...comboRows.map(r => r.total));
-  const strengthCard = `
-    <div class="hp-card">
-      <div class="hp-card-head"><h3>Dose distribution by strength</h3></div>
-      ${comboRows.length ? `<div class="hp-strength">
-        ${comboRows.slice(0, 10).map(r => `
-          <div class="hp-srow">
-            <span class="hp-srow-label">${esc(r.strength || "—")}</span>
-            <div class="hp-track"><div class="hp-fill" style="width:${Math.max(4, r.total / strengthMax * 100)}%;background:${colorForBase(r.base)}"></div></div>
-            <b>${r.total}</b>
-          </div>`).join("")}
-      </div>` : `<p class="hint">Nothing to show yet for this filter.</p>`}
-    </div>`;
-
-  /* ---- Medicine + strength analysis table ---- */
-  const analysisCard = `
-    <div class="hp-card hp-wide">
-      <div class="hp-card-head"><h3>Medicine + strength analysis</h3><span class="hint">${esc(filtered.label)}</span></div>
-      ${comboRows.length ? `<div class="table-scroll"><table class="hp-table">
-        <thead><tr><th>Medicine</th><th>Strength</th><th>Doses</th><th>Days taken</th>
-          ${SLOTS.map(([, n]) => `<th>${n}</th>`).join("")}<th>Last taken</th></tr></thead>
-        <tbody>
-          ${comboRows.map(r => `
-            <tr>
-              <td><span class="hp-dot" style="background:${colorForBase(r.base)}"></span><span class="hp-medname">${esc(r.base)}</span></td>
-              <td class="hp-strengthtext">${r.strength ? esc(r.strength) : "—"}</td>
-              <td class="hp-num">${r.total}</td>
-              <td class="hp-num">${r.days.size}</td>
-              ${SLOTS.map(([slot]) => `<td class="hp-num">${r[slot] || "·"}</td>`).join("")}
-              <td>${esc([...r.days].sort().pop() || "—")}</td>
-            </tr>`).join("")}
-        </tbody>
-      </table></div>` : `<p class="hint">No doses ticked in ${esc(filtered.label)} for this filter.</p>`}
-    </div>`;
-
-  /* ---- Medicine cards ---- */
+  /* ---- Medicine timeline options ---- */
   const liveCombos = new Map();
   meta.filter(m => !m.archived).forEach(m => {
     if (!liveCombos.has(m.comboKey)) liveCombos.set(m.comboKey, m);
   });
-  const cardsHtml = [...liveCombos.values()].map(m => {
-    const combo = filtered.perCombo.get(m.comboKey);
-    const total = combo ? combo.total : 0;
-    const days = combo ? combo.days.size : 0;
-    const morning = combo ? combo.morning : 0, afternoon = combo ? combo.afternoon : 0, night = combo ? combo.night : 0;
-    const isOpen = hpExpanded.has(m.medId);
-    const allTimeCombo = allTimeStats.perCombo.get(m.comboKey);
-    return `
-    <div class="hp-medcard ${isOpen ? "is-open" : ""}" onclick="toggleHPMedCard('${m.medId}')">
-      <div class="hp-medcard-head">
-        <span class="hp-dot" style="background:${colorForBase(m.base)}"></span>${esc(m.base)}
-        <span class="hp-medcard-strength">${m.strength ? esc(m.strength) : ""}</span>
-      </div>
-      <div class="hp-medcard-big">${total}<span class="hp-unit" style="font-size:11px"> doses</span></div>
-      <div class="hp-medcard-sub">${days} day${days === 1 ? "" : "s"} · ${esc(filtered.label)}</div>
-      <div class="hp-medcard-slots">
-        <div>M<b>${morning}</b></div><div>A<b>${afternoon}</b></div><div>N<b>${night}</b></div>
-      </div>
-      <div class="hp-medcard-expand"><div class="hp-medcard-expand-inner">
-        <div><span>All-time doses</span><b>${allTimeCombo ? allTimeCombo.total : 0}</b></div>
-        <div><span>Days taken (all-time)</span><b>${allTimeCombo ? allTimeCombo.days.size : 0}</b></div>
-        <div><span>Last taken</span><b>${allTimeCombo && allTimeCombo.days.size ? esc([...allTimeCombo.days].sort().pop()) : "—"}</b></div>
-      </div></div>
-    </div>`;
-  }).join("");
-  const medCardsCard = `
-    <div class="hp-card hp-wide">
-      <div class="hp-card-head"><h3>Your medicines</h3><span class="hint">Tap a card for its full history</span></div>
-      ${cardsHtml || `<p class="hint">No active medicines right now.</p>`}
-    </div>`;
 
   /* ---- Medication timeline ---- */
+  const tKey = todayKey();
   const timelineOptions = [...liveCombos.values()];
   if (!hpTimelineCombo || !timelineOptions.some(m => m.comboKey === hpTimelineCombo)) {
     hpTimelineCombo = timelineOptions[0] ? timelineOptions[0].comboKey : null;
@@ -626,45 +421,11 @@ export function renderHealthPulse() {
     </div>`;
 
   root.innerHTML = `
-    <div class="hp-hero">
-      <div class="hp-hero-text">
-        <h2>Health Pulse</h2>
-        <p>Your health at a glance — calculated automatically from your recorded doses.</p>
-      </div>
-    </div>
-    <div class="hp-cards4">${kpiToday}${kpiActive}${kpiStreak}${kpiPeriod}</div>
     <div class="hp-layout">
       ${rhythmCard}
       <div>${todCard}${distCard}</div>
     </div>
-    ${strengthCard}
-    ${analysisCard}
-    ${medCardsCard}
     ${timelineCard}
     ${logCard}
   `;
-}
-
-/* Unbounded version of aggregate(): no period window, so it always
-   reflects the medicine's entire recorded history. Kept separate from
-   aggregate() rather than adding an "all time" range option there,
-   because every other consumer of aggregate() (KPIs, rhythm chart,
-   donuts) genuinely wants a bounded period. */
-function aggregateAllTime() {
-  const metaById = new Map(medMeta().map(m => [m.medId, m]));
-  const perCombo = new Map();
-  Object.keys(state.health.medicineLog || {}).forEach(dateKey => {
-    const entry = state.health.medicineLog[dateKey];
-    Object.entries(entry || {}).forEach(([medId, slots]) => {
-      const m = metaById.get(medId);
-      if (!m) return;
-      SLOTS.forEach(([slot]) => {
-        if (!slots || !slots[slot]) return;
-        const combo = perCombo.get(m.comboKey) || { total: 0, days: new Set() };
-        combo.total++; combo.days.add(dateKey);
-        perCombo.set(m.comboKey, combo);
-      });
-    });
-  });
-  return { perCombo };
 }
