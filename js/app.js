@@ -17,6 +17,7 @@ import { initDropToAttach, handleIncomingShare } from './attach.js?v=20260904220
 import * as finance from './finance.js?v=202609042200';
 import * as health from './health.js?v=202609042200';
 import * as medStats from './med-stats.js?v=202609042200';
+import * as healthPulse from './health-pulse.js?v=202609042200';
 import * as travel from './travel.js?v=202609042200';
 import * as reference from './reference.js?v=202609042200';
 import * as notebook from './notebook.js?v=202609042200';
@@ -64,6 +65,7 @@ function renderEverything() {
   finance.renderFinance();
   health.renderHealth();
   medStats.renderMedStats();
+  healthPulse.renderHealthPulse();
   travel.renderTravel();
   reference.renderReference();
   notebook.renderNotebook();
@@ -183,6 +185,10 @@ Object.assign(window,
     addMedicine: health.addMedicine, delMedicine: health.delMedicine, toggleDose: health.toggleDose,
     shiftMedWeek: health.shiftMedWeek, setMedLogFilter: health.setMedLogFilter,
     addPrescription: health.addPrescription, delPrescription: health.delPrescription },
+  { setHPRange: healthPulse.setHPRange, shiftHPPeriod: healthPulse.shiftHPPeriod,
+    setHPMed: healthPulse.setHPMed, setHPStrength: healthPulse.setHPStrength,
+    toggleHPMedCard: healthPulse.toggleHPMedCard, setHPTimelineCombo: healthPulse.setHPTimelineCombo,
+    shiftHPTimelineWeek: healthPulse.shiftHPTimelineWeek },
   { addTravelPlan: travel.addTravelPlan, switchTravelPlan: travel.switchTravelPlan,
     renameTravelPlan: travel.renameTravelPlan, delTravelPlan: travel.delTravelPlan,
     addStop: travel.addStop, editStop: travel.editStop, toggleStopMap: travel.toggleStopMap, delStop: travel.delStop,
