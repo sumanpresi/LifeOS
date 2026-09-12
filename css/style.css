@@ -641,8 +641,14 @@ html.sidebar-hidden .main{--main-pad-x:28px;padding-left:28px}
 }
 
 /* ---------- Task extras: flag, due date, link, category (Overview) ---------- */
-.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.grid-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
 @media(max-width:900px){.grid-3{grid-template-columns:1fr}}
+/* Two equal columns, for a row of peers — unlike .grid-2, which weights one
+   side at 1.35fr because it carries the thing you work in. Same collapse
+   point and same gap as .grid-3, so a row can move between them without
+   anything else shifting. */
+.grid-2-even{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+@media(max-width:900px){.grid-2-even{grid-template-columns:1fr}}
 .task-row{position:relative}
 .flag-btn{background:none;border:none;font-size:16px;opacity:.55;cursor:pointer;flex-shrink:0;filter:grayscale(.6)}
 .flag-btn:hover{opacity:.9;filter:grayscale(0)}
