@@ -98,17 +98,57 @@ export function delMedicine(id) {
   persist(); renderHealth();
 }
 
+let openPrescriptionEditId = null;
+export function togglePrescriptionEdit(id) {
+  openPrescriptionEditId = openPrescriptionEditId === id ? null : id;
+  renderPrescriptions();
+  const card = document.getElementById("prescriptionList")?.closest(".card");
+  if (card) card.classList.toggle("has-open-popover", !!openPrescriptionEditId);
+  if (openPrescriptionEditId) document.querySelector(`#presEdit-${id} input`)?.focus();
+}
+document.addEventListener("pointerdown", evt => {
+  if (!openPrescriptionEditId) return;
+  if (evt.target.closest(".link-edit-panel") || evt.target.closest(".link-edit-btn")) return;
+  togglePrescriptionEdit(openPrescriptionEditId);
+});
+export function editPrescription(id, field, value) {
+  const p = (state.health.prescriptions || []).find(x => x.id === id);
+  if (!p) return;
+  let v = String(value).trim();
+  if (field === "url" && v && !/^https?:\/\//i.test(v)) v = "https://" + v;
+  p[field] = v;
+  persist(); renderPrescriptions();
+}
 function renderPrescriptions() {
   const box = document.getElementById("prescriptionList");
   if (!box) return;
   const items = [...(state.health.prescriptions || [])].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
-  box.innerHTML = items.map(p => `
-    <div class="fin-item">
-      <span class="fin-item-name">${esc(p.name)}</span>
-      <span class="fin-item-date">${p.date ? esc(p.date) : ""}</span>
-      ${p.url ? `<a href="${esc(p.url.startsWith("http")?p.url:"https://"+p.url)}" target="_blank" rel="noopener" title="Open">🔗</a>` : ""}
-      <button class="del" onclick="delPrescription('${p.id}')">✕</button>
-    </div>`).join("") || `<p class="hint">No prescriptions saved yet.</p>`;
+  const label = `<span class="card-head-section link-grid-label">Prescriptions</span>`;
+  const rows = items.map(p => {
+    const when = p.date ? ` <span class="link-row-meta">${esc(p.date)}</span>` : "";
+    /* A prescription without a link is a note, not a destination — it gets
+       a span, so there is no anchor to click that goes nowhere. */
+    const title = p.url
+      ? `<a href="${esc(/^https?:\/\//i.test(p.url) ? p.url : "https://" + p.url)}" target="_blank" rel="noopener" class="link-row-title" onclick="linkClickPulse(this)">${esc(p.name)}${when}</a>`
+      : `<span class="link-row-title">${esc(p.name)}${when}</span>`;
+    return `
+    <div class="link-row" data-pres-id="${p.id}">
+      ${title}
+      <button class="link-edit-btn" onclick="togglePrescriptionEdit('${p.id}')" title="Edit">✎</button>
+      <button class="del link-del-btn" onclick="delPrescription('${p.id}')" title="Delete">✕</button>
+      <div class="link-edit-panel ${openPrescriptionEditId === p.id ? "open" : ""}" id="presEdit-${p.id}">
+        <div class="link-edit-panel-inner">
+          <input type="text" value="${esc(p.name)}" placeholder="Prescribed for / doctor" onchange="editPrescription('${p.id}','name',this.value)">
+          <input type="date" value="${esc(p.date || "")}" title="Date of visit" onchange="editPrescription('${p.id}','date',this.value)">
+          <input type="text" value="${esc(p.url || "")}" placeholder="Link (optional)" onchange="editPrescription('${p.id}','url',this.value)">
+        </div>
+      </div>
+    </div>`;
+  }).join("") || `<p class="hint">No prescriptions saved yet.</p>`;
+  box.innerHTML = label + rows;
+  box.insertAdjacentHTML("beforeend",
+    `<button type="button" class="link-add-btn" title="Add prescription" aria-label="Add prescription"
+       onclick="this.closest('.card').classList.toggle('adding')">+</button>`);
 }
 export function addPrescription() {
   const n = document.getElementById("presName"), u = document.getElementById("presUrl"), d = document.getElementById("presDate");
@@ -125,15 +165,65 @@ export function delPrescription(id) {
 }
 
 export function renderHealth() {
-  const g = document.getElementById("secLinks-health");
-  if (g) g.innerHTML = (state.health.links || []).map(l => `
-    <div class="link-card">
-      <a href="${esc(l.url)}" target="_blank" rel="noopener">${esc(l.title)}</a>
-      <button class="del" onclick="delHealthLink('${l.id}')">✕</button>
-    </div>`).join("") || `<p class="hint">No links yet.</p>`;
+  renderHealthLinks();
   renderMedWeek();
   renderMedLog();
   renderPrescriptions();
+}
+
+/* ---------- Links and Prescriptions as pill rows ----------
+   Both are the same component as Important links on My Day, down to the
+   class names, so they inherit its CSS rather than carrying copies of it:
+   a leading label chip, one .link-row per item with an inline ✎ panel, and
+   a "+" that folds the add form away until it is wanted.
+
+   Editing is new here. Before this, a mistyped URL or a renamed doctor
+   could only be fixed by deleting the row and adding it again — which also
+   put a copy in Trash for no reason. */
+let openHealthLinkEditId = null;
+export function toggleHealthLinkEdit(id) {
+  openHealthLinkEditId = openHealthLinkEditId === id ? null : id;
+  renderHealthLinks();
+  /* backdrop-filter gives every .card its own stacking context, so the
+     popover's z-index has no authority outside it — the card itself is
+     promoted instead, exactly as toggleLinkEdit does in widgets.js. */
+  const card = document.getElementById("secLinks-health")?.closest(".card");
+  if (card) card.classList.toggle("has-open-popover", !!openHealthLinkEditId);
+  if (openHealthLinkEditId) document.querySelector(`#healthLinkEdit-${id} input`)?.focus();
+}
+document.addEventListener("pointerdown", evt => {
+  if (!openHealthLinkEditId) return;
+  if (evt.target.closest(".link-edit-panel") || evt.target.closest(".link-edit-btn")) return;
+  toggleHealthLinkEdit(openHealthLinkEditId);
+});
+export function editHealthLink(id, field, value) {
+  const l = (state.health.links || []).find(x => x.id === id);
+  if (!l) return;
+  let v = String(value).trim();
+  if (field === "url" && v && !/^https?:\/\//i.test(v)) v = "https://" + v;
+  l[field] = v;
+  persist(); rerender();
+}
+function renderHealthLinks() {
+  const g = document.getElementById("secLinks-health");
+  if (!g) return;
+  const label = `<span class="card-head-section link-grid-label">Links</span>`;
+  const rows = (state.health.links || []).map(l => `
+    <div class="link-row" data-link-id="${l.id}">
+      <a href="${esc(l.url)}" target="_blank" rel="noopener" class="link-row-title" onclick="linkClickPulse(this)">${esc(l.title)}</a>
+      <button class="link-edit-btn" onclick="toggleHealthLinkEdit('${l.id}')" title="Edit link">✎</button>
+      <button class="del link-del-btn" onclick="delHealthLink('${l.id}')" title="Delete">✕</button>
+      <div class="link-edit-panel ${openHealthLinkEditId === l.id ? "open" : ""}" id="healthLinkEdit-${l.id}">
+        <div class="link-edit-panel-inner">
+          <input type="text" value="${esc(l.title)}" placeholder="Title" onchange="editHealthLink('${l.id}','title',this.value)">
+          <input type="text" value="${esc(l.url)}" placeholder="https://…" onchange="editHealthLink('${l.id}','url',this.value)">
+        </div>
+      </div>
+    </div>`).join("") || `<p class="hint">No links yet.</p>`;
+  g.innerHTML = label + rows;
+  g.insertAdjacentHTML("beforeend",
+    `<button type="button" class="link-add-btn" title="Add link" aria-label="Add link"
+       onclick="this.closest('.card').classList.toggle('adding')">+</button>`);
 }
 
 let healthTimer = null;
