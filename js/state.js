@@ -240,7 +240,8 @@ export const DEFAULT_STATE = {
   },
   health: {
     notes: "", links: [],
-    medicines: [],      // [{id, name}]
+    medicines: [],      // [{id, name, archived?, hidden?}] — archived = deleted (history kept, row gone);
+                         // hidden = still active, just tucked out of the weekly grid until unhidden
     medicineLog: {},    // { "2026-07-19": { medId: {morning:bool, afternoon:bool, night:bool} } }
     medicineLogUpdated: {}, // { "2026-07-19": 1755436800000 } — per-day stamp, so two devices' dose ticks merge by day instead of one document overwriting the other
 

@@ -8,6 +8,14 @@ import { weekDates } from './habits.js?v=202609042200';
 
 let medWeekOffset = 0;
 let logFilterMed = "all";
+/* Transient, per-session — never persisted or synced. Hiding a medicine
+   from the weekly grid is a display preference, not data: the medicine
+   keeps every dose it's ever had, keeps counting in Health Pulse, and
+   can still be logged for directly (e.g. via the Dose log filter) —
+   only its row in THIS table disappears, so the grid can stay short and
+   current without touching anything about medicines you've stopped
+   taking but still want history for. */
+let showHiddenMeds = false;
 
 function isDosed(dateKey, medId, slot) {
   return !!(state.health.medicineLog[dateKey] && state.health.medicineLog[dateKey][medId] && state.health.medicineLog[dateKey][medId][slot]);
@@ -31,14 +39,22 @@ function renderMedWeek() {
   const days = weekDates(medWeekOffset);
   const tKey = todayKey();
   const dayNames = ["M", "T", "W", "T", "F", "S", "S"];
-  const meds = liveMedicines();   // archived ones keep their history, not their row
+  const allLive = liveMedicines();   // archived ones keep their history, not their row
+  const hiddenCount = allLive.filter(m => m.hidden).length;
+  const meds = showHiddenMeds ? allLive : allLive.filter(m => !m.hidden);
   const SLOTS = [["morning", "M"], ["afternoon", "A"], ["night", "N"]];
+  const eyeIcon = '<path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/>';
+  const eyeOffIcon = '<path d="M3 3l18 18"/><path d="M10.6 10.6a3 3 0 0 0 4.24 4.24"/><path d="M9.9 4.24A11 11 0 0 1 12 4c7 0 11 7 11 7a13.4 13.4 0 0 1-3.22 4.06M6.1 6.1A13.7 13.7 0 0 0 1 11s4 7 11 7a11 11 0 0 0 4.2-.83"/>';
 
   let html = `<tr><th>Medicine</th>${days.map((d, i) =>
     `<th class="${todayKey(d) === tKey ? "today-col" : ""}">${dayNames[i]}<br><span style="font-weight:600">${d.getDate()}</span></th>`).join("")}</tr>`;
   html += meds.map(m => `
-    <tr>
-      <td><span class="habit-name">${esc(m.name)}<button class="del" onclick="delMedicine('${m.id}')">✕</button></span></td>
+    <tr class="${m.hidden ? "med-row-hidden" : ""}">
+      <td><span class="habit-name">${esc(m.name)}
+        <button class="med-hide" onclick="toggleMedicineHidden('${m.id}')"
+          title="${m.hidden ? "Unhide — show in this list again" : "Hide from this list"}"
+          aria-label="${m.hidden ? "Unhide" : "Hide"} ${esc(m.name)}"><svg viewBox="0 0 24 24">${m.hidden ? eyeOffIcon : eyeIcon}</svg></button>
+        <button class="del" onclick="delMedicine('${m.id}')">✕</button></span></td>
       ${days.map(d => {
         const k = todayKey(d);
         const future = k > tKey;
@@ -51,8 +67,24 @@ function renderMedWeek() {
     </tr>`).join("");
   table.innerHTML = html;
   const fmt = d => d.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
-  document.getElementById("medWeekLabel").textContent = meds.length ? `${fmt(days[0])} – ${fmt(days[6])}` : "";
+  document.getElementById("medWeekLabel").textContent = allLive.length ? `${fmt(days[0])} – ${fmt(days[6])}` : "";
+
+  const toggleBox = document.getElementById("medHiddenToggle");
+  if (toggleBox) {
+    toggleBox.innerHTML = hiddenCount
+      ? `<button type="button" class="show-hidden-meds" onclick="toggleShowHiddenMeds()">
+          ${showHiddenMeds ? "Hide" : "Show"} ${hiddenCount} hidden medicine${hiddenCount === 1 ? "" : "s"}
+        </button>`
+      : "";
+  }
 }
+export function toggleMedicineHidden(id) {
+  const m = state.health.medicines.find(x => x.id === id);
+  if (!m) return;
+  m.hidden = !m.hidden;
+  persist(); renderMedWeek();
+}
+export function toggleShowHiddenMeds() { showHiddenMeds = !showHiddenMeds; renderMedWeek(); }
 export function shiftMedWeek(n) { medWeekOffset += n; if (medWeekOffset > 0) medWeekOffset = 0; renderMedWeek(); }
 
 function renderMedLog() {
