@@ -637,8 +637,8 @@ export function renderHealthPulse() {
       ${rhythmCard}
       <div>${todCard}${distCard}</div>
     </div>
-    ${strengthCard}
     ${analysisCard}
+    ${strengthCard}
     ${medCardsCard}
     ${timelineCard}
     ${logCard}
