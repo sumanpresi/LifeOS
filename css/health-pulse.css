@@ -66,6 +66,8 @@
    the Recent dose log's own hidden-entries toggle, just with the top
    margin a glass card needs that the tracker's plain card didn't. */
 .hp-card .show-hidden-meds{margin-top:10px;display:inline-block}
+.hp-log-hidden{margin-top:10px;padding-top:10px;border-top:1px dashed var(--line)}
+.hp-log-hidden .hp-logrow{opacity:.7}
 
 @media (max-width:1099px){
   .hp-layout{grid-template-columns:1fr}
