@@ -111,7 +111,14 @@ h1,h2,.display{font-family:var(--font-display)}
 .gh-chip .gh-name{font-weight:700;font-size:13px}
 .gh-chip .gh-sub{font-size:11.5px;color:var(--muted)}
 
-.main{flex:1;min-width:0;--main-pad-y:26px;--main-pad-x:34px;padding:26px 34px 60px}
+/* The horizontal padding scales with the window instead of stepping at a
+   breakpoint: 34px on a wide desktop, easing down toward 20px as the
+   window narrows, so a half-width window gets back the ~28px of gutter it
+   was holding on to for nothing. Written through --main-pad-x because the
+   installed-app safe-area block further down reads that variable; the
+   767px rule below still overrides both, so phones are untouched. */
+.main{flex:1;min-width:0;--main-pad-y:26px;--main-pad-x:clamp(20px,2.4vw,34px);
+  padding:var(--main-pad-y) var(--main-pad-x) 60px}
 
 /* ---------- header ---------- */
 .top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap;
@@ -396,8 +403,27 @@ html.sidebar-hidden .top-brand{
   resize:vertical;outline:none;line-height:1.6}
 .notes-area:focus{border-color:var(--accent)}
 
+/* ---------- wide tables that scroll sideways inside their card ----------
+   The week/month habit grids and the medicine grid are genuinely wider
+   than a narrow card, and always were. What was missing is how that
+   scroll behaves: no momentum on iOS, and a swipe that reached the end of
+   the table kept going into the page — on a phone that is the back
+   gesture, so flicking through a week could navigate away. */
+.table-scroll{
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;   /* momentum, iOS */
+  overscroll-behavior-x:contain;      /* the swipe stops at the edge of the table */
+  scrollbar-width:thin;
+}
+
 /* grid layout on overview */
-.grid-2{display:grid;grid-template-columns:1.35fr 1fr;gap:16px;align-items:start}
+/* minmax(0,…) rather than a bare fr. An fr track's automatic minimum is
+   min-content, so a wide child — a habit table, a long link row — could
+   push its column past the container instead of scrolling inside it, and
+   the whole page picked up a horizontal scrollbar. Zero as the minimum
+   lets the column shrink and hands the scrolling back to the element that
+   owns it. Visually identical whenever nothing is overflowing. */
+.grid-2{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:16px;align-items:start}
 @media(max-width:900px){.grid-2{grid-template-columns:1fr}}
 
 /* modal */

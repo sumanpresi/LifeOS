@@ -703,9 +703,20 @@ input.text.no{border-color:var(--red);background:var(--red-tint)}
    Its own block, deliberately. Folding it into the rule above by closing
    that block early left every desktop rule — the sidebar, the hidden
    mobile bars — applying only above 1500px, so a 1440px laptop fell back
-   to the phone layout squeezed into a 264px column. */
-@media (min-width:1500px){
-  :root{--maxw:1000px}
+   to the phone layout squeezed into a 264px column.
+
+   THE STEP WAS IN THE WRONG PLACE. This page is embedded in LifeOS, so
+   what it gets is the window minus the app's sidebar and padding — on a
+   1600px screen that is roughly 1250px, under the 1500px this asked for.
+   The column therefore stayed at 820px and left a wide empty margin on
+   the right, which is the gap that was reported. The step now lands at
+   1000px, where the rail appears and the layout becomes a desktop one
+   anyway, and .wrap is a plain block: its width is the column's, and
+   --maxw only ever caps it. So a value wider than the space available
+   simply fills the space rather than overflowing it, and the cap still
+   bites on a genuinely wide monitor. */
+@media (min-width:1000px){
+  :root{--maxw:1280px}
 }
 @media (prefers-reduced-motion:reduce){
   *{animation:none!important;transition:none!important}
