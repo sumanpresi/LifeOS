@@ -129,6 +129,10 @@ h1,h2,.display{font-family:var(--font-display)}
    stays legible over scrolling content without needing to turn opaque. */
 .top{
   position:sticky;top:0;z-index:30;
+  /* Deliberately NOT overflow:hidden. The rounded shape is already the
+     element's own painted edge, and clipping here would cut off the
+     hover tooltips that several controls inside the bar draw as ::after
+     outside their own box. */
   /* Transform and opacity only. NOTHING here may change the header's size
      on scroll: the condense-on-scroll this replaced altered padding, font
      size and margin as the page moved, which is a layout change driven by
@@ -146,18 +150,17 @@ h1,h2,.display{font-family:var(--font-display)}
    the bar. --glass-bg-strong is the variant already defined for exactly
    this.
 
-   A SCRIM ABOVE IT. Sticking at a 12px offset left a 12px strip between
-   the viewport edge and the card, and content scrolled up through that
-   gap in full focus — visible above the bar, which reads as broken. The
-   card now sticks flush and paints its own strip above itself, so the
-   rounded floating look survives while nothing shows through. */
+   NO SCRIM ABOVE IT. There used to be a ::before here — a 14px square
+   block, 1px wider than the card on each side, painted directly above it
+   to cover a gap left by an earlier `top:12px`. That offset is long gone:
+   the bar sticks at `top:0`, so once it is stuck the strip sits entirely
+   off-screen above the viewport and covers nothing. The only place it was
+   ever visible was at rest, at the top of the page, where it capped the
+   card's 20px radius with hard square corners and overhung both edges by
+   a pixel — which is exactly the distortion this removes. Nothing scrolls
+   above the header (it is the first child of .main), so there is no gap
+   left to cover. */
 .top{background:var(--glass-bg-strong)}
-.top::before{
-  content:"";position:absolute;left:-1px;right:-1px;bottom:100%;height:14px;
-  background:var(--glass-bg-strong);
-  -webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
-  pointer-events:none;
-}
 
 /* Tucked away: phones, folded and unfolded, and tablets — where vertical
    space is genuinely scarce. Transform only, so the element keeps its
