@@ -1566,6 +1566,48 @@ function explainSaveError(e) {
    understands. */
 const CLOUD_TRANSPORT = "lifeos-gzip-v1";
 
+/* ---------- why the handshake above needed a second half ----------
+
+   The plan was: announce the capability in one plain save, compress from
+   the next one onward. It has a deadlock in it, and this account hit it.
+
+   `compressionReady` lives on the synced document. So:
+
+     1. the flag is false, so the save goes up as plain JSON — 1597 KB;
+     2. Supabase rejects a body that size, so the save fails;
+     3. the flag was set to true in memory, but only in memory;
+     4. a minute later the poll pulls, applyRemote() calls replaceState(),
+        merge() reads `compressionReady` from the CLOUD row — which never
+        received it, because step 2 failed — and the flag is false again;
+     5. go to 1, once a minute, forever.
+
+   The announcement can only be delivered by a save, and the save is the
+   thing that cannot happen. Nothing the person does to their data breaks
+   the cycle, because the cycle is not about their data.
+
+   Two changes, both narrow:
+
+   COMPRESS WHEN PLAIN CANNOT WORK. If the plain body is over the limit,
+   compression is not an optimisation to be phased in politely — it is the
+   only way the save happens at all. The handshake's purpose is to stop an
+   account being switched to a format some other device cannot read; a row
+   that never saved cannot be read by ANY device, so there is nothing left
+   to protect and waiting costs the person their sync.
+
+   REMEMBER IT WHERE A PULL CANNOT REACH. localStorage, not the document.
+   Device-scoped is the honest scope anyway: this is a fact about which
+   browser is running, not about the account. Whichever source says yes
+   wins, and the document flag is still written so other devices learn it
+   the ordinary way. */
+const COMPRESSION_OK_KEY = "lifeos-compression-ok";
+function compressionAgreed() {
+  if (state.compressionReady) return true;
+  try { return localStorage.getItem(COMPRESSION_OK_KEY) === "1"; } catch (_) { return false; }
+}
+function rememberCompressionAgreed() {
+  try { localStorage.setItem(COMPRESSION_OK_KEY, "1"); } catch (_) { /* private browsing — the document flag still carries it */ }
+}
+
 async function gzipBytes(text) {
   if (typeof CompressionStream === "undefined") return null;
   try {
@@ -1589,6 +1631,25 @@ function b64ToBytes(b64) {
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
+}
+
+/* The wire envelope for a compressed row.
+
+   `updatedAt: 0` and `rev: 0` are deliberate and they are the safety net.
+   A build too old to know about _transport will read this row as a
+   document with almost nothing in it. What it does next is decided by
+   comparing timestamps — and a zero means "the cloud is older than
+   anything I hold", so that build pushes ITS copy up rather than adopting
+   the emptiness it just failed to understand. The compressed row is
+   overwritten with a plain one, the old device keeps everything, and this
+   build simply compresses again on its next save. The degradation is a
+   wasted round trip instead of a wiped account.
+
+   `compressionReady` rides along in the clear for the same reason it
+   always did: so a device reading this row learns the account has already
+   moved, without having to decode anything first. */
+function compressedBody(gz) {
+  return { _transport: CLOUD_TRANSPORT, z: bytesToB64(gz), compressionReady: true, updatedAt: 0, rev: 0 };
 }
 
 /* Reading is unconditional: this build understands both formats, so it can
@@ -1624,6 +1685,9 @@ export async function saveRemote() {
   if (saveInFlight) { saveAgainAfter = true; return; }
   saveInFlight = true;
   setSyncPill("busy", "Saving…");
+  /* Read in the catch: a plain body that was rejected is worth one more
+     try compressed, and a compressed body that was rejected is not. */
+  let sentCompressed = false;
   try {
     const token = newSyncToken();
     state.syncToken = token; // stored in state so every device sees the same value
@@ -1672,11 +1736,27 @@ export async function saveRemote() {
     payload.compressionReady = true;
     let wireBytes = payloadBytes;
     let body = payload;
-    if (state.compressionReady) {
+    /* Over the limit, plain JSON has no chance of landing — see the note
+       beside COMPRESSION_OK_KEY. Compress on this save rather than after
+       a round trip that is certain to be rejected. */
+    const plainCannotWork = payloadBytes > BIG_PAYLOAD_BYTES;
+    if (compressionAgreed() || plainCannotWork) {
       const gz = await gzipBytes(JSON.stringify(payload));
       if (gz) {
-        body = { _transport: CLOUD_TRANSPORT, z: bytesToB64(gz) };
+        body = compressedBody(gz);
         wireBytes = JSON.stringify(body).length;
+        sentCompressed = true;
+        rememberCompressionAgreed();
+        if (plainCannotWork && !state.compressionReady) {
+          authDiag("payload over " + Math.round(BIG_PAYLOAD_BYTES / 1024) + " KB — compressing this save (" +
+                   Math.round(payloadBytes / 1024) + " KB → " + Math.round(wireBytes / 1024) + " KB)");
+        }
+      } else if (plainCannotWork) {
+        /* No CompressionStream in this browser and the body is too big.
+           Say so plainly rather than letting it fail as a bare fetch
+           error, which reads as a network problem and is not one. */
+        authDiag("payload is " + Math.round(payloadBytes / 1024) + " KB and this browser cannot compress — " +
+                 "use Reclaim space, or empty Trash, to get under " + Math.round(BIG_PAYLOAD_BYTES / 1024) + " KB");
       }
     }
     state.compressionReady = true;
@@ -1700,11 +1780,30 @@ export async function saveRemote() {
     let size = "?";
     try { size = Math.round(JSON.stringify(state).length / 1024) + " KB"; } catch (_) {}
     authDiag("SAVE failed (payload " + size + "): " + (e.message || e) + (e.code ? " [code " + e.code + "]" : "") + (e.hint ? " — " + e.hint : ""));
+    /* A REJECTED PLAIN BODY EARNS ONE COMPRESSED ATTEMPT.
+
+       The size threshold above catches the obvious case, but the real
+       request-body limit is the server's, not ours, and it is not a number
+       this app gets to know. A body under our threshold can still be
+       refused. Rather than guess at the limit, take the rejection itself as
+       the evidence: send the same document again, compressed, once.
+
+       Bounded by sentCompressed, so a compressed body that is ALSO refused
+       is a genuine failure and reported as one — this cannot become a
+       retry loop. */
+    const canRetryCompressed = !sentCompressed && typeof CompressionStream !== "undefined";
+    if (canRetryCompressed) {
+      rememberCompressionAgreed();
+      saveAgainAfter = true;
+      authDiag("plain save refused — retrying compressed");
+    }
     const why = explainSaveError(e);
     setSyncPill("err", why.pill);
     /* Shown once per session, not on every retry: a modal that reopens on
-       each failed save would be its own problem. */
-    if (!saveErrorShown) {
+       each failed save would be its own problem. And not at all while a
+       compressed retry is still to come — announcing a failure that is
+       about to fix itself is how a working app looks broken. */
+    if (!saveErrorShown && !canRetryCompressed) {
       saveErrorShown = true;
       const box = document.getElementById("ghErr");
       if (box) {
