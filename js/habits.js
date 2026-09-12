@@ -209,12 +209,14 @@ export function toggleScribbleMode() {
 }
 
 function renderDonut() {
+  const val = document.getElementById("donutVal");
+  if (!val) return;   // card no longer shows this ring — nothing to update
   const tKey = todayKey();
   const done = state.habits.filter(h => isLogged(tKey, h.id)).length;
   const total = state.habits.length || 1;
   const pct = Math.round(done / total * 100);
   const C = 2 * Math.PI * 50;
-  document.getElementById("donutVal").setAttribute("stroke-dasharray", `${C * pct / 100} ${C}`);
+  val.setAttribute("stroke-dasharray", `${C * pct / 100} ${C}`);
   document.getElementById("donutPct").textContent = pct + "%";
   document.getElementById("donutLegend").innerHTML =
     `<div class="row"><span class="swatch" style="background:var(--accent)"></span>Done today · ${done}</div>
