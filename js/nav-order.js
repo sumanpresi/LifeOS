@@ -23,11 +23,28 @@ const GROUP_ID = "navSpaces";
    added, removed or renamed; a key that no longer exists is simply
    skipped, and a Space the stored order has never seen keeps its
    position from the markup instead of jumping to the front. */
+/* Health now sits above Personal in the markup. A saved order predates
+   that and would quietly put Personal back on top, so it is corrected
+   once and then left alone — after this the arrangement is the person's
+   again, including if they drag Personal back up. Devices that have never
+   reordered anything hold an empty list and are skipped entirely: the
+   markup order is already the answer there. */
+function migrateHealthAbovePersonal(saved) {
+  if (state.navOrderHealthFirst) return;
+  state.navOrderHealthFirst = true;
+  const h = saved.indexOf("health"), p = saved.indexOf("personal");
+  if (h === -1 || p === -1 || h < p) return;   // absent, or already above
+  saved.splice(h, 1);
+  saved.splice(saved.indexOf("personal"), 0, "health");
+  persist();
+}
+
 export function applyNavOrder() {
   const group = document.getElementById(GROUP_ID);
   if (!group) return;
   const saved = Array.isArray(state.navOrder) ? state.navOrder : null;
   if (!saved || !saved.length) return;
+  migrateHealthAbovePersonal(saved);
 
   const items = new Map();
   group.querySelectorAll(":scope > .nav-item[data-page]").forEach(el => items.set(el.dataset.page, el));
