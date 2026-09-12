@@ -52,6 +52,13 @@ let hpMedFilter = "all";     // base name, lowercase-matched, or "all"
 let hpStrengthFilter = "all";
 let hpTimelineCombo = null;  // comboKey, chosen lazily once data exists
 let hpTimelineWeekOffset = 0;
+/* Recent dose log defaults to hiding entries for medicines hidden from
+   the tracker (see health.js's toggleMedicineHidden) — same reasoning:
+   a medicine you've stopped taking shouldn't crowd out the log for what
+   you're actually taking now. The dose history itself is untouched;
+   this only decides what's shown here, and it's a click away either
+   direction. */
+let hpShowHiddenLog = false;
 
 export function setHPRange(v) { hpRange = v; hpOffset = 0; renderHealthPulse(); }
 export function shiftHPPeriod(n) { hpOffset += n; if (hpOffset > 0) hpOffset = 0; renderHealthPulse(); }
@@ -59,6 +66,7 @@ export function setHPMed(v) { hpMedFilter = v; hpStrengthFilter = "all"; renderH
 export function setHPStrength(v) { hpStrengthFilter = v; renderHealthPulse(); }
 export function setHPTimelineCombo(v) { hpTimelineCombo = v; hpTimelineWeekOffset = 0; renderHealthPulse(); }
 export function shiftHPTimelineWeek(n) { hpTimelineWeekOffset += n; if (hpTimelineWeekOffset > 0) hpTimelineWeekOffset = 0; renderHealthPulse(); }
+export function toggleHPHiddenLog() { hpShowHiddenLog = !hpShowHiddenLog; renderHealthPulse(); }
 
 /* ---------- medicine metadata, derived fresh every render ----------
    One pass over state.health.medicines turns each stored {id, name}
@@ -68,7 +76,7 @@ export function shiftHPTimelineWeek(n) { hpTimelineWeekOffset += n; if (hpTimeli
 function medMeta() {
   return (state.health.medicines || []).map(m => {
     const { base, strength } = parseMedName(m.name);
-    return { medId: m.id, name: m.name, base, strength, archived: !!m.archived, comboKey: `${base.toLowerCase()}|${strength}` };
+    return { medId: m.id, name: m.name, base, strength, archived: !!m.archived, hidden: !!m.hidden, comboKey: `${base.toLowerCase()}|${strength}` };
   });
 }
 function comboLabel(base, strength) { return strength ? `${base} · ${strength}` : base; }
@@ -396,17 +404,24 @@ export function renderHealthPulse() {
     </div>`;
 
   /* ---- Recent dose log ---- */
-  const logRows = [];
+  const allLogRows = [];
   const metaByIdForLog = new Map(meta.map(m => [m.medId, m]));
   Object.keys(state.health.medicineLog || {}).sort().reverse().forEach(dateKey => {
     const entry = state.health.medicineLog[dateKey];
     Object.entries(entry || {}).forEach(([medId, slots]) => {
       const m = metaByIdForLog.get(medId);
       SLOTS.forEach(([slot, name]) => {
-        if (slots && slots[slot]) logRows.push({ dateKey, medId, base: m ? m.base : medicineName(medId), strength: m ? m.strength : "", slotName: name });
+        if (slots && slots[slot]) allLogRows.push({ dateKey, medId, base: m ? m.base : medicineName(medId), strength: m ? m.strength : "", slotName: name, hidden: m ? m.hidden : false });
       });
     });
   });
+  const hiddenLogCount = allLogRows.filter(r => r.hidden).length;
+  const logRows = hpShowHiddenLog ? allLogRows : allLogRows.filter(r => !r.hidden);
+  const hiddenLogToggle = hiddenLogCount
+    ? `<button type="button" class="show-hidden-meds" onclick="toggleHPHiddenLog()">
+        ${hpShowHiddenLog ? "Hide" : "Show"} ${hiddenLogCount} entr${hiddenLogCount === 1 ? "y" : "ies"} for hidden medicines
+      </button>`
+    : "";
   const logCard = `
     <div class="hp-card hp-wide">
       <div class="hp-card-head"><h3>Recent dose log</h3><span class="hint">Latest first</span></div>
@@ -417,7 +432,8 @@ export function renderHealthPulse() {
             <span><i class="hp-ok">✓</i><b>${esc(comboLabel(r.base, r.strength))}</b> · ${esc(r.slotName)}</span>
             <span class="hp-dot" style="background:${colorForBase(r.base)}"></span>
           </div>`).join("")}
-      </div>` : `<p class="hint">No doses logged yet.</p>`}
+      </div>` : `<p class="hint">${hiddenLogCount ? "All recent entries are for hidden medicines." : "No doses logged yet."}</p>`}
+      ${hiddenLogToggle}
     </div>`;
 
   root.innerHTML = `
