@@ -425,6 +425,51 @@ html.sidebar-hidden .top-brand{
    the chip still reads as one thing rather than two competing labels. */
 .link-row-meta{opacity:.6;font-weight:600;font-size:.92em;margin-left:6px}
 
+/* ================================================================
+   MEDICINE INSIGHTS
+   Charts are hand-built SVG with a fixed 640-wide viewBox and
+   width:100%, so the coordinate space stays the same at any card
+   width. Series colours are hardcoded inside the SVG because they
+   must mean the same thing in both themes; everything structural —
+   axes, ticks, borders — uses the theme variables so it doesn't.
+   ================================================================ */
+.ms-summary{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px}
+.ms-stat{flex:1 1 110px;min-width:0;background:var(--paper);border-radius:var(--r,12px);padding:10px 14px}
+.ms-stat-n{display:block;font-family:var(--font-display);font-size:24px;font-weight:600;line-height:1.15}
+.ms-stat-l{display:block;color:var(--muted);font-size:12px;font-weight:600;margin-top:2px}
+
+.ms-legend{display:flex;flex-wrap:wrap;gap:16px;margin-bottom:8px;font-size:12px;font-weight:600;color:var(--muted)}
+.ms-legend span{display:flex;align-items:center;gap:6px}
+.ms-legend i{width:10px;height:10px;border-radius:3px;flex-shrink:0}
+
+.ms-chart{width:100%;height:auto;display:block;margin:0 0 14px;overflow:visible}
+.ms-chart-sm{margin-bottom:4px}
+.ms-axis{stroke:var(--line);stroke-width:1}
+.ms-grid{stroke:var(--glass-line);stroke-width:1}
+.ms-tick{fill:var(--muted);font-size:11px;font-weight:600}
+
+.ms-table{width:100%}
+.ms-table th{font-size:12px;color:var(--muted);text-align:left;white-space:nowrap}
+.ms-table td{padding:7px 10px;border-bottom:1px dashed var(--glass-line)}
+.ms-med{font-weight:700}
+.ms-strength{color:var(--muted);font-weight:600;white-space:nowrap}
+.ms-num{text-align:center;font-variant-numeric:tabular-nums;width:1%;white-space:nowrap}
+/* A zero is a middot, not a 0: the eye should land on the counts that
+   happened, not on a column of noughts. */
+.ms-zero{color:var(--muted);opacity:.45}
+.ms-total{font-weight:700}
+
+.ms-block{margin-top:18px;border-top:1px solid var(--glass-line);padding-top:14px}
+.ms-block-head{font-weight:700;font-size:14px;margin-bottom:10px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.ms-titration{margin-bottom:12px}
+.ms-titration-head{font-size:13px;font-weight:700;margin-bottom:2px}
+
+@media(max-width:600px){
+  .ms-stat{flex:1 1 calc(50% - 5px);padding:9px 12px}
+  .ms-stat-n{font-size:20px}
+  .ms-table td{padding:6px 7px}
+}
+
 /* ---------- a column of cards inside .grid-2 ----------
    Used where the two sides of a page hold DIFFERENT cards rather than a
    left/right pair per row. Grid auto-flow fills row by row, so a tall
