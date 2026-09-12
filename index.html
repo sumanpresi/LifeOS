@@ -120,6 +120,9 @@
          direct-child one, so nesting the buttons one level deeper changes
          nothing about how they are styled. -->
     <div class="nav-group" id="navSpaces">
+    <button class="nav-item" data-page="health" onclick="go('health')" data-tooltip="Health">
+      <svg viewBox="0 0 24 24"><path d="M12 21s-8-4.9-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 6.1-8 11-8 11z"/></svg>
+      <span class="nav-item-label">Health</span></button>
     <button class="nav-item" data-page="personal" onclick="go('personal')" data-tooltip="Personal">
       <svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>
       <span class="nav-item-label">Personal</span></button>
@@ -129,9 +132,6 @@
     <button class="nav-item" data-page="notebook" onclick="go('notebook')" data-tooltip="Notebook">
       <svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 3v18M4 8h2M4 13h2M4 18h2"/></svg>
       <span class="nav-item-label">Notebook</span></button>
-    <button class="nav-item" data-page="health" onclick="go('health')" data-tooltip="Health">
-      <svg viewBox="0 0 24 24"><path d="M12 21s-8-4.9-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 6.1-8 11-8 11z"/></svg>
-      <span class="nav-item-label">Health</span></button>
     <button class="nav-item" data-page="communication" onclick="go('communication')" data-tooltip="Communication">
       <svg viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H4l2-3a8 8 0 1 1 15-5z"/></svg>
       <span class="nav-item-label">Communication</span></button>
@@ -1063,7 +1063,7 @@
           </div>
         </div>
         <div class="card-body">
-          <div id="habitWeekWrap" style="overflow-x:auto"><table class="habit-table" id="habitTable"></table></div>
+          <div id="habitWeekWrap" class="table-scroll"><table class="habit-table" id="habitTable"></table></div>
           <div id="habitCalendarWrap" style="display:none">
             <div class="cal-toolbar">
               <select id="calHabitSelect" onchange="setCalendarHabit(this.value)"></select>
@@ -1077,7 +1077,7 @@
             </div>
             <div id="calGrid"></div>
           </div>
-          <div id="habitMonthWrap" style="display:none;overflow-x:auto"><table class="habit-table" id="habitMonthTable"></table></div>
+          <div id="habitMonthWrap" class="table-scroll" style="display:none"><table class="habit-table" id="habitMonthTable"></table></div>
           <div class="add-inline">
             <input type="text" id="newHabit" placeholder="Add a habit, e.g. 10 min speak in English" onkeydown="if(event.key==='Enter')addHabit()">
             <button class="btn btn-ghost" onclick="addHabit()">Add</button>
@@ -1089,6 +1089,27 @@
               <text x="60" y="68" text-anchor="middle" class="donut-center" id="donutPct">0%</text>
             </svg>
             <div class="legend" id="donutLegend"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-title">Medicine tracker</div>
+      <div class="card">
+        <div class="card-head">
+          <h2 style="display:flex;align-items:center;gap:12px">Week
+            <span class="week-nav">
+              <button onclick="shiftMedWeek(-1)" aria-label="Previous week"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+              <span class="week-label" id="medWeekLabel"></span>
+              <button onclick="shiftMedWeek(1)" aria-label="Next week"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+            </span>
+          </h2>
+          <span class="hint">M / A / N = Morning · Afternoon · Night</span>
+        </div>
+        <div class="card-body">
+          <div class="table-scroll"><table class="habit-table" id="medWeekTable"></table></div>
+          <div class="add-inline">
+            <input type="text" id="newMedicine" placeholder="Add a medicine, e.g. Vitamin D" onkeydown="if(event.key==='Enter')addMedicine()">
+            <button class="btn btn-ghost" onclick="addMedicine()">Add</button>
           </div>
         </div>
       </div>
@@ -1116,26 +1137,6 @@
         </div>
       </div>
 
-      <div class="section-title">Medicine tracker</div>
-      <div class="card">
-        <div class="card-head">
-          <h2 style="display:flex;align-items:center;gap:12px">Week
-            <span class="week-nav">
-              <button onclick="shiftMedWeek(-1)" aria-label="Previous week"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
-              <span class="week-label" id="medWeekLabel"></span>
-              <button onclick="shiftMedWeek(1)" aria-label="Next week"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
-            </span>
-          </h2>
-          <span class="hint">M / A / N = Morning · Afternoon · Night</span>
-        </div>
-        <div class="card-body">
-          <div style="overflow-x:auto"><table class="habit-table" id="medWeekTable"></table></div>
-          <div class="add-inline">
-            <input type="text" id="newMedicine" placeholder="Add a medicine, e.g. Vitamin D" onkeydown="if(event.key==='Enter')addMedicine()">
-            <button class="btn btn-ghost" onclick="addMedicine()">Add</button>
-          </div>
-        </div>
-      </div>
 
       <div class="grid-2" style="margin-top:16px">
         <div class="card">
