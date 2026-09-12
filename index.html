@@ -1103,6 +1103,26 @@
           </div>
         </div>
       </div>
+
+      <!-- Medicine insights. Everything in it is derived from the dose log at
+           render time — no stored totals, no list of medicines to maintain —
+           so a medicine added today appears the moment it is first ticked. -->
+      <div class="card" style="margin-top:16px">
+        <div class="card-head">
+          <h2 style="display:flex;align-items:center;gap:12px"><span class="card-head-section">Medicine insights</span>
+            <span class="week-nav">
+              <button onclick="shiftMedStats(-1)" aria-label="Earlier period"><svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg></button>
+              <span class="week-label" id="medStatsLabel"></span>
+              <button id="medStatsNext" onclick="shiftMedStats(1)" aria-label="Later period"><svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></button>
+            </span>
+          </h2>
+          <div class="seg" id="medStatsRange">
+            <button class="on" data-range="week" onclick="setMedStatsRange('week')">Week</button>
+            <button data-range="month" onclick="setMedStatsRange('month')">Month</button>
+          </div>
+        </div>
+        <div class="card-body" id="medStatsBody"></div>
+      </div>
     </section>
 
     <!-- ======== PAGE: TRAVEL PLAN ======== -->
