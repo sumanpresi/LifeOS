@@ -268,102 +268,138 @@
         </div>
       </div></div>
 
-      <!-- Today, then Overview. The two pages were merged, and the order is
-           by how soon each card is acted on rather than by which page it
-           came from:
-
-             Important links         — a toolbar, not a card
-             Today's focus + habits  — what is being done now
-             Journal                 — where today gets written down
-             Habit tracking          — the same habits, over weeks
-             News / Quote / Meditation, Google Calendar — ambient
-
-           Important links is first because it is not really a card at all —
-           it is one row of chips that behaves like a toolbar, and a toolbar
-           belongs at the edge of the thing it acts on rather than buried
-           between two tall cards. It costs about 50px, so it does not push
-           today's work below the fold the way a full card would.
-
-           Habit tracking sits below the journal so the day's ticks and the
-           six-week trend read as one idea seen at two distances, which is
-           what they are. -->
-
-      <div class="grid-2">
-        <div class="card">
-          <div class="card-head"><h2>Today's focus</h2>
-            <button class="expand-btn" onclick="expandView('dayTasksContent','Today\'s focus')" title="View large">
-              <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-            </button>
+      <!-- The feeds sit with Important links because they are the same kind
+           of thing: a short row of places you go. Same markup, same classes,
+           so the styling is shared rather than copied — see renderFeeds(). -->
+      <div class="card" id="newsCard" style="margin-top:16px">
+        <div class="card-body">
+          <div class="link-grid" id="newsList"></div>
+          <div class="add-inline">
+            <input type="text" id="feedName" placeholder="Feed name">
+            <input type="text" id="feedUrl" placeholder="https://…">
+            <button class="btn btn-ghost" onclick="addFeed()">Add feed</button>
           </div>
-          <div id="dayTasksContent"><div class="card-body" id="dayTasks"></div>
-            <!-- Overdue work, summarised on one line so a missed deadline
-                 stays visible without taking over today's list. -->
-            <div id="dayOverdue"></div></div>
-        </div>
-        <div class="card">
-          <div class="card-head"><h2>Today's habits</h2></div>
-          <div class="card-body" id="dayHabits"></div>
         </div>
       </div>
-      <div class="grid-2" style="margin-top:16px;align-items:start">
-        <div class="card">
-          <div class="card-head">
-            <h2>Journal — <span id="journalEditingLabel"></span></h2>
-            <div style="display:flex;gap:8px;align-items:center">
-              <div class="jcal-wrap">
-                <input type="date" id="journalDatePicker" onchange="selectJournalDate(this.value)" title="Jump to a date">
-                <button class="jcal-btn" onclick="toggleJournalCalendar(event)" title="Month view — days with an entry are marked">
-                  <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-                </button>
-                <div class="jcal-pop" id="journalCalPop">
-                  <div class="jcal-head">
-                    <button class="jcal-nav" onclick="shiftJournalCalMonth(-1)" title="Previous month">‹</button>
-                    <span id="journalCalLabel"></span>
-                    <button class="jcal-nav" onclick="shiftJournalCalMonth(1)" title="Next month">›</button>
-                  </div>
-                  <div class="jcal-dow"><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div><div>S</div></div>
-                  <div class="jcal-days" id="journalCalGrid"></div>
-                  <div class="jcal-foot"><span class="jcal-legend"><i></i>has entry</span><span id="journalCalCount"></span></div>
-                </div>
-              </div>
-              <button class="btn btn-ghost" id="journalTodayBtn" onclick="journalGoToday()" style="display:none">Today</button>
-              <button class="expand-btn" onclick="expandView('journalEditorContent','Journal')" title="View large">
+
+      <!-- My Day, in two columns that are read rather than merely filled.
+
+           LEFT  — the day as it is worked: what to do, where it gets
+                   written down, and what was written before. The wider
+                   track (1.35fr), because the journal editor is the one
+                   thing here whose width changes what you can do in it.
+           RIGHT — the day's smaller rituals: a line to read, a timer,
+                   and the habits to tick off.
+
+           Explicit column wrappers, not four cards flowing through a
+           two-track grid. Grid auto-flow fills row by row, so a tall card
+           on the left left a gap beside it and pushed the next pair down;
+           with each column its own flex stack the two sides are
+           independent and neither waits for the other.
+
+           Important links stays above both — it is a row of chips that
+           behaves like a toolbar, and a toolbar belongs at the edge of
+           what it acts on rather than inside one column.
+
+           News and Google Calendar sit below, full width: they are
+           ambient, and neither was asked to share a column. -->
+
+      <div class="grid-2">
+        <div class="col-stack">
+          <div class="card">
+            <div class="card-head"><h2>Today's focus</h2>
+              <button class="expand-btn" onclick="expandView('dayTasksContent','Today\'s focus')" title="View large">
                 <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
               </button>
             </div>
+            <div id="dayTasksContent"><div class="card-body" id="dayTasks"></div>
+              <!-- Overdue work, summarised on one line so a missed deadline
+                   stays visible without taking over today's list. -->
+              <div id="dayOverdue"></div></div>
           </div>
-          <div id="journalEditorContent"><div class="card-body">
-            <div id="dayJournalEditor" class="mm-rich-editor journal-rich-editor"></div>
-          </div></div>
+          <div class="card">
+            <div class="card-head">
+              <h2>Journal — <span id="journalEditingLabel"></span></h2>
+              <div style="display:flex;gap:8px;align-items:center">
+                <div class="jcal-wrap">
+                  <input type="date" id="journalDatePicker" onchange="selectJournalDate(this.value)" title="Jump to a date">
+                  <button class="jcal-btn" onclick="toggleJournalCalendar(event)" title="Month view — days with an entry are marked">
+                    <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+                  </button>
+                  <div class="jcal-pop" id="journalCalPop">
+                    <div class="jcal-head">
+                      <button class="jcal-nav" onclick="shiftJournalCalMonth(-1)" title="Previous month">‹</button>
+                      <span id="journalCalLabel"></span>
+                      <button class="jcal-nav" onclick="shiftJournalCalMonth(1)" title="Next month">›</button>
+                    </div>
+                    <div class="jcal-dow"><div>M</div><div>T</div><div>W</div><div>T</div><div>F</div><div>S</div><div>S</div></div>
+                    <div class="jcal-days" id="journalCalGrid"></div>
+                    <div class="jcal-foot"><span class="jcal-legend"><i></i>has entry</span><span id="journalCalCount"></span></div>
+                  </div>
+                </div>
+                <button class="btn btn-ghost" id="journalTodayBtn" onclick="journalGoToday()" style="display:none">Today</button>
+                <button class="expand-btn" onclick="expandView('journalEditorContent','Journal')" title="View large">
+                  <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                </button>
+              </div>
+            </div>
+            <div id="journalEditorContent"><div class="card-body">
+              <div id="dayJournalEditor" class="mm-rich-editor journal-rich-editor"></div>
+            </div></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h2>Past entries</h2><button class="journal-sort-btn" id="journalSortBtn" onclick="toggleJournalSort()" title="Showing newest first — click for oldest first">↓ Most recent first</button>
+              <button class="expand-btn" onclick="expandView('journalListContent','Past entries')" title="View large">
+                <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+              </button>
+            </div>
+            <div id="journalListContent">
+            <div class="card-body" style="padding-bottom:0">
+              <div class="journal-search-row">
+                <span class="journal-search-icon">🔍</span>
+                <input type="search" id="journalSearchInput" placeholder="Search entries — a word or a phrase" oninput="applyJournalSearch()">
+                <button class="journal-search-clear" id="journalSearchClearBtn" onclick="clearJournalSearch()" title="Clear search" style="display:none">✕</button>
+                <span class="hint" id="journalSearchStat"></span>
+              </div>
+              <div class="journal-filter-row">
+                <input type="date" id="journalFilterFrom" onchange="applyJournalFilter()" title="From date">
+                <span style="color:var(--muted);font-weight:700">–</span>
+                <input type="date" id="journalFilterTo" onchange="applyJournalFilter()" title="To date">
+                <button class="btn btn-ghost" id="journalFilterClearBtn" onclick="clearJournalFilter()" style="display:none">✕ Clear</button>
+                <button class="btn btn-ghost journal-export-btn" id="journalExportBtn" onclick="exportJournalRange()">⭳ Export .txt</button>
+              </div>
+            </div>
+            <div class="card-body" id="journalList" style="max-height:340px;overflow-y:auto"></div>
+            </div>
+          </div>
         </div>
-        <div class="card">
-          <div class="card-head"><h2>Past entries</h2><button class="journal-sort-btn" id="journalSortBtn" onclick="toggleJournalSort()" title="Showing newest first — click for oldest first">↓ Most recent first</button>
-            <button class="expand-btn" onclick="expandView('journalListContent','Past entries')" title="View large">
-              <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-            </button>
+        <div class="col-stack">
+          <div class="card" id="quoteCard">
+            <div class="card-head"><h2>Quote of the day</h2>
+              <button class="btn btn-ghost" style="padding:6px 12px" onclick="nextQuote()">Next</button></div>
+            <div class="card-body"><div class="quote-box" id="quoteBox"></div></div>
           </div>
-          <div id="journalListContent">
-          <div class="card-body" style="padding-bottom:0">
-            <div class="journal-search-row">
-              <span class="journal-search-icon">🔍</span>
-              <input type="search" id="journalSearchInput" placeholder="Search entries — a word or a phrase" oninput="applyJournalSearch()">
-              <button class="journal-search-clear" id="journalSearchClearBtn" onclick="clearJournalSearch()" title="Clear search" style="display:none">✕</button>
-              <span class="hint" id="journalSearchStat"></span>
-            </div>
-            <div class="journal-filter-row">
-              <input type="date" id="journalFilterFrom" onchange="applyJournalFilter()" title="From date">
-              <span style="color:var(--muted);font-weight:700">–</span>
-              <input type="date" id="journalFilterTo" onchange="applyJournalFilter()" title="To date">
-              <button class="btn btn-ghost" id="journalFilterClearBtn" onclick="clearJournalFilter()" style="display:none">✕ Clear</button>
-              <button class="btn btn-ghost journal-export-btn" id="journalExportBtn" onclick="exportJournalRange()">⭳ Export .txt</button>
+          <div class="card" id="medCard">
+            <div class="card-head"><h2>Meditation</h2><span class="hint" id="medTodayHint"></span></div>
+            <div class="card-body">
+              <div class="med-time" id="medClock">10:00</div>
+              <div class="med-controls">
+                <button class="btn btn-ghost" onclick="setMed(5)">5 min</button>
+                <button class="btn btn-ghost" onclick="setMed(10)">10 min</button>
+                <button class="btn btn-ghost" onclick="setMed(15)">15 min</button>
+                <button class="btn btn-primary" id="medStartBtn" onclick="toggleMed()">Start</button>
+              </div>
+              <div class="med-stat" id="medStat"></div>
             </div>
           </div>
-          <div class="card-body" id="journalList" style="max-height:340px;overflow-y:auto"></div>
+          <div class="card">
+            <div class="card-head"><h2>Today's habits</h2></div>
+            <div class="card-body" id="dayHabits"></div>
           </div>
         </div>
       </div>
 
-      <!-- The Tasks card was removed from Overview.
+      <!-- The Tasks card was removed from My Day.
 
            Nothing behind it was touched: state.tasks are still real, still
            counted, still synced, and still reachable from the Calendar day
@@ -379,48 +415,10 @@
            grep for it, and looks like live markup to anyone auditing
            this file later.) -->
 
-      <!-- Habit tracking moved to the top of the Health page, above Notes. The daily
-           tick-list ("Today's habits", above) stays here, because that is
-           part of the day; the week / month / trend view is a different
-           question asked at a different cadence, and it belongs with Health,
-           where the medicine tracker already asks it. The
-           card is unchanged — it is markup only, and habits.js finds it by
-           id (habitTable, habitCalendarWrap, donutSvg …), not by page. -->
-
-      <div class="grid-2" style="margin-top:16px">
-        <div class="card" id="newsCard">
-          <div class="card-head"><h2>News · RSS feed</h2></div>
-          <div class="card-body">
-            <div class="news-list" id="newsList"></div>
-            <div class="add-inline">
-              <input type="text" id="feedName" placeholder="Feed name">
-              <input type="text" id="feedUrl" placeholder="https://…">
-              <button class="btn btn-ghost" onclick="addFeed()">Add</button>
-            </div>
-          </div>
-        </div>
-        <div>
-          <div class="card" id="quoteCard">
-            <div class="card-head"><h2>Quote of the day</h2>
-              <button class="btn btn-ghost" style="padding:6px 12px" onclick="nextQuote()">Next</button></div>
-            <div class="card-body"><div class="quote-box" id="quoteBox"></div></div>
-          </div>
-          <div class="card" id="medCard" style="margin-top:16px">
-            <div class="card-head"><h2>Meditation</h2><span class="hint" id="medTodayHint"></span></div>
-            <div class="card-body">
-              <div class="med-time" id="medClock">10:00</div>
-              <div class="med-controls">
-                <button class="btn btn-ghost" onclick="setMed(5)">5 min</button>
-                <button class="btn btn-ghost" onclick="setMed(10)">10 min</button>
-                <button class="btn btn-ghost" onclick="setMed(15)">15 min</button>
-                <button class="btn btn-primary" id="medStartBtn" onclick="toggleMed()">Start</button>
-              </div>
-              <div class="med-stat" id="medStat"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-
+      <!-- Habit tracking (the week / month / trend view) lives at the top of
+           the Health page, above Notes. The daily tick-list stays here, in
+           the right column, because that is part of the day; the trend is a
+           different question asked at a different cadence. -->
 
       <div class="card" id="gcalCard" style="margin-top:16px">
         <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 18px">
