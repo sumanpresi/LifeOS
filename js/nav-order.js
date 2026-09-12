@@ -72,6 +72,18 @@ export function initNavSorting() {
     delayOnTouchOnly: true,
     touchStartThreshold: 6,
     forceFallback: true,            // same as the task boards — Samsung Internet's native DnD is unreliable here
+    /* THE ONE THAT MAKES A CLICK A CLICK ON A MOUSE.
+       delayOnTouchOnly means the 250ms hold above applies to touch only —
+       with a pointing device a drag starts on movement instead. Sortable's
+       fallback path measures that movement against fallbackTolerance, and
+       the default is 0: one pixel of drift between pressing and releasing
+       — which is most clicks on a trackpad, and plenty of them on a mouse
+       — started a drag, and Sortable swallows the click that ends a drag.
+       The tab flashed and the page did not change, intermittently and for
+       no reason the person could see. 6px is past ordinary hand tremor and
+       still far short of a deliberate reorder; the task boards use 4 for
+       the same reason, and a nav item is a click target first. */
+    fallbackTolerance: 6,
     ghostClass: "nav-item-ghost",
     chosenClass: "nav-item-chosen",
     onStart: () => document.body.classList.add("is-dragging"),
