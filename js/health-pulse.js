@@ -59,6 +59,11 @@ let hpTimelineWeekOffset = 0;
    this only decides what's shown here, and it's a click away either
    direction. */
 let hpShowHiddenLog = false;
+/* Whole-card collapse for Recent dose log — separate from hpShowHiddenLog
+   above, which only ever affected the hidden-medicines sub-list. This one
+   folds away the entire card (main list included) when the log itself
+   isn't something the person wants taking up space on this visit. */
+let hpLogCollapsed = false;
 
 export function setHPRange(v) { hpRange = v; hpOffset = 0; renderHealthPulse(); }
 export function shiftHPPeriod(n) { hpOffset += n; if (hpOffset > 0) hpOffset = 0; renderHealthPulse(); }
@@ -67,6 +72,7 @@ export function setHPStrength(v) { hpStrengthFilter = v; renderHealthPulse(); }
 export function setHPTimelineCombo(v) { hpTimelineCombo = v; hpTimelineWeekOffset = 0; renderHealthPulse(); }
 export function shiftHPTimelineWeek(n) { hpTimelineWeekOffset += n; if (hpTimelineWeekOffset > 0) hpTimelineWeekOffset = 0; renderHealthPulse(); }
 export function toggleHPHiddenLog() { hpShowHiddenLog = !hpShowHiddenLog; renderHealthPulse(); }
+export function toggleHPLogCollapsed() { hpLogCollapsed = !hpLogCollapsed; renderHealthPulse(); }
 
 /* ---------- medicine metadata, derived fresh every render ----------
    One pass over state.health.medicines turns each stored {id, name}
@@ -438,11 +444,23 @@ export function renderHealthPulse() {
           </div>`;
   const logCard = `
     <div class="hp-card hp-wide">
-      <div class="hp-card-head"><h3>Recent dose log</h3><span class="hint">Latest first</span></div>
+      <div class="hp-card-head">
+        <h3>Recent dose log</h3>
+        <div class="hp-card-controls">
+          <span class="hint">Latest first</span>
+          <button type="button" class="hp-collapse-btn" onclick="toggleHPLogCollapsed()"
+            aria-expanded="${hpLogCollapsed ? "false" : "true"}" title="${hpLogCollapsed ? "Show" : "Hide"} recent dose log">
+            <svg viewBox="0 0 24 24" class="${hpLogCollapsed ? "is-collapsed" : ""}"><path d="M6 9l6 6 6-6"/></svg>
+            ${hpLogCollapsed ? "Show" : "Hide"}
+          </button>
+        </div>
+      </div>
+      ${hpLogCollapsed ? "" : `
       ${logRows.length ? `<div class="hp-log">${logRows.slice(0, 25).map(logRowHtml).join("")}</div>`
         : `<p class="hint">No doses logged yet.</p>`}
       ${hiddenLogToggle}
       ${hpShowHiddenLog && hiddenLogRows.length ? `<div class="hp-log hp-log-hidden">${hiddenLogRows.slice(0, 25).map(logRowHtml).join("")}</div>` : ""}
+      `}
     </div>`;
 
   root.innerHTML = `
