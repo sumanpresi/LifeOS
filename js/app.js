@@ -16,6 +16,7 @@ import * as composer from './composer.js?v=202609042200';
 import { initDropToAttach, handleIncomingShare } from './attach.js?v=202609042200';
 import * as finance from './finance.js?v=202609042200';
 import * as health from './health.js?v=202609042200';
+import * as medStats from './med-stats.js?v=202609042200';
 import * as travel from './travel.js?v=202609042200';
 import * as reference from './reference.js?v=202609042200';
 import * as notebook from './notebook.js?v=202609042200';
@@ -62,6 +63,7 @@ function renderEverything() {
   personal.renderPersonalWorkspace();
   finance.renderFinance();
   health.renderHealth();
+  medStats.renderMedStats();
   travel.renderTravel();
   reference.renderReference();
   notebook.renderNotebook();
@@ -177,6 +179,7 @@ Object.assign(window,
   { saveHealthNotes: health.saveHealthNotes, addHealthLink: health.addHealthLink, delHealthLink: health.delHealthLink,
     editHealthLink: health.editHealthLink, toggleHealthLinkEdit: health.toggleHealthLinkEdit,
     editPrescription: health.editPrescription, togglePrescriptionEdit: health.togglePrescriptionEdit,
+    setMedStatsRange: medStats.setMedStatsRange, shiftMedStats: medStats.shiftMedStats,
     addMedicine: health.addMedicine, delMedicine: health.delMedicine, toggleDose: health.toggleDose,
     shiftMedWeek: health.shiftMedWeek, setMedLogFilter: health.setMedLogFilter,
     addPrescription: health.addPrescription, delPrescription: health.delPrescription },
@@ -288,6 +291,11 @@ Object.assign(window,
 /* ---- boot ---- */
 setRenderer(renderAll);
 sections.buildSectionPages();
+/* BEFORE purgeOldTrash(), not after: the names of medicines deleted under
+   the old behaviour survive only in the trash log, and purge is what
+   eventually removes them. Reading them first is the difference between
+   recovering that history and losing it silently. */
+health.adoptOrphanedMedicines();
 trash.purgeOldTrash();
 // Before renderAll, so the very first snapshot captures the data exactly
 // as it was loaded rather than after any render-time normalisation.

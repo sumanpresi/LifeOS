@@ -301,7 +301,16 @@ export function restoreFromTrash(id) {
     }
     case "financeItem": state.finance[m.listKey || "grocery"].push(p); break;
     case "financeLink": state.finance.links.push(p); break;
-    case "medicine": state.health.medicines.push(p); break;
+    /* Deleting a medicine archives it now rather than removing it, so the
+       record is usually still there — un-archive it instead of pushing a
+       duplicate that would then appear twice in the weekly grid. The push
+       is the fallback for entries trashed by the older behaviour. */
+    case "medicine": {
+      const ex = (state.health.medicines || []).find(x => x.id === p.id);
+      if (ex) ex.archived = false;
+      else state.health.medicines.push(Object.assign({}, p, { archived: false }));
+      break;
+    }
     case "prescription": state.health.prescriptions.push(p); break;
     case "healthLink": state.health.links.push(p); break;
     case "bookmarkLink": state.links.push(p); break;

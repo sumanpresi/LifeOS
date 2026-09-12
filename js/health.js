@@ -31,7 +31,7 @@ function renderMedWeek() {
   const days = weekDates(medWeekOffset);
   const tKey = todayKey();
   const dayNames = ["M", "T", "W", "T", "F", "S", "S"];
-  const meds = state.health.medicines || [];
+  const meds = liveMedicines();   // archived ones keep their history, not their row
   const SLOTS = [["morning", "M"], ["afternoon", "A"], ["night", "N"]];
 
   let html = `<tr><th>Medicine</th>${days.map((d, i) =>
@@ -59,7 +59,7 @@ function renderMedLog() {
   const box = document.getElementById("medLogList");
   if (!box) return;
   const meds = state.health.medicines || [];
-  const nameOf = id => (meds.find(m => m.id === id) || {}).name || "?";
+  const nameOf = medicineName;
   const dates = Object.keys(state.health.medicineLog).sort().reverse();
   const rows = [];
   dates.forEach(d => {
@@ -79,7 +79,7 @@ function renderMedLog() {
   const sel = document.getElementById("medLogFilter");
   if (sel) {
     sel.innerHTML = `<option value="all">All medicines</option>` +
-      meds.map(m => `<option value="${m.id}" ${m.id === logFilterMed ? "selected" : ""}>${esc(m.name)}</option>`).join("");
+      meds.map(m => `<option value="${m.id}" ${m.id === logFilterMed ? "selected" : ""}>${esc(m.name)}${m.archived ? " (removed)" : ""}</option>`).join("");
     sel.value = logFilterMed;
   }
 }
@@ -90,13 +90,66 @@ export function addMedicine() {
   state.health.medicines.push({ id: uid(), name: v }); el.value = "";
   persist(); renderHealth();
 }
+/* ---------- a deleted medicine still has to have a name ----------
+
+   Removing a medicine used to drop it out of state.health.medicines while
+   leaving every dose it was ever ticked for behind in medicineLog. The log
+   keys on the medicine id, so those rows resolved to "?" — 77 of 199 doses
+   in this account, 39% of the history, unlabelled and uncountable.
+
+   The record is now ARCHIVED rather than removed: gone from the weekly grid
+   and from the add list, still present to name its own history. The Trash
+   entry is still written, so Restore works exactly as before — it just
+   un-archives instead of pushing a second copy back (see trash.js).
+
+   The confirm text was always honest about this: "from view". */
 export function delMedicine(id) {
   if (!confirm("Remove this medicine and its dose history from view?")) return;
   const m = state.health.medicines.find(x => x.id === id);
-  if (m) moveToTrash("medicine", m);
-  state.health.medicines = state.health.medicines.filter(x => x.id !== id);
+  if (!m) return;
+  moveToTrash("medicine", m);
+  m.archived = true;
   persist(); renderHealth();
 }
+
+/* The doses already orphaned by the old behaviour. Their medicines are in
+   the Trash log, which holds the name — but Trash is purged after 30 days,
+   so the names are on a clock. This lifts any that are still there back
+   into the medicine list as archived entries, once, before they expire.
+
+   Idempotent by construction: it only adds ids that are absent from the
+   list, so running it twice adds nothing the second time. The flag is
+   belt-and-braces so it doesn't scan the trash log on every boot. */
+export function adoptOrphanedMedicines() {
+  if (state.health.medsAdopted) return;
+  state.health.medsAdopted = true;
+  const known = new Set((state.health.medicines || []).map(m => m.id));
+  const logged = new Set();
+  Object.values(state.health.medicineLog || {}).forEach(day =>
+    Object.keys(day || {}).forEach(id => logged.add(id)));
+  let found = 0;
+  (state.trash || []).forEach(t => {
+    if (!t || t.type !== "medicine" || !t.payload || !t.payload.id) return;
+    const { id, name } = t.payload;
+    if (known.has(id) || !logged.has(id)) return;
+    known.add(id);
+    state.health.medicines.push({ id, name, archived: true });
+    found++;
+  });
+  if (found) persist();
+  return found;
+}
+
+/* The one place anything should turn a medicine id into a name. Archived
+   medicines resolve normally; an id with no record left anywhere gets a
+   label that says so rather than a bare "?", which read like a bug. */
+export function medicineName(id) {
+  const m = (state.health.medicines || []).find(x => x.id === id);
+  if (m) return m.name;
+  const t = (state.trash || []).find(e => e && e.type === "medicine" && e.payload && e.payload.id === id);
+  return (t && t.payload.name) || "Removed medicine";
+}
+export function liveMedicines() { return (state.health.medicines || []).filter(m => !m.archived); }
 
 let openPrescriptionEditId = null;
 export function togglePrescriptionEdit(id) {
