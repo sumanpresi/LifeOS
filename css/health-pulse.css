@@ -62,6 +62,11 @@
 .hp-empty svg{width:52px;height:52px;stroke:var(--muted);fill:none;stroke-width:1.4;opacity:.55;margin-bottom:10px}
 .hp-empty h3{font-family:var(--font-display);color:var(--ink);font-size:17px;margin:0 0 4px}
 
+/* Reuses .show-hidden-meds from the Medicine tracker (css/style.css) for
+   the Recent dose log's own hidden-entries toggle, just with the top
+   margin a glass card needs that the tracker's plain card didn't. */
+.hp-card .show-hidden-meds{margin-top:10px;display:inline-block}
+
 @media (max-width:1099px){
   .hp-layout{grid-template-columns:1fr}
 }
