@@ -93,13 +93,60 @@ export function delLink(id) {
   state.links = state.links.filter(x => x.id !== id); persist(); rerender();
 }
 
-/* ---------- news feeds ---------- */
+/* ---------- news feeds ----------
+   Built as the same component as Important links above, because it holds
+   the same kind of thing: a short row of places you go, not a list of
+   articles. It was a stack of full-width rows with a permanent two-field
+   form underneath, which is a lot of card for six shortcuts. Now it is a
+   pill row with a leading label, an inline ✎ panel per feed and a "+"
+   chip for the add form — identical markup and identical classes, so the
+   CSS is shared rather than duplicated, and the two rows cannot drift
+   apart later. */
+let openFeedEditId = null; // UI-only, exactly like openLinkEditId above
 export function renderFeeds() {
-  document.getElementById("newsList").innerHTML = state.feeds.map(f => `
-    <a href="${esc(f.url)}" target="_blank" rel="noopener">
-      <span class="fav">${esc((f.name || "?")[0])}</span>${esc(f.name)}
-      <button class="del" style="margin-left:auto;opacity:.35" onclick="event.preventDefault();delFeed('${f.id}')">✕</button>
-    </a>`).join("");
+  const grid = document.getElementById("newsList");
+  if (!grid) return;
+  /* Same reasoning as renderLinks: the label goes INSIDE the grid so it
+     shares the row's flex line, and so the `#newsList + .add-inline`
+     sibling selectors keep matching. */
+  const label = `<span class="card-head-section link-grid-label">News · RSS feed</span>`;
+  const rows = state.feeds.map(f => `
+    <div class="link-row" data-feed-id="${f.id}">
+      <a href="${esc(f.url)}" target="_blank" rel="noopener" class="link-row-title" onclick="linkClickPulse(this)">${esc(f.name)}</a>
+      <button class="link-edit-btn" onclick="toggleFeedEdit('${f.id}')" title="Edit feed">✎</button>
+      <button class="del link-del-btn" onclick="delFeed('${f.id}')" title="Delete">✕</button>
+      <div class="link-edit-panel ${openFeedEditId === f.id ? "open" : ""}" id="feedEdit-${f.id}">
+        <div class="link-edit-panel-inner">
+          <input type="text" value="${esc(f.name)}" placeholder="Feed name" onchange="editFeed('${f.id}','name',this.value)">
+          <input type="text" value="${esc(f.url)}" placeholder="https://…" onchange="editFeed('${f.id}','url',this.value)">
+        </div>
+      </div>
+    </div>`).join("") || `<p class="hint">Add the feeds you read most.</p>`;
+  grid.innerHTML = label + rows;
+  grid.insertAdjacentHTML("beforeend",
+    `<button type="button" class="link-add-btn" title="Add feed" aria-label="Add feed"
+       onclick="this.closest('.card').classList.toggle('adding')">+</button>`);
+}
+export function toggleFeedEdit(id) {
+  openFeedEditId = openFeedEditId === id ? null : id;
+  renderFeeds();
+  // Promote the whole card while a popover is open — see toggleLinkEdit
+  // for why the popover's own z-index is not enough on its own.
+  const card = document.getElementById("newsList")?.closest(".card");
+  if (card) card.classList.toggle("has-open-popover", !!openFeedEditId);
+  if (openFeedEditId) document.querySelector(`#feedEdit-${id} input`)?.focus();
+}
+document.addEventListener("pointerdown", (evt) => {
+  if (!openFeedEditId) return;
+  if (evt.target.closest(".link-edit-panel") || evt.target.closest(".link-edit-btn")) return;
+  toggleFeedEdit(openFeedEditId);
+});
+export function editFeed(id, field, value) {
+  const f = state.feeds.find(x => x.id === id);
+  if (!f) return;
+  if (field === "url") { value = value.trim(); if (value && !/^https?:\/\//i.test(value)) value = "https://" + value; }
+  f[field] = value.trim ? value.trim() : value;
+  persist(); rerender();
 }
 export function addFeed() {
   const n = document.getElementById("feedName"), u = document.getElementById("feedUrl");
