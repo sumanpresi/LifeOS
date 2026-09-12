@@ -415,25 +415,34 @@ export function renderHealthPulse() {
       });
     });
   });
-  const hiddenLogCount = allLogRows.filter(r => r.hidden).length;
-  const logRows = hpShowHiddenLog ? allLogRows : allLogRows.filter(r => !r.hidden);
-  const hiddenLogToggle = hiddenLogCount
+  const logRows = allLogRows.filter(r => !r.hidden);
+  /* A hidden medicine is, by definition, one that's stopped — its doses
+     sit further back in time than whatever's currently active. Merging
+     them into the same top-25 "recent" window meant they were pushed out
+     by newer entries from visible medicines and never actually appeared
+     even after clicking "Show" — clicking looked broken because the
+     rows it revealed were past the cutoff. Giving hidden entries their
+     OWN top-25 window, shown as its own list rather than interleaved,
+     is what actually surfaces them. */
+  const hiddenLogRows = allLogRows.filter(r => r.hidden);
+  const hiddenLogToggle = hiddenLogRows.length
     ? `<button type="button" class="show-hidden-meds" onclick="toggleHPHiddenLog()">
-        ${hpShowHiddenLog ? "Hide" : "Show"} ${hiddenLogCount} entr${hiddenLogCount === 1 ? "y" : "ies"} for hidden medicines
+        ${hpShowHiddenLog ? "Hide" : "Show"} history for hidden medicines (${hiddenLogRows.length})
       </button>`
     : "";
-  const logCard = `
-    <div class="hp-card hp-wide">
-      <div class="hp-card-head"><h3>Recent dose log</h3><span class="hint">Latest first</span></div>
-      ${logRows.length ? `<div class="hp-log">
-        ${logRows.slice(0, 25).map(r => `
+  const logRowHtml = r => `
           <div class="hp-logrow">
             <span class="hp-logdate">${esc(fmtDay(new Date(r.dateKey + "T00:00:00")))}</span>
             <span><i class="hp-ok">✓</i><b>${esc(comboLabel(r.base, r.strength))}</b> · ${esc(r.slotName)}</span>
             <span class="hp-dot" style="background:${colorForBase(r.base)}"></span>
-          </div>`).join("")}
-      </div>` : `<p class="hint">${hiddenLogCount ? "All recent entries are for hidden medicines." : "No doses logged yet."}</p>`}
+          </div>`;
+  const logCard = `
+    <div class="hp-card hp-wide">
+      <div class="hp-card-head"><h3>Recent dose log</h3><span class="hint">Latest first</span></div>
+      ${logRows.length ? `<div class="hp-log">${logRows.slice(0, 25).map(logRowHtml).join("")}</div>`
+        : `<p class="hint">No doses logged yet.</p>`}
       ${hiddenLogToggle}
+      ${hpShowHiddenLog && hiddenLogRows.length ? `<div class="hp-log hp-log-hidden">${hiddenLogRows.slice(0, 25).map(logRowHtml).join("")}</div>` : ""}
     </div>`;
 
   root.innerHTML = `
