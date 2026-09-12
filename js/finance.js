@@ -61,6 +61,10 @@ function sortedMonthKeys() {
 }
 
 export function renderMonthlyExpenses() {
+  /* Checked FIRST, before ensureMonth() below can create an empty month
+     entry in state for a card that is no longer on the page. The guard
+     further down would have stopped the painting but not the writing. */
+  if (!document.getElementById("finMonthlyTableBody")) return;
   if (!activeExpenseMonth) activeExpenseMonth = monthKey(new Date());
   const keys = sortedMonthKeys();
   const tabsBox = document.getElementById("finMonthTabs");

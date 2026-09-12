@@ -96,7 +96,11 @@ function buildIndex() {
   (state.finance.notes || "").split("\n").forEach(line =>
     line.trim() && push("Notes", line.trim().slice(0, 120), "Finance", () => go("finance")));
   (state.finance.links || []).forEach(l => push("Link", l.title, "Finance", () => window.open(l.url, "_blank")));
-  ["grocery", "shopping", "wishlist"].forEach(key => {
+  /* "grocery" is deliberately absent: its card was removed from the Finance
+     page, so a hit would navigate somewhere the item cannot be seen. The data
+     itself is untouched in state.finance.grocery — put the card back and this
+     list goes back to three. */
+  ["shopping", "wishlist"].forEach(key => {
     (state.finance[key] || []).forEach(i => push("Finance", i.name, key[0].toUpperCase() + key.slice(1), () => go("finance")));
   });
 
