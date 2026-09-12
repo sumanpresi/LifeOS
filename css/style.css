@@ -354,31 +354,36 @@ html.sidebar-hidden .top-brand{
    are weighted by what people actually type into them (a short title,
    a longer URL, an even longer optional description) instead of
    splitting the row evenly, so the space goes where it's needed. */
-:is(#linksGrid,#newsList) + .add-inline{
+:is(#linksGrid,#newsList,#secLinks-health,#prescriptionList) + .add-inline{
   display:flex;flex-wrap:wrap;gap:0;margin-top:14px;
   border:1px solid var(--glass-line);border-radius:14px;
   background:var(--glass-bg-strong);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
   overflow:hidden;
 }
-:is(#linksGrid,#newsList) + .add-inline input{
+:is(#linksGrid,#newsList,#secLinks-health,#prescriptionList) + .add-inline input{
   border:none;background:transparent;border-radius:0;min-width:0;
   padding:11px 14px;position:relative;
 }
-:is(#linksGrid,#newsList) + .add-inline input:focus{border:none;box-shadow:none;background:rgba(75,92,66,.06)}
-:is(#linksGrid,#newsList) + .add-inline input:not(:first-child){border-left:1px solid var(--glass-line)}
-:is(#linksGrid,#newsList) + .add-inline :is(#linkTitle,#feedName){flex:1 1 150px}
-:is(#linksGrid,#newsList) + .add-inline :is(#linkUrl,#feedUrl){flex:1.6 1 200px}
-:is(#linksGrid,#newsList) + .add-inline #linkDesc{flex:1.6 1 200px}
-:is(#linksGrid,#newsList) + .add-inline button{
+:is(#linksGrid,#newsList,#secLinks-health,#prescriptionList) + .add-inline input:focus{border:none;box-shadow:none;background:rgba(75,92,66,.06)}
+:is(#linksGrid,#newsList,#secLinks-health,#prescriptionList) + .add-inline input:not(:first-child){border-left:1px solid var(--glass-line)}
+:is(#linksGrid,#newsList,#secLinks-health,#prescriptionList) + .add-inline :is(#linkTitle,#feedName){flex:1 1 150px}
+:is(#linksGrid,#newsList,#secLinks-health,#prescriptionList) + .add-inline :is(#linkUrl,#feedUrl){flex:1.6 1 200px}
+:is(#linksGrid,#newsList,#secLinks-health,#prescriptionList) + .add-inline #linkDesc{flex:1.6 1 200px}
+/* Prescriptions carry a date. It needs a fixed-ish basis rather than a
+   share of the row: a date input renders its own control chrome and
+   collapses badly when flexed down, unlike a text field. */
+:is(#linksGrid,#newsList,#secLinks-health,#prescriptionList) + .add-inline #presUrl{flex:1.6 1 200px}
+:is(#linksGrid,#newsList,#secLinks-health,#prescriptionList) + .add-inline input[type=date]{flex:0 0 auto;min-width:150px}
+:is(#linksGrid,#newsList,#secLinks-health,#prescriptionList) + .add-inline button{
   flex:0 0 auto;border:none;border-left:1px solid var(--glass-line);border-radius:0;
   padding:11px 20px;font-weight:700;background:var(--accent);color:#fff;
   transition:background .15s var(--ease)
 }
-:is(#linksGrid,#newsList) + .add-inline button:hover{background:var(--accent-ink)}
+:is(#linksGrid,#newsList,#secLinks-health,#prescriptionList) + .add-inline button:hover{background:var(--accent-ink)}
 @media (max-width:600px){
-  :is(#linksGrid,#newsList) + .add-inline{border-radius:14px}
-  :is(#linksGrid,#newsList) + .add-inline input:not(:first-child){border-left:none;border-top:1px solid var(--glass-line)}
-  :is(#linksGrid,#newsList) + .add-inline button{border-left:none;border-top:1px solid var(--glass-line);width:100%}
+  :is(#linksGrid,#newsList,#secLinks-health,#prescriptionList) + .add-inline{border-radius:14px}
+  :is(#linksGrid,#newsList,#secLinks-health,#prescriptionList) + .add-inline input:not(:first-child){border-left:none;border-top:1px solid var(--glass-line)}
+  :is(#linksGrid,#newsList,#secLinks-health,#prescriptionList) + .add-inline button{border-left:none;border-top:1px solid var(--glass-line);width:100%}
 }
 
 /* quote */
@@ -415,6 +420,10 @@ html.sidebar-hidden .top-brand{
   overscroll-behavior-x:contain;      /* the swipe stops at the edge of the table */
   scrollbar-width:thin;
 }
+
+/* The date on a prescription chip. Quieter than the name it follows, so
+   the chip still reads as one thing rather than two competing labels. */
+.link-row-meta{opacity:.6;font-weight:600;font-size:.92em;margin-left:6px}
 
 /* ---------- a column of cards inside .grid-2 ----------
    Used where the two sides of a page hold DIFFERENT cards rather than a
