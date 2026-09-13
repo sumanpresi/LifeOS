@@ -43,6 +43,81 @@ function colorForBase(base) {
   return HP_PALETTE[h % HP_PALETTE.length];
 }
 
+/* ---------- one hue per medicine, one shade per strength ----------
+
+   Colour used to come from the base name alone, so Librax 1/2 and Librax
+   1/4 were the same blue and Lamitor OD 75 and 100 the same purple. The
+   legend named them separately and the chart did not distinguish them,
+   which is the worst of both: it looks like information and isn't.
+
+   Giving each strength an unrelated palette entry would fix the clash and
+   break something more useful — that these ARE the same drug. So the base
+   keeps its hue and the strength moves the lightness within it: the lowest
+   dose lightest, the highest darkest, evenly spread. Librax 1/2 and 1/4
+   are two blues, Lamitor OD 25/50/75/100 four purples, and a glance still
+   groups the family before it separates the dose.
+
+   Ordered by NUMERIC strength, not by text, so 100 sits after 75 rather
+   than between 1/2 and 25. */
+function hexToHsl(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  let h = 0;
+  if (d) {
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60; if (h < 0) h += 360;
+  }
+  const l = (max + min) / 2;
+  const sat = d ? d / (1 - Math.abs(2 * l - 1)) : 0;
+  return [h, sat * 100, l * 100];
+}
+function hslToHex(h, s, l) {
+  s /= 100; l /= 100;
+  const c = (1 - Math.abs(2 * l - 1)) * s, x = c * (1 - Math.abs(((h / 60) % 2) - 1)), m = l - c / 2;
+  let [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x]
+    : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  const hex = v => Math.round((v + m) * 255).toString(16).padStart(2, "0");
+  return `#${hex(r)}${hex(g)}${hex(b)}`;
+}
+
+/* comboKey -> hex, rebuilt once per render rather than per bar: rhythmSvg
+   draws one rect per medicine per bucket, and re-deriving the shade inside
+   that loop would re-scan the medicine list hundreds of times a paint. */
+let comboColor = new Map();
+function rebuildComboColors(meta) {
+  comboColor = new Map();
+  const byBase = new Map();
+  meta.forEach(m => {
+    const k = m.base.toLowerCase();
+    if (!byBase.has(k)) byBase.set(k, new Set());
+    byBase.get(k).add(m.strength || "");
+  });
+  byBase.forEach((set, baseKey) => {
+    const strengths = [...set].sort((a, b) => (strengthValue(a) ?? 0) - (strengthValue(b) ?? 0));
+    const [h, sat, lig] = hexToHsl(colorForBase(baseKey));
+    const n = strengths.length;
+    strengths.forEach((st, i) => {
+      /* One strength: leave the palette colour exactly as it was, so a
+         medicine that has never changed dose looks identical to before. */
+      if (n === 1) { comboColor.set(`${baseKey}|${st}`, colorForBase(baseKey)); return; }
+      const t = i / (n - 1);                       // 0 = weakest, 1 = strongest
+      /* A narrower spread for two strengths. Across four doses the full
+         range reads as a gradient; across two it just made one of them
+         nearly black. */
+      const range = n === 2 ? 24 : 32;
+      const l = Math.max(30, Math.min(76, lig + range / 2 - t * range));
+      const s2 = Math.max(18, Math.min(78, sat - 6 + t * 14));
+      comboColor.set(`${baseKey}|${st}`, hslToHex(h, s2, l));
+    });
+  });
+}
+function colorForCombo(base, strength) {
+  return comboColor.get(`${String(base || "").toLowerCase()}|${strength || ""}`) || colorForBase(base);
+}
+
 /* ---------- shared UI state ----------
    All of it is transient view state (which tab, which filter) — never
    persisted, never synced, reset to sensible defaults on reload. */
@@ -250,7 +325,7 @@ function rhythmSvg(agg) {
       const h = v * scale;
       y -= h;
       const m = agg.metaById.get(id);
-      const color = colorForBase(m ? m.base : "");
+      const color = colorForCombo(m ? m.base : "", m ? m.strength : "");
       bars += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" fill="${color}" rx="2"><title>${esc(m ? comboLabel(m.base, m.strength) : "")} — ${v} on ${esc(b.label)}</title></rect>`;
     });
   });
@@ -273,11 +348,19 @@ function rhythmSvg(agg) {
   const legend = medIds.slice(0, 8).map(id => {
     const m = agg.metaById.get(id);
     const label = m ? comboLabel(m.base, m.strength) : "";
-    return `<span><i style="background:${colorForBase(m ? m.base : "")}"></i>${esc(label)} <b>${medTotals.get(id)}</b></span>`;
+    return `<span><i style="background:${colorForCombo(m ? m.base : "", m ? m.strength : "")}"></i>${esc(label)} <b>${medTotals.get(id)}</b></span>`;
   }).join("");
   const more = medIds.length > 8 ? `<span class="hint">+${medIds.length - 8} more</span>` : "";
 
-  return svg + (medIds.length ? `<div class="hp-legend">${legend}${more}</div>` : "");
+  /* The SVG gets a scroller of its own. Its viewBox is 860 wide against a
+     fixed 210px height, so on a phone `meet` scales the whole thing down to
+     about 40% — a thin strip of hairline bars with 4px labels, centred in a
+     box of empty space. Below 760px the chart instead keeps a legible width
+     and the person swipes along it, which is what it wants to be: a wide
+     thing on a narrow screen. The legend stays outside the scroller so it
+     wraps normally and is always readable. */
+  return `<div class="hp-chart-scroll">${svg}</div>` +
+    (medIds.length ? `<div class="hp-legend">${legend}${more}</div>` : "");
 }
 
 /* ---------- render ---------- */
@@ -296,6 +379,11 @@ export function renderHealthPulse() {
       </div>`;
     return;
   }
+
+  /* Before any aggregate() or SVG: every colour lookup below reads the map
+     this fills, and it has to reflect the medicine list as it is right now
+     — a medicine added since the last paint included. */
+  rebuildComboColors(meta);
 
   const overall = aggregate(hpRange, hpOffset, "all", "all");
   const filtered = aggregate(hpRange, hpOffset, hpMedFilter, hpStrengthFilter);
@@ -440,7 +528,7 @@ export function renderHealthPulse() {
           <div class="hp-logrow">
             <span class="hp-logdate">${esc(fmtDay(new Date(r.dateKey + "T00:00:00")))}</span>
             <span><i class="hp-ok">✓</i><b>${esc(comboLabel(r.base, r.strength))}</b> · ${esc(r.slotName)}</span>
-            <span class="hp-dot" style="background:${colorForBase(r.base)}"></span>
+            <span class="hp-dot" style="background:${colorForCombo(r.base, r.strength)}"></span>
           </div>`;
   const logCard = `
     <div class="hp-card hp-wide">
