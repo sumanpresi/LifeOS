@@ -26,6 +26,10 @@
 .hp-select{border:1px solid var(--line);border-radius:12px;padding:6px 10px;font-size:12.5px;font-weight:600;background:var(--card);color:var(--ink);max-width:180px}
 
 .hp-chart-svg{width:100%;height:210px;display:block}
+/* Wide by nature: on a narrow screen the chart scrolls rather than being
+   squashed into an unreadable strip. No effect on a desktop, where the
+   card is already wider than the min-width set in the media query below. */
+.hp-chart-scroll{overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
 .hp-tick{font-size:9.5px;fill:var(--muted)}
 .hp-axis{stroke:var(--line);stroke-width:1}
 
@@ -80,8 +84,30 @@
 @media (max-width:1099px){
   .hp-layout{grid-template-columns:1fr}
 }
+/* ---- narrow screens ----
+   The card head is a title plus a control cluster of two selects, a
+   three-way segment and a period stepper. Laid out side by side they need
+   roughly 520px, so below that the title takes its own line and the
+   controls get the full width to wrap into. Without min-width:0 the
+   selects refuse to shrink below their longest option and push the
+   stepper off the edge — which is what was being cut off. */
+@media (max-width:760px){
+  .hp-card-head{flex-direction:column;align-items:stretch;gap:8px}
+  .hp-card-controls{width:100%;gap:6px}
+  .hp-select{flex:1 1 130px;min-width:0;max-width:none}
+  .hp-card-controls .seg{flex:1 1 auto}
+  .hp-card-controls .seg button{flex:1 1 auto}
+  .hp-card-controls .week-nav{flex:1 1 100%;justify-content:space-between}
+  /* Keeps bars and date labels at a readable size; the scroller above
+     takes care of the overflow. */
+  .hp-chart-scroll .hp-chart-svg{min-width:560px}
+  .hp-tick{font-size:11px}
+}
 @media (max-width:600px){
   .hp-card{padding:14px 14px 16px;border-radius:18px}
+  .hp-card-head h3{font-size:15.5px}
   .hp-donutwrap{justify-content:center}
   .hp-timeline{grid-auto-flow:column;grid-template-columns:repeat(7,74px);overflow-x:auto;padding-bottom:4px}
+  .hp-legend{gap:8px 12px}
+  .hp-legend span{font-size:11.5px}
 }
