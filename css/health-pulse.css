@@ -15,12 +15,21 @@
 .hp-layout{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(280px,.9fr);gap:14px;margin-bottom:14px}
 .hp-wide{grid-column:1/-1}
 .hp-card{
+  /* THE ONE THAT KEEPS THE PAGE FROM GOING WIDER THAN THE PHONE.
+     A grid item's automatic minimum is min-content, so anything inside with
+     a width of its own — the rhythm chart's 560px minimum below — pushed
+     this card, its grid column and the whole page past the viewport. The
+     page had no horizontal scroll, so the overflow was simply unreachable:
+     the Month/Year buttons and the end of the legend sat off-screen with no
+     way to get to them. Zero minimum lets the card be the width of the
+     screen and hands the scrolling to the element that actually owns it. */
+  min-width:0;
   border-radius:22px;padding:18px 20px 20px;
   background:var(--glass-bg);-webkit-backdrop-filter:var(--glass-blur);backdrop-filter:var(--glass-blur);
   border:1px solid var(--glass-line);box-shadow:var(--shadow-glass),var(--glass-highlight);
   margin-bottom:14px;
 }
-.hp-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.hp-card-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px;min-width:0}
 .hp-card-head h3{font-family:var(--font-display);font-size:16.5px;font-weight:600;margin:0}
 .hp-card-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .hp-select{border:1px solid var(--line);border-radius:12px;padding:6px 10px;font-size:12.5px;font-weight:600;background:var(--card);color:var(--ink);max-width:180px}
@@ -29,7 +38,7 @@
 /* Wide by nature: on a narrow screen the chart scrolls rather than being
    squashed into an unreadable strip. No effect on a desktop, where the
    card is already wider than the min-width set in the media query below. */
-.hp-chart-scroll{overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
+.hp-chart-scroll{max-width:100%;min-width:0;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;scrollbar-width:thin}
 .hp-tick{font-size:9.5px;fill:var(--muted)}
 .hp-axis{stroke:var(--line);stroke-width:1}
 
@@ -57,7 +66,11 @@
 .hp-dose{width:18px;height:18px;border-radius:50%;margin:3px auto;background:var(--line)}
 
 .hp-log{display:grid}
-.hp-logrow{display:grid;grid-template-columns:58px 1fr auto;gap:10px;padding:10px 2px;border-bottom:1px dashed var(--line);font-size:12.5px;align-items:center}
+/* minmax(0,1fr) for the middle column, same automatic-minimum trap as the
+   card and the layout grid: a long medicine name has a min-content width,
+   and a bare 1fr would widen the row rather than let the name truncate. */
+.hp-logrow{display:grid;grid-template-columns:58px minmax(0,1fr) auto;gap:10px;padding:10px 2px;border-bottom:1px dashed var(--line);font-size:12.5px;align-items:center}
+.hp-logrow > span:nth-child(2){min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hp-logrow:last-child{border-bottom:none}
 .hp-logdate{color:var(--muted)}
 .hp-ok{display:inline-grid;place-items:center;width:19px;height:19px;border-radius:50%;background:var(--ok);color:#fff;font-size:11px;margin-right:6px;flex-shrink:0}
@@ -82,7 +95,10 @@
 .hp-collapse-btn svg.is-collapsed{transform:rotate(-90deg)}
 
 @media (max-width:1099px){
-  .hp-layout{grid-template-columns:1fr}
+  /* minmax(0,1fr), not a bare 1fr: same automatic-minimum trap as .hp-card
+     above, one level up. A bare fr track takes its min-content width, so
+     the column grew to fit the chart instead of clipping it. */
+  .hp-layout{grid-template-columns:minmax(0,1fr)}
 }
 /* ---- narrow screens ----
    The card head is a title plus a control cluster of two selects, a
@@ -97,7 +113,8 @@
   .hp-select{flex:1 1 130px;min-width:0;max-width:none}
   .hp-card-controls .seg{flex:1 1 auto}
   .hp-card-controls .seg button{flex:1 1 auto}
-  .hp-card-controls .week-nav{flex:1 1 100%;justify-content:space-between}
+  .hp-card-controls .week-nav{flex:1 1 100%;justify-content:space-between;min-width:0}
+  .hp-card-controls .week-nav .week-label{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   /* Keeps bars and date labels at a readable size; the scroller above
      takes care of the overflow. */
   .hp-chart-scroll .hp-chart-svg{min-width:560px}

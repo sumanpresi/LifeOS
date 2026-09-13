@@ -588,17 +588,23 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
    width, desktop included — it is a form you need for a few seconds
    when adding a link and never again, so it should not occupy a
    permanent row under the pills. The "+" chip reveals it. */
-:is(#linksGrid,#newsList,#secLinks-health,#prescriptionList) + .add-inline{display:none}
-.card.adding :is(#linksGrid,#newsList,#secLinks-health,#prescriptionList) + .add-inline{display:flex}
+:is(#linksGrid,#newsList,#secLinks-health,#prescriptionList,#workDocs) + .add-inline{display:none}
+.card.adding :is(#linksGrid,#newsList,#secLinks-health,#prescriptionList,#workDocs) + .add-inline{display:flex}
 
 @media (max-width:1024px){
-  :is(#linksGrid,#newsList,#secLinks-health,#prescriptionList){flex-wrap:nowrap;overflow-x:auto;overflow-y:visible;gap:8px;
+  :is(#linksGrid,#newsList,#secLinks-health,#prescriptionList,#workDocs){flex-wrap:nowrap;overflow-x:auto;overflow-y:visible;gap:8px;
              scrollbar-width:none;padding-bottom:2px}
-  :is(#linksGrid,#newsList,#secLinks-health,#prescriptionList)::-webkit-scrollbar{display:none}
-  :is(#linksGrid,#newsList,#secLinks-health,#prescriptionList) + .add-inline{margin-top:10px}
+  :is(#linksGrid,#newsList,#secLinks-health,#prescriptionList,#workDocs)::-webkit-scrollbar{display:none}
+  :is(#linksGrid,#newsList,#secLinks-health,#prescriptionList,#workDocs) + .add-inline{margin-top:10px}
   #page-overview > .card:first-of-type > .card-body{padding:12px 14px}
   #newsCard > .card-body{padding:12px 14px}
   :is(#healthLinksCard,#prescriptionsCard) > .card-body{padding:12px 14px}
+  /* Work documents joins the same single-row strip the other link rows
+     use. Wrapped, a tab of twenty documents was twenty stacked rows and
+     most of a screen; in one horizontal strip it is one row you swipe,
+     and the rest of the page is reachable again. */
+  #workDocs{padding-bottom:2px}
+  .wd-group-row input{min-width:0}
   .link-row{flex-shrink:0;padding:5px 5px 5px 11px}
   .link-row-title{font-size:13.5px}
   .link-edit-btn,.link-del-btn{width:20px;height:20px;opacity:1}
@@ -609,7 +615,7 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
    released for as long as one is open — the card is already promoted
    by .has-open-popover at that moment, so nothing else can overlap it. */
 @media (max-width:1024px){
-  .card.has-open-popover :is(#linksGrid,#newsList,#secLinks-health,#prescriptionList){overflow:visible}
+  .card.has-open-popover :is(#linksGrid,#newsList,#secLinks-health,#prescriptionList,#workDocs){overflow:visible}
 }
 
 /* ===============================================================
@@ -777,7 +783,7 @@ html[data-theme="dark"] .gh-chip[data-tooltip]:focus-visible::after{
    so the row reads as a compact strip of shortcuts rather than a set
    of buttons. Applies at every width.
    --------------------------------------------------------------- */
-:is(#linksGrid,#newsList,#secLinks-health,#prescriptionList){align-items:center}
+:is(#linksGrid,#newsList,#secLinks-health,#prescriptionList,#workDocs){align-items:center}
 .link-grid-label{
   flex:0 0 auto;
   font-size:14px;
