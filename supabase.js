@@ -1003,10 +1003,17 @@ export async function syncNow() {
    subscription below silently delivers nothing forever and cross-device
    updates only ever arrive when a tab is re-focused. Rather than depend
    on a setting that can't be verified from here, poll gently as well:
-   once a minute, only while the tab is actually visible, and only when
-   this device has nothing unsaved to lose. */
+   only while the tab is actually visible, and only when this device has
+   nothing unsaved to lose.
+
+   5 minutes, not 1 — a full state fetch every 60s on every open tab, all
+   day, was the single largest contributor to Supabase egress (API
+   bandwidth) running over the free-tier quota. Realtime still delivers
+   changes instantly when it's connected; this interval only matters as
+   the fallback for whenever it isn't, so 5 minutes trades a slightly
+   slower worst-case catch-up for a 5x cut in this poll's own bandwidth. */
 let pollTimer = null;
-const POLL_MS = 60_000;
+const POLL_MS = 5 * 60_000;
 function startPolling() {
   stopPolling();
   pollTimer = setInterval(() => {
