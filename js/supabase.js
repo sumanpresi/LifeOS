@@ -384,6 +384,239 @@ function safeToPullNow() {
   return !hasLocalEdits() && !isUserTyping();
 }
 
+/* ================================================================
+   REMOTE-CHANGE DETECTION — the cheap half of sync
+   ================================================================
+
+   The document is one jsonb row of roughly 450 KB on the wire. Two things
+   were downloading all of it whether or not anything had changed:
+
+     - the 15-second poll, which ran `select data, updated_at` and then
+       decided, AFTER paying for the whole document, whether it was worth
+       having. At four pulls a minute that is about 108 MB an hour of an
+       open tab doing nothing.
+     - realtime, which by default delivers the complete row to every
+       subscriber on every write — so each save also cost a full download
+       on every other device.
+
+   Both now go through a PROBE first: `select updated_at`, a single
+   timestamp, a few hundred bytes including headers. The full document is
+   fetched only when that timestamp differs from the one this device last
+   merged. Nothing about the merge, the conflict handling or the schema
+   changes — this decides only WHETHER to ask for the document, never what
+   to do with it once it arrives.
+
+   `updated_at` is sufficient and already exists: saveRemote() writes it on
+   every upsert, so any write by any device moves it. No migration. */
+/* ---- the stamp: what THIS TAB has downloaded, reconciled and applied ----
+
+   Not "the last version observed". The distinction is the whole safety
+   property: if the stamp ever names a version this tab did not actually
+   merge, the next probe reports "unchanged" and the tab stays stale
+   forever — and then overwrites the cloud with its stale copy on the next
+   save. commitStamp() is therefore called in exactly one place, after a
+   reconcile has completed without throwing.
+
+   Scoped per user id: signing in as somebody else on the same browser
+   must not inherit the previous account's idea of where the cloud is.
+
+   ASSUMPTION, deliberate and documented: updated_at is client-supplied.
+   saveRemote() writes it explicitly on every upsert, and supabase-setup.sql
+   defines the column with `default now()` and no trigger, so the value this
+   code writes is the value that comes back. If a trigger were ever added
+   that rewrote updated_at server-side, every save would be followed by a
+   full re-read — correct, but expensive — and this comment is where to
+   start looking. */
+const STAMP_PREFIX = "lifeos-remote-stamp:";
+let lastRemoteStamp = null;   // version this tab has merged; null = not loaded yet
+let lastStampUser = null;
+let lastSelfStamp = null;     // the updated_at this tab itself last wrote
+let remoteStale = false;      // another tab says the cloud moved — probe before trusting the stamp
+
+function stampKey() { return STAMP_PREFIX + (user ? user.id : "anon"); }
+function loadStamp() {
+  const uid = user ? user.id : "anon";
+  if (lastRemoteStamp !== null && lastStampUser === uid) return lastRemoteStamp;
+  lastStampUser = uid;
+  try { lastRemoteStamp = localStorage.getItem(stampKey()) || ""; }
+  catch (_) { lastRemoteStamp = ""; }   // private browsing: in-session only, a reload re-reads once
+  return lastRemoteStamp;
+}
+function commitStamp(stamp) {
+  if (!stamp) return;
+  lastStampUser = user ? user.id : "anon";
+  lastRemoteStamp = stamp;
+  remoteStale = false;
+  try { localStorage.setItem(stampKey(), stamp); } catch (_) { /* private browsing */ }
+  announceRemoteChanged();
+}
+export function forgetStamp() {   // called on sign-out; the next session re-checks from scratch
+  lastRemoteStamp = null; lastStampUser = null; lastSelfStamp = null; remoteStale = false;
+}
+
+/* ---- cross-tab coordination ----
+
+   The message is "the cloud moved, go and look", never "here is the
+   version you now have". A tab that adopted another tab's stamp would be
+   claiming to hold a document it never downloaded: its probe would then
+   report unchanged, it would never pull, and its next save would put its
+   stale copy over the newer cloud one. So the receiver only marks itself
+   stale and schedules its own probe — cheap, and it still ends up doing
+   the read itself.
+
+   No loop: a tab only broadcasts after committing a stamp, and a receiver
+   that probes and finds its own stamp already current stops there without
+   broadcasting anything. */
+let stampChannel = null;
+try {
+  stampChannel = new BroadcastChannel("lifeos-sync");
+  stampChannel.onmessage = e => {
+    if (!e.data || e.data.type !== "remote-changed") return;
+    remoteStale = true;
+    if (!user || !sb || document.hidden) return;   // it will probe when it comes back
+    if (!safeToPullNow()) { scheduleDeferredPull(); return; }
+    syncCheck("another tab");
+  };
+} catch (_) { stampChannel = null; }   // older browsers, some private modes
+function announceRemoteChanged() {
+  try { if (stampChannel) stampChannel.postMessage({ type: "remote-changed" }); } catch (_) {}
+}
+
+/* ---- the save gate ----
+
+   saveRemote() refuses to run until this session has checked the cloud
+   once, so that a device never uploads over a version it has not seen.
+   The check is what matters, NOT the download: a probe proving the cloud
+   still holds the exact version this tab already merged is every bit as
+   good a check as re-reading the document, and far cheaper.
+
+   Routing startup through the probe without this was the bug that silently
+   swallowed every save from the second page load onward. */
+function markRemoteChecked() {
+  hasReconciled = true;
+  /* No early return when the gate is already open: a reconcile branch
+     inside loadRemote() can set hasReconciled itself and return before the
+     tail that drains this queue, which would leave a queued save sitting
+     there indefinitely. saveRemote() no-ops when there is nothing to send,
+     so calling it once more is cheap insurance. */
+  if (pendingSaveAfterReconcile) { pendingSaveAfterReconcile = false; saveRemote(); }
+}
+
+/* One timestamp. This is the request that replaces a 434 KB download. */
+async function probeRemoteStamp() {
+  if (!sb || !user) return null;
+  const { data, error } = await sb.from("lifeos_data")
+    .select("updated_at").eq("user_id", user.id).maybeSingle();
+  if (error) throw error;
+  return data ? data.updated_at : null;
+}
+
+/* ---- probe failure backoff ----
+   A probe that fails must not escalate into a full read on every poll:
+   during an outage that would turn a cheap check into the most expensive
+   request the app makes, once per tick. Failures back off; a success
+   clears it; a manual Sync ignores it entirely. */
+let probeFailures = 0;
+let probeQuietUntil = 0;
+/* The backoff protects Supabase from a device hammering it during an
+   outage. It must not also delay RECOVERY: with the save gate now shut
+   while the cloud state is unknown, a queued upload waits on the next
+   successful probe, and sitting out a five-minute backoff after the
+   network has demonstrably returned is the wrong trade. Any signal that
+   conditions have actually changed — the browser reporting `online`, or
+   the person coming back to the tab — clears it and tries once. */
+function clearProbeBackoff() { probeFailures = 0; probeQuietUntil = 0; }
+
+/* ---- one read at a time ----
+   Poll, realtime, visibility, deferred pull and cross-tab messages can all
+   fire at once. Without coalescing that is several concurrent probes, then
+   several concurrent full reads merging into the same state. A second
+   trigger during a run sets a flag and is honoured once the run finishes,
+   so nothing is lost and nothing is done twice. */
+let loadInFlight = false;
+let loadAgainAfter = false;
+
+async function syncCheck(reason, force = false) {
+  if (!sb || !user) return "skipped";
+  if (loadInFlight) { loadAgainAfter = true; return "coalesced"; }
+  loadInFlight = true;
+  try {
+    return await runSync(reason, force);
+  } finally {
+    loadInFlight = false;
+    if (loadAgainAfter) {
+      loadAgainAfter = false;
+      /* Re-check rather than re-read: whatever arrived during the run is
+         almost always the change this run already merged. */
+      setTimeout(() => syncCheck(reason + " (queued)"), 0);
+    }
+  }
+}
+
+async function runSync(reason, force) {
+  if (!force && Date.now() < probeQuietUntil) {
+    authDiag("probe (" + reason + "): backing off after " + probeFailures + " failure(s)");
+    return "backoff";
+  }
+  let stamp;
+  try {
+    stamp = await probeRemoteStamp();
+    probeFailures = 0; probeQuietUntil = 0;
+  } catch (e) {
+    probeFailures++;
+    /* 30s, 60s, 2m, 4m … capped at 5 minutes. Only the probe is delayed;
+       local work and local saving are untouched. */
+    probeQuietUntil = Date.now() + Math.min(5 * 60_000, 30_000 * Math.pow(2, probeFailures - 1));
+    authDiag("probe (" + reason + ") failed: " + (e.message || e) +
+             " — retrying in " + Math.round((probeQuietUntil - Date.now()) / 1000) + "s");
+    /* Deliberately NOT falling through to a full read. A probe failing is
+       evidence the network is unwell, which is the worst moment to ask for
+       the largest thing in the app.
+
+       AND DELIBERATELY NOT OPENING THE SAVE GATE. An earlier version
+       called markRemoteChecked() on the first failure, reasoning that
+       local work should never be stranded. That reasoning was wrong: a
+       failed probe establishes nothing about what is in Supabase, so
+       opening the gate licenses the next local edit to upsert the whole
+       document over a cloud version this device has never seen. The other
+       device's work would be gone with no conflict prompt and no
+       snapshot — precisely the silent loss the merge functions exist to
+       prevent.
+
+       Local work IS still safe, by the route that was always correct:
+       persist() has already written it to localStorage, and saveRemote()
+       sets pendingSaveAfterReconcile, so the upload is queued rather than
+       abandoned. It flushes the moment a probe or a reconcile actually
+       succeeds. Safe on this device, queued for the cloud — not uploaded
+       over an unknown remote version. */
+    setSyncPill("err", "Offline — changes saved on this device");
+    return "probe-failed";
+  }
+
+  if (stamp === null) {                      // no row yet — this device seeds it
+    const r = await loadRemote();
+    if (r !== "failed") markRemoteChecked();
+    return r;
+  }
+  if (!force && !remoteStale && stamp === loadStamp()) {
+    /* THE CHEAP PATH, and the one that has to open the save gate: the
+       cloud holds exactly the version this tab already reconciled. */
+    markRemoteChecked();
+    authDiag("probe (" + reason + "): unchanged, nothing downloaded");
+    return "unchanged";
+  }
+  if (!force && remoteStale && stamp === loadStamp()) {
+    remoteStale = false;                     // another tab's nudge, already current
+    markRemoteChecked();
+    authDiag("probe (" + reason + "): another tab's nudge, already current");
+    return "unchanged";
+  }
+  authDiag("probe (" + reason + "): cloud moved " + (loadStamp() || "never") + " \u2192 " + stamp + " — reading document");
+  const result = await loadRemote();
+  if (result !== "failed") markRemoteChecked();
+  return result;
+}
+
 /* A deferred pull must not simply be dropped — otherwise a realtime push
    that arrives while you're typing is silently skipped and the poll then
    waits out a whole minute before trying again. Re-check every few
@@ -395,7 +628,7 @@ function scheduleDeferredPull() {
     if (!user || !sb) { clearInterval(deferredPullTimer); deferredPullTimer = null; return; }
     if (document.hidden || !safeToPullNow()) return; // still busy — wait for the next tick
     clearInterval(deferredPullTimer); deferredPullTimer = null;
-    loadRemote();
+    syncCheck("deferred");
   }, 4000);
 }
 
@@ -1364,106 +1597,146 @@ export async function loadRemote(preferRemote = false) {
     const { data, error } = await sb.from("lifeos_data")
       .select("data, updated_at").eq("user_id", user.id).maybeSingle();
     if (error) throw error;
-    if (data && data.data && Object.keys(data.data).length) {
-      const remote = await decodeCloudRow(data.data);
-      /* A decode that yields nothing usable must never reach the merges:
-         they would read absent keys as "the other side deleted everything"
-         and this device would then helpfully write that emptiness back. */
-      if (!remote || typeof remote !== "object" || !Object.keys(remote).length) {
-        throw new Error("cloud data could not be read");
-      }
-      checkClockSkew(data.updated_at);
-      mergeIncomingWhiteboards(remote);
-      mergeIncomingBrainstormBoards(remote);
-      mergeIncomingSectionNotes(remote);
-      mergeIncomingTasks(remote);
-      mergeIncomingRecords(remote); // after mergeIncomingTasks: reuses the trash log's `gone` set and its verdict
-      mergeIncomingJournal(remote); // after the trash log has been merged, which mergeIncomingTasks does
-      mergeIncomingNotebook(remote); // after mergeIncomingTasks: needs its `gone` set and verdict
-      mergeIncomingGoogleLinks(remote); // same `gone` set and verdict as the notebook merge above
-      /* Course progress is append-shaped, so an incoming copy is combined
-         with this device's rather than replacing it — the same reason the
-         journal and the ink merge instead of one side winning. */
-      remote.communication = state.communication = mergeCommunication(state.communication, remote.communication);
-      // The merge just changed local state (possibly pulling in board
-      // data from the remote side) independent of whatever the win/lose
-      // branching below decides — make sure that's actually reflected
-      // here, not just in the payload that eventually gets pushed back.
-      persist(false); rerender();
-      redrawAllInk(); // merged strokes are in state; the canvases still show the old set
+    /* The version this read observed. Deliberately NOT committed yet: see
+       commitStamp() below. Everything from here to the end of the reconcile
+       runs inside an inner function so that an exception anywhere in it
+       skips the commit rather than recording a version this device never
+       actually applied. The early `return`s in the branches return from
+       THIS function, so the commit still happens on every successful path. */
+    const observedStamp = data ? data.updated_at : null;
+    const selfBefore = lastSelfStamp;
+    let appliedRemote = false;
+    /* A function, not an extra statement after each call: one of the call
+       sites is the consequent of an `if` with an `else` attached, where a
+       second statement would detach the else. */
+    const adoptRemote = r => { applyRemote(r); appliedRemote = true; };
 
-      const mine = hasLocalEdits();
-      const theirs = cloudChangedSinceLastSync(remote);
-
-      if (preferRemote) { applyRemote(remote); }
-      else if (!agreedWithCloud()) {
-        /* First run after upgrading, so there's no record of a previous
-           agreement to reason from. Fall back to the old timestamp
-           comparison this once; from the next successful sync onward the
-           clock is out of the picture for good. */
-        if ((remote.updatedAt || 0) > (state.updatedAt || 0)) applyRemote(remote);
-        else {
-          // Same reasoning as the conflict branch below: don't let a
-          // clock comparison be the only thing standing between the
-          // cloud's copy and oblivion.
-          try { takeSnapshot("cloud-version-overwritten", remote); } catch (e) {}
-          hasReconciled = true; await saveRemote(); return;
+    await (async () => {
+      if (data && data.data && Object.keys(data.data).length) {
+        const remote = await decodeCloudRow(data.data);
+        /* A decode that yields nothing usable must never reach the merges:
+           they would read absent keys as "the other side deleted everything"
+           and this device would then helpfully write that emptiness back. */
+        if (!remote || typeof remote !== "object" || !Object.keys(remote).length) {
+          throw new Error("cloud data could not be read");
         }
-      }
-      else if (!mine && theirs) {
-        applyRemote(remote);                       // cloud moved, this device didn't — take it
-      }
-      else if (mine && !theirs) {
-        hasReconciled = true; await saveRemote(); return;  // only this device moved — send it
-      }
-      else if (mine && theirs) {
-        /* Both sides changed since they last agreed. There is no correct
-           automatic answer, so take the newer one but say so — silently
-           discarding one side is how people lose work without noticing.
+        checkClockSkew(data.updated_at);
+        authDiag("full read: " + Math.round(JSON.stringify(data.data).length / 1024) + " KB downloaded");
+        mergeIncomingWhiteboards(remote);
+        mergeIncomingBrainstormBoards(remote);
+        mergeIncomingSectionNotes(remote);
+        mergeIncomingTasks(remote);
+        mergeIncomingRecords(remote); // after mergeIncomingTasks: reuses the trash log's `gone` set and its verdict
+        mergeIncomingJournal(remote); // after the trash log has been merged, which mergeIncomingTasks does
+        mergeIncomingNotebook(remote); // after mergeIncomingTasks: needs its `gone` set and verdict
+        mergeIncomingGoogleLinks(remote); // same `gone` set and verdict as the notebook merge above
+        /* Course progress is append-shaped, so an incoming copy is combined
+           with this device's rather than replacing it — the same reason the
+           journal and the ink merge instead of one side winning. */
+        remote.communication = state.communication = mergeCommunication(state.communication, remote.communication);
+        // The merge just changed local state (possibly pulling in board
+        // data from the remote side) independent of whatever the win/lose
+        // branching below decides — make sure that's actually reflected
+        // here, not just in the payload that eventually gets pushed back.
+        persist(false); rerender();
+        redrawAllInk(); // merged strokes are in state; the canvases still show the old set
 
-           This is the ONE place a clock still decides anything, and the
-           header above explains why that is dangerous: updatedAt on each
-           side is a reading from a DIFFERENT device's clock. A phone
-           running a couple of minutes fast looks permanently newer, so it
-           wins every tie and pushes its copy over the desktop's — which is
-           exactly the "I edited on the desktop and the phone overwrote it"
-           report this comment now exists because of.
+        const mine = hasLocalEdits();
+        const theirs = cloudChangedSinceLastSync(remote);
 
-           It cannot be replaced by comparing rev, because rev counters are
-           per-device and not comparable. What it CAN be is non-destructive:
-           both branches below snapshot the side that loses before it is
-           discarded, so a wrong guess costs a trip to Restore rather than
-           the work itself. The tolerance stops a small skew from deciding
-           anything — inside it, the cloud (the copy both devices share)
-           wins rather than whichever clock happens to run fast. */
-        const skewTolerance = 2 * 60 * 1000;
-        const localIsClearlyNewer = (state.updatedAt || 0) - (remote.updatedAt || 0) > skewTolerance;
-        if (!localIsClearlyNewer) {
-          applyRemote(remote);
-          toast("Another device had newer changes — its version is now shown. Yours is in Restore.");
-        } else {
-          /* This device is about to overwrite a cloud version it never
-             merged — the other device's work is one upsert from being
-             gone. Keep the incoming payload as a snapshot first, so it can
-             be recovered from Restore rather than existing nowhere. */
-          try { takeSnapshot("cloud-version-overwritten", remote); }
-          catch (e) { console.warn("[sync] pre-overwrite snapshot failed", e); }
-          hasReconciled = true; await saveRemote();
-          toast("This device had newer changes — sent up. The other device's version is in Restore.");
-          return;
+        if (preferRemote) { adoptRemote(remote); }
+        else if (!agreedWithCloud()) {
+          /* First run after upgrading, so there's no record of a previous
+             agreement to reason from. Fall back to the old timestamp
+             comparison this once; from the next successful sync onward the
+             clock is out of the picture for good. */
+          if ((remote.updatedAt || 0) > (state.updatedAt || 0)) adoptRemote(remote);
+          else {
+            // Same reasoning as the conflict branch below: don't let a
+            // clock comparison be the only thing standing between the
+            // cloud's copy and oblivion.
+            try { takeSnapshot("cloud-version-overwritten", remote); } catch (e) {}
+            hasReconciled = true; await saveRemote(); return;
+          }
         }
+        else if (!mine && theirs) {
+          adoptRemote(remote);                       // cloud moved, this device didn't — take it
+        }
+        else if (mine && !theirs) {
+          hasReconciled = true; await saveRemote(); return;  // only this device moved — send it
+        }
+        else if (mine && theirs) {
+          /* Both sides changed since they last agreed. There is no correct
+             automatic answer, so take the newer one but say so — silently
+             discarding one side is how people lose work without noticing.
+
+             This is the ONE place a clock still decides anything, and the
+             header above explains why that is dangerous: updatedAt on each
+             side is a reading from a DIFFERENT device's clock. A phone
+             running a couple of minutes fast looks permanently newer, so it
+             wins every tie and pushes its copy over the desktop's — which is
+             exactly the "I edited on the desktop and the phone overwrote it"
+             report this comment now exists because of.
+
+             It cannot be replaced by comparing rev, because rev counters are
+             per-device and not comparable. What it CAN be is non-destructive:
+             both branches below snapshot the side that loses before it is
+             discarded, so a wrong guess costs a trip to Restore rather than
+             the work itself. The tolerance stops a small skew from deciding
+             anything — inside it, the cloud (the copy both devices share)
+             wins rather than whichever clock happens to run fast. */
+          const skewTolerance = 2 * 60 * 1000;
+          const localIsClearlyNewer = (state.updatedAt || 0) - (remote.updatedAt || 0) > skewTolerance;
+          if (!localIsClearlyNewer) {
+            adoptRemote(remote);
+            toast("Another device had newer changes — its version is now shown. Yours is in Restore.");
+          } else {
+            /* This device is about to overwrite a cloud version it never
+               merged — the other device's work is one upsert from being
+               gone. Keep the incoming payload as a snapshot first, so it can
+               be recovered from Restore rather than existing nowhere. */
+            try { takeSnapshot("cloud-version-overwritten", remote); }
+            catch (e) { console.warn("[sync] pre-overwrite snapshot failed", e); }
+            hasReconciled = true; await saveRemote();
+            toast("This device had newer changes — sent up. The other device's version is in Restore.");
+            return;
+          }
+        }
+        // neither side moved: nothing to do
+      } else {
+        hasReconciled = true; await saveRemote(); return;      /* first device: seed the cloud copy */
       }
-      // neither side moved: nothing to do
-    } else {
-      hasReconciled = true; await saveRemote(); return;      /* first device: seed the cloud copy */
-    }
-    hasReconciled = true;
-    if (pendingSaveAfterReconcile) { pendingSaveAfterReconcile = false; await saveRemote(); return; }
-    setSyncPill("ok", "Synced · " + nowTime());
+      hasReconciled = true;
+      if (pendingSaveAfterReconcile) { pendingSaveAfterReconcile = false; await saveRemote(); return; }
+      setSyncPill("ok", "Synced · " + nowTime());
+    })();
+
+    /* Commit only now, and only if saveRemote() did not run inside the
+       reconcile above — when it did, it has already recorded its own,
+       newer stamp and overwriting that with the older observed one would
+       make the next probe see a phantom change. Comparing lastSelfStamp
+       rather than the timestamps themselves keeps this correct on a device
+       whose clock is wrong. */
+    if (observedStamp && lastSelfStamp === selfBefore) commitStamp(observedStamp);
+    return appliedRemote ? "updated" : "ok";
   } catch (e) {
-    hasReconciled = true; // don't block saves forever over one failed check — the person can retry via Sync
+    /* hasReconciled is NOT set here. It used to be, with the comment
+       "don't block saves forever over one failed check" — but a read that
+       failed has told this device nothing about the cloud, and opening the
+       gate on it means the next save can overwrite a newer remote version
+       sight unseen. Blocking cloud saves until a check succeeds is the
+       safe direction: the edits are already on this device and queued in
+       pendingSaveAfterReconcile.
+
+       The trade is real and worth naming: if reads fail persistently —
+       RLS denying SELECT, say, while INSERT is allowed — this device will
+       not upload at all. That is the correct outcome. The pill says so
+       rather than showing a false "Synced". */
     authDiag("LOAD failed: " + (e.message || e) + (e.code ? " [code " + e.code + "]" : "") + (e.hint ? " — " + e.hint : ""));
     setSyncPill("err", "Sync failed — tap Sync");
+    /* Reported, not thrown: callers decide what to do. The stamp is NOT
+       advanced here, so the same cloud version is retried next time. */
+    return "failed";
   }
 }
 /* Turns a Supabase/PostgREST failure into something actionable.
@@ -1761,16 +2034,36 @@ export async function saveRemote() {
     }
     state.compressionReady = true;
 
+    const stamp = new Date().toISOString();
+    /* BEFORE the await, not after. Realtime emits the change the moment
+       the row commits, which can be well before the upsert promise
+       resolves here — and a guard set afterwards is not yet set when the
+       echo of this very write arrives, so the handler reads it as another
+       device and pulls the whole document straight back. Registering the
+       identity first closes that window entirely. */
+    const previousSelfStamp = lastSelfStamp;
+    lastSelfStamp = stamp;
     const { error } = await sb.from("lifeos_data").upsert({
-      user_id: user.id, data: body, updated_at: new Date().toISOString()
+      user_id: user.id, data: body, updated_at: stamp
     });
-    if (error) throw error;
+    if (error) {
+      /* The write did not land, so this stamp names nothing. Leaving it in
+         place would make the guard suppress a later, genuine remote update
+         that happened to carry it. */
+      lastSelfStamp = previousSelfStamp;
+      throw error;
+    }
     /* Report the WIRE size, not the raw document. Once the transport is
        compressed those are very different numbers, and warning about the
        uncompressed one would keep alarming people about a constraint that
        no longer applies. */
     lastPayloadBytes = wireBytes;
     lastSizeCheck = Date.now();
+    /* The write landed, so this tab holds exactly what the cloud holds —
+       commit it as the merged version. This also stops the next probe
+       reading our own save as somebody else's change and pulling back the
+       document we just sent. */
+    commitStamp(stamp);
     saveErrorShown = false; // a success re-arms the explanation for any future failure
     markAgreed(token); // this device and the cloud now hold the same thing
     const pill = document.getElementById("syncPill");
@@ -1851,7 +2144,7 @@ export async function syncNow() {
   // cloud is newer, it's applied locally; if this device is newer, it
   // schedules a save itself. Either way, saveRemote() afterward is a
   // safe no-op or a genuine push of what's actually newest.
-  await loadRemote(); await saveRemote();
+  await syncCheck("manual", true); await saveRemote();
   toast("Synced");
 }
 
@@ -1865,74 +2158,116 @@ export async function syncNow() {
    only while the tab is actually visible, and only when this device has
    nothing unsaved to lose.
 
-   Was once a minute, which is a long time to sit looking at a stale
-   journal entry on the other device — and it was the ONLY route in
-   whenever realtime isn't actually publishing. 15s is still trivial
-   traffic for one row on a personal account, and loadRemote() compares
-   revisions before it applies anything, so an unchanged cloud costs one
-   small read and nothing else. */
+   That last claim used to be wrong, and expensively so: "an unchanged
+   cloud costs one small read" described the intent, not the code. The
+   poll ran `select data, updated_at` and compared revisions only AFTER
+   the whole ~450 KB document had already been downloaded. Four ticks a
+   minute of an idle tab is roughly 108 MB an hour. It is now true — the
+   comparison happens against a timestamp fetched on its own. */
 let pollTimer = null;
-const POLL_MS = 15_000;
+/* Two intervals, because the poll is doing two different jobs.
+
+   When realtime is subscribed it is only a safety net against a missed
+   push, so it can be slow. When realtime is down — the table not in the
+   publication, a blocked websocket, a flaky network — it is the ONLY way
+   an update from the other device ever arrives, so it has to stay brisk.
+
+   Both tick a PROBE, not a download: one timestamp, a few hundred bytes.
+   The old 15-second full read cost about 450 KB a tick, which is where
+   the 6 GB went. At this size the interval stops being the thing that
+   matters, so the fast one stays fast. */
+const POLL_FAST_MS = 15_000;   // realtime not delivering — the probe is the only route in
+const POLL_SLOW_MS = 120_000;  // realtime is live — this is just a backstop
+let pollEveryMs = POLL_FAST_MS;
 function startPolling() {
   stopPolling();
+  pollEveryMs = realtimeConnected ? POLL_SLOW_MS : POLL_FAST_MS;
   pollTimer = setInterval(() => {
     if (document.hidden || !user || !sb) return;
     if (!safeToPullNow()) { scheduleDeferredPull(); return; } // never repaint under a caret
-    loadRemote();
-  }, POLL_MS);
+    syncCheck("poll");
+  }, pollEveryMs);
+}
+/* Called when the channel's status changes: the poll's job changes with
+   it, so its cadence should too. */
+function retunePolling() {
+  const want = realtimeConnected ? POLL_SLOW_MS : POLL_FAST_MS;
+  if (want !== pollEveryMs && pollTimer) startPolling();
 }
 function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
 
 function startRealtime() {
   stopRealtime();
   startPolling();
+  /* COLUMN SELECTION IS THE POINT OF THIS SUBSCRIPTION.
+
+     By default a Postgres Changes event carries the whole row, so every
+     save on one device pushed the entire ~434 KB document to every other
+     device. `select` narrows the payload to the primary key and the
+     timestamp; the handler then decides whether the document is worth
+     asking for, and the device that needs it fetches it once.
+
+     THERE IS NO FULL-ROW FALLBACK, deliberately. An earlier version
+     dropped back to a full-row subscription on CHANNEL_ERROR — which is
+     also what a flaky websocket, a suspended phone and an expiring
+     session look like, so one bad minute would have re-armed the exact
+     egress this work exists to remove, permanently, for the rest of the
+     session. If column selection is unavailable in this environment the
+     right degradation is the metadata probe, which is already running and
+     costs a few hundred bytes a tick. Realtime is an optimisation here,
+     never the only route in. */
   rtChannel = sb.channel("lifeos-" + user.id)
-    .on("postgres_changes",
-      { event: "*", schema: "public", table: "lifeos_data", filter: "user_id=eq." + user.id },
-      async payload => {
-        const row = payload.new;
-        if (!row || !row.data) return;
-        /* A compressed row can't be inspected without decoding it first,
-           so the cheap early-outs move after the decode. */
-        let remote;
-        try { remote = await decodeCloudRow(row.data); }
-        catch (e) { authDiag("realtime decode failed: " + (e.message || e)); return; }
-        if (!remote || typeof remote !== "object" || !Object.keys(remote).length) return;
-        if (remote._client === CLIENT_ID) return;
-        if (!cloudChangedSinceLastSync(remote)) return; // already have it
-        if (!safeToPullNow()) {
-          /* Don't overwrite something being typed right now. If it's only
-             that a field has focus, the deferred pull below picks it up as
-             soon as the person stops; if there are genuine unsaved local
-             edits, loadRemote() reconciles them properly (conflict warning
-             included) rather than one side quietly winning. */
-          setSyncPill("busy", "Changes waiting — tap Sync");
-          scheduleDeferredPull();
-          return;
-        }
-        mergeIncomingWhiteboards(remote);
-        mergeIncomingBrainstormBoards(remote);
-        mergeIncomingSectionNotes(remote);
-        mergeIncomingTasks(remote);
-        mergeIncomingJournal(remote); // after the trash log has been merged, which mergeIncomingTasks does
-        mergeIncomingNotebook(remote); // after mergeIncomingTasks: needs its `gone` set and verdict
-        mergeIncomingGoogleLinks(remote); // same `gone` set and verdict as the notebook merge above
-        /* Course progress is append-shaped, so an incoming copy is combined
-           with this device's rather than replacing it — the same reason the
-           journal and the ink merge instead of one side winning. */
-        remote.communication = state.communication = mergeCommunication(state.communication, remote.communication);
-        applyRemote(remote);
-        toast("Updated from another device");
-      })
+    .on("postgres_changes", {
+      event: "*", schema: "public", table: "lifeos_data",
+      filter: "user_id=eq." + user.id,
+      select: "user_id,updated_at"
+    }, payload => {
+      const row = payload.new;
+      if (!row) return;
+      const stamp = row.updated_at;
+      /* This tab's own write, echoed back. Registered before the upsert
+         was sent (see saveRemote), so it is always set by the time the
+         echo can arrive. */
+      if (stamp && stamp === lastSelfStamp) return;
+      if (stamp && !remoteStale && stamp === loadStamp()) return;   // already merged
+      if (!safeToPullNow()) {
+        /* Don't repaint under a caret. The deferred pull retries as soon
+           as typing stops; genuine unsaved edits are reconciled by
+           loadRemote() with its conflict rules intact. */
+        setSyncPill("busy", "Changes waiting — tap Sync");
+        scheduleDeferredPull();
+        return;
+      }
+      authDiag("realtime: another device wrote at " + (stamp || "?") + " — checking");
+      /* Through the coordinator, so a realtime push arriving while a poll
+         or a visibility check is mid-read coalesces instead of starting a
+         second concurrent read of the same document. The probe inside is
+         near-free and confirms the push rather than trusting it. */
+      syncCheck("realtime").then(r => {
+        // Only after a document was actually downloaded AND reconciled.
+        if (r === "updated" || r === "ok") toast("Updated from another device");
+      });
+    })
     .subscribe(status => {
       // Visible on the device where it's failing — the whole point of
-      // authDiag. "CHANNEL_ERROR"/"TIMED_OUT" here means realtime isn't
-      // enabled for the table, and the poll above is doing the work.
+      // authDiag. CHANNEL_ERROR/TIMED_OUT here means the channel is down
+      // and the metadata probe is carrying the load.
       authDiag("realtime: " + status);
-      realtimeConnected = (status === "SUBSCRIBED");
+      const nowConnected = (status === "SUBSCRIBED");
+      if (nowConnected === realtimeConnected) return;   // nothing changed; don't touch the timer
+      realtimeConnected = nowConnected;
+      retunePolling();
+      /* supabase-js rejoins the channel itself. Nothing here removes or
+         re-creates it — doing that from inside a status callback is how a
+         flapping connection turns into a channel churn loop. */
     });
 }
+
 function stopRealtime() {
+  /* Signing out or dropping the channel means the probe is on its own
+     again — put it back in the fast gear rather than leaving a stale
+     two-minute cadence behind. */
+  realtimeConnected = false;   // so a later startPolling() picks the fast gear
   stopPolling();
   if (rtChannel && sb) { sb.removeChannel(rtChannel); rtChannel = null; }
 }
@@ -1993,7 +2328,11 @@ function trySetupClient() {
     authDiag("auth event: " + event + (user ? " (user ok)" : " (no session)"));
     renderIdentity();
     if (user) {
-      loadRemote(); startRealtime();
+      /* Boot. A device that has never synced needs the document; one
+         returning to a cloud it already matches does not — which is the
+         difference between paying 450 KB on every page refresh and paying
+         it only when something actually moved. */
+      syncCheck("startup"); startRealtime();
       /* A session that arrives and then disappears a moment later is the
          exact symptom of storage being unavailable — verify it's really
          still there shortly after, and say so plainly if it isn't. */
@@ -2007,7 +2346,7 @@ function trySetupClient() {
         } catch (e) { authDiag("getSession failed: " + (e.message || e)); }
       }, 2000);
     }
-    else { stopRealtime(); hasReconciled = false; pendingSaveAfterReconcile = false; setSyncPill("", "Local only"); }
+    else { stopRealtime(); forgetStamp(); hasReconciled = false; pendingSaveAfterReconcile = false; setSyncPill("", "Local only"); }
   });
 }
 export function initSupabase() {
@@ -2037,13 +2376,26 @@ export function initSupabase() {
       // the tab simply coming back into view (switching apps for a
       // second, a keyboard or notification-shade visibility blip on
       // mobile) pulls in remote state and redraws the board mid-sentence.
-      else if (user && safeToPullNow()) loadRemote();
+      else if (user && safeToPullNow()) { clearProbeBackoff(); syncCheck("visible"); }
       else if (user) scheduleDeferredPull();
     });
     /* A second, independent safety net: on some platforms (especially
        mobile) visibilitychange doesn't fire reliably right before an
        actual tab close, but pagehide does. */
     window.addEventListener("pagehide", flushPendingSave);
+    /* Reconnection. There was no handler for this at all: after an outage
+       the app waited for the poll, and — now that a failed probe keeps the
+       save gate shut — a queued upload waited with it, for as long as the
+       backoff had grown to. `online` is the earliest evidence that the
+       conditions which caused the failures have changed, so it clears the
+       backoff and runs one check. If that check succeeds the gate opens
+       and the queued save flushes; if it doesn't, the backoff simply
+       starts again. */
+    window.addEventListener("online", () => {
+      clearProbeBackoff();
+      authDiag("browser reports online — re-checking");
+      if (user && sb && !document.hidden && safeToPullNow()) syncCheck("reconnect");
+    });
   };
   trySetupClient();
   if (sb) { finishSetup(); return; }
