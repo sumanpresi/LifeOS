@@ -3,8 +3,6 @@ import { state, uid, esc, persist, rerender, todayKey } from './state.js?v=20260
 import { toast, autoGrow, registerBusyCheck, markFieldClean } from './ui.js?v=202609042200';
 import { moveToTrash } from './trash.js?v=202609042200';
 import { isLogged, streak } from './habits.js?v=202609042200';
-import { getAllGsiTasksFlat } from './gsi.js?v=202609042200';
-import { getAllPwTasksFlat } from './personal.js?v=202609042200';
 import { mountRichEditor, getRichEditor } from './rich-text.js?v=202609042200';
 import { sanitizeHtml } from './sanitize.js?v=202609042200';
 
@@ -219,80 +217,22 @@ export function renderDayOf() {
   const k = todayKey();
   const viewDate = currentJournalDate || k;
 
-  // "Today's focus" mixes urgency and importance: due today, overdue
-  // (still needs attention), finished today (so the day's progress is
-  // visible) — and now also anything flagged as important, regardless of
-  // its date, since a flagged task is one you've deliberately said matters
-  // right now even if it isn't formally due. Applies to both personal
-  // tasks and GSI Workspace tasks — toggling or editing either one here
-  // routes through tasks.js's toggleTask/editTask, which already handle
-  // GSI-sourced IDs transparently (same routing Overview's own merged
-  // task view relies on), so nothing GSI-specific is needed here beyond
-  // supplying the merged list itself.
-  const personal = state.tasks.map(t => ({ ...t, isGsi: false, source: null }));
-  const gsi = getAllGsiTasksFlat().map(t => ({
-    id: t.id, text: t.text, done: t.status === "done", flag: !!t.flag,
-    link: t.link || "", dueDate: t.date || "", completedAt: null,
-    isGsi: true, source: t.projectName
-  }));
-  /* Personal Workspace tasks belong here for the same reason GSI ones do:
-     Day Of answers "what is due today", and a task being due doesn't
-     depend on which tree it lives in. Same normalisation, and the id is
-     all any action needs — findAnyTask routes it back to the real object. */
-  const pw = getAllPwTasksFlat().map(t => ({
-    id: t.id, text: t.text, done: t.status === "done", flag: !!t.flag,
-    link: t.link || "", dueDate: t.date || "", completedAt: null,
-    isPersonal: true, source: t.projectName
-  }));
-  /* Strictly the day being viewed.
+  /* "Today's focus" was rendered here: a merged list of personal, GSI and
+     Personal-Workspace tasks due today, plus an overdue summary line. The
+     card it filled is now the Eisenhower matrix (js/eisenhower.js), which
+     asks a better question of the same tasks — so the merge is done there
+     instead and nothing is built here that nothing reads.
 
-     Two rules used to widen this well past "today":
-       - `if (t.flag) return true` put every flagged task here forever,
-         whatever its date and even with no date at all. Flagging marks a
-         task important, not due — those two are different things, and
-         conflating them meant a handful of permanently-flagged items
-         crowded out the day's actual work.
-       - `t.dueDate <= k` swept in everything overdue as well.
-
-     Overdue tasks still matter, so they are not simply dropped: they are
-     counted and surfaced as a line beneath the list, which keeps a missed
-     deadline visible without letting it fill the card. */
-  const all = [...personal, ...gsi, ...pw];
-  const dayTaskList = all.filter(t => {
-    if (t.done) return t.completedAt && todayKey(new Date(t.completedAt)) === k;
-    return t.dueDate === k;
-  }).sort((a, b) => {
-    if (a.done !== b.done) return a.done ? 1 : -1; // completed sinks to the bottom
-    if (!!a.flag !== !!b.flag) return a.flag ? -1 : 1; // flagged/important first
-    return (a.dueDate || "").localeCompare(b.dueDate || ""); // then overdue (earlier date) first
-  });
-
-  document.getElementById("dayTasks").innerHTML = dayTaskList.map((t, i) => `
-    <div class="task-row ${t.done ? "done" : ""}">
-      <button class="chk ${t.done ? "on" : ""}" onclick="toggleTask('${t.id}')"><svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>
-      <span class="task-num">${i + 1}</span>
-      <textarea class="${t.link ? "task-text-linked" : ""}" rows="1" onclick="event.stopPropagation()" onchange="editTask('${t.id}',this.value)" oninput="autoGrow(this)">${esc(t.text)}</textarea>
-      ${t.source ? `<span class="task-source-badge">${esc(t.source)}</span>` : ""}
-      ${t.link ? `<a href="${esc(t.link.startsWith("http")?t.link:"https://"+t.link)}" target="_blank" rel="noopener" class="task-link-go-inline" title="Open link">🔗</a>` : ""}
-    </div>`).join("") || `<p class="hint">Nothing due today.</p>`;
-
-  /* Anything still open with a date before the day being viewed. Shown as
-     a single line rather than as rows, so it informs without competing
-     with today's list. */
-  const overdue = all.filter(t => !t.done && t.dueDate && t.dueDate < k);
-  const overdueEl = document.getElementById("dayOverdue");
-  if (overdueEl) {
-    overdueEl.innerHTML = overdue.length
-      ? `<button class="day-overdue-line" onclick="go('overview')">
-           <span class="due-pill overdue">${overdue.length} overdue</span>
-           <span>${esc(overdue.slice(0, 2).map(t => t.text).join(" · "))}${overdue.length > 2 ? " …" : ""}</span>
-         </button>`
-      : "";
-  }
-  // Same "measure after render" requirement as everywhere else this
-  // input→textarea fix has been applied — see go() in ui.js for the
-  // re-run when this page was hidden at the moment this render happened.
-  document.getElementById("dayTasks").querySelectorAll("textarea").forEach(autoGrow);
+     Deliberately note what did NOT change: state.tasks, every project's
+     tasks, their dates, flags and statuses are all exactly as they were.
+     This removed a view, not any data. */
+  /* The "Today's focus" list and its overdue line were rendered here.
+     Their card was replaced on My Day by the Eisenhower matrix, so the
+     elements no longer exist — and getElementById(...).innerHTML on a
+     missing element throws, which would have taken the whole render pass
+     down with it. The task data itself is untouched; `all`, the merged
+     personal + GSI + Personal-Workspace list built above, is still used by
+     everything below. */
   document.getElementById("dayHabits").innerHTML = state.habits.map(h => `
     <div class="task-row">
       <button class="chk ${isLogged(k, h.id) ? "on" : ""}" onclick="toggleHabit('${k}','${h.id}')"><svg viewBox="0 0 24 24"><path d="M4 13l5 5 11-12"/></svg></button>

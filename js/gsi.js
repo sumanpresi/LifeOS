@@ -218,7 +218,10 @@ function sortGsiTasks(open) {
   }
 }
 
-function gsiCardHtml(item) {
+/* Exported for the Eisenhower matrix on My Day, which renders the SAME
+   card rather than a second, poorer one — every control, handler and
+   attribute on it keeps working there. */
+export function gsiCardHtml(item) {
   const due = fmtGsiDate(item.date);
   return `
     <div class="gsi-card ${item.status === "done" ? "done" : ""}">

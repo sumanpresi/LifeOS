@@ -17,6 +17,7 @@ import { initDropToAttach, handleIncomingShare } from './attach.js?v=20260904220
 import * as finance from './finance.js?v=202609042200';
 import * as health from './health.js?v=202609042200';
 import * as medStats from './med-stats.js?v=202609042200';
+import * as eisenhower from './eisenhower.js?v=202609042200';
 import * as healthPulse from './health-pulse.js?v=202609042200';
 import * as travel from './travel.js?v=202609042200';
 import * as reference from './reference.js?v=202609042200';
@@ -59,6 +60,7 @@ function renderEverything() {
   widgets.renderQuote();
   widgets.renderMedStat();
   widgets.renderDayOf();
+  eisenhower.renderEisenhower();
   sections.renderSections();
   gsi.renderGsi();
   personal.renderPersonalWorkspace();
@@ -182,6 +184,7 @@ Object.assign(window,
     editHealthLink: health.editHealthLink, toggleHealthLinkEdit: health.toggleHealthLinkEdit,
     editPrescription: health.editPrescription, togglePrescriptionEdit: health.togglePrescriptionEdit,
     setMedStatsRange: medStats.setMedStatsRange, shiftMedStats: medStats.shiftMedStats,
+    setEisProject: eisenhower.setEisProject, moveEisTask: eisenhower.moveEisTask,
     addMedicine: health.addMedicine, delMedicine: health.delMedicine, toggleDose: health.toggleDose,
     shiftMedWeek: health.shiftMedWeek, setMedLogFilter: health.setMedLogFilter,
     toggleMedicineHidden: health.toggleMedicineHidden, toggleShowHiddenMeds: health.toggleShowHiddenMeds,

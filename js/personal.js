@@ -139,7 +139,8 @@ function sortPwTasks(open) {
 }
 
 /* ---------------- List view card ---------------- */
-function pwCardHtml(item) {
+/* Exported for the Eisenhower matrix — see the note on gsiCardHtml. */
+export function pwCardHtml(item) {
   const due = fmtPwDate(item.date);
   return `
     <div class="gsi-card ${item.status === "done" ? "done" : ""}" data-task-id="${item.id}">

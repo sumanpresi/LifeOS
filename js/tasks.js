@@ -1006,6 +1006,7 @@ function detailFields(t) {
   if (t.priority) out.priority = t.priority;
   if (t.createdAt) out.createdAt = t.createdAt;
   if (t.updatedAt) out.updatedAt = t.updatedAt;
+  if (t.eis) out.eis = t.eis;
   return out;
 }
 export function changeTaskProject(id, projectId) {
@@ -1262,7 +1263,8 @@ export function prioLabel(t) {
   return p === "p4" ? "Toggle task" : "Toggle task · Priority " + p.slice(1);
 }
 
-function boardCardHtml(t) {
+/* Exported for the Eisenhower matrix, for tasks with no project. */
+export function boardCardHtml(t) {
   const due = fmtDue(t.dueDate);
   const tag = t.isGsi
     ? `${esc(t.projectName)} / ${({ todo: "To do", progress: "In progress", done: "Done", blocked: "Blocked" })[t.status] || "To do"}`
