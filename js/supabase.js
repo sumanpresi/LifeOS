@@ -1,6 +1,6 @@
 /* GitHub sign-in (via Supabase Auth), cloud storage, live sync. */
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=202609042200';
-import { state, replaceState, persist, setRemoteSaver, uid, esc, rerender, flushPendingSave } from './state.js?v=202609042200';
+import { state, replaceState, resetLocalStateForNewAccount, persist, setRemoteSaver, uid, esc, rerender, flushPendingSave } from './state.js?v=202609042200';
 import { setSyncPill, nowTime, toast, isUserTyping } from './ui.js?v=202609042200';
 import { pushCommunicationUpdate, mergeCommunication } from './communication-bridge.js?v=202609042200';
 import { pushNgdrTrackerUpdate } from './ngdr-tracker-bridge.js?v=202609042200';
@@ -347,13 +347,32 @@ let pendingSaveAfterReconcile = false;
    tie-break. In every other case the answer is unambiguous, which is
    what makes "I saved on the computer and the phone won't update"
    impossible rather than merely unlikely. */
-const SYNC_META_KEY = "lifeos-sync-meta"; // device-local; deliberately NOT part of synced state
+/* Device-local; deliberately NOT part of synced state. Scoped per account,
+   the same way stampKey() and compressionKey() are — otherwise Account B
+   signing in on a browser Account A just used could read Account A's rev
+   and syncToken and wrongly conclude it had already agreed with ITS cloud
+   row, skipping the very first-sync safety checks (loadRemote()'s
+   !agreedWithCloud() branch) that exist for exactly this situation. */
+const SYNC_META_PREFIX = "lifeos-sync-meta:";
+function syncMetaKey() { return SYNC_META_PREFIX + (user ? user.id : "anon"); }
+/* Which account's data the local "lifeos-data" document currently holds.
+   Separate from stampKey()/syncMetaKey() because this one is checked
+   BEFORE those even apply — it's what decides whether the browser is
+   about to hand a freshly-signed-in account a stranger's document, not
+   which version of that account's own data this tab has seen. See
+   resetLocalStateForNewAccount() in state.js for what happens on a
+   mismatch. Deliberately not touched at sign-out: signing back into the
+   SAME account later must not trip this and wipe a document that was
+   never actually a stranger's. */
+const LOCAL_OWNER_KEY = "lifeos-local-owner";
+function localOwner() { try { return localStorage.getItem(LOCAL_OWNER_KEY); } catch (_) { return null; } }
+function setLocalOwner(uid) { try { localStorage.setItem(LOCAL_OWNER_KEY, uid); } catch (_) {} }
 function readSyncMeta() {
-  try { return JSON.parse(localStorage.getItem(SYNC_META_KEY)) || {}; }
+  try { return JSON.parse(localStorage.getItem(syncMetaKey())) || {}; }
   catch (e) { return {}; }
 }
 function writeSyncMeta(meta) {
-  try { localStorage.setItem(SYNC_META_KEY, JSON.stringify(meta)); } catch (e) {}
+  try { localStorage.setItem(syncMetaKey(), JSON.stringify(meta)); } catch (e) {}
 }
 function newSyncToken() { return uid() + uid(); }
 function agreedWithCloud() { return readSyncMeta().rev !== undefined; }
@@ -494,12 +513,13 @@ function announceRemoteChanged() {
    swallowed every save from the second page load onward. */
 function markRemoteChecked() {
   hasReconciled = true;
-  /* No early return when the gate is already open: a reconcile branch
-     inside loadRemote() can set hasReconciled itself and return before the
-     tail that drains this queue, which would leave a queued save sitting
-     there indefinitely. saveRemote() no-ops when there is nothing to send,
-     so calling it once more is cheap insurance. */
-  if (pendingSaveAfterReconcile) { pendingSaveAfterReconcile = false; saveRemote(); }
+  /* Deliberately no longer flushing pendingSaveAfterReconcile here. This
+     runs once per runSync() call, and runSyncChain() can already have
+     another one queued (loadAgainAfter) for the moment this returns — an
+     immediate flush here would race that queued reconciliation exactly
+     the way the one removed from loadRemote()'s finally would have. The
+     flush happens exactly once, in runSyncChain(), once its drain loop
+     confirms nothing else is queued. */
 }
 
 /* One timestamp. This is the request that replaces a 434 KB download. */
@@ -535,26 +555,103 @@ function clearProbeBackoff() { probeFailures = 0; probeQuietUntil = 0; }
    so nothing is lost and nothing is done twice. */
 let loadInFlight = false;
 let loadAgainAfter = false;
+let loadAgainSkipBackoff = false;   // did any coalesced caller while this run was busy ask to ignore backoff?
+let currentSyncPromise = null; // the in-flight runSync() call, so a coalesced caller can await the REAL result
+/* Sink for the actual race this file did NOT close: saveInFlight stops two
+   uploads overlapping each other, but nothing stopped an upload from
+   overlapping the READ half of a reconciliation. loadRemote() awaits a
+   network fetch before it decides anything, and a local edit's debounced
+   save (persist() -> ~1.5s -> saveRemote()) can fire during that exact
+   window — sending this device's pre-merge state to Supabase while a
+   reconcile is mid-flight and behind it, deciding a winner without
+   knowing this device just wrote something new underneath it.
 
-async function syncCheck(reason, force = false) {
+   The five `await saveRemote()` calls inside loadRemote() itself are not
+   that race — they ARE the reconciliation's own decision to push, and
+   must go through even while this flag is up, which is what the
+   `fromReconcile` parameter on saveRemote() is for. Anything else calling
+   saveRemote() while a reconcile is running is deferred the same way an
+   unreconciled session defers it (pendingSaveAfterReconcile), and flushed
+   once loadRemote()'s finally block clears the flag. */
+let reconcileInFlight = false;
+
+async function syncCheck(reason, skipBackoff = false) {
   if (!sb || !user) return "skipped";
-  if (loadInFlight) { loadAgainAfter = true; return "coalesced"; }
+  if (loadInFlight) {
+    loadAgainAfter = true;
+    if (skipBackoff) loadAgainSkipBackoff = true;
+    /* Hand back the ACTUAL chain already in progress rather than the bare
+       string "coalesced" — a caller that awaits this (manual Sync) then
+       genuinely waits for everything its request caused, not just
+       whichever run happened to already be running. See runSyncChain(). */
+    return currentSyncPromise || "coalesced";
+  }
   loadInFlight = true;
+  currentSyncPromise = runSyncChain(reason, skipBackoff);
+  return currentSyncPromise;
+}
+
+/* One reconciliation, plus — chained into the SAME promise, not a
+   detached setTimeout() — any further one that coalesced onto it while it
+   ran. This is what makes syncCheck()'s return value trustworthy for a
+   caller that actually awaits it: `await syncCheck("manual", true)`
+   previously could resolve the moment the run already in progress
+   finished, while the queued follow-up THAT REQUEST caused was still
+   about to start via a detached timer — so `saveRemote()` right after it
+   in syncNow() could fire in the gap between the two, with
+   reconcileInFlight already back to false. Looping here instead of
+   scheduling a separate call means loadInFlight/currentSyncPromise stay
+   up, and therefore reconcileInFlight-derived protection stays up, for
+   every reconciliation this one call is responsible for — not just the
+   first. */
+async function runSyncChain(reason, skipBackoff) {
   try {
-    return await runSync(reason, force);
-  } finally {
-    loadInFlight = false;
-    if (loadAgainAfter) {
+    let result = await runSync(reason, skipBackoff);
+    while (loadAgainAfter) {
       loadAgainAfter = false;
+      const queuedSkipBackoff = loadAgainSkipBackoff; loadAgainSkipBackoff = false;
       /* Re-check rather than re-read: whatever arrived during the run is
-         almost always the change this run already merged. */
-      setTimeout(() => syncCheck(reason + " (queued)"), 0);
+         almost always the change this run already merged. Carries the
+         skip-backoff flag through — a coalesced manual Sync must still
+         get its own immediate probe, not sit out a backoff window a
+         background trigger would have accepted. */
+      result = await runSync(reason + " (queued)", queuedSkipBackoff);
     }
+    return result;
+  } finally {
+    /* Released on every path, same reasoning as saveInFlight/reconcileInFlight:
+       runSync() shouldn't throw (its own paths report failure as a string,
+       not an exception), but a coordinator flag that could get stuck on an
+       unexpected exception is a worse bug than the one it protects against. */
+    loadInFlight = false;
+    currentSyncPromise = null;
+    /* THE ONE place this flushes now. It used to fire from inside a single
+       loadRemote() call (and from markRemoteChecked(), reached from every
+       runSync() iteration) the moment THAT call finished — but by then the
+       while loop above may already know it's about to run ANOTHER
+       reconciliation (loadAgainAfter), and a fire-and-forget saveRemote()
+       fired at that point would upload while the next reconciliation in
+       this same chain reads, racing it. Waiting until here means nothing
+       queues a save mid-chain — the chain is fully drained (the while loop
+       has exited, so nothing else is queued) before this can fire, giving
+       the invariant this coordinator is meant to guarantee: no external
+       upload starts until every reconciliation this call is responsible
+       for has actually finished. */
+    if (pendingSaveAfterReconcile) { pendingSaveAfterReconcile = false; saveRemote(); }
   }
 }
 
-async function runSync(reason, force) {
-  if (!force && Date.now() < probeQuietUntil) {
+/* `skipBackoff` — the only caller is manual Sync — means "probe right now
+   even if a recent probe failure would otherwise have this tab sitting
+   out a backoff window." It does NOT mean "download the document even if
+   the probe says nothing changed": that used to be `force`'s second
+   effect, and it was pure waste — pressing Sync when nothing had actually
+   changed still paid for a full read. A probe is honest regardless of who
+   asked for it, so manual Sync gets exactly the same "unchanged → stop"
+   short-circuit below as every automatic trigger; the only thing it gets
+   that they don't is going first instead of waiting out a backoff. */
+async function runSync(reason, skipBackoff) {
+  if (!skipBackoff && Date.now() < probeQuietUntil) {
     authDiag("probe (" + reason + "): backing off after " + probeFailures + " failure(s)");
     return "backoff";
   }
@@ -598,14 +695,19 @@ async function runSync(reason, force) {
     if (r !== "failed") markRemoteChecked();
     return r;
   }
-  if (!force && !remoteStale && stamp === loadStamp()) {
+  if (!remoteStale && stamp === loadStamp()) {
     /* THE CHEAP PATH, and the one that has to open the save gate: the
-       cloud holds exactly the version this tab already reconciled. */
+       cloud holds exactly the version this tab already reconciled.
+       Unconditional now — manual Sync used to skip straight past this
+       and pay for a full read even when the probe just confirmed nothing
+       had changed. A probe is honest regardless of who asked for it;
+       "check now" and "check now, ignoring backoff" are both satisfied by
+       the probe alone when it comes back unchanged. */
     markRemoteChecked();
     authDiag("probe (" + reason + "): unchanged, nothing downloaded");
     return "unchanged";
   }
-  if (!force && remoteStale && stamp === loadStamp()) {
+  if (remoteStale && stamp === loadStamp()) {
     remoteStale = false;                     // another tab's nudge, already current
     markRemoteChecked();
     authDiag("probe (" + reason + "): another tab's nudge, already current");
@@ -1593,6 +1695,10 @@ export async function loadRemote(preferRemote = false) {
   try { flushJournalEditor(); } catch (e) { /* editor not mounted */ }
   try { flushNotebookEditor(); } catch (e) { /* editor not mounted */ }
   setSyncPill("busy", "Syncing…");
+  /* Up for the whole reconciliation, not just the merge — the earliest
+     and easiest-to-hit window for the race this closes is the network
+     await two lines down, before a single field has been touched. */
+  reconcileInFlight = true;
   try {
     const { data, error } = await sb.from("lifeos_data")
       .select("data, updated_at").eq("user_id", user.id).maybeSingle();
@@ -1656,14 +1762,14 @@ export async function loadRemote(preferRemote = false) {
             // clock comparison be the only thing standing between the
             // cloud's copy and oblivion.
             try { takeSnapshot("cloud-version-overwritten", remote); } catch (e) {}
-            hasReconciled = true; await saveRemote(); return;
+            hasReconciled = true; await saveRemote(true); return;
           }
         }
         else if (!mine && theirs) {
           adoptRemote(remote);                       // cloud moved, this device didn't — take it
         }
         else if (mine && !theirs) {
-          hasReconciled = true; await saveRemote(); return;  // only this device moved — send it
+          hasReconciled = true; await saveRemote(true); return;  // only this device moved — send it
         }
         else if (mine && theirs) {
           /* Both sides changed since they last agreed. There is no correct
@@ -1697,17 +1803,17 @@ export async function loadRemote(preferRemote = false) {
                be recovered from Restore rather than existing nowhere. */
             try { takeSnapshot("cloud-version-overwritten", remote); }
             catch (e) { console.warn("[sync] pre-overwrite snapshot failed", e); }
-            hasReconciled = true; await saveRemote();
+            hasReconciled = true; await saveRemote(true);
             toast("This device had newer changes — sent up. The other device's version is in Restore.");
             return;
           }
         }
         // neither side moved: nothing to do
       } else {
-        hasReconciled = true; await saveRemote(); return;      /* first device: seed the cloud copy */
+        hasReconciled = true; await saveRemote(true); return;      /* first device: seed the cloud copy */
       }
       hasReconciled = true;
-      if (pendingSaveAfterReconcile) { pendingSaveAfterReconcile = false; await saveRemote(); return; }
+      if (pendingSaveAfterReconcile) { pendingSaveAfterReconcile = false; await saveRemote(true); return; }
       setSyncPill("ok", "Synced · " + nowTime());
     })();
 
@@ -1737,6 +1843,20 @@ export async function loadRemote(preferRemote = false) {
     /* Reported, not thrown: callers decide what to do. The stamp is NOT
        advanced here, so the same cloud version is retried next time. */
     return "failed";
+  } finally {
+    /* Released on every path, success or failure, the same way saveInFlight
+       is — an early return left this set would leave every future edit
+       queued forever instead of saved.
+
+       Deliberately NOT flushing pendingSaveAfterReconcile here anymore.
+       This is ONE loadRemote() call, and runSyncChain() may already know
+       it's about to run another (loadAgainAfter) the moment this one
+       returns — a fire-and-forget saveRemote() fired from here would then
+       race the very next reconciliation in the chain, uploading while it
+       reads. The flush now happens exactly once, in runSyncChain(),
+       after its drain loop confirms no further reconciliation is queued.
+       See the comment there for the scenario this replaces. */
+    reconcileInFlight = false;
   }
 }
 /* Turns a Supabase/PostgREST failure into something actionable.
@@ -1868,17 +1988,28 @@ const CLOUD_TRANSPORT = "lifeos-gzip-v1";
    to protect and waiting costs the person their sync.
 
    REMEMBER IT WHERE A PULL CANNOT REACH. localStorage, not the document.
-   Device-scoped is the honest scope anyway: this is a fact about which
-   browser is running, not about the account. Whichever source says yes
-   wins, and the document flag is still written so other devices learn it
-   the ordinary way. */
+   Keyed by account, not just by browser: it is a fact about which
+   browser has proven it can read compressed rows for a given account,
+   and a shared browser can hold more than one account's history. Keying
+   on the browser alone would let one account's capability flag leak into
+   a second account signed in later, skipping that account's own
+   one-save handshake. Whichever source says yes wins, and the document
+   flag is still written so other devices learn it the ordinary way. */
 const COMPRESSION_OK_KEY = "lifeos-compression-ok";
+/* Scoped per account, the same way stampKey() below scopes the sync
+   stamp — this is a fact about which account is signed in on this
+   browser, not about the browser itself. Without the suffix, one
+   account's "this browser can read compressed rows" flag would leak
+   into a second account signed into the same browser, and that
+   account's first save could go out compressed before any of ITS
+   devices had a chance to prove they understand the format. */
+function compressionKey() { return COMPRESSION_OK_KEY + ":" + (user ? user.id : "anon"); }
 function compressionAgreed() {
   if (state.compressionReady) return true;
-  try { return localStorage.getItem(COMPRESSION_OK_KEY) === "1"; } catch (_) { return false; }
+  try { return localStorage.getItem(compressionKey()) === "1"; } catch (_) { return false; }
 }
 function rememberCompressionAgreed() {
-  try { localStorage.setItem(COMPRESSION_OK_KEY, "1"); } catch (_) { /* private browsing — the document flag still carries it */ }
+  try { localStorage.setItem(compressionKey(), "1"); } catch (_) { /* private browsing — the document flag still carries it */ }
 }
 
 async function gzipBytes(text) {
@@ -1937,7 +2068,7 @@ async function decodeCloudRow(data) {
   return decoded;
 }
 
-export async function saveRemote() {
+export async function saveRemote(fromReconcile = false) {
   /* Nothing to send if this device holds exactly what the cloud already
      has. rev is the same counter the reconcile uses, so this is the same
      question ("have I edited since we agreed?") asked before spending an
@@ -1949,6 +2080,12 @@ export async function saveRemote() {
     return;
   }
   if (!sb || !user) return;
+  /* A reconciliation is mid-flight and this call is not part of it —
+     defer rather than upload underneath it. See the note beside
+     reconcileInFlight above. The internal calls loadRemote() makes to
+     push its own reconciliation decision pass fromReconcile=true and are
+     the one case allowed through while this is set. */
+  if (!fromReconcile && reconcileInFlight) { pendingSaveAfterReconcile = true; return; }
   /* Never push this device's data up before it has checked what's already in
      the cloud — otherwise a stale local copy (e.g. a laptop that's been
      asleep for days) can silently overwrite a newer edit made on another
@@ -2144,6 +2281,12 @@ export async function syncNow() {
   // cloud is newer, it's applied locally; if this device is newer, it
   // schedules a save itself. Either way, saveRemote() afterward is a
   // safe no-op or a genuine push of what's actually newest.
+  //
+  // The `true` means "probe right now even if a recent failure would
+  // otherwise have this tab sitting out a backoff window" — it does NOT
+  // force a full document download. Pressing Sync when nothing has
+  // actually changed now costs exactly what a background poll costs: one
+  // small updated_at probe, not the whole document.
   await syncCheck("manual", true); await saveRemote();
   toast("Synced");
 }
@@ -2282,10 +2425,23 @@ function stopRealtime() {
 
    So if the primary tag hasn't produced window.supabase, try the same
    package from other hosts before declaring failure. Each attempt is a
-   fresh <script> tag; the first that defines window.supabase wins. */
+   fresh <script> tag; the first that defines window.supabase wins.
+
+   Pinned to the same exact version the primary tag's floating "@2" tag
+   currently resolves to, not an old snapshot — pinned old enough and this
+   silently reintroduces exactly the egress problem the probe/Realtime
+   work was for. Realtime's column selection (select: "user_id,updated_at"
+   on the postgres_changes subscription below) needs supabase-js 2.109.0
+   or newer; the version this used to pin to, 2.45.4, predates that
+   capability entirely. A client that fell back to it would silently drop
+   the column filter and receive the FULL row on every change — the exact
+   full-row Realtime fallback this file's comments elsewhere say was
+   deliberately never added. Bump this alongside the primary tag's
+   effective version from time to time; jsDelivr's floating "@2" moves on
+   its own and these two hard-coded fallbacks do not. */
 const LIB_FALLBACKS = [
-  "https://unpkg.com/@supabase/supabase-js@2.45.4/dist/umd/supabase.js",
-  "https://cdn.skypack.dev/pin/@supabase/supabase-js@v2.45.4/mode=raw/dist/umd/supabase.js"
+  "https://unpkg.com/@supabase/supabase-js@2.116.0/dist/umd/supabase.js",
+  "https://cdn.skypack.dev/pin/@supabase/supabase-js@v2.116.0/mode=raw/dist/umd/supabase.js"
 ];
 let fallbackIndex = 0;
 let fallbackPending = false;
@@ -2328,6 +2484,18 @@ function trySetupClient() {
     authDiag("auth event: " + event + (user ? " (user ok)" : " (no session)"));
     renderIdentity();
     if (user) {
+      /* A different account than whichever one last left data in this
+         browser's local document — reset before anything can sync, so
+         this account's first save can't silently carry the other
+         account's tasks, notes and whiteboards up to its own cloud row.
+         Same account signing back in (including the common case: never
+         signed out anyone else) leaves the local document exactly alone. */
+      const owner = localOwner();
+      if (owner && owner !== user.id) {
+        authDiag("different account signed in on this browser — starting from a clean local document");
+        resetLocalStateForNewAccount();
+      }
+      setLocalOwner(user.id);
       /* Boot. A device that has never synced needs the document; one
          returning to a cloud it already matches does not — which is the
          difference between paying 450 KB on every page refresh and paying

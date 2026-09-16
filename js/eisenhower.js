@@ -7,25 +7,36 @@
        t.eis = "do" | "schedule" | "delegate" | "eliminate"
 
    Nothing is copied, no task exists twice, and moving a card writes that
-   one field and calls the existing persist(). The sync layer is untouched:
-   no query, no subscription, no timer, no fetch. A quadrant change rides
-   to the cloud on exactly the same debounced save as renaming a task.
+   one field, stamps the task's own updatedAt via the existing touch(),
+   and calls the existing persist() — exactly the pattern every other
+   field edit in the app follows, which is what lets the sync layer's
+   item-level merge (compares each task's own updatedAt) see an
+   Eisenhower move as a genuine edit rather than a silent one that could
+   lose to a stale copy of the same task. The sync layer itself is
+   untouched: no query, no subscription, no timer, no fetch. A quadrant
+   change rides to the cloud on exactly the same debounced save as
+   renaming a task.
 
    Cards are the app's OWN card renderers, imported rather than reimplemented
    — gsiCardHtml for Work·GSI, pwCardHtml for Personal Workspace,
    boardCardHtml for loose tasks — so every control, date picker, flag,
    status select and link on a card keeps working inside the matrix. */
-import { state, esc, persist } from './state.js?v=202609042200';
+import { state, esc, persist, touch } from './state.js?v=202609042200';
 import { gsiCardHtml } from './gsi.js?v=202609042200';
 import { pwCardHtml } from './personal.js?v=202609042200';
 import { boardCardHtml, findAnyTask } from './tasks.js?v=202609042200';
 import { toast } from './ui.js?v=202609042200';
 
+/* Display labels only — the stored value on each task (t.eis) keeps its
+   original key ("do" / "schedule" / "delegate" / "eliminate") so nothing
+   already saved needs to change; only the title shown on screen moves to
+   the "Decide" / "Delete" wording, with the classic Eisenhower verb as a
+   subtitle under it. */
 const QUADRANTS = [
-  { key: "do",        n: "Q1", title: "Do first", urgency: "Urgent",     importance: "Important"     },
-  { key: "schedule",  n: "Q2", title: "Schedule", urgency: "Not urgent", importance: "Important"     },
-  { key: "delegate",  n: "Q3", title: "Delegate", urgency: "Urgent",     importance: "Not important" },
-  { key: "eliminate", n: "Q4", title: "Eliminate", urgency: "Not urgent", importance: "Not important" }
+  { key: "do",        n: "Q1", title: "Do first", action: "Do it now",     urgency: "Urgent",     importance: "Important"     },
+  { key: "schedule",  n: "Q2", title: "Decide",   action: "Schedule it",   urgency: "Not urgent", importance: "Important"     },
+  { key: "delegate",  n: "Q3", title: "Delegate", action: "Delegate it",   urgency: "Urgent",     importance: "Not important" },
+  { key: "eliminate", n: "Q4", title: "Delete",   action: "Eliminate it",  urgency: "Not urgent", importance: "Not important" }
 ];
 const QUAD_KEYS = QUADRANTS.map(q => q.key);
 
@@ -110,13 +121,22 @@ function isDone(t) { return t.status === "done" || t.done === true; }
    The ONLY write this feature performs. One field, then the app's own
    persist() — the same call every other edit in LifeOS makes, which is
    what carries it through the existing save queue, reconciliation and
-   offline handling without any of them knowing this feature exists. */
+   offline handling without any of them knowing this feature exists.
+
+   touch() matters here as much as the field write itself: the sync layer
+   resolves item-level conflicts by comparing each task's own updatedAt,
+   the same way every other field edit in gsi.js/personal.js/tasks.js
+   does (t[field] = v; touch(t); persist()). Setting t.eis without
+   touching the task would make a real edit invisible to that
+   reconciliation — it could lose to a stale copy of the same task instead
+   of being recognised as the newer change. */
 export function setTaskQuadrant(id, quadrant) {
   if (!QUAD_KEYS.includes(quadrant)) return;
   const found = findAnyTask(id);
   if (!found || !found.task) return;
   if (found.task.eis === quadrant) return;
   found.task.eis = quadrant;
+  touch(found.task);
   persist();
   /* Only this card repaints. A full rerender() here would rebuild every
      board, list and chart in the app for a one-field change. */
@@ -171,10 +191,12 @@ function quadrantHtml(q, entries) {
   return `
     <section class="eis-q eis-${q.key}" data-quadrant="${q.key}" aria-label="${esc(q.n + " " + q.title)}">
       <header class="eis-q-head">
-        <span class="eis-q-n">${q.n}</span>
-        <span class="eis-q-title">${esc(q.title)}</span>
-        <span class="eis-q-meta">${esc(q.urgency)} · ${esc(q.importance)}</span>
-        <span class="eis-q-count">${entries.length}</span>
+        <div class="eis-q-head-main">
+          <span class="eis-q-n">${q.n}</span>
+          <span class="eis-q-title">${esc(q.title)}</span>
+          <span class="eis-q-count">${entries.length}</span>
+        </div>
+        <span class="eis-q-meta">${esc(q.urgency)} + ${esc(q.importance)} · ${esc(q.action)}</span>
       </header>
       <div class="eis-q-body" data-quadrant="${q.key}">
         ${entries.map(e => `
@@ -184,8 +206,8 @@ function quadrantHtml(q, entries) {
               ${cardFor(e)}
               ${menu(e.t.id)}
             </div>
-          </div>`).join("") ||
-          `<p class="eis-empty">No tasks here — drop one in.</p>`}
+          </div>`).join("")}
+        <p class="eis-empty">Drop tasks here</p>
       </div>
     </section>`;
 }
@@ -278,9 +300,21 @@ function wireDragAndDrop() {
       scroll: true, scrollSensitivity: 90, scrollSpeed: 12,
       onChoose: () => document.body.classList.add("is-dragging"),
       onStart: () => document.body.classList.add("is-dragging"),
+      /* Explicit highlight rather than relying only on :has() support —
+         fires continuously while a card is dragged over any quadrant, so
+         the destination panel visibly reacts (border glow, brighter
+         background) even on older browsers. */
+      onMove: evt => {
+        document.querySelectorAll("#eisenhower .eis-q-body.eis-over")
+          .forEach(el => { if (el !== evt.to) el.classList.remove("eis-over"); });
+        if (evt.to) evt.to.classList.add("eis-over");
+        return true;
+      },
       ghostClass: "eis-ghost", dragClass: "eis-dragging", chosenClass: "eis-chosen",
       onEnd: evt => {
         document.body.classList.remove("is-dragging");
+        document.querySelectorAll("#eisenhower .eis-q-body.eis-over")
+          .forEach(el => el.classList.remove("eis-over"));
         const id = evt.item.dataset.taskId;
         const to = evt.to.dataset.quadrant;
         if (!id || !to) return renderEisenhower();

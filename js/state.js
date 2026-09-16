@@ -784,6 +784,21 @@ export function replaceState(remote) {
   stateReplacedSubs.forEach(fn => { try { fn(); } catch (e) { console.warn("[state] subscriber failed", e); } });
 }
 
+/* Called from supabase.js the moment a DIFFERENT account signs in on a
+   browser that still holds another account's local document — see
+   localOwner()/setLocalOwner() there. The local "lifeos-data" copy is not
+   scoped per account (a bigger change, since load() above runs before any
+   session is known), so without this a second account's very first save
+   would silently upload whatever the first account left behind. Wiping to
+   a clean document rather than merging closes that specific leak; nothing
+   is lost from the first account's cloud row, and the new account's own
+   data (if it has any) arrives moments later when loadRemote() runs. */
+export function resetLocalStateForNewAccount() {
+  state = structuredClone(DEFAULT_STATE);
+  store.set("lifeos-data", JSON.stringify(state));
+  stateReplacedSubs.forEach(fn => { try { fn(); } catch (e) { console.warn("[state] subscriber failed", e); } });
+}
+
 /* ---------- helpers ---------- */
 /* Stamps the moment a single record changed.
 
