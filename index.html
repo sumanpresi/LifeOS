@@ -104,6 +104,7 @@
      phones (<=600px, incl. iPhone 17 Pro Max ~440px and fold cover screens). -->
 <link rel="stylesheet" href="css/responsive-foldable.css?v=202609042200">
 <link rel="stylesheet" href="css/health-pulse.css?v=202609042200">
+  <link rel="stylesheet" href="css/eisenhower.css?v=202609042200">
 </head>
 <body>
 <div class="shell">
@@ -307,16 +308,18 @@
 
       <div class="grid-2">
         <div class="col-stack">
+          <!-- Today's focus lived here. It answered "what is due today",
+               which the Eisenhower matrix below answers better and for the
+               whole backlog rather than one date. Nothing behind it was
+               removed: the tasks, their dates, their flags and the overdue
+               count all still exist and are still shown elsewhere. -->
           <div class="card">
-            <div class="card-head"><h2>Today's focus</h2>
-              <button class="expand-btn" onclick="expandView('dayTasksContent','Today\'s focus')" title="View large">
-                <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
-              </button>
+            <div class="card-head">
+              <h2 style="display:flex;align-items:baseline;gap:10px">Eisenhower Matrix
+                <span class="hint">Prioritise tasks by urgency and importance</span>
+              </h2>
             </div>
-            <div id="dayTasksContent"><div class="card-body" id="dayTasks"></div>
-              <!-- Overdue work, summarised on one line so a missed deadline
-                   stays visible without taking over today's list. -->
-              <div id="dayOverdue"></div></div>
+            <div class="card-body" id="eisenhower"></div>
           </div>
           <div class="card">
             <div class="card-head">
