@@ -327,6 +327,66 @@
   .eis-composer-glow{display:none}
 }
 
+/* ================================================================
+   NARROW SCREENS — the card stacks instead of squeezing
+
+   The three-column card above (checkbox | title | controls) is right on a
+   wide desktop and wrong everywhere else. Its controls column is a fixed
+   ~208px, and the title gets whatever is left:
+
+       desktop 1600     title 346px   fine
+       desktop 1440     title 266px   fine
+       laptop  1280     title 186px   fine
+     ─────────────────────────────────────────────────────────────
+       Z Fold unfolded  title  90px   one word per line
+       Z Fold cover     title  36px   one LETTER per line
+
+   So the three-column layout is confined to widths where it fits, and
+   below 1100px the controls take a row of their own with the title on the
+   full width above them. Nothing is hidden and nothing shrinks — the card
+   simply wraps, which is what it should have done from the start.
+
+   1100px is not a device, it is where the arithmetic above stops working:
+   at ~1099px the title drops under 120px. The Fold's unfolded ~1088px sits
+   just inside it, which is the point.
+   ================================================================ */
+@media (max-width:1099px){
+  .eis-item-card .gsi-card{
+    grid-template-columns:auto minmax(0,1fr);
+    gap:3px 9px;
+  }
+  /* Full width beneath the title, right-aligned so the status pill still
+     sits where the eye already looks for it. */
+  .eis-item-card .gsi-card-right{
+    grid-column:1 / -1;
+    justify-content:flex-end;
+    align-self:auto;margin-top:2px;
+  }
+  .eis-item-card .gsi-title{font-size:14px;max-height:2.8em}
+  .eis-item-card .gsi-status-sel,
+  .eis-item-card .gsi-project-sel{font-size:11.5px;padding:4px 10px}
+  .eis-item-card .gsi-project-sel{max-width:132px}
+
+  /* A stacked card is taller, so the guarantee is restated rather than
+     silently broken: three cards here instead of four. The formula in
+     .eis-grid recomputes the matrix height from these on its own. */
+  .eis-grid{--eis-card-h:92px;--eis-visible:3}
+
+  /* A long project name took the entire tab strip — "NGDR Data Management
+     and Analysis Center (NDMAC)" is wider than the Fold's cover screen, so
+     it pushed every other tab off and the strip looked like one button. */
+  .eis-tab{max-width:46vw}
+  .eis-tab > :first-child,
+  .eis-tab{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
+
+/* The Move button is hover-revealed on a pointer device; a touch screen
+   has no hover, so below the pointer breakpoint it is simply always there.
+   Matched to the card stacking rather than to a device width. */
+@media (hover:none){
+  .eis-move-btn{opacity:1;color:var(--ink)}
+}
+
 /* The supporting widgets under the matrix. Scoped to this row rather than
    changing .grid-3 globally, which Finance and other pages also use.
    Three across stays comfortable down to a Z Fold 8's unfolded ~880px;
@@ -411,11 +471,18 @@ body.is-dragging{user-select:none;-webkit-user-select:none}
 /* ---- Z Fold 8 unfolded, and any large tablet ----
    The inner display is wide enough for a true 2 x 2 with room to spare, so
    the workspace gets more height rather than the page getting more margin. */
-@media (min-width:840px){
-  /* A little more room per card on a wide screen — still four, just less
-     cramped. The height follows from the formula above, so it stays in
-     step automatically. */
-  .eis-grid{gap:16px;--eis-card-h:72px}
+/* 1100px, matching the stacking breakpoint above and NOT overlapping it.
+   At 840px this rule overlapped the max-width:1099px block; both matched
+   between 840 and 1099, and because this one comes later in the file it
+   won — so a Fold's unfolded 1088px would have got the stacked card with
+   the DENSE card's height variable, and every card would have been clipped
+   by 20px. The two bands now meet exactly at 1099/1100 and never both
+   apply. */
+@media (min-width:1100px){
+  /* A little more room per card where the three-column layout is in use —
+     still four, just less cramped. The height follows from the formula in
+     .eis-grid, so it stays in step automatically. */
+  .eis-grid{gap:16px;--eis-card-h:72px;--eis-visible:4}
 }
 
 /* ---- Z Fold 8 folded, and ordinary phones ----
