@@ -132,7 +132,11 @@
 .eis-item :is(button,input,select,textarea,a){cursor:auto}
 .eis-item :is(button,a,.gsi-chk,.t-chk){cursor:pointer}
 .eis-item textarea{cursor:text}
+/* The whole card opens the task, so it reads as clickable — except on the
+   parts that do something else, which keep their own cursor (set on
+   .eis-item above). */
 .eis-item-card{position:relative;min-width:0}
+.eis-item-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:14px}
 /* Long-press to lift on touch without the browser starting a text
    selection or a scroll first. Confined to the card's non-interactive
    area so the title can still be tapped into and the selects still open —
