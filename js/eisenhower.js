@@ -21,10 +21,10 @@
    — gsiCardHtml for Work·GSI, pwCardHtml for Personal Workspace,
    boardCardHtml for loose tasks — so every control, date picker, flag,
    status select and link on a card keeps working inside the matrix. */
-import { state, esc, persist, touch } from './state.js?v=202609042200';
-import { gsiCardHtml } from './gsi.js?v=202609042200';
-import { pwCardHtml } from './personal.js?v=202609042200';
-import { boardCardHtml, findAnyTask } from './tasks.js?v=202609042200';
+import { state, esc, persist, rerender, uid, touch } from './state.js?v=202609042200';
+import { gsiCardHtml, addProjectTaskRaw } from './gsi.js?v=202609042200';
+import { pwCardHtml, addPwProjectTaskRaw } from './personal.js?v=202609042200';
+import { boardCardHtml, findAnyTask, createNativeTask } from './tasks.js?v=202609042200';
 import { toast, autoGrow } from './ui.js?v=202609042200';
 
 /* Display labels only — the stored value on each task (t.eis) keeps its
@@ -43,6 +43,22 @@ const QUAD_KEYS = QUADRANTS.map(q => q.key);
 let activeProject = "all";      // "all" | "none" | "gsi:<id>" | "pw:<id>"
 let dupWarningSignature = "";   // last duplicate-name set the notice was shown for
 let sortables = [];
+
+/* ---- inline "add task" composer ----
+
+   One composer at a time, addressed by quadrant. The draft text lives here
+   rather than only in the DOM because a sync pull can repaint the matrix
+   mid-sentence — the input would be rebuilt and half a typed task would be
+   gone. Keeping it in module state means a repaint restores exactly what
+   was typed. */
+let composerQuadrant = null;   // quadrant key whose composer is open, or null
+let composerDraft = "";
+let composerProject = "";      // only consulted while "All projects" is active
+let focusComposerNext = false; // focus on open, NOT on every repaint
+let flashTaskId = null;        // the card to play the arrival animation on, once
+
+const reducedMotion = () =>
+  window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /* ---------- which tasks, and from where ----------
 
@@ -143,6 +159,97 @@ export function setTaskQuadrant(id, quadrant) {
   renderEisenhower();
 }
 
+/* ---- the composer ----
+
+   A task added here is created through the app's OWN add helpers —
+   addProjectTaskRaw, addPwProjectTaskRaw, createNativeTask — so it is
+   shaped, positioned, persisted and synced exactly like a task added from
+   the board. The matrix contributes one extra field, `eis`, which is the
+   quadrant it was dropped into. No new storage, no new network call. */
+export function openEisComposer(quadrant) {
+  if (!QUAD_KEYS.includes(quadrant)) return;
+  composerQuadrant = quadrant;
+  composerDraft = "";
+  focusComposerNext = true;
+  renderEisenhower();
+}
+export function closeEisComposer() {
+  composerQuadrant = null;
+  composerDraft = "";
+  renderEisenhower();
+}
+export function onEisComposerInput(v) { composerDraft = v; }   // no repaint per keystroke
+export function onEisComposerProject(v) { composerProject = v; }
+
+export function onEisComposerKey(evt, quadrant) {
+  if (evt.key === "Enter" && !evt.shiftKey) { evt.preventDefault(); submitEisComposer(quadrant); }
+  else if (evt.key === "Escape") { evt.preventDefault(); closeEisComposer(); }
+}
+
+/* Which project a new task belongs to. With a project tab selected the
+   answer is that tab; on "All projects" the composer shows a picker,
+   because guessing would file work somewhere the person never chose. */
+function composerTargetKey() {
+  if (activeProject !== "all") return activeProject;
+  if (composerProject) return composerProject;
+  const first = projectList()[0];
+  return first ? first.key : "none";
+}
+
+export function submitEisComposer(quadrant) {
+  const text = (composerDraft || "").trim();
+  if (!text) return;
+  const el = document.querySelector(".eis-composer");
+  /* Let the exit animation play, THEN commit. The commit re-renders the
+     whole matrix, which would otherwise delete the element mid-animation
+     and make the composer vanish rather than close. */
+  if (el && !reducedMotion()) {
+    el.classList.add("is-committing");
+    setTimeout(() => commitEisTask(quadrant, text), 190);
+  } else {
+    commitEisTask(quadrant, text);
+  }
+}
+
+function commitEisTask(quadrant, text) {
+  const key = composerTargetKey();
+  composerQuadrant = null;
+  composerDraft = "";
+
+  if (key === "none") {
+    /* createNativeTask builds the loose-task shape (category, position,
+       googleEventId) and pushes it; it deliberately does not persist, so
+       the quadrant can be set on the same object first. */
+    const t = createNativeTask(text, "");
+    t.eis = quadrant;
+    flashTaskId = t.id;
+    persist();
+    /* The two project helpers re-render themselves; this path does not, so
+       it calls the app's own rerender — the same one every other edit uses
+       — rather than repainting the matrix alone and leaving the rest of
+       the app showing a task count that is one out of date. */
+    rerender();
+    return;
+  }
+
+  const task = {
+    id: uid(), text, status: "todo", date: "", link: "",
+    flag: false, googleEventId: null, eis: quadrant
+  };
+  flashTaskId = task.id;
+  /* Both helpers persist and re-render themselves — same call the board's
+     own add makes. If the project has since been deleted the helper
+     returns false and nothing is written. */
+  const ok = key.startsWith("pw:")
+    ? addPwProjectTaskRaw(key.slice(3), task)
+    : addProjectTaskRaw(key.slice(4), task);
+  if (!ok) {
+    flashTaskId = null;
+    toast("That project no longer exists — task not added");
+    renderEisenhower();
+  }
+}
+
 export function setEisProject(key) {
   activeProject = key;
   renderEisenhower();
@@ -178,6 +285,38 @@ function tabsHtml(list, dup) {
     </div>`;
 }
 
+/* The composer sits at the TOP of the quadrant body rather than in a
+   footer under it. A footer would cost every quadrant ~34px of permanent
+   height — 68px of matrix — for a control that is idle almost all of the
+   time, and that height is exactly what the fourth task card needs. Here
+   it costs nothing until it is opened. */
+function composerHtml(q) {
+  const needsPicker = activeProject === "all";
+  const target = composerTargetKey();
+  const projects = projectList();
+  return `
+    <div class="eis-composer" data-quadrant="${q.key}">
+      <div class="eis-composer-glow" aria-hidden="true"></div>
+      <input type="text" class="eis-composer-input" id="eisComposerInput"
+             placeholder="Add a task to ${esc(q.title)}…"
+             aria-label="New task in ${esc(q.title)}"
+             value="${esc(composerDraft)}"
+             oninput="onEisComposerInput(this.value)"
+             onkeydown="onEisComposerKey(event,'${q.key}')">
+      <div class="eis-composer-row">
+        ${needsPicker ? `
+          <select class="eis-composer-proj" aria-label="Project for the new task"
+                  onchange="onEisComposerProject(this.value)">
+            ${projects.map(p => `<option value="${esc(p.key)}" ${p.key === target ? "selected" : ""}>${esc(p.name)}</option>`).join("")}
+            <option value="none" ${target === "none" ? "selected" : ""}>No project</option>
+          </select>` : ""}
+        <span class="eis-composer-spacer"></span>
+        <button type="button" class="eis-composer-cancel" onclick="closeEisComposer()">Cancel</button>
+        <button type="button" class="eis-composer-add" onclick="submitEisComposer('${q.key}')">Add</button>
+      </div>
+    </div>`;
+}
+
 function quadrantHtml(q, entries) {
   const menu = id => `
     <div class="eis-move">
@@ -194,11 +333,14 @@ function quadrantHtml(q, entries) {
         <span class="eis-q-n">${q.n}</span>
         <span class="eis-q-title">${esc(q.title)}</span>
         <span class="eis-q-meta">${esc(q.urgency)} + ${esc(q.importance)} · ${esc(q.action)}</span>
+        <button class="eis-add-btn" type="button" aria-label="Add a task to ${esc(q.title)}"
+                title="Add a task to ${esc(q.title)}" onclick="openEisComposer('${q.key}')">+</button>
         <span class="eis-q-count">${entries.length}</span>
       </header>
       <div class="eis-q-body" data-quadrant="${q.key}">
+        ${composerQuadrant === q.key ? composerHtml(q) : ""}
         ${entries.map(e => `
-          <div class="eis-item" data-task-id="${e.t.id}">
+          <div class="eis-item${e.t.id === flashTaskId ? " eis-just-added" : ""}" data-task-id="${e.t.id}">
             <div class="eis-item-card">
               ${cardFor(e)}
               ${menu(e.t.id)}
@@ -253,6 +395,30 @@ export function renderEisenhower() {
      so a two-line task title was silently clipped to its first line. Must
      run after innerHTML, since scrollHeight is meaningless before layout. */
   document.querySelectorAll("#eisenhower textarea").forEach(autoGrow);
+
+  /* Focus only when the composer was just OPENED. Doing it on every
+     repaint would yank the caret out of whatever the person was typing in
+     every time a sync pull repainted the matrix. */
+  if (focusComposerNext) {
+    focusComposerNext = false;
+    const input = document.getElementById("eisComposerInput");
+    if (input) { input.focus(); input.setSelectionRange(input.value.length, input.value.length); }
+  }
+
+  /* The arrival animation plays once. Clearing the id here — not in a
+     timeout — means a later repaint for an unrelated reason cannot replay
+     it on a card that is no longer new. */
+  if (flashTaskId) {
+    flashTaskId = null;
+    const fresh = document.querySelector("#eisenhower .eis-just-added");
+    if (fresh) {
+      fresh.addEventListener("animationend", () => fresh.classList.remove("eis-just-added"), { once: true });
+      /* Belt and braces: if the animation never fires (reduced motion, a
+         backgrounded tab), the class still comes off rather than leaving a
+         card permanently highlighted. */
+      setTimeout(() => fresh.classList.remove("eis-just-added"), 1200);
+    }
+  }
 
   wireDragAndDrop();
 }
