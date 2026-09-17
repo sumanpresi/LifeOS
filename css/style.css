@@ -5273,12 +5273,21 @@ body > .t-board-card.t-row-dragging{
    `pageEnter` animation on transform, and an element with a running
    transform animation is a containing block for as long as it plays.
 
+   THE EISENHOWER QUADRANTS ARE IN THIS LIST FOR THE SAME REASON. .eis-q
+   carries backdrop-filter exactly as .card does, so a quadrant was the
+   containing block for the matrix's own drag clone and the card trailed
+   the finger by the quadrant's offset from the viewport — the same symptom
+   the board had, in a different component. The matrix copied the board's
+   Sortable configuration but not this rule, which is the half that
+   actually made touch dragging feel right.
+
    Scoped to the ancestors a board can actually sit inside, and
    explicitly NOT the drag clone: Sortable moves the clone with an inline
    `transform`, and a stylesheet `transform:none !important` would beat
    that inline style and pin the clone in place. The clone matches
    .t-board-card, so it has to be excluded by name. */
-body.is-dragging :is(.page, .card, .sidebar, .main, .t-board, .t-board-col, .t-board-card, #tasksCard):not(.sortable-fallback){
+body.is-dragging :is(.page, .card, .sidebar, .main, .t-board, .t-board-col, .t-board-card, #tasksCard,
+                     .eis-q, .eis-q-body, .eis-item, .eis-item-card):not(.sortable-fallback){
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
   filter: none !important;

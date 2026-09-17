@@ -141,9 +141,31 @@
    selection or a scroll first. Confined to the card's non-interactive
    area so the title can still be tapped into and the selects still open —
    the same division of labour Sortable's `filter` enforces in JS. */
+/* ---- reclaiming touch-action from Sortable's inline style ----
+
+   SortableJS writes an inline `touch-action:none` onto every draggable
+   element so its fallback tracker can call preventDefault() during the
+   200ms pre-drag delay. An inline style beats an ordinary stylesheet rule,
+   so the previous `touch-action:manipulation` here never applied: the
+   quadrant stopped scrolling the instant a finger landed on a card,
+   dragging or not. !important is what wins the axis back — the same fix
+   the task boards carry in responsive-foldable.css, ported here.
+
+   pan-y, not the board's pan-x pan-y, and deliberately: touch-action's
+   used value is the INTERSECTION of an element and all its ancestors, so
+   allowing only what is actually scrollable is the honest setting. A
+   quadrant scrolls vertically and the page scrolls vertically; nothing in
+   this chain scrolls sideways, unlike .t-board which does. */
+.eis-q-body,
+.eis-item,
+.eis-item-card,
 .eis-item .gsi-card,
-.eis-item .t-board-card{touch-action:manipulation;-webkit-user-select:none;user-select:none}
-.eis-item :is(textarea,input,select){-webkit-user-select:auto;user-select:auto;touch-action:auto}
+.eis-item .t-board-card{touch-action:pan-y !important}
+/* Not user-select:none on the card as a whole — the title is a textarea
+   and has to stay selectable. Only the chrome around it. */
+.eis-item .gsi-card,
+.eis-item .t-board-card{-webkit-user-select:none;user-select:none}
+.eis-item :is(textarea,input,select){-webkit-user-select:auto;user-select:auto}
 
 /* ================================================================
    THE TASK CARD INSIDE A QUADRANT
