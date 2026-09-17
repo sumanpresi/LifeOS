@@ -24,7 +24,7 @@
 import { state, esc, persist, rerender, uid, touch } from './state.js?v=202609042200';
 import { gsiCardHtml, addProjectTaskRaw } from './gsi.js?v=202609042200';
 import { pwCardHtml, addPwProjectTaskRaw } from './personal.js?v=202609042200';
-import { boardCardHtml, findAnyTask, createNativeTask } from './tasks.js?v=202609042200';
+import { boardCardHtml, findAnyTask, createNativeTask, openTaskCardDetail, markDragJustEnded } from './tasks.js?v=202609042200';
 import { toast, autoGrow } from './ui.js?v=202609042200';
 
 /* Display labels only — the stored value on each task (t.eis) keeps its
@@ -250,6 +250,27 @@ function commitEisTask(quadrant, text) {
   }
 }
 
+/* ---- opening a task ----
+
+   Every other surface opens the detail modal by clicking the card. The
+   matrix could not, because it renders the LIST card templates
+   (gsiCardHtml / pwCardHtml) and only the BOARD templates carry that
+   handler. Rather than add it to shared renderers used by pages this
+   feature has nothing to do with, the matrix puts it on its own wrapper
+   and routes to the same openTaskCardDetail every other surface calls. */
+export function onEisCardClick(evt, id) {
+  /* The card is full of its own controls. A click that landed on one of
+     them has already done its job — opening the modal on top of it would
+     mean ticking a checkbox or changing a status also opened a dialogue. */
+  if (evt.target.closest("button, input, select, textarea, a, label, .eis-move, .gsi-chk, .t-chk")) return;
+  /* A task with no project renders through boardCardHtml, which already
+     carries its own onclick. Without this the click would bubble up here
+     and open the modal a second time. */
+  if (evt.target.closest(".t-board-card")) return;
+  if (evt.key) evt.preventDefault();          // Space would scroll the page
+  openTaskCardDetail(id);
+}
+
 export function setEisProject(key) {
   activeProject = key;
   renderEisenhower();
@@ -342,7 +363,9 @@ function quadrantHtml(q, entries) {
         ${composerQuadrant === q.key ? composerHtml(q) : ""}
         ${entries.map(e => `
           <div class="eis-item${e.t.id === flashTaskId ? " eis-just-added" : ""}" data-task-id="${e.t.id}">
-            <div class="eis-item-card">
+            <div class="eis-item-card" role="button" tabindex="0"
+                 onclick="onEisCardClick(event,'${e.t.id}')"
+                 onkeydown="if(event.key==='Enter'||event.key===' '){onEisCardClick(event,'${e.t.id}')}">
               ${cardFor(e)}
               ${menu(e.t.id)}
             </div>
@@ -490,6 +513,11 @@ function wireDragAndDrop() {
       ghostClass: "eis-ghost", dragClass: "eis-dragging", chosenClass: "eis-chosen",
       onEnd: evt => {
         document.body.classList.remove("is-dragging");
+        /* Tell the shared guard a drag just finished. A drop lands a
+           pointerup on the card, and now that the card opens the task,
+           every move would otherwise end with the modal in your face.
+           openTaskCardDetail ignores clicks for 350ms after this. */
+        markDragJustEnded();
         document.querySelectorAll("#eisenhower .eis-q-body.eis-over")
           .forEach(el => el.classList.remove("eis-over"));
         const id = evt.item.dataset.taskId;
