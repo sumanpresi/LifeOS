@@ -97,32 +97,26 @@
   scrollbar-width:thin;padding-right:2px;
 }
 
-.eis-item{position:relative;border-radius:14px;display:flex;align-items:stretch;gap:6px;flex:0 0 auto}
-/* The card itself keeps its own layout untouched (checkbox, flag, status
-   select and so on all sit where they always have); it just becomes the
-   flex sibling of the handle rather than the whole draggable item. */
-.eis-item-card{position:relative;flex:1 1 auto;min-width:0}
-/* Dedicated drag surface. The card's own title is a <textarea>, which
-   Sortable refuses to drag from (and which would otherwise just select
-   text under a long press on a phone), and the rest of the card is full
-   of its own buttons and selects that need to stay clickable — so every
-   item gets this one small grip in its own column instead of overlaying
-   anything. Deliberately not hover-only: a control that only appears on
-   hover doesn't exist on touch. Full item height and a real column
-   width, not a sliver, so it's easy to land a thumb on it on a folded
-   Z Fold 8. */
-.eis-drag-handle{
-  flex:0 0 auto;align-self:stretch;
-  width:28px;min-height:44px;
-  display:flex;align-items:center;justify-content:center;
-  border:1px solid var(--glass-line);border-radius:9px;
-  background:var(--card);color:var(--muted);font-size:15px;line-height:1;
-  cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none;
-  transition:color .15s ease,border-color .15s ease;
-}
-.eis-drag-handle:hover,
-.eis-drag-handle:focus-visible{color:var(--ink);border-color:var(--eis-hue,var(--glass-line))}
-.eis-chosen .eis-drag-handle{cursor:grabbing}
+/* The whole card is the drag surface — no grip column, same as the
+   Work·GSI and Personal boards. The grip used to be a flex sibling of the
+   card; with it gone the item is simply the card's wrapper again.
+
+   cursor:grab on the card, but NOT on the parts of it that do something
+   else when you press them: a select or a textarea showing a grab hand is
+   a lie about what the next press will do. */
+.eis-item{position:relative;border-radius:14px;flex:0 0 auto;cursor:grab}
+.eis-item:active{cursor:grabbing}
+.eis-item :is(button,input,select,textarea,a){cursor:auto}
+.eis-item :is(button,a,.gsi-chk,.t-chk){cursor:pointer}
+.eis-item textarea{cursor:text}
+.eis-item-card{position:relative;min-width:0}
+/* Long-press to lift on touch without the browser starting a text
+   selection or a scroll first. Confined to the card's non-interactive
+   area so the title can still be tapped into and the selects still open —
+   the same division of labour Sortable's `filter` enforces in JS. */
+.eis-item .gsi-card,
+.eis-item .t-board-card{touch-action:manipulation;-webkit-user-select:none;user-select:none}
+.eis-item :is(textarea,input,select){-webkit-user-select:auto;user-select:auto;touch-action:auto}
 
 /* ================================================================
    THE TASK CARD INSIDE A QUADRANT
@@ -176,9 +170,6 @@
 @media (max-width:839px){ .eis-widgets{grid-template-columns:repeat(2,minmax(0,1fr))} }
 @media (max-width:599px){ .eis-widgets{grid-template-columns:minmax(0,1fr)} }
 
-@media (max-width:719px){
-  .eis-drag-handle{width:34px;font-size:17px}
-}
 /* The drop target, while something is in the air. Deliberately a border
    and a wash rather than a glow — a glow on four panels at once is noise —
    but pushed further than a hairline so the destination is unmistakable
