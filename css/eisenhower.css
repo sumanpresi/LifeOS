@@ -36,9 +36,16 @@
   display:grid;gap:14px;
   grid-template-columns:repeat(2,minmax(0,1fr));
   grid-template-rows:repeat(2,minmax(0,1fr));
-  /* Large enough to read as a dedicated workspace, capped so it never
-     forces the page itself to scroll past a reasonable height. */
-  height:clamp(480px,68vh,760px);
+  /* Sized to the reference: a workspace that dominates the page without
+     pushing the three widgets below it off a laptop screen entirely.
+
+     The cap is the part that matters. Viewport-relative height alone means
+     a tall monitor gets a taller matrix for no reason — the quadrants do
+     not become more useful past a point, they just add scroll distance to
+     everything underneath. 620px here, 650px on a wide desktop, which is
+     roughly 62-64vh on the common 900-1000px viewport and stops growing
+     after that. */
+  height:clamp(440px,62vh,620px);
 }
 
 .eis-q{
@@ -116,6 +123,59 @@
 .eis-drag-handle:hover,
 .eis-drag-handle:focus-visible{color:var(--ink);border-color:var(--eis-hue,var(--glass-line))}
 .eis-chosen .eis-drag-handle{cursor:grabbing}
+
+/* ================================================================
+   THE TASK CARD INSIDE A QUADRANT
+
+   This is what made tasks look missing. .gsi-card is a three-part row:
+   checkbox, .gsi-card-main (the title), .gsi-card-right (flag, status
+   select, project select). The right column is flex-shrink:0 and measures
+   roughly 230px; the checkbox and padding take another 80. In a board
+   column that is fine. In a quadrant — half of half the window before the
+   layout change — the card was about 380px wide, which left .gsi-card-main
+   roughly 40px. .gsi-title is a textarea with white-space:pre-wrap, so at
+   40px it renders one character per line: a tall, thin column of text that
+   reads as an empty card. Nothing was ever missing.
+
+   The card is allowed to WRAP here rather than being made narrower or
+   having controls removed. The title takes the first line beside the
+   checkbox and gets the real width; the controls drop to a second line,
+   right-aligned. Every control keeps its handler, its size and its place
+   in the DOM — this is a line break, not a different card.
+   ================================================================ */
+.eis-item-card .gsi-card{
+  flex-wrap:wrap;
+  gap:8px 10px;
+  padding:12px 13px;
+  /* 90px was sized for a card that never wrapped; with two lines it just
+     added dead space under short tasks. */
+  min-height:0;
+}
+.eis-item-card .gsi-card-main{
+  /* Basis 0 with grow, so the title takes whatever is left on line one
+     instead of its (tiny) min-content width. */
+  flex:1 1 0;min-width:0;
+}
+.eis-item-card .gsi-card-right{
+  /* Its own full-width line. Right-aligned so the eye still finds the
+     status pill where it has always been. */
+  flex:1 1 100%;justify-content:flex-end;flex-wrap:wrap;padding-top:0;
+}
+.eis-item-card .gsi-title{width:100%;min-width:0;font-size:15px}
+/* The link and date rows sit under the title and must be free to wrap as
+   a row rather than one word per line. */
+.eis-item-card .gsi-link-row,
+.eis-item-card .gsi-date-row{flex-wrap:wrap;min-width:0}
+.eis-item-card .gsi-project-sel{max-width:130px}
+
+/* The supporting widgets under the matrix. Scoped to this row rather than
+   changing .grid-3 globally, which Finance and other pages also use.
+   Three across stays comfortable down to a Z Fold 8's unfolded ~880px;
+   below that two, then one. */
+.eis-widgets{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media (max-width:839px){ .eis-widgets{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media (max-width:599px){ .eis-widgets{grid-template-columns:minmax(0,1fr)} }
+
 @media (max-width:719px){
   .eis-drag-handle{width:34px;font-size:17px}
 }
@@ -189,7 +249,10 @@ body.is-dragging{user-select:none;-webkit-user-select:none}
    The inner display is wide enough for a true 2 x 2 with room to spare, so
    the workspace gets more height rather than the page getting more margin. */
 @media (min-width:840px){
-  .eis-grid{gap:16px;height:clamp(520px,72vh,820px)}
+  /* 64vh reaches ~600px on a 1080p browser window and ~650px on anything
+     taller, where it stops — the figure the layout was designed around
+     rather than one that keeps climbing with the display. */
+  .eis-grid{gap:16px;height:clamp(520px,64vh,650px)}
 }
 
 /* ---- Z Fold 8 folded, and ordinary phones ----
