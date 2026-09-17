@@ -388,18 +388,25 @@ body.is-dragging{user-select:none;-webkit-user-select:none}
 }
 .eis-item:hover .eis-move-btn,
 .eis-move-btn:focus-visible,
-.eis-move.open .eis-move-btn{opacity:1;color:var(--ink)}
+.eis-move-btn[aria-expanded="true"]{opacity:1;color:var(--ink)}
+/* Lives on <body>, positioned from JS — see toggleEisMove for why neither
+   absolute (clipped by the quadrant's scroller) nor fixed (trapped by the
+   quadrant's backdrop-filter) works from inside the card. z-index is above
+   the app's own overlays; top/left are set inline on open. */
 .eis-move-menu{
-  display:none;position:absolute;right:0;bottom:calc(100% + 6px);z-index:40;
-  flex-direction:column;min-width:150px;padding:5px;border-radius:12px;
+  position:fixed;top:0;left:0;z-index:2000;
+  display:flex;flex-direction:column;min-width:158px;padding:5px;border-radius:12px;
   background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);
+  animation:eis-menu-in .14s cubic-bezier(.2,.9,.25,1) both;
 }
-.eis-move.open .eis-move-menu{display:flex}
+@keyframes eis-menu-in{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){ .eis-move-menu{animation:none} }
 .eis-move-menu button{
   text-align:left;border:none;background:transparent;color:var(--ink);cursor:pointer;
   padding:8px 10px;border-radius:8px;font-size:13px;font-weight:600;
 }
 .eis-move-menu button:hover{background:var(--paper)}
+.eis-move-menu button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 
 /* ---- Z Fold 8 unfolded, and any large tablet ----
    The inner display is wide enough for a true 2 x 2 with room to spare, so
