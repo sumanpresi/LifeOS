@@ -273,7 +273,22 @@ export function gsiCardHtml(item) {
 // touching state.gsi.projects here, since that function already knows
 // how to remap a task's shape across native<->GSI and between projects.
 function projectSelectorHtml(taskId) {
-  const currentId = state.gsi.activeProject;
+  /* THE TASK'S OWN PROJECT — not whichever tab the Work · GSI page happens
+     to have open.
+
+     Those are the same thing on that page, which is why reading
+     state.gsi.activeProject worked there for so long. They are not the
+     same in the Eisenhower matrix, which shows tasks from every project
+     side by side: every card there claimed to belong to the active
+     project. That made the control not just wrong but inert — a task in
+     BGD whose select already read "NDMAC" could not be moved to NDMAC,
+     because picking the option that is already selected fires no change
+     event. The move never ran.
+
+     Falling back to the active project keeps the old behaviour for a task
+     the lookup cannot place. */
+  const { project } = findProjectTask(taskId);
+  const currentId = project ? project.id : state.gsi.activeProject;
   return `<select class="gsi-project-sel" title="Move to project" onchange="changeTaskProject('${taskId}',this.value)">
     <option value="">No project</option>
     ${state.gsi.projects.map(p => `<option value="${p.id}" ${p.id === currentId ? "selected" : ""}>${esc(p.name)}</option>`).join("")}
@@ -767,6 +782,10 @@ export function moveProjectTask(taskId, targetProjectId) {
   from.tasks = from.tasks.filter(x => x.id !== taskId);
   to.tasks.push(t);
   persist(); rerender();
+  /* The card leaves the view it was moved from — off this project's board,
+     or out of a filtered Eisenhower matrix. Without a word that reads as
+     the task having vanished rather than moved. */
+  toast(`Moved to ${to.name}`);
   return true;
 }
 // Removes a task from its project WITHOUT persisting/re-rendering —
