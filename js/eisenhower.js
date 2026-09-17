@@ -562,8 +562,20 @@ export function toggleEisMove(btn, taskId, fromQuadrant) {
   document.body.appendChild(menu);
   placeEisMove(menu, btn);          // after append: needs a measured size
   btn.setAttribute("aria-expanded", "true");
-  menu.querySelector("button")?.focus();
-  openMove = { el: menu, taskId, btn };
+  openMove = { el: menu, taskId, btn, settling: true };
+
+  /* preventScroll, and it is not cosmetic: focusing an element makes the
+     browser scroll it into view, and the scroll listener below closes the
+     menu. Without this the menu opened and closed inside the same frame —
+     the click appeared to do nothing at all. (jsdom does not scroll on
+     focus, which is exactly why this survived a DOM test.) */
+  menu.querySelector("button")?.focus({ preventScroll: true });
+
+  /* Belt and braces for the same class of problem: anything else that
+     scrolls as a side effect of opening — a browser bringing the trigger
+     into view, a layout settling — is ignored until the next frame. After
+     that, a real scroll closes the menu as intended. */
+  requestAnimationFrame(() => { if (openMove) openMove.settling = false; });
 }
 
 /* A menu anchored to a rect has to go when the rect moves. Capture phase,
@@ -573,5 +585,8 @@ document.addEventListener("pointerdown", e => {
   closeEisMove();
 });
 document.addEventListener("keydown", e => { if (e.key === "Escape") closeEisMove(); });
-window.addEventListener("scroll", closeEisMove, true);
+window.addEventListener("scroll", () => {
+  if (openMove && openMove.settling) return;   // the scroll that opening caused
+  closeEisMove();
+}, true);
 window.addEventListener("resize", closeEisMove);
