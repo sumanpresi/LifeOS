@@ -318,14 +318,15 @@ function composerHtml(q) {
 }
 
 function quadrantHtml(q, entries) {
+  /* Trigger only. The menu itself is built on demand and attached to
+     <body> — see toggleEisMove. It used to live here, absolutely
+     positioned inside the card, and .eis-q-body is overflow-y:auto: the
+     scroller clipped it, so a menu of three destinations showed as one. */
   const menu = id => `
     <div class="eis-move">
-      <button class="eis-move-btn" aria-label="Move this task to another quadrant"
-              onclick="this.parentNode.classList.toggle('open')">Move ▾</button>
-      <div class="eis-move-menu">
-        ${QUADRANTS.filter(x => x.key !== q.key).map(x =>
-          `<button onclick="moveEisTask('${id}','${x.key}');this.closest('.eis-move').classList.remove('open')">${esc(x.title)}</button>`).join("")}
-      </div>
+      <button class="eis-move-btn" type="button" aria-haspopup="menu" aria-expanded="false"
+              aria-label="Move this task to another quadrant"
+              onclick="toggleEisMove(this,'${id}','${q.key}')">Move ▾</button>
     </div>`;
   return `
     <section class="eis-q eis-${q.key}" data-quadrant="${q.key}" aria-label="${esc(q.n + " " + q.title)}">
@@ -420,21 +421,15 @@ export function renderEisenhower() {
     }
   }
 
+  /* The trigger this menu was anchored to has just been replaced by the
+     repaint above, so the menu would be left pointing at nothing. */
+  closeEisMove();
+
   wireDragAndDrop();
 }
 
 /* ---------- drag, and the touch equivalent ----------
-   The GSI and Personal cards use a <textarea> for the task title, and
-   Sortable's own drag-start filter (button, input, select, textarea, a)
-   deliberately refuses to lift a card from any of those elements — so a
-   press on the title never started a drag, and on a phone it just
-   selected text instead. Rather than touch the shared card renderers,
-   every item gets one small dedicated handle (⠿) and Sortable is told
-   to start drags from that handle only. The card itself, its title, and
-   every other control on it stay exactly as clickable/editable as
-   before; only the handle picks a card up.
-
-   Same Sortable configuration the task boards use otherwise, for the
+   Same Sortable configuration the task boards use, for the
    same reasons documented there: forceFallback keeps desktop and touch
    on one code path, fallbackOnBody escapes the backdrop-filter
    containing block so the dragged card tracks the finger, and
@@ -506,8 +501,77 @@ function wireDragAndDrop() {
   });
 }
 
-/* Any tap outside an open Move menu closes it. */
+/* ---------- the Move menu ----------
+
+   Attached to <body>, not to the card. Two separate things would clip it
+   otherwise, and only one of them is obvious:
+
+     - .eis-q-body is overflow-y:auto, so an absolutely positioned child
+       is clipped by the scroller. That is the bug that was visible: three
+       destinations rendered, one showed.
+     - position:fixed would not have helped either. .eis-q carries
+       backdrop-filter, which makes it the containing block for fixed
+       descendants — the same trap documented on the drag clone, where
+       fallbackOnBody exists for exactly this reason. Fixed coordinates
+       inside that card resolve against the card, not the viewport.
+
+   So the menu is a real portal: built on open, positioned from the
+   trigger's viewport rect, removed on close. */
+let openMove = null;   // { el, taskId, btn }
+
+function closeEisMove() {
+  if (!openMove) return;
+  openMove.btn?.setAttribute("aria-expanded", "false");
+  openMove.el.remove();
+  openMove = null;
+}
+
+function placeEisMove(menu, btn) {
+  const r = btn.getBoundingClientRect();
+  const m = 8;
+  const { offsetWidth: w, offsetHeight: h } = menu;
+  /* Below the button by default; above it when there isn't room, which is
+     what a card near the bottom of a quadrant needs. */
+  let top = r.bottom + 6;
+  if (top + h > window.innerHeight - m) top = Math.max(m, r.top - 6 - h);
+  /* Right-aligned to the trigger, then pulled back inside the viewport —
+     the quadrants on the right edge would otherwise push it off-screen. */
+  let left = Math.min(Math.max(m, r.right - w), window.innerWidth - w - m);
+  menu.style.top = `${Math.round(top)}px`;
+  menu.style.left = `${Math.round(left)}px`;
+}
+
+export function toggleEisMove(btn, taskId, fromQuadrant) {
+  if (openMove && openMove.taskId === taskId) { closeEisMove(); return; }
+  closeEisMove();
+
+  const menu = document.createElement("div");
+  menu.className = "eis-move-menu";
+  menu.setAttribute("role", "menu");
+  QUADRANTS.filter(x => x.key !== fromQuadrant).forEach(x => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.setAttribute("role", "menuitem");
+    b.textContent = x.title;
+    /* Listener, not an inline onclick: this element is created here rather
+       than parsed from a string, so there is no HTML-escaping question and
+       a task title or key can never break out of an attribute. */
+    b.addEventListener("click", () => { closeEisMove(); moveEisTask(taskId, x.key); });
+    menu.appendChild(b);
+  });
+  document.body.appendChild(menu);
+  placeEisMove(menu, btn);          // after append: needs a measured size
+  btn.setAttribute("aria-expanded", "true");
+  menu.querySelector("button")?.focus();
+  openMove = { el: menu, taskId, btn };
+}
+
+/* A menu anchored to a rect has to go when the rect moves. Capture phase,
+   because the quadrant's own scroller is the one that usually moves. */
 document.addEventListener("pointerdown", e => {
-  if (e.target.closest(".eis-move")) return;
-  document.querySelectorAll(".eis-move.open").forEach(m => m.classList.remove("open"));
+  if (e.target.closest(".eis-move-menu") || e.target.closest(".eis-move-btn")) return;
+  closeEisMove();
 });
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeEisMove(); });
+window.addEventListener("scroll", closeEisMove, true);
+window.addEventListener("resize", closeEisMove);
