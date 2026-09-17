@@ -25,7 +25,7 @@ import { state, esc, persist, touch } from './state.js?v=202609042200';
 import { gsiCardHtml } from './gsi.js?v=202609042200';
 import { pwCardHtml } from './personal.js?v=202609042200';
 import { boardCardHtml, findAnyTask } from './tasks.js?v=202609042200';
-import { toast } from './ui.js?v=202609042200';
+import { toast, autoGrow } from './ui.js?v=202609042200';
 
 /* Display labels only — the stored value on each task (t.eis) keeps its
    original key ("do" / "schedule" / "delegate" / "eliminate") so nothing
@@ -249,6 +249,13 @@ export function renderEisenhower() {
   } else if (!dup.size) {
     dupWarningSignature = "";
   }
+
+  /* The card title is a rows="1" textarea with overflow:hidden — it only
+     shows more than one line once something measures it. Every other place
+     that renders these cards does this after painting; the matrix did not,
+     so a two-line task title was silently clipped to its first line. Must
+     run after innerHTML, since scrollHeight is meaningless before layout. */
+  document.querySelectorAll("#eisenhower textarea").forEach(autoGrow);
 
   wireDragAndDrop();
 }

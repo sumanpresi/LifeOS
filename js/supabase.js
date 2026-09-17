@@ -572,7 +572,12 @@ let currentSyncPromise = null; // the in-flight runSync() call, so a coalesced c
    `fromReconcile` parameter on saveRemote() is for. Anything else calling
    saveRemote() while a reconcile is running is deferred the same way an
    unreconciled session defers it (pendingSaveAfterReconcile), and flushed
-   once loadRemote()'s finally block clears the flag. */
+   once runSyncChain()'s drain loop confirms no further reconciliation is
+   queued. (It used to be flushed from loadRemote()'s finally block; that
+   moved, because a flush fired there could race the next reconciliation
+   the chain was already about to start. The two comments at
+   markRemoteChecked() and loadRemote()'s finally explain that change —
+   this one was left describing the old arrangement.) */
 let reconcileInFlight = false;
 
 async function syncCheck(reason, skipBackoff = false) {
