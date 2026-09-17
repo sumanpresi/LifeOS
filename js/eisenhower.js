@@ -201,7 +201,6 @@ function quadrantHtml(q, entries) {
       <div class="eis-q-body" data-quadrant="${q.key}">
         ${entries.map(e => `
           <div class="eis-item" data-task-id="${e.t.id}">
-            <button class="eis-drag-handle" type="button" aria-label="Drag to move this task between quadrants" title="Drag to move">⠿</button>
             <div class="eis-item-card">
               ${cardFor(e)}
               ${menu(e.t.id)}
@@ -286,12 +285,24 @@ function wireDragAndDrop() {
     sortables.push(Sortable.create(body, {
       group: "eisenhower",
       draggable: ".eis-item",
-      handle: ".eis-drag-handle",
-      /* The handle itself is a <button> (for a11y semantics), so it has
-         to be carved out of this exclusion list — otherwise Sortable's
-         filter would veto the very element "handle" says is allowed to
-         start a drag. */
-      filter: "button:not(.eis-drag-handle), input, select, textarea, a",
+      /* NO handle — the whole card is the drag surface, exactly as on the
+         Work·GSI and Personal boards. The grip that used to sit beside
+         each card existed because .gsi-title is a <textarea>, which a
+         press would otherwise put a caret into rather than lifting the
+         card. `filter` solves that properly instead: every interactive
+         part of the card keeps its own behaviour, and a press anywhere
+         else on the card starts a drag.
+
+         preventOnFilter:false is what makes the filtered elements still
+         work — without it Sortable swallows the click/change events it
+         just vetoed, so the checkbox, the status select and the title
+         would all go dead.
+
+         Identical to gsi.js and personal.js apart from .composer, which
+         the matrix has no equivalent of. .t-chk is kept because a loose
+         task with no project renders through boardCardHtml, whose
+         checkbox carries that class rather than .gsi-chk. */
+      filter: "button, input, select, textarea, a, .t-chk",
       preventOnFilter: false,
       forceFallback: true,
       fallbackOnBody: true,
