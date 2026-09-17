@@ -191,12 +191,10 @@ function quadrantHtml(q, entries) {
   return `
     <section class="eis-q eis-${q.key}" data-quadrant="${q.key}" aria-label="${esc(q.n + " " + q.title)}">
       <header class="eis-q-head">
-        <div class="eis-q-head-main">
-          <span class="eis-q-n">${q.n}</span>
-          <span class="eis-q-title">${esc(q.title)}</span>
-          <span class="eis-q-count">${entries.length}</span>
-        </div>
+        <span class="eis-q-n">${q.n}</span>
+        <span class="eis-q-title">${esc(q.title)}</span>
         <span class="eis-q-meta">${esc(q.urgency)} + ${esc(q.importance)} · ${esc(q.action)}</span>
+        <span class="eis-q-count">${entries.length}</span>
       </header>
       <div class="eis-q-body" data-quadrant="${q.key}">
         ${entries.map(e => `
