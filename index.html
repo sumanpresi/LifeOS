@@ -284,43 +284,61 @@
         </div>
       </div>
 
-      <!-- My Day, in two columns that are read rather than merely filled.
+      <!-- My Day, recomposed around the matrix.
 
-           LEFT  — the day as it is worked: what to do, where it gets
-                   written down, and what was written before. The wider
-                   track (1.35fr), because the journal editor is the one
-                   thing here whose width changes what you can do in it.
-           RIGHT — the day's smaller rituals: a line to read, a timer,
-                   and the habits to tick off.
+           The matrix used to share a two-track grid with Quote, Meditation
+           and Habits, which left it roughly half the window — and a task
+           card does not fit in half of half. Measured: the card's fixed
+           parts (checkbox, flag, status select, project select, padding)
+           come to ~322px, so a 254px quadrant card at a Z Fold's unfolded
+           880px left the title NEGATIVE width, and a 1440px desktop left
+           it about 212px. .gsi-title is a textarea with white-space:
+           pre-wrap, so at that width it renders one character per line.
+           That is why tasks looked missing: they were rendering, one
+           letter wide. The fix is in css/eisenhower.css — the card wraps
+           inside a quadrant, title on line one, controls on line two.
 
-           Explicit column wrappers, not four cards flowing through a
-           two-track grid. Grid auto-flow fills row by row, so a tall card
-           on the left left a gap beside it and pushed the next pair down;
-           with each column its own flex stack the two sides are
-           independent and neither waits for the other.
+           So the matrix now owns a full-width row of its own, and the three
+           supporting widgets sit in a three-track row beneath it. Journal
+           and Past entries keep a two-track row below that. Nothing was
+           duplicated — every card here is the original element, moved. -->
 
-           Important links stays above both — it is a row of chips that
-           behaves like a toolbar, and a toolbar belongs at the edge of
-           what it acts on rather than inside one column.
+      <div class="card">
+        <div class="card-head">
+          <h2 style="display:flex;align-items:baseline;gap:10px">Eisenhower Matrix
+            <span class="hint">Prioritise tasks by urgency and importance</span>
+          </h2>
+        </div>
+        <div class="card-body" id="eisenhower"></div>
+      </div>
 
-           News and Google Calendar sit below, full width: they are
-           ambient, and neither was asked to share a column. -->
-
-      <div class="grid-2">
-        <div class="col-stack">
-          <!-- Today's focus lived here. It answered "what is due today",
-               which the Eisenhower matrix below answers better and for the
-               whole backlog rather than one date. Nothing behind it was
-               removed: the tasks, their dates, their flags and the overdue
-               count all still exist and are still shown elsewhere. -->
-          <div class="card">
-            <div class="card-head">
-              <h2 style="display:flex;align-items:baseline;gap:10px">Eisenhower Matrix
-                <span class="hint">Prioritise tasks by urgency and importance</span>
-              </h2>
+      <div class="grid-3 eis-widgets" style="margin-top:16px">
+        <div class="card" id="quoteCard">
+          <div class="card-head"><h2>Quote of the day</h2>
+            <button class="btn btn-ghost" style="padding:6px 12px" onclick="nextQuote()">Next</button></div>
+          <div class="card-body"><div class="quote-box" id="quoteBox"></div></div>
+        </div>
+        <div class="card" id="medCard">
+          <div class="card-head"><h2>Meditation</h2><span class="hint" id="medTodayHint"></span></div>
+          <div class="card-body">
+            <div class="med-time" id="medClock">10:00</div>
+            <div class="med-controls">
+              <button class="btn btn-ghost" onclick="setMed(5)">5 min</button>
+              <button class="btn btn-ghost" onclick="setMed(10)">10 min</button>
+              <button class="btn btn-ghost" onclick="setMed(15)">15 min</button>
+              <button class="btn btn-primary" id="medStartBtn" onclick="toggleMed()">Start</button>
             </div>
-            <div class="card-body" id="eisenhower"></div>
+            <div class="med-stat" id="medStat"></div>
           </div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Today's habits</h2></div>
+          <div class="card-body" id="dayHabits"></div>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-top:16px">
+        <div class="col-stack">
           <div class="card">
             <div class="card-head">
               <h2>Journal — <span id="journalEditingLabel"></span></h2>
@@ -351,6 +369,8 @@
               <div id="dayJournalEditor" class="mm-rich-editor journal-rich-editor"></div>
             </div></div>
           </div>
+        </div>
+        <div class="col-stack">
           <div class="card">
             <div class="card-head"><h2>Past entries</h2><button class="journal-sort-btn" id="journalSortBtn" onclick="toggleJournalSort()" title="Showing newest first — click for oldest first">↓ Most recent first</button>
               <button class="expand-btn" onclick="expandView('journalListContent','Past entries')" title="View large">
@@ -377,52 +397,7 @@
             </div>
           </div>
         </div>
-        <div class="col-stack">
-          <div class="card" id="quoteCard">
-            <div class="card-head"><h2>Quote of the day</h2>
-              <button class="btn btn-ghost" style="padding:6px 12px" onclick="nextQuote()">Next</button></div>
-            <div class="card-body"><div class="quote-box" id="quoteBox"></div></div>
-          </div>
-          <div class="card" id="medCard">
-            <div class="card-head"><h2>Meditation</h2><span class="hint" id="medTodayHint"></span></div>
-            <div class="card-body">
-              <div class="med-time" id="medClock">10:00</div>
-              <div class="med-controls">
-                <button class="btn btn-ghost" onclick="setMed(5)">5 min</button>
-                <button class="btn btn-ghost" onclick="setMed(10)">10 min</button>
-                <button class="btn btn-ghost" onclick="setMed(15)">15 min</button>
-                <button class="btn btn-primary" id="medStartBtn" onclick="toggleMed()">Start</button>
-              </div>
-              <div class="med-stat" id="medStat"></div>
-            </div>
-          </div>
-          <div class="card">
-            <div class="card-head"><h2>Today's habits</h2></div>
-            <div class="card-body" id="dayHabits"></div>
-          </div>
-        </div>
       </div>
-
-      <!-- The Tasks card was removed from My Day.
-
-           Nothing behind it was touched: state.tasks are still real, still
-           counted, still synced, and still reachable from the Calendar day
-           view, search and the task detail sheet (which opens from a
-           ?task=<id> link). Only this card's markup is gone.
-
-           Restoring it is putting this block back — renderTasks() returns
-           early while #taskList is absent and picks up again the moment it
-           exists, so no JS needs changing either way. The removed markup is
-           in git history; it is ~40 lines beginning with a card element
-           whose id is tasksCard. (Written out rather than shown as markup
-           on purpose — a literal tag inside a comment still matches a
-           grep for it, and looks like live markup to anyone auditing
-           this file later.) -->
-
-      <!-- Habit tracking (the week / month / trend view) lives at the top of
-           the Health page, above Notes. The daily tick-list stays here, in
-           the right column, because that is part of the day; the trend is a
-           different question asked at a different cadence. -->
 
       <div class="card" id="gcalCard" style="margin-top:16px">
         <div class="card-body" style="display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:14px 18px">
