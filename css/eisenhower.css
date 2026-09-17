@@ -36,21 +36,36 @@
   display:grid;gap:14px;
   grid-template-columns:repeat(2,minmax(0,1fr));
   grid-template-rows:repeat(2,minmax(0,1fr));
-  /* Sized to the reference: a workspace that dominates the page without
-     pushing the three widgets below it off a laptop screen entirely.
+  /* ---- height is DERIVED, not guessed ----
 
-     The cap is the part that matters. Viewport-relative height alone means
-     a tall monitor gets a taller matrix for no reason — the quadrants do
-     not become more useful past a point, they just add scroll distance to
-     everything underneath. 620px here, 650px on a wide desktop, which is
-     roughly 62-64vh on the common 900-1000px viewport and stops growing
-     after that. */
-  height:clamp(440px,62vh,620px);
+     The requirement is four task cards visible per quadrant, so the height
+     is computed from the card rather than picked and hoped for. Change
+     --eis-visible or --eis-card-h and the matrix resizes to still honour
+     it; no magic number to keep in sync.
+
+         quadrant body   = 4 cards + 3 gaps      = 4×68 + 3×8   = 296
+         quadrant chrome = header + padding      = 24+8 + 10+10 =  52
+         quadrant        =                                        348
+         matrix          = 2 quadrants + row gap = 2×348 + 14   = 710
+
+     Taller than the 650px it was, and deliberately so: four cards is the
+     brief, and 650 fits three. On a 900px-tall window the three widgets
+     below still start on screen. */
+  --eis-card-h:68px;
+  --eis-card-gap:8px;
+  --eis-visible:4;
+  --eis-q-chrome:52px;
+  height:calc(2 * (
+      var(--eis-visible) * var(--eis-card-h)
+    + (var(--eis-visible) - 1) * var(--eis-card-gap)
+    + var(--eis-q-chrome)
+  ) + 14px);
 }
 
 .eis-q{
   display:flex;flex-direction:column;min-width:0;min-height:0;
-  border-radius:20px;padding:14px 14px 10px;
+  /* 10+10 vertical: counted in --eis-q-chrome above. */
+  border-radius:20px;padding:10px 13px;
   background:
     linear-gradient(165deg,
       color-mix(in srgb, var(--eis-hue) 12%, transparent),
@@ -71,24 +86,32 @@
 .eis-delegate{--eis-hue:#eda100}
 .eis-eliminate{--eis-hue:#6b7280}
 
-.eis-q-head{display:flex;flex-direction:column;gap:3px;margin-bottom:10px;flex:0 0 auto}
-.eis-q-head-main{display:flex;align-items:center;gap:8px}
+/* One line, not two. The header used to stack the title above its
+   "Urgent + Important · Do it now" caption, which cost ~18px of every
+   quadrant — 36px of the matrix — for a caption that reads perfectly well
+   beside the title. That height goes to task cards instead. */
+.eis-q-head{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;flex:0 0 auto;
+  height:24px;overflow:hidden}
 .eis-q-n{
   font-size:11px;font-weight:800;letter-spacing:.06em;padding:2px 7px;border-radius:6px;
   color:color-mix(in srgb, var(--eis-hue) 82%, var(--ink));
   background:color-mix(in srgb, var(--eis-hue) 18%, transparent);
 }
-.eis-q-title{font-weight:800;font-size:17px;letter-spacing:.01em;color:var(--ink)}
+.eis-q-title{font-weight:800;font-size:16px;letter-spacing:.01em;color:var(--ink);white-space:nowrap}
 .eis-q-count{
   margin-left:auto;font-size:12.5px;font-weight:800;color:var(--muted);
   min-width:24px;text-align:center;padding:2px 7px;border-radius:999px;
   background:color-mix(in srgb, var(--eis-hue) 14%, transparent);
 }
-.eis-q-meta{font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:.01em}
+/* Now sits beside the title rather than under it; truncates rather than
+   wrapping, because a wrapped caption would put the header back to two
+   lines and undo the density this buys. */
+.eis-q-meta{font-size:11.5px;font-weight:600;color:var(--muted);letter-spacing:.01em;
+  flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
 .eis-q-body{
   position:relative;
-  display:flex;flex-direction:column;gap:8px;
+  display:flex;flex-direction:column;gap:var(--eis-card-gap,8px);
   /* flex:1 — not "as tall as its cards" — is what keeps a near-empty
      quadrant the same size as a full one, so the whole panel stays a
      drop target rather than just the last card in it. */
@@ -137,30 +160,71 @@
    right-aligned. Every control keeps its handler, its size and its place
    in the DOM — this is a line break, not a different card.
    ================================================================ */
+/* ---- the card, sized so four of them fit ----
+
+   Three things were making a card ~130px tall:
+
+     1. the controls (flag, status, project) took a whole second line;
+     2. "+ Add link" and "Add date" took a third line on EVERY task, even
+        the ones that have neither — an empty affordance costing real
+        space on every row;
+     3. generous padding sized for a card that stood alone.
+
+   So: the controls come back onto the title's line but keep their real
+   size; the two placeholders appear only when the row is hovered or
+   focused (a task that HAS a link or a date still shows it always); and
+   the padding tightens. Nothing is removed — every control is still
+   there, still the same element, still the same handler. */
 .eis-item-card .gsi-card{
-  flex-wrap:wrap;
-  gap:8px 10px;
-  padding:12px 13px;
-  /* 90px was sized for a card that never wrapped; with two lines it just
-     added dead space under short tasks. */
-  min-height:0;
+  display:grid;
+  /* checkbox | title and meta | controls. Grid rather than wrapping flex
+     because it lets the controls sit on the first line, vertically
+     centred, while the title and its link/date rows stack beneath it in
+     their own column — which a flex row cannot express without moving
+     elements between parents. */
+  grid-template-columns:auto minmax(0,1fr) auto;
+  align-items:start;
+  gap:2px 9px;
+  padding:9px 11px;
+  min-height:var(--eis-card-h,68px);
+  align-content:center;
 }
-.eis-item-card .gsi-card-main{
-  /* Basis 0 with grow, so the title takes whatever is left on line one
-     instead of its (tiny) min-content width. */
-  flex:1 1 0;min-width:0;
-}
+.eis-item-card .gsi-chk{grid-column:1;align-self:center;width:20px;height:20px;margin-top:0}
+.eis-item-card .gsi-chk svg{width:11px;height:11px}
+.eis-item-card .gsi-card-main{grid-column:2;min-width:0;gap:2px}
 .eis-item-card .gsi-card-right{
-  /* Its own full-width line. Right-aligned so the eye still finds the
-     status pill where it has always been. */
-  flex:1 1 100%;justify-content:flex-end;flex-wrap:wrap;padding-top:0;
+  grid-column:3;align-self:center;gap:5px;padding-top:0;flex-wrap:nowrap;
 }
-.eis-item-card .gsi-title{width:100%;min-width:0;font-size:15px}
-/* The link and date rows sit under the title and must be free to wrap as
-   a row rather than one word per line. */
+.eis-item-card .gsi-title{
+  width:100%;min-width:0;font-size:13.5px;line-height:1.32;
+  /* Two lines, then clip. A fixed ceiling is what makes the four-card
+     guarantee hold for a long title as well as a short one. */
+  max-height:2.64em;overflow:hidden;
+}
+/* Smaller controls: the pills were sized for a full-width board row. At
+   11px they still read clearly and give the title back ~70px. */
+.eis-item-card .gsi-status-sel{padding:3px 9px;font-size:11px}
+.eis-item-card .gsi-project-sel{padding:3px 9px;font-size:11px;max-width:96px}
+.eis-item-card .gsi-flag{font-size:13px}
 .eis-item-card .gsi-link-row,
-.eis-item-card .gsi-date-row{flex-wrap:wrap;min-width:0}
-.eis-item-card .gsi-project-sel{max-width:130px}
+.eis-item-card .gsi-date-row{flex-wrap:wrap;min-width:0;font-size:11px;line-height:1.2}
+.eis-item-card .gsi-link-display,
+.eis-item-card .gsi-date-display{font-size:11px;padding:0}
+
+/* The two "nothing here yet" affordances. Hidden until the row is hovered
+   or focused, so a task with neither costs no line at all — which is
+   where most of the fourth card's height comes from. A task that already
+   HAS a link or a date is unaffected: those are different elements. */
+.eis-item-card .gsi-add-link,
+.eis-item-card .gsi-add-date{display:none}
+.eis-item:hover .gsi-add-link,
+.eis-item:hover .gsi-add-date,
+.eis-item:focus-within .gsi-add-link,
+.eis-item:focus-within .gsi-add-date{display:inline-flex}
+
+/* Controls sit top-right, so the bottom-right corner stays clear for the
+   Move button rather than the two overlapping on hover. */
+.eis-item-card .gsi-card-right{align-self:start;margin-top:1px}
 
 /* The supporting widgets under the matrix. Scoped to this row rather than
    changing .grid-3 globally, which Finance and other pages also use.
@@ -240,10 +304,10 @@ body.is-dragging{user-select:none;-webkit-user-select:none}
    The inner display is wide enough for a true 2 x 2 with room to spare, so
    the workspace gets more height rather than the page getting more margin. */
 @media (min-width:840px){
-  /* 64vh reaches ~600px on a 1080p browser window and ~650px on anything
-     taller, where it stops — the figure the layout was designed around
-     rather than one that keeps climbing with the display. */
-  .eis-grid{gap:16px;height:clamp(520px,64vh,650px)}
+  /* A little more room per card on a wide screen — still four, just less
+     cramped. The height follows from the formula above, so it stays in
+     step automatically. */
+  .eis-grid{gap:16px;--eis-card-h:72px}
 }
 
 /* ---- Z Fold 8 folded, and ordinary phones ----
@@ -270,6 +334,13 @@ body.is-dragging{user-select:none;-webkit-user-select:none}
   /* Always visible on touch: there is no hover to reveal it, and a control
      you cannot discover is not an accessible alternative. */
   .eis-move-btn{opacity:1;color:var(--ink);padding:5px 12px;font-size:12px}
+  /* Same reason, and this one matters more: "+ Add link" and "Add date"
+     are hidden until hover on a desktop, and a touch screen has no hover.
+     Here the quadrants stack and scroll with the page, so there is room
+     to show them — and without this they would be unreachable. */
+  .eis-item-card .gsi-add-link,
+  .eis-item-card .gsi-add-date{display:inline-flex}
+  .eis-item-card .gsi-card{min-height:0}
   .eis-tab{padding:8px 15px}
 }
 
