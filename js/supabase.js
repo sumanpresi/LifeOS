@@ -1450,7 +1450,38 @@ function mergeIncomingRecords(remote) {
     "finance.grocery", "finance.shopping", "finance.wishlist", "finance.emiTable.rows",
     "reference.kmlLayers",
     "travel.plans", "reference.pages",
+    /* "links" above is only My Day's Important links — state.links. Every
+       OTHER link list in the app was missing from here and so fell through
+       to the document verdict, which is why a link added on one device
+       could simply be gone after the next sync: nothing merged it, so the
+       losing document's copy of the whole list was discarded.
+
+       All the same shape as the lists above — arrays of {id, title, url}
+       or {id, name, url} — so they take the same union-by-id merge with
+       nothing new to reason about. The per-section Links cards are keyed
+       dynamically and handled just below. */
+    "personal.links", "personal.docs",
+    "gsi.links", "gsi.personalDocs",
+    /* Same list shape, same bug, same fix — grouped separately only
+       because they are not links. */
+    "gsi.log", "gsi.meetings",
   ].forEach(path => {
+    const l = get(state, path), r = get(remote, path);
+    if (!Array.isArray(l) && !Array.isArray(r)) return;
+    both(path, list(l, r));
+  });
+
+  /* The Links card on every section page — Finance, Health, Communication,
+     Reference, and the Personal Workspace's own Notes-page links. Keyed by
+     section rather than a fixed path, so the union of both sides' keys is
+     walked: a section that exists on only one device still gets merged
+     rather than being skipped. `both` no-ops on a side that lacks the
+     section, so a missing key is safe. */
+  new Set([
+    ...Object.keys(state.sections || {}),
+    ...Object.keys(remote.sections || {}),
+  ]).forEach(key => {
+    const path = `sections.${key}.links`;
     const l = get(state, path), r = get(remote, path);
     if (!Array.isArray(l) && !Array.isArray(r)) return;
     both(path, list(l, r));
