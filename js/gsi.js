@@ -238,23 +238,12 @@ export function gsiCardHtml(item) {
             onchange="editProjectTask('${item.id}','link',this.value)" onblur="this.style.display='none'" style="display:none">
         </div>
         ${due ? `<div class="gsi-date-row ${due.cls}"><span class="date-popover-wrap">
-            <button class="gsi-date-display" onclick="toggleDatePopover(event,'gsi-date-${item.id}')">📅 ${due.text}</button>
+            <button class="gsi-date-display date-popover-trigger" onclick="toggleDatePopover(event,'gsi-date-${item.id}')">📅 ${due.text}</button>
             <input type="date" class="gsi-date-hidden-input" id="gsi-date-${item.id}" value="${esc(item.date||"")}" onchange="editProjectTask('${item.id}','date',this.value)">
-            <div class="date-popover" id="pop-gsi-date-${item.id}">
-              <button onclick="setQuickDate('gsi-date-${item.id}','today')">Today</button>
-              <button onclick="setQuickDate('gsi-date-${item.id}','tomorrow')">Tomorrow</button>
-              <button onclick="setQuickDate('gsi-date-${item.id}','nextweek')">Next week</button>
-              <button onclick="setQuickDate('gsi-date-${item.id}','clear')">Clear date</button>
-            </div>
           </span></div>`
           : `<div class="gsi-date-row"><span class="date-popover-wrap">
-              <button class="gsi-add-date" onclick="toggleDatePopover(event,'gsi-date-${item.id}')">📅 Add date</button>
+              <button class="gsi-add-date date-popover-trigger" onclick="toggleDatePopover(event,'gsi-date-${item.id}')">📅 Add date</button>
               <input type="date" class="gsi-date-hidden-input" id="gsi-date-${item.id}" value="" onchange="editProjectTask('${item.id}','date',this.value)">
-              <div class="date-popover" id="pop-gsi-date-${item.id}">
-                <button onclick="setQuickDate('gsi-date-${item.id}','today')">Today</button>
-                <button onclick="setQuickDate('gsi-date-${item.id}','tomorrow')">Tomorrow</button>
-                <button onclick="setQuickDate('gsi-date-${item.id}','nextweek')">Next week</button>
-              </div>
             </span></div>`}
       </div>
       <div class="gsi-card-right">
