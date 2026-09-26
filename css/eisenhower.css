@@ -164,11 +164,22 @@
 .eis-item-card,
 .eis-item .gsi-card,
 .eis-item .t-board-card{touch-action:pan-y !important}
-/* Not user-select:none on the card as a whole — the title is a textarea
-   and has to stay selectable. Only the chrome around it. */
+/* The title used to stay natively selectable here because it is a
+   <textarea> — but on a touch screen, "selectable" is exactly what turned
+   a drag attempt into a text selection: a press on the title (which is
+   most of the visible card on a phone-width quadrant) fired the browser's
+   own press-and-hold-to-select gesture before Sortable's own long-press
+   ever got a look at it. The title still focuses and still takes typing
+   on a plain tap — user-select:none stops the SELECTION gesture, not
+   focus or input — so editing is unaffected and a long press is free to
+   mean "pick this card up" instead of "select this text", matching what
+   wireDragAndDrop's filter (below) now allows. */
 .eis-item .gsi-card,
 .eis-item .t-board-card{-webkit-user-select:none;user-select:none}
-.eis-item :is(textarea,input,select){-webkit-user-select:auto;user-select:auto}
+.eis-item :is(input,select){-webkit-user-select:auto;user-select:auto}
+.eis-item-card .gsi-title{
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+}
 
 /* ================================================================
    THE TASK CARD INSIDE A QUADRANT
