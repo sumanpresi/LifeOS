@@ -189,43 +189,49 @@
    right-aligned. Every control keeps its handler, its size and its place
    in the DOM — this is a line break, not a different card.
    ================================================================ */
-/* ---- the card, sized so four of them fit ----
+/* ---- the card, one wrapping line instead of a stack of fixed rows ----
 
-   Three things were making a card ~130px tall:
+   The old layout gave every piece of metadata (link, date, flag, status,
+   project) its own row, so a card was as tall as the SUM of its parts even
+   when there was plenty of width to spare. That is also why it needed a
+   1099px breakpoint at all: below it the three-column grid ran out of room
+   for the title and had to switch to a completely different shape.
 
-     1. the controls (flag, status, project) took a whole second line;
-     2. "+ Add link" and "Add date" took a third line on EVERY task, even
-        the ones that have neither — an empty affordance costing real
-        space on every row;
-     3. generous padding sized for a card that stood alone.
+   Below, .gsi-card-main and .gsi-card-right are `display:contents` — they
+   stop generating boxes of their own and hand their children (title, link
+   row, date row / flag, status, project) straight to .gsi-card, which is
+   now a single `flex-wrap` row. Checkbox and title share the first line;
+   title's flex-basis is a real width, not 100%, so it does NOT force the
+   checkbox onto its own line the way an explicit width:100% would. Every
+   other piece — link, date, flag, status, project, and (docked into this
+   same element by renderEisenhower) the Move button — is a plain wrapping
+   flex item with no row of its own, so they share as much of one line as
+   actually fits and only spill onto a second when they must. That is the
+   whole fix for "the card doesn't resize with the window": there is no
+   pixel breakpoint deciding when things stack any more, just the same
+   wrapping arithmetic at every width, so it now resizes as continuously as
+   the window does instead of snapping between two fixed layouts.
 
-   So: the controls come back onto the title's line but keep their real
-   size; the two placeholders appear only when the row is hovered or
-   focused (a task that HAS a link or a date still shows it always); and
-   the padding tightens. Nothing is removed — every control is still
-   there, still the same element, still the same handler. */
+   Nothing is hidden and no control loses its handler — every element
+   named here is the exact same node the shared gsi/pw card templates
+   already render; this only changes how they're grouped for layout. */
 .eis-item-card .gsi-card{
-  display:grid;
-  /* checkbox | title and meta | controls. Grid rather than wrapping flex
-     because it lets the controls sit on the first line, vertically
-     centred, while the title and its link/date rows stack beneath it in
-     their own column — which a flex row cannot express without moving
-     elements between parents. */
-  grid-template-columns:auto minmax(0,1fr) auto;
-  align-items:start;
-  gap:2px 9px;
+  display:flex;flex-wrap:wrap;align-items:center;
+  gap:4px 8px;
   padding:9px 11px;
   min-height:var(--eis-card-h,68px);
-  align-content:center;
 }
-.eis-item-card .gsi-chk{grid-column:1;align-self:center;width:20px;height:20px;margin-top:0}
+.eis-item-card .gsi-card-main,
+.eis-item-card .gsi-card-right{display:contents}
+.eis-item-card .gsi-chk{flex:0 0 auto;width:20px;height:20px;margin-top:0}
 .eis-item-card .gsi-chk svg{width:11px;height:11px}
-.eis-item-card .gsi-card-main{grid-column:2;min-width:0;gap:2px}
-.eis-item-card .gsi-card-right{
-  grid-column:3;align-self:center;gap:5px;padding-top:0;flex-wrap:nowrap;
-}
 .eis-item-card .gsi-title{
-  width:100%;min-width:0;font-size:13.5px;line-height:1.32;
+  /* A real minimum, not a percentage: this is what stops the title being
+     squeezed back down to a one-letter column the way it was before this
+     whole area got fixed. It can still grow past this on a wide quadrant,
+     and shrink toward it on a narrow one — that range IS the fluidity. */
+  flex:1 1 150px;min-width:110px;
+  font-size:13.5px;line-height:1.32;
   /* Two lines, then clip. A fixed ceiling is what makes the four-card
      guarantee hold for a long title as well as a short one. */
   max-height:2.64em;overflow:hidden;
@@ -237,15 +243,23 @@
 /* Native/loose task cards render their title through a different class
    (Personal tasks share .gsi-title above); scoped the same way. */
 .eis-item-card .t-board-card-title{font-weight:400}
-/* Smaller controls: the pills were sized for a full-width board row. At
-   11px they still read clearly and give the title back ~70px. */
-.eis-item-card .gsi-status-sel{padding:3px 9px;font-size:11px}
-.eis-item-card .gsi-project-sel{padding:3px 9px;font-size:11px;max-width:96px}
-.eis-item-card .gsi-flag{font-size:13px}
+/* The rest of the line: link and date keep their own natural width and
+   wrap as a unit if the line is too tight for them; flag, status and
+   project are compact pills that shrink toward a real floor rather than
+   snapping to a different fixed size at a breakpoint. */
 .eis-item-card .gsi-link-row,
-.eis-item-card .gsi-date-row{flex-wrap:wrap;min-width:0;font-size:11px;line-height:1.2}
+.eis-item-card .gsi-date-row{
+  flex:0 1 auto;min-width:0;font-size:11px;line-height:1.2;
+  display:flex;align-items:center;
+}
 .eis-item-card .gsi-link-display,
 .eis-item-card .gsi-date-display{font-size:11px;padding:0}
+.eis-item-card .gsi-flag{flex:0 0 auto;font-size:13px}
+.eis-item-card .gsi-status-sel{flex:0 1 auto;min-width:0;padding:3px 9px;font-size:11px}
+.eis-item-card .gsi-project-sel{
+  flex:1 1 70px;min-width:56px;max-width:170px;
+  padding:3px 9px;font-size:11px;
+}
 
 /* The two "nothing here yet" affordances. Hidden until the row is hovered
    or focused, so a task with neither costs no line at all — which is
@@ -257,10 +271,20 @@
 .eis-item:hover .gsi-add-date,
 .eis-item:focus-within .gsi-add-link,
 .eis-item:focus-within .gsi-add-date{display:inline-flex}
+/* .gsi-card itself can no longer be hovered for this now that its own
+   children carry the box (display:contents has no box of its own to
+   receive the pointer) — .eis-item already is the hover root everywhere
+   else in the matrix, so the one rule that still expected .gsi-card:hover
+   moves to match it. */
+.eis-item:hover .gsi-link-edit-btn{opacity:1}
 
-/* Controls sit top-right, so the bottom-right corner stays clear for the
-   Move button rather than the two overlapping on hover. */
-.eis-item-card .gsi-card-right{align-self:start;margin-top:1px}
+/* Native/loose task cards (boardCardHtml) already put date, link, tag and
+   project on one wrapping meta row — they never had the stacked-row
+   problem above. They only need the same fluid floor on the project
+   select, and a little breathing room now that Move docks into this row
+   too (see renderEisenhower). */
+.eis-item-card .t-board-project-sel{flex:1 1 70px;min-width:56px;max-width:170px}
+.eis-item-card .t-board-card-meta{align-items:center}
 
 /* ================================================================
    ADD A TASK
@@ -364,44 +388,18 @@
 }
 
 /* ================================================================
-   NARROW SCREENS — the card stacks instead of squeezing
+   NARROW SCREENS — same wrapping card, just a taller floor
 
-   The three-column card above (checkbox | title | controls) is right on a
-   wide desktop and wrong everywhere else. Its controls column is a fixed
-   ~208px, and the title gets whatever is left:
-
-       desktop 1600     title 346px   fine
-       desktop 1440     title 266px   fine
-       laptop  1280     title 186px   fine
-     ─────────────────────────────────────────────────────────────
-       Z Fold unfolded  title  90px   one word per line
-       Z Fold cover     title  36px   one LETTER per line
-
-   So the three-column layout is confined to widths where it fits, and
-   below 1100px the controls take a row of their own with the title on the
-   full width above them. Nothing is hidden and nothing shrinks — the card
-   simply wraps, which is what it should have done from the start.
-
-   1100px is not a device, it is where the arithmetic above stops working:
-   at ~1099px the title drops under 120px. The Fold's unfolded ~1088px sits
-   just inside it, which is the point.
+   The card above no longer has a second layout to switch to: it is one
+   flex-wrap row at every width, so there is no 1100px cliff where the
+   title used to fall to 36px (Z Fold cover) or 90px (Z Fold unfolded).
+   What's left to account for at these widths is simply that more of the
+   line's contents wrap onto a second or third line, which makes the card
+   taller — so the four-cards-visible guarantee is restated for the
+   heights that actually happen down here, exactly as it always was.
    ================================================================ */
 @media (max-width:1099px){
-  .eis-item-card .gsi-card{
-    grid-template-columns:auto minmax(0,1fr);
-    gap:3px 9px;
-  }
-  /* Full width beneath the title, right-aligned so the status pill still
-     sits where the eye already looks for it. */
-  .eis-item-card .gsi-card-right{
-    grid-column:1 / -1;
-    justify-content:flex-end;
-    align-self:auto;margin-top:2px;
-  }
-  .eis-item-card .gsi-title{font-size:14px;max-height:2.8em}
-  .eis-item-card .gsi-status-sel,
-  .eis-item-card .gsi-project-sel{font-size:11.5px;padding:4px 10px}
-  .eis-item-card .gsi-project-sel{max-width:132px}
+  .eis-item-card .gsi-title{font-size:14px}
 
   /* A stacked card is taller, so the guarantee is restated rather than
      silently broken: three cards here instead of four. The formula in
@@ -476,7 +474,16 @@ body.is-dragging{user-select:none;-webkit-user-select:none}
 .eis-empty-all{margin-top:12px;text-align:center;color:var(--muted);font-size:13px;font-weight:600}
 
 /* ---- the non-drag route: keyboard, screen reader, and thumbs ---- */
-.eis-move{position:absolute;right:8px;bottom:6px}
+/* Docked into the card's own meta line by renderEisenhower (it starts out
+   rendered as a plain sibling of the card, then gets appended into it
+   right after paint) rather than floating over a fixed bottom-right
+   corner — which is what let it sit on its own line, on top of whatever
+   the card's real bottom edge happened to be, instead of at the end of
+   the line it belongs on. `margin-left:auto` pushes it to the end of
+   whichever wrapped line it lands on; if that line is already full it
+   simply wraps to the next one like everything else, the same fluid rule
+   as every other control here. */
+.eis-move{flex:0 0 auto;margin-left:auto}
 .eis-move-btn{
   border:1px solid var(--glass-line);background:var(--card);color:var(--muted);
   border-radius:999px;padding:3px 9px;font-size:11px;font-weight:700;cursor:pointer;
@@ -515,9 +522,10 @@ body.is-dragging{user-select:none;-webkit-user-select:none}
    by 20px. The two bands now meet exactly at 1099/1100 and never both
    apply. */
 @media (min-width:1100px){
-  /* A little more room per card where the three-column layout is in use —
-     still four, just less cramped. The height follows from the formula in
-     .eis-grid, so it stays in step automatically. */
+  /* A little more room per card at desktop widths, where the wrapping row
+     usually fits on one line — still four, just less cramped. The height
+     follows from the formula in .eis-grid, so it stays in step
+     automatically. */
   .eis-grid{gap:16px;--eis-card-h:72px;--eis-visible:4}
 }
 
