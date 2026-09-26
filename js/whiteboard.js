@@ -59,12 +59,12 @@
       more strokes accumulate, was the likely cause of both rendering
       lag and the eraser visually misbehaving on high-frequency,
       high-resolution mobile input. */
-import { state, persist, uid, esc } from './state.js?v=202609262330';
-import { openShareBoardDialog } from './share.js?v=202609262330';
-import { sanitizeHtml } from './sanitize.js?v=202609262330';
-import { decorateLinks, stripPreviewCards } from './link-preview.js?v=202609262330';
-import { toast } from './ui.js?v=202609262330';
-import { moveToTrash } from './trash.js?v=202609262330';
+import { state, persist, uid, esc } from './state.js?v=202609262357';
+import { openShareBoardDialog } from './share.js?v=202609262357';
+import { sanitizeHtml } from './sanitize.js?v=202609262357';
+import { decorateLinks, stripPreviewCards } from './link-preview.js?v=202609262357';
+import { toast } from './ui.js?v=202609262357';
+import { moveToTrash } from './trash.js?v=202609262357';
 
 const COLORS = ["#1B1B1A", "#DC2626", "#2563EB", "#16A34A", "#F59E0B", "#7C3AED"];
 const WIDTHS = { thin: 2, medium: 4, thick: 8 };

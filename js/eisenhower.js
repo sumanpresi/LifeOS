@@ -21,11 +21,11 @@
    — gsiCardHtml for Work·GSI, pwCardHtml for Personal Workspace,
    boardCardHtml for loose tasks — so every control, date picker, flag,
    status select and link on a card keeps working inside the matrix. */
-import { state, esc, persist, rerender, uid, touch } from './state.js?v=202609262330';
-import { gsiCardHtml, addProjectTaskRaw } from './gsi.js?v=202609262330';
-import { pwCardHtml, addPwProjectTaskRaw } from './personal.js?v=202609262330';
-import { boardCardHtml, findAnyTask, createNativeTask, openTaskCardDetail, markDragJustEnded } from './tasks.js?v=202609262330';
-import { toast, autoGrow } from './ui.js?v=202609262330';
+import { state, esc, persist, rerender, uid, touch } from './state.js?v=202609262357';
+import { gsiCardHtml, addProjectTaskRaw } from './gsi.js?v=202609262357';
+import { pwCardHtml, addPwProjectTaskRaw } from './personal.js?v=202609262357';
+import { boardCardHtml, findAnyTask, createNativeTask, openTaskCardDetail, markDragJustEnded } from './tasks.js?v=202609262357';
+import { toast, autoGrow } from './ui.js?v=202609262357';
 
 /* Display labels only — the stored value on each task (t.eis) keeps its
    original key ("do" / "schedule" / "delegate" / "eliminate") so nothing
@@ -484,28 +484,48 @@ function wireDragAndDrop() {
       group: "eisenhower",
       draggable: ".eis-item",
       /* NO handle — the whole card is the drag surface, exactly as on the
-         Work·GSI and Personal boards. The grip that used to sit beside
-         each card existed because .gsi-title is a <textarea>, which a
-         press would otherwise put a caret into rather than lifting the
-         card. `filter` solves that properly instead: every interactive
-         part of the card keeps its own behaviour, and a press anywhere
-         else on the card starts a drag.
-
+         Work·GSI and Personal boards. `filter` is what keeps every other
+         interactive part of the card behaving normally (tapping the
+         checkbox toggles it, opening the status/project select opens it,
+         a link opens) rather than getting swallowed as a drag attempt;
          preventOnFilter:false is what makes the filtered elements still
-         work — without it Sortable swallows the click/change events it
-         just vetoed, so the checkbox, the status select and the title
-         would all go dead.
+         work at all — without it Sortable eats the click/change event it
+         just vetoed, and the checkbox, the status select etc. go dead.
 
-         Identical to gsi.js and personal.js apart from .composer, which
-         the matrix has no equivalent of. .t-chk is kept because a loose
-         task with no project renders through boardCardHtml, whose
-         checkbox carries that class rather than .gsi-chk. */
-      filter: "button, input, select, textarea, a, .t-chk",
+         .gsi-title is deliberately NOT in this list, even though it is a
+         <textarea>. It used to be, on the theory that a press on it
+         should always place a caret — but on a touch screen the title is
+         most of the visible card, so almost every real drag attempt
+         started there, and being filtered meant Sortable ignored it
+         completely: the browser's own press-and-hold-to-select gesture
+         ran instead, which is the "text gets selected when I try to drag"
+         bug this is fixing. Leaving it draggable lets `delay` (below) do
+         its job — a quick tap still reaches the textarea to focus and
+         type into it, since nothing here calls preventDefault before the
+         delay elapses; only a press held past it becomes a drag, exactly
+         the long-press-to-reorder feel Todoist's own cards use. Text
+         selection itself is turned off on the title in eisenhower.css so
+         that held press reads as "picking the card up", not "selecting".
+
+         Otherwise identical to gsi.js and personal.js apart from
+         .composer, which the matrix has no equivalent of. .t-chk is kept
+         because a loose task with no project renders through
+         boardCardHtml, whose checkbox carries that class rather than
+         .gsi-chk. */
+      filter: "button, input, select, a, .t-chk",
       preventOnFilter: false,
       forceFallback: true,
       fallbackOnBody: true,
       fallbackTolerance: 4,
-      delay: 200, delayOnTouchOnly: true, touchStartThreshold: 6,
+      /* delayOnTouchOnly used to be true, back when only touch needed a
+         grace period (the title was filtered out for mouse, so a mouse
+         click there could never even attempt a drag). Now that the title
+         is a valid drag start for both, the same 200ms grace applies to
+         both: a plain click still reaches the textarea instantly for
+         editing, and only a press held past 200ms — mouse or touch —
+         turns into a drag, so a slightly-imprecise click into the title
+         can't be mistaken for one. */
+      delay: 200, delayOnTouchOnly: false, touchStartThreshold: 6,
       animation: 140,
       easing: "cubic-bezier(0.2, 0, 0.2, 1)",
       /* A quadrant can legitimately be empty, and an empty one is the
