@@ -1,10 +1,10 @@
 /* Health page: notes, links, a weekly Morning/Afternoon/Night medicine
    tracker (same visual language as the habit tracker), a chronological log
    filterable by medicine name, and a simple prescriptions list. */
-import { state, uid, esc, persist, rerender, todayKey } from './state.js?v=202609042200';
-import { moveToTrash } from './trash.js?v=202609042200';
-import { toast } from './ui.js?v=202609042200';
-import { weekDates } from './habits.js?v=202609042200';
+import { state, uid, esc, persist, rerender, todayKey } from './state.js?v=202609262300';
+import { moveToTrash } from './trash.js?v=202609262300';
+import { toast } from './ui.js?v=202609262300';
+import { weekDates } from './habits.js?v=202609262300';
 
 let medWeekOffset = 0;
 let logFilterMed = "all";

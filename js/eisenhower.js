@@ -21,11 +21,11 @@
    — gsiCardHtml for Work·GSI, pwCardHtml for Personal Workspace,
    boardCardHtml for loose tasks — so every control, date picker, flag,
    status select and link on a card keeps working inside the matrix. */
-import { state, esc, persist, rerender, uid, touch } from './state.js?v=202609042200';
-import { gsiCardHtml, addProjectTaskRaw } from './gsi.js?v=202609042200';
-import { pwCardHtml, addPwProjectTaskRaw } from './personal.js?v=202609042200';
-import { boardCardHtml, findAnyTask, createNativeTask, openTaskCardDetail, markDragJustEnded } from './tasks.js?v=202609042200';
-import { toast, autoGrow } from './ui.js?v=202609042200';
+import { state, esc, persist, rerender, uid, touch } from './state.js?v=202609262300';
+import { gsiCardHtml, addProjectTaskRaw } from './gsi.js?v=202609262300';
+import { pwCardHtml, addPwProjectTaskRaw } from './personal.js?v=202609262300';
+import { boardCardHtml, findAnyTask, createNativeTask, openTaskCardDetail, markDragJustEnded } from './tasks.js?v=202609262300';
+import { toast, autoGrow } from './ui.js?v=202609262300';
 
 /* Display labels only — the stored value on each task (t.eis) keeps its
    original key ("do" / "schedule" / "delegate" / "eliminate") so nothing
