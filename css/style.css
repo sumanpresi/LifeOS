@@ -2236,19 +2236,77 @@ html[data-theme="dark"]{--t-cal-chip-personal-bg:#33402F; --t-cal-chip-overdue-b
   .t-meta{padding-left:14px}
 }
 
-/* ---------- Due-date quick shortcuts popover ---------- */
+/* ---------- Due-date calendar popover ----------
+
+   Built in JS (js/date-shortcuts.js) and appended straight to <body>, not
+   to this wrap — see that file's header comment for why: a version of
+   this popover that lived inside the card was clipped by the list's own
+   scroller and painted underneath whatever card came after it, which is
+   what showed up as "covered by the tasks below it until the pointer
+   moves". Attaching it to <body> and placing it with a measured
+   getBoundingClientRect() (the same fix already used for .eis-move-menu)
+   sidesteps both problems instead of raising a z-index and hoping.
+
+   .date-popover-wrap therefore only positions the trigger button now; the
+   popover itself is `position:fixed`, with its own top/left set inline by
+   place() in JS. */
 .date-popover-wrap{position:relative;display:flex;align-items:center;gap:2px;flex-shrink:0}
 .date-popover-btn{border:1px solid var(--line);border-radius:8px;background:var(--paper);
   font-size:12px;padding:4px 6px;cursor:pointer;line-height:1}
 .date-popover-btn:hover{border-color:var(--accent)}
-.date-popover{display:none;position:absolute;top:calc(100% + 5px);right:0;z-index:50;
-  background:#fff;border:1px solid var(--line);border-radius:14px;
-  box-shadow:0 12px 28px -8px rgba(34,31,51,.22);padding:6px;min-width:130px;
-  opacity:0;transform:translateY(-4px);transition:opacity 140ms ease,transform 140ms ease}
-.date-popover.open{display:flex;flex-direction:column;gap:1px;opacity:1;transform:translateY(0)}
-.date-popover button{text-align:left;border:none;background:transparent;border-radius:8px;
-  padding:7px 10px;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer}
-.date-popover button:hover{background:var(--paper)}
+
+.date-popover{
+  position:fixed;z-index:2000;
+  display:flex;flex-direction:column;gap:8px;
+  width:280px;max-width:calc(100vw - 16px);
+  background:var(--card);border:1px solid var(--line);border-radius:16px;
+  box-shadow:var(--shadow);padding:12px;
+  animation:date-pop-in .14s cubic-bezier(.2,.9,.25,1) both;
+}
+@keyframes date-pop-in{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){ .date-popover{animation:none} }
+
+.date-pop-head{display:flex;align-items:center;justify-content:space-between}
+.date-pop-title{font-size:14px;font-weight:800;color:var(--ink)}
+.date-pop-close{
+  border:none;background:transparent;color:var(--muted);cursor:pointer;
+  font-size:20px;line-height:1;width:26px;height:26px;border-radius:8px;
+  display:flex;align-items:center;justify-content:center;
+}
+.date-pop-close:hover{background:var(--paper);color:var(--ink)}
+
+.date-pop-quicks{display:flex;flex-direction:column;gap:1px}
+.date-pop-quick{
+  display:flex;align-items:center;gap:10px;text-align:left;
+  border:none;background:transparent;border-radius:10px;
+  padding:8px 8px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;
+}
+.date-pop-quick:hover{background:var(--paper)}
+.date-pop-quick-ico{font-size:14px;width:18px;text-align:center}
+
+.date-pop-cal{border-top:1px solid var(--glass-line);padding-top:8px}
+.date-pop-cal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px}
+.date-pop-month-label{font-size:13px;font-weight:800;color:var(--ink)}
+.date-pop-nav{
+  border:1px solid var(--line);background:var(--paper);color:var(--ink);
+  border-radius:8px;width:24px;height:24px;font-size:15px;line-height:1;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+}
+.date-pop-nav:hover{border-color:var(--accent)}
+.date-pop-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.date-pop-wd{
+  font-size:10.5px;font-weight:700;color:var(--muted);text-align:center;
+  padding-bottom:3px;text-transform:uppercase;letter-spacing:.02em;
+}
+.date-pop-day{
+  border:none;background:transparent;color:var(--ink);cursor:pointer;
+  aspect-ratio:1;width:100%;border-radius:999px;font-size:12.5px;font-weight:600;
+  display:flex;align-items:center;justify-content:center;
+}
+.date-pop-day:hover{background:var(--paper)}
+.date-pop-day.is-today{color:var(--accent);font-weight:800}
+.date-pop-day.is-selected{background:var(--accent);color:#fff}
+.date-pop-day.is-selected:hover{background:var(--accent);filter:brightness(1.06)}
 
 /* ================================================================
    MOBILE TASK CARDS — scoped to <768px only, exactly matching the
