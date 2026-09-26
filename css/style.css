@@ -2308,6 +2308,19 @@ html[data-theme="dark"]{--t-cal-chip-personal-bg:#33402F; --t-cal-chip-overdue-b
 .date-pop-day.is-selected{background:var(--accent);color:#fff}
 .date-pop-day.is-selected:hover{background:var(--accent);filter:brightness(1.06)}
 
+/* Z Fold 8 cover screen (~344px wide) and other narrow phones: the popover
+   is already width-capped to the viewport above, but a fixed 280px card
+   with 7 equal columns leaves each day cell only ~36px on a screen this
+   narrow — tight for a finger. Shrink the card a touch and let the grid's
+   own `1fr` columns give each day back the room a slimmer card frees up,
+   rather than fixing a pixel width that would then need its own tuning. */
+@media (max-width:400px){
+  .date-popover{width:min(300px, calc(100vw - 16px));padding:10px;gap:6px}
+  .date-pop-quick{padding:9px 8px;font-size:13.5px}
+  .date-pop-day{font-size:13px;min-height:38px}
+  .date-pop-wd{font-size:11px}
+}
+
 /* ================================================================
    MOBILE TASK CARDS — scoped to <768px only, exactly matching the
    brief's own breakpoint. Desktop's .t-row layout (flex row: checkbox |
