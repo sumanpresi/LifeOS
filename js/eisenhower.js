@@ -21,11 +21,11 @@
    — gsiCardHtml for Work·GSI, pwCardHtml for Personal Workspace,
    boardCardHtml for loose tasks — so every control, date picker, flag,
    status select and link on a card keeps working inside the matrix. */
-import { state, esc, persist, rerender, uid, touch } from './state.js?v=202609262300';
-import { gsiCardHtml, addProjectTaskRaw } from './gsi.js?v=202609262300';
-import { pwCardHtml, addPwProjectTaskRaw } from './personal.js?v=202609262300';
-import { boardCardHtml, findAnyTask, createNativeTask, openTaskCardDetail, markDragJustEnded } from './tasks.js?v=202609262300';
-import { toast, autoGrow } from './ui.js?v=202609262300';
+import { state, esc, persist, rerender, uid, touch } from './state.js?v=202609262330';
+import { gsiCardHtml, addProjectTaskRaw } from './gsi.js?v=202609262330';
+import { pwCardHtml, addPwProjectTaskRaw } from './personal.js?v=202609262330';
+import { boardCardHtml, findAnyTask, createNativeTask, openTaskCardDetail, markDragJustEnded } from './tasks.js?v=202609262330';
+import { toast, autoGrow } from './ui.js?v=202609262330';
 
 /* Display labels only — the stored value on each task (t.eis) keeps its
    original key ("do" / "schedule" / "delegate" / "eliminate") so nothing
@@ -419,6 +419,22 @@ export function renderEisenhower() {
      so a two-line task title was silently clipped to its first line. Must
      run after innerHTML, since scrollHeight is meaningless before layout. */
   document.querySelectorAll("#eisenhower textarea").forEach(autoGrow);
+
+  /* Move starts out as quadrantHtml()'s plain sibling of the card — see
+     the comment there — and gets docked into the card's own wrapping meta
+     line here, once there's an actual card in the DOM to dock it into.
+     .gsi-card is now that line for GSI/Personal cards (eisenhower.css
+     turns it into one flex-wrap row); native/loose cards already had a
+     single wrapping meta row of their own (.t-board-card-meta) and just
+     gain Move as one more thing that can share or spill off it. */
+  document.querySelectorAll("#eisenhower .eis-item-card").forEach(card => {
+    const move = card.querySelector(".eis-move");
+    if (!move) return;
+    const dock = card.querySelector(".gsi-card") ||
+                 card.querySelector(".t-board-card-meta") ||
+                 card.querySelector(".t-board-card");
+    if (dock && move.parentElement !== dock) dock.appendChild(move);
+  });
 
   /* Focus only when the composer was just OPENED. Doing it on every
      repaint would yank the caret out of whatever the person was typing in

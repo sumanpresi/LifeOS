@@ -15,9 +15,9 @@
    Bases are matched case-insensitively on purpose. This account holds both
    "lamitor OD 25" and "Lamitor OD 50"; grouped by the raw string they are
    two unrelated medicines, and the dose escalation between them disappears. */
-import { state, esc, todayKey } from './state.js?v=202609262300';
-import { weekDates } from './habits.js?v=202609262300';
-import { medicineName } from './health.js?v=202609262300';
+import { state, esc, todayKey } from './state.js?v=202609262330';
+import { weekDates } from './habits.js?v=202609262330';
+import { medicineName } from './health.js?v=202609262330';
 
 const SLOTS = [["morning", "Morning"], ["afternoon", "Afternoon"], ["night", "Night"]];
 /* One colour per slot, fixed hex rather than a theme variable: these are

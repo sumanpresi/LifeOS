@@ -17,10 +17,10 @@
    No Supabase calls of any kind live in this file. It reads state that
    app.js/supabase.js have already loaded and merged; it writes nothing
    back, so it cannot create a sync conflict or a duplicate payload. */
-import { state, esc, todayKey } from './state.js?v=202609262300';
-import { weekDates } from './habits.js?v=202609262300';
-import { medicineName } from './health.js?v=202609262300';
-import { parseMedName } from './med-stats.js?v=202609262300';
+import { state, esc, todayKey } from './state.js?v=202609262330';
+import { weekDates } from './habits.js?v=202609262330';
+import { medicineName } from './health.js?v=202609262330';
+import { parseMedName } from './med-stats.js?v=202609262330';
 
 const SLOTS = [["morning", "Morning"], ["afternoon", "Afternoon"], ["night", "Night"]];
 /* Same hex values as med-stats.js's SLOT_COLOR on purpose — a dose taken
