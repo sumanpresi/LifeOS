@@ -132,14 +132,19 @@
   scrollbar-width:thin;padding-right:2px;
 }
 
-/* The whole card is the drag surface — no grip column, same as the
-   Work·GSI and Personal boards. The grip used to be a flex sibling of the
-   card; with it gone the item is simply the card's wrapper again.
+/* The whole card is the drag surface on a MOUSE — same as the Work·GSI
+   and Personal boards, no grip column there. On TOUCH there is now a grip
+   column again: .eis-drag-handle, a flex sibling of .eis-item-card inside
+   .eis-item, hidden entirely under a real pointer and shown only under
+   hover:none (see the block below the touch-action comment for why touch
+   specifically needs one). .eis-item is the flex row that holds them both;
+   at desktop widths the handle is display:none and contributes zero width,
+   so .eis-item-card is simply the whole row again, unchanged from before.
 
    cursor:grab on the card, but NOT on the parts of it that do something
    else when you press them: a select or a textarea showing a grab hand is
    a lie about what the next press will do. */
-.eis-item{position:relative;border-radius:14px;flex:0 0 auto;cursor:grab}
+.eis-item{position:relative;display:flex;align-items:stretch;border-radius:14px;flex:0 0 auto;cursor:grab}
 .eis-item:active{cursor:grabbing}
 .eis-item :is(button,input,select,a){cursor:auto}
 .eis-item :is(button,a,.gsi-chk,.t-chk){cursor:pointer}
@@ -148,8 +153,36 @@
    The whole card opens the task, so it reads as clickable — except on the
    parts that do something else, which keep their own cursor (set on
    .eis-item above). */
-.eis-item-card{position:relative;min-width:0}
+.eis-item-card{position:relative;min-width:0;flex:1 1 auto}
 .eis-item-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:14px}
+/* ---- the touch-only grip ----
+
+   Hidden under a real pointer (display:none, zero width — .eis-item-card
+   fills the whole row, same as always) and shown only where there's no
+   hover to speak of, i.e. a touchscreen. touch-action:none is the entire
+   point of this element: it's the ONE spot on the card where the browser
+   is told, from the very first touch, "don't try to scroll, this belongs
+   to the drag" — see wireDragAndDrop's `handle` option, which is what
+   actually restricts a touch drag to starting here. Everywhere else on
+   the card keeps pan-x pan-y (below) permanently, with nothing left to
+   fight over: a touch that starts on the handle was never a scroll
+   candidate in the browser's eyes to begin with, and a touch that starts
+   anywhere else was never a drag candidate. */
+.eis-drag-handle{
+  display:none;flex:0 0 0;width:0;overflow:hidden;
+  align-items:center;justify-content:center;
+  touch-action:none;cursor:grab;
+}
+.eis-drag-handle:active{cursor:grabbing}
+@media (hover:none){
+  .eis-drag-handle{
+    display:flex;flex:0 0 34px;width:34px;margin-left:4px;overflow:visible;
+    border-radius:10px;align-self:stretch;
+    background:color-mix(in srgb, var(--ink) 5%, transparent);
+    border:1px solid var(--glass-line);
+    color:var(--muted);font-size:15px;letter-spacing:-2px;
+  }
+}
 /* Long-press to lift on touch without the browser starting a text
    selection or a scroll first. Confined to the card's non-interactive
    area so the title can still be tapped into and the selects still open —
@@ -157,12 +190,23 @@
 /* ---- reclaiming touch-action from Sortable's inline style ----
 
    SortableJS writes an inline `touch-action:none` onto every draggable
-   element so its fallback tracker can call preventDefault() during the
-   200ms pre-drag delay. An inline style beats an ordinary stylesheet rule,
+   element so its fallback tracker can call preventDefault() while it's
+   actually dragging. An inline style beats an ordinary stylesheet rule,
    so the previous `touch-action:manipulation` here never applied: the
    quadrant stopped scrolling the instant a finger landed on a card,
    dragging or not. !important is what wins the axis back — the same fix
    the task boards carry in responsive-foldable.css, ported here.
+
+   This used to be the ONLY place touch-action was decided, which was the
+   actual mobile-dragging bug: overriding Sortable's own touch-action:none
+   back to pan-x/pan-y on the very card it had just started dragging fought
+   its ability to claim that gesture, however the delay was tuned — a
+   browser decides whether a touch pans or not ONCE, at first contact, not
+   per element it later moves over, so the fix couldn't live here at all.
+   It now lives one layer up, on .eis-drag-handle: a touch that starts
+   there is committed to Sortable before this rule is ever consulted, and
+   a touch that starts anywhere else was always meant to scroll, which is
+   exactly what this rule is for.
 
    pan-y, not the board's pan-x pan-y, and deliberately: touch-action's
    used value is the INTERSECTION of an element and all its ancestors, so
