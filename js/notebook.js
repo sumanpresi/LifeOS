@@ -7,10 +7,10 @@
    navigation — the same one-editor-many-documents approach travel.js
    uses for packing-list notes. See flushNotebookPage() for why content is
    read back before the editor's contents are replaced. */
-import { state, uid, esc, persist, rerender } from './state.js?v=202609262357';
-import { mountRichEditor, unmountRichEditor, getRichEditor, setEditorHtml } from './rich-text.js?v=202609262357';
-import { moveToTrash } from './trash.js?v=202609262357';
-import { registerBusyCheck, toast } from './ui.js?v=202609262357';
+import { state, uid, esc, persist, rerender } from './state.js?v=202609271705';
+import { mountRichEditor, unmountRichEditor, getRichEditor, setEditorHtml } from './rich-text.js?v=202609271705';
+import { moveToTrash } from './trash.js?v=202609271705';
+import { registerBusyCheck, toast } from './ui.js?v=202609271705';
 
 /* Cycled through by section creation order so each section gets a
    distinct colour strip, purely cosmetic — like OneNote's own section

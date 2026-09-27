@@ -21,11 +21,11 @@
    — gsiCardHtml for Work·GSI, pwCardHtml for Personal Workspace,
    boardCardHtml for loose tasks — so every control, date picker, flag,
    status select and link on a card keeps working inside the matrix. */
-import { state, esc, persist, rerender, uid, touch } from './state.js?v=202609262357';
-import { gsiCardHtml, addProjectTaskRaw } from './gsi.js?v=202609262357';
-import { pwCardHtml, addPwProjectTaskRaw } from './personal.js?v=202609262357';
-import { boardCardHtml, findAnyTask, createNativeTask, openTaskCardDetail, markDragJustEnded } from './tasks.js?v=202609262357';
-import { toast, autoGrow } from './ui.js?v=202609262357';
+import { state, esc, persist, rerender, uid, touch } from './state.js?v=202609271705';
+import { gsiCardHtml, addProjectTaskRaw } from './gsi.js?v=202609271705';
+import { pwCardHtml, addPwProjectTaskRaw } from './personal.js?v=202609271705';
+import { boardCardHtml, findAnyTask, createNativeTask, openTaskCardDetail, markDragJustEnded } from './tasks.js?v=202609271705';
+import { toast, autoGrow } from './ui.js?v=202609271705';
 
 /* Display labels only — the stored value on each task (t.eis) keeps its
    original key ("do" / "schedule" / "delegate" / "eliminate") so nothing
@@ -134,28 +134,225 @@ function quadrantOf(entry) {
 function isDone(t) { return t.status === "done" || t.done === true; }
 
 /* ---------- moving a task ----------
-   The ONLY write this feature performs. One field, then the app's own
-   persist() — the same call every other edit in LifeOS makes, which is
-   what carries it through the existing save queue, reconciliation and
-   offline handling without any of them knowing this feature exists.
+   Two writes now, not one: t.eis (which quadrant) and t.eisOrder (where
+   inside it) — the same app-wide persist() every other edit in LifeOS
+   makes, which is what carries either through the existing save queue,
+   reconciliation and offline handling without any of them knowing this
+   feature exists.
 
-   touch() matters here as much as the field write itself: the sync layer
-   resolves item-level conflicts by comparing each task's own updatedAt,
-   the same way every other field edit in gsi.js/personal.js/tasks.js
-   does (t[field] = v; touch(t); persist()). Setting t.eis without
-   touching the task would make a real edit invisible to that
+   eisOrder exists because a quadrant is not one project's task list — it's
+   an interleaving of tasks from Work·GSI, Personal and loose tasks, each
+   living in its OWN array with its OWN existing position field, and those
+   three positions have nothing to do with each other. There is no single
+   underlying array whose element order the matrix could reuse to mean
+   "where in this quadrant", so a quadrant-scoped order needs a
+   quadrant-scoped field — one plain number per task, read only by
+   quadrantOf()'s sibling sort in renderEisenhower(), meaningless anywhere
+   else in the app.
+
+   touch() matters here as much as the field writes themselves: the sync
+   layer resolves item-level conflicts by comparing each task's own
+   updatedAt, the same way every other field edit in gsi.js/personal.js/
+   tasks.js does (t[field] = v; touch(t); persist()). Setting eis/eisOrder
+   without touching the task would make a real edit invisible to that
    reconciliation — it could lose to a stale copy of the same task instead
    of being recognised as the newer change. */
+
+/* The one ordering rule, used everywhere something needs "the quadrant's
+   current order": a task with a real eisOrder sorts by it; a task that has
+   never been dragged (no eisOrder yet) sorts after every task that has one,
+   and keeps its original relative position against other never-dragged
+   tasks (stable sort, comparator returns 0 for that pair) — the same
+   fallback the matrix has always used for a task nobody has touched. */
+function compareEisOrder(ta, tb) {
+  const ao = ta.eisOrder, bo = tb.eisOrder;
+  const aHas = typeof ao === "number", bHas = typeof bo === "number";
+  if (aHas && bHas) return ao - bo;
+  if (aHas) return -1;
+  if (bHas) return 1;
+  return 0;
+}
+
+/* One past the last position in a quadrant — "the end of the list" — for
+   a task arriving by any route that isn't a drag (the Move menu, a
+   keyboard move, a freshly composed task), so it lands after everything
+   already there instead of colliding with, or sorting ahead of, whatever's
+   already at position 0. excludeId keeps a task already IN that quadrant
+   from counting itself while it's being recomputed. This deliberately
+   looks at EVERY task in the quadrant, not just the ones the active
+   project filter is currently showing — same reason reindex above does
+   the same.
+
+   Why "last position" isn't simply "the highest existing eisOrder, plus
+   one": compareEisOrder ranks ANY numbered task ahead of an unnumbered
+   (legacy) one, regardless of the number — that's the rule that keeps a
+   never-dragged task from jumping around as other tasks get dragged past
+   it, and it's deliberately being kept. But it means the old max+1 here
+   quietly broke on a quadrant that still had legacy tasks with no
+   eisOrder at all: with no numbered task yet, max was -1, so the first
+   arrival got 0 — a NUMBER, which compareEisOrder then placed ahead of
+   every legacy task instead of after them, however large the number.  No
+   number handed to the new task could ever land it past an unnumbered
+   one; the legacy tasks themselves had to be given numbers first.
+
+   So this backfills: it sorts the quadrant's current members with the
+   very same compareEisOrder used everywhere else (which, with no filter
+   involved here, reproduces today's on-screen order exactly — numbered
+   tasks by value, then legacy tasks in their existing relative order) and
+   assigns each one its position, 0..N-1 — a task whose number doesn't
+   change from this isn't touch()'d, so on a quadrant that's fully numbered
+   already this is a no-op walk, not a rewrite. Only after every existing
+   task has a real position does "one past the end" (N) mean what it's
+   supposed to. */
+function nextEisOrder(quadrant, excludeId) {
+  const members = allTasks()
+    .filter(e => !isDone(e.t) && e.t.id !== excludeId && quadrantOf(e) === quadrant)
+    .map(e => e.t)
+    .sort(compareEisOrder);
+  members.forEach((t, i) => {
+    if (t.eisOrder !== i) { t.eisOrder = i; touch(t); }
+  });
+  return members.length;
+}
+
+/* Renumbers a quadrant to match the order its cards currently sit in the
+   DOM — called right after Sortable has already moved the dragged element
+   into its dropped position, so the DOM *is* the intended order for
+   whatever is actually on screen. The catch: with a project filter active,
+   what's on screen is only SOME of the quadrant. Renumbering just those
+   visible cards 0..n-1 would collide with the eisOrder values still held
+   by every task the filter is hiding — two tasks (one shown, one hidden)
+   ending up claiming the same position, which is the bug this replaces.
+
+   incomingId matters here, and has to be told apart from an ordinary
+   same-quadrant reorder rather than treated the same way. For a
+   same-quadrant reorder, the dragged task's existing eisOrder already
+   means something IN THIS quadrant — it's exactly as meaningful as every
+   other resident's, so sorting it in with everyone else by that number
+   (the block below this comment) is correct and is deliberately left
+   exactly as it originally was, filtered-reorder behaviour included.
+
+   A CROSS-quadrant arrival is different: whatever eisOrder it's carrying
+   is a leftover number from the quadrant it just LEFT — meaningful there,
+   not here. Sorting it into this quadrant's existing order by that number
+   let it land anywhere among the other visible and hidden tasks depending
+   on what that leftover number happened to be, which could silently shift
+   a hidden resident to one side of it or the other for no reason visible
+   on screen — the same visible drop producing a different result for a
+   task nobody touched, purely because of a number from a different
+   quadrant. commitEisDrop only passes incomingId when it detected exactly
+   this case (the task's quadrant actually changed), so that branch below
+   pulls it out of the ordering question entirely until the very last step:
+     1. `residents` — every OTHER task already in this quadrant, filter or
+        no filter, sorted by the quadrant's existing order. Because the
+        incoming task is excluded here, its old number cannot influence
+        where any resident (visible or hidden) sits relative to any other
+        resident — that pattern is fixed by the residents alone, exactly
+        as if this drag had never happened.
+     2. The other visible residents' new relative order (domIds with the
+        incoming task removed) is spliced into residents' visible slots,
+        one for one, same as always — hidden residents keep the slot they
+        already had.
+     3. Only then is the incoming task placed, purely from where the
+        settled DOM put it: right after whichever visible task the drop
+        landed it behind (or at the very front, if the drop put it first)
+        — never by number, by position. */
+function reindexEisQuadrantFromDom(bodyEl, quadrant, incomingId) {
+  if (!bodyEl || !quadrant) return;
+  const domIds = [...bodyEl.querySelectorAll(":scope > .eis-item[data-task-id]")]
+    .map(el => el.dataset.taskId);
+  const domSet = new Set(domIds);
+
+  const members = allTasks()
+    .filter(e => !isDone(e.t) && quadrantOf(e) === quadrant)
+    .map(e => e.t);
+  const byId = new Map(members.map(t => [t.id, t]));
+
+  let result;
+  if (!incomingId) {
+    // Same-quadrant reorder: sort the whole membership by its existing
+    // order (the dragged task included — its number is valid here) and
+    // splice in the new visible order exactly as always.
+    const existingOrder = members.slice().sort(compareEisOrder);
+    let domIdx = 0;
+    result = existingOrder.map(t => {
+      if (!domSet.has(t.id)) return t;
+      const substitute = byId.get(domIds[domIdx]);
+      domIdx++;
+      return substitute || t;
+    });
+  } else {
+    // Cross-quadrant arrival: keep the incoming task's leftover number out
+    // of the resident ordering entirely, then place it purely by its DOM
+    // position, as described above.
+    const residents = members.filter(t => t.id !== incomingId).sort(compareEisOrder);
+    const otherVisibleIds = domIds.filter(id => id !== incomingId);
+    let domIdx = 0;
+    const withoutIncoming = residents.map(t => {
+      if (!domSet.has(t.id)) return t;
+      const substitute = byId.get(otherVisibleIds[domIdx]);
+      domIdx++;
+      return substitute || t;
+    });
+    const incoming = byId.get(incomingId);
+    result = withoutIncoming;
+    if (incoming) {
+      const dropIdx = domIds.indexOf(incomingId);
+      const beforeId = dropIdx > 0 ? domIds[dropIdx - 1] : null;
+      const insertAt = beforeId ? withoutIncoming.findIndex(t => t.id === beforeId) + 1 : 0;
+      result = withoutIncoming.slice();
+      result.splice(insertAt, 0, incoming);
+    }
+  }
+
+  result.forEach((t, i) => {
+    if (t.eisOrder !== i) { t.eisOrder = i; touch(t); }
+  });
+}
+
 export function setTaskQuadrant(id, quadrant) {
   if (!QUAD_KEYS.includes(quadrant)) return;
   const found = findAnyTask(id);
   if (!found || !found.task) return;
   if (found.task.eis === quadrant) return;
   found.task.eis = quadrant;
+  found.task.eisOrder = nextEisOrder(quadrant, id);
   touch(found.task);
   persist();
   /* Only this card repaints. A full rerender() here would rebuild every
      board, list and chart in the app for a one-field change. */
+  renderEisenhower();
+}
+
+/* ---- the drag route ----
+   The Move-menu/keyboard route above always means "send this task to the
+   END of quadrant X" — there's no dropped position to honour. A drag has
+   one: Sortable has already moved evt.item into its dropped slot in
+   evt.to's DOM by the time onEnd fires, so the DOM order at THIS moment is
+   the order the person just chose, for a same-quadrant reorder exactly as
+   much as for a move to a different quadrant. Reading that back and
+   writing it down is the whole fix — nothing here needs to distinguish
+   "reordered in place" from "moved to another quadrant"; both are just
+   "here is this quadrant's list now". */
+function commitEisDrop(id, toBody) {
+  const quadrant = toBody && toBody.dataset.quadrant;
+  const found = findAnyTask(id);
+  if (!id || !quadrant || !found || !found.task) return renderEisenhower();
+  const crossQuadrant = found.task.eis !== quadrant;
+  if (crossQuadrant) { found.task.eis = quadrant; touch(found.task); }
+  /* Only pass the dragged task's id as "incoming" when it genuinely just
+     arrived from a different quadrant — that's the one case whose old
+     eisOrder is foreign to this quadrant and must be kept out of the
+     ordering question (see reindexEisQuadrantFromDom). For a same-quadrant
+     reorder, passing null keeps the original, already-correct behaviour:
+     the dragged task's existing number is sorted in with everyone else's,
+     exactly as it always was. */
+  reindexEisQuadrantFromDom(toBody, quadrant, crossQuadrant ? id : null);
+  persist();
+  /* Full repaint, not a single card: a cross-quadrant move can renumber
+     several siblings in the destination (everything after the drop point),
+     and a same-quadrant reorder renumbers the whole list — all of which
+     need their new order reflected, not just the dragged card. */
   renderEisenhower();
 }
 
@@ -222,6 +419,7 @@ function commitEisTask(quadrant, text) {
        the quadrant can be set on the same object first. */
     const t = createNativeTask(text, "");
     t.eis = quadrant;
+    t.eisOrder = nextEisOrder(quadrant, t.id);   // lands at the bottom of the quadrant, not wherever it falls naturally
     flashTaskId = t.id;
     persist();
     /* The two project helpers re-render themselves; this path does not, so
@@ -234,7 +432,8 @@ function commitEisTask(quadrant, text) {
 
   const task = {
     id: uid(), text, status: "todo", date: "", link: "",
-    flag: false, googleEventId: null, eis: quadrant
+    flag: false, googleEventId: null, eis: quadrant,
+    eisOrder: nextEisOrder(quadrant)   // not yet pushed anywhere, so nothing to exclude by id
   };
   flashTaskId = task.id;
   /* Both helpers persist and re-render themselves — same call the board's
@@ -261,8 +460,14 @@ function commitEisTask(quadrant, text) {
 export function onEisCardClick(evt, id) {
   /* The card is full of its own controls. A click that landed on one of
      them has already done its job — opening the modal on top of it would
-     mean ticking a checkbox or changing a status also opened a dialogue. */
-  if (evt.target.closest("button, input, select, textarea, a, label, .eis-move, .gsi-chk, .t-chk")) return;
+     mean ticking a checkbox or changing a status also opened a dialogue.
+     .gsi-title (the textarea) isn't listed: it's now read-only and
+     pointer-events:none in the matrix (see renderEisenhower and
+     eisenhower.css), so a tap on it never actually reaches it as
+     evt.target — it falls straight through to the card, same as a tap
+     anywhere else non-interactive, and opens the task like this function
+     already does for everything else. */
+  if (evt.target.closest("button, input, select, a, label, .eis-move, .gsi-chk, .t-chk")) return;
   /* A task with no project renders through boardCardHtml, which already
      carries its own onclick. Without this the click would bubble up here
      and open the modal a second time. */
@@ -392,12 +597,26 @@ export function renderEisenhower() {
 
   const byQuad = new Map(QUAD_KEYS.map(k => [k, []]));
   entries.forEach(e => byQuad.get(quadrantOf(e)).push(e));
+  /* A quadrant is stocked from three different arrays (Work·GSI, Personal,
+     loose), so "the order they were pushed in" is an accident of which
+     project happened to be iterated first — not a position anyone chose.
+     eisOrder is the position someone actually chose, by dragging; a task
+     that has never been dragged has none, and falls back to that original
+     insertion order (stable sort keeps ties in place), same as before this
+     field existed. */
+  byQuad.forEach(list => list.sort((a, b) => compareEisOrder(a.t, b.t)));
 
+  /* .eis-board-scroll is the horizontal-swipe track on narrower screens
+     (eisenhower.css turns .eis-grid itself into a single flex row there,
+     Do first → Decide → Delegate → Delete, left to right); on desktop the
+     wrapper is a plain, non-scrolling box and .eis-grid keeps today's
+     fixed-height 2×2. One wrapper, one rule that changes with width —
+     nothing here needs to know which mode it's in. */
   host.innerHTML =
     tabsHtml(list, dup) +
     (entries.length
-      ? `<div class="eis-grid">${QUADRANTS.map(q => quadrantHtml(q, byQuad.get(q.key))).join("")}</div>`
-      : `<div class="eis-grid">${QUADRANTS.map(q => quadrantHtml(q, [])).join("")}</div>
+      ? `<div class="eis-board-scroll"><div class="eis-grid">${QUADRANTS.map(q => quadrantHtml(q, byQuad.get(q.key))).join("")}</div></div>`
+      : `<div class="eis-board-scroll"><div class="eis-grid">${QUADRANTS.map(q => quadrantHtml(q, [])).join("")}</div></div>
          <p class="eis-empty-all">No open tasks in this project.</p>`);
 
   /* The notice is informative, not nagging — it only reappears when the
@@ -419,6 +638,33 @@ export function renderEisenhower() {
      so a two-line task title was silently clipped to its first line. Must
      run after innerHTML, since scrollHeight is meaningless before layout. */
   document.querySelectorAll("#eisenhower textarea").forEach(autoGrow);
+
+  /* Titles are read-only here, in the matrix specifically. gsiCardHtml and
+     pwCardHtml render the title as an editable <textarea> because that's
+     right on the Work·GSI and Personal boards — but on a phone-width
+     matrix quadrant the title textarea is most of the card, so it was
+     eating almost every tap and drag attempt: a tap put a caret into it
+     instead of opening the task, and (before eisenhower.css turned off
+     its text-selection) a press-and-hold there selected text instead of
+     lifting the card. Editing still works exactly as before everywhere
+     else this component renders; only this matrix instance is affected,
+     and only via `readOnly`/tabIndex set here after paint — the shared
+     gsi.js/personal.js templates that build the markup are untouched.
+
+     `pointer-events:none` on .gsi-title in eisenhower.css is what makes a
+     tap fall through to the card underneath (opening the task, via
+     onEisCardClick) instead of focusing the textarea; `readOnly` here is
+     the belt-and-suspenders case a pointer-events rule can't cover — a
+     keyboard user tabbing to the field and typing. tabIndex=-1 keeps it
+     out of the tab order entirely, so Tab lands on the card (which opens
+     the task on Enter/Space, per onEisCardClick's onkeydown) rather than
+     a field that can't be edited anyway. Native/loose task titles render
+     as a plain, already-non-editable <span> (.t-board-card-title) and
+     need none of this. */
+  document.querySelectorAll("#eisenhower .gsi-title").forEach(t => {
+    t.readOnly = true;
+    t.tabIndex = -1;
+  });
 
   /* Move starts out as quadrantHtml()'s plain sibling of the card — see
      the comment there — and gets docked into the card's own wrapping meta
@@ -533,9 +779,27 @@ function wireDragAndDrop() {
          tolerance makes "somewhere in that panel" enough, which matters
          far more with a thumb than with a mouse. */
       emptyInsertThreshold: 28,
-      scroll: true, scrollSensitivity: 90, scrollSpeed: 12,
-      onChoose: () => document.body.classList.add("is-dragging"),
-      onStart: () => document.body.classList.add("is-dragging"),
+      /* Autoscroll has two different edges to find now, not one. Below
+         980px .eis-q-body sits inside .eis-board-scroll, a second
+         scrollable ancestor (horizontal) above the first (vertical) —
+         exactly the shape SortableJS's own autoscroll plugin is built for:
+         bubbleScroll (on by default, named here so it stays on even if a
+         future Sortable version changes that default) walks OUTWARD from
+         the innermost scrollable ancestor to the next one whenever the
+         inner one has nowhere further to scroll, so dragging a card to the
+         left/right edge of a narrow quadrant scrolls the BOARD to the next
+         quadrant over, while dragging it to the top/bottom edge still
+         scrolls that quadrant's own list, with no mode switch to wire up —
+         it is the same autoscroll, just walking a taller ancestor chain on
+         narrow screens than it does on wide ones.
+         forceAutoScrollFallback is what makes any of this fire at all:
+         forceFallback:true (above) means every drag — mouse included —
+         runs through Sortable's own pointer-tracking fallback rather than
+         native HTML5 drag events, and autoscroll only listens for native
+         dragover by default, so without this flag it would silently never
+         scroll anything once fallback mode was already forced on. */
+      scroll: true, bubbleScroll: true, forceAutoScrollFallback: true,
+      scrollSensitivity: 90, scrollSpeed: 14,
       /* Explicit highlight rather than relying only on :has() support —
          fires continuously while a card is dragged over any quadrant, so
          the destination panel visibly reacts (border glow, brighter
@@ -547,8 +811,24 @@ function wireDragAndDrop() {
         return true;
       },
       ghostClass: "eis-ghost", dragClass: "eis-dragging", chosenClass: "eis-chosen",
+      /* onChoose fires the moment a finger presses a draggable card — before
+         the 200ms delay confirms it's actually a drag, but that's exactly
+         when the touch's own identifier is available. That identifier is
+         what wireSecondFingerBoardScroll below needs to tell "the finger
+         that's dragging" apart from "a second finger that just landed to
+         scroll" — recorded here rather than in onStart because a second
+         finger could plausibly land during the delay too, holding steady
+         while the first one is still only "chosen". */
+      onChoose: evt => {
+        document.body.classList.add("is-dragging");
+        const oe = evt.originalEvent;
+        dragTouchId = (oe && oe.touches && oe.touches.length) ? oe.touches[0].identifier : null;
+      },
+      onStart: () => document.body.classList.add("is-dragging"),
       onEnd: evt => {
         document.body.classList.remove("is-dragging");
+        dragTouchId = null;
+        scrollTouchId = null;
         /* Tell the shared guard a drag just finished. A drop lands a
            pointerup on the card, and now that the card opens the task,
            every move would otherwise end with the modal in your face.
@@ -556,13 +836,85 @@ function wireDragAndDrop() {
         markDragJustEnded();
         document.querySelectorAll("#eisenhower .eis-q-body.eis-over")
           .forEach(el => el.classList.remove("eis-over"));
-        const id = evt.item.dataset.taskId;
-        const to = evt.to.dataset.quadrant;
-        if (!id || !to) return renderEisenhower();
-        setTaskQuadrant(id, to);
+        commitEisDrop(evt.item.dataset.taskId, evt.to);
       }
     }));
   });
+
+  wireSecondFingerBoardScroll();
+}
+
+/* ---------- a second finger, scrolling the board while the first drags ----
+
+   SortableJS tracks exactly one touch — whichever one is doing the drag —
+   and has no notion of a second, independent one; there is no config
+   option that adds this. This layer sits ALONGSIDE Sortable rather than
+   inside it: bound once, directly on document, it watches for a second
+   finger landing on the board while a drag is already in progress
+   (body.is-dragging, set by onChoose/onStart above) and scrolls
+   .eis-board-scroll by that finger's own movement using plain
+   `scrollLeft` arithmetic — not native touch-panning, which has no way to
+   single out "the OTHER finger" from the one Sortable is already tracking.
+
+   Deliberately narrow, for the same reason the earlier analysis of the
+   reference videos recommended against a bespoke dual-pointer controller:
+   this layer only ever reads touch coordinates and writes scrollLeft. It
+   never calls preventDefault or stopPropagation, so it cannot swallow or
+   redirect the event Sortable is separately reading off the very same
+   TouchEvent for the drag finger's identifier — the two are independent
+   consumers of the same browser event, not a chain where one can block
+   the other. What it can't do anything about is Sortable's own hit-testing
+   only running when the DRAG finger moves; if the drag finger holds still
+   while the second finger scrolls the board underneath it, the highlighted
+   drop quadrant will catch up on the drag finger's next movement rather
+   than updating instantly — a real limitation of bolting this onto a
+   single-pointer library rather than a gap in this code.
+
+   This has been checked for logic and syntax only. It has NOT been
+   confirmed on an actual touchscreen — this environment has none — so
+   treat it as a first cut to test on a real phone, not a finished
+   guarantee. */
+let dragTouchId = null;
+let scrollTouchId = null;
+let scrollTouchStartX = 0;
+let scrollTouchStartLeft = 0;
+let secondFingerWired = false;
+
+function wireSecondFingerBoardScroll() {
+  if (secondFingerWired) return;   // bind once, ever — not once per render
+  secondFingerWired = true;
+
+  document.addEventListener("touchstart", evt => {
+    if (!document.body.classList.contains("is-dragging")) return;
+    if (scrollTouchId !== null) return;   // already tracking a second finger
+    for (const t of evt.changedTouches) {
+      if (t.identifier === dragTouchId) continue;   // that's the drag finger, not a new one
+      const board = t.target.closest && t.target.closest("#eisenhower .eis-board-scroll");
+      if (!board) continue;
+      scrollTouchId = t.identifier;
+      scrollTouchStartX = t.clientX;
+      scrollTouchStartLeft = board.scrollLeft;
+      break;
+    }
+  }, { passive: true });
+
+  document.addEventListener("touchmove", evt => {
+    if (scrollTouchId === null) return;
+    let moved = null;
+    for (const t of evt.touches) { if (t.identifier === scrollTouchId) { moved = t; break; } }
+    if (!moved) return;
+    const board = document.querySelector("#eisenhower .eis-board-scroll");
+    if (!board) return;
+    board.scrollLeft = scrollTouchStartLeft - (moved.clientX - scrollTouchStartX);
+  }, { passive: true });
+
+  const releaseScrollTouch = evt => {
+    for (const t of evt.changedTouches) {
+      if (t.identifier === scrollTouchId) { scrollTouchId = null; break; }
+    }
+  };
+  document.addEventListener("touchend", releaseScrollTouch, { passive: true });
+  document.addEventListener("touchcancel", releaseScrollTouch, { passive: true });
 }
 
 /* ---------- the Move menu ----------

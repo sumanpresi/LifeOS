@@ -1,11 +1,11 @@
 /* Habit tracking: week grid, calendar month view, 6-week trend, streaks, donut.
    The month calendar also shows every task (personal + GSI Workspace) due
    on each date, and supports a freehand scribble note per date. */
-import { state, uid, esc, persist, rerender, todayKey } from './state.js?v=202609262357';
-import { moveToTrash } from './trash.js?v=202609262357';
-import { getAllGsiTasksFlat } from './gsi.js?v=202609262357';
-import { getAllPwTasksFlat } from './personal.js?v=202609262357';
-import { go } from './ui.js?v=202609262357';
+import { state, uid, esc, persist, rerender, todayKey } from './state.js?v=202609271705';
+import { moveToTrash } from './trash.js?v=202609271705';
+import { getAllGsiTasksFlat } from './gsi.js?v=202609271705';
+import { getAllPwTasksFlat } from './personal.js?v=202609271705';
+import { go } from './ui.js?v=202609271705';
 
 let weekOffset = 0;
 let monthCursor = new Date(); // which month the calendar view is showing
