@@ -27,6 +27,15 @@
 .eis-tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .eis-tab-sub{font-size:10.5px;font-weight:700;opacity:.72;letter-spacing:.02em}
 
+/* ---- the horizontal-swipe track ----
+   On a narrow screen the four quadrants stop being a 2x2 grid and become a
+   single scrollable row instead (see the max-width:980px block below,
+   which turns .eis-grid itself into that row). This wrapper is what
+   actually scrolls; at desktop widths it does nothing — no overflow, no
+   scrollbar, a plain pass-through box — so nothing here needs to know
+   which mode it's in. One track, one rule that changes with width. */
+.eis-board-scroll{ }
+
 /* ---- the 2 x 2 grid ----
    A fixed-height workspace rather than four panels that shrink to fit
    their content: each quadrant is a full-height drop canvas, whether it
@@ -132,10 +141,11 @@
    a lie about what the next press will do. */
 .eis-item{position:relative;border-radius:14px;flex:0 0 auto;cursor:grab}
 .eis-item:active{cursor:grabbing}
-.eis-item :is(button,input,select,textarea,a){cursor:auto}
+.eis-item :is(button,input,select,a){cursor:auto}
 .eis-item :is(button,a,.gsi-chk,.t-chk){cursor:pointer}
-.eis-item textarea{cursor:text}
-/* The whole card opens the task, so it reads as clickable — except on the
+/* The title textarea is NOT given cursor:text here any more — it reads
+   as part of the drag surface, not a field, because (below) it is one.
+   The whole card opens the task, so it reads as clickable — except on the
    parts that do something else, which keep their own cursor (set on
    .eis-item above). */
 .eis-item-card{position:relative;min-width:0}
@@ -157,13 +167,20 @@
    pan-y, not the board's pan-x pan-y, and deliberately: touch-action's
    used value is the INTERSECTION of an element and all its ancestors, so
    allowing only what is actually scrollable is the honest setting. A
-   quadrant scrolls vertically and the page scrolls vertically; nothing in
-   this chain scrolls sideways, unlike .t-board which does. */
+   quadrant scrolls vertically and the page scrolls vertically — and, on a
+   narrow screen (below), the board also scrolls HORIZONTALLY, the same way
+   .t-board already does. pan-x pan-y (not pan-y alone) is what lets a
+   finger that lands on a card still pan the board sideways: touch-action's
+   used value is the intersection of an element and all its ancestors, so a
+   card that only allowed pan-y would block the exact swipe-to-the-next-
+   quadrant gesture the horizontal board depends on. At desktop widths the
+   board doesn't scroll sideways at all, so the extra axis is simply unused
+   there — nothing to turn on or off between the two layouts. */
 .eis-q-body,
 .eis-item,
 .eis-item-card,
 .eis-item .gsi-card,
-.eis-item .t-board-card{touch-action:pan-y !important}
+.eis-item .t-board-card{touch-action:pan-x pan-y !important}
 /* The title used to stay natively selectable here because it is a
    <textarea> — but on a touch screen, "selectable" is exactly what turned
    a drag attempt into a text selection: a press on the title (which is
@@ -250,6 +267,13 @@
      style.css (used on the task boards too) is untouched, so titles keep
      their usual weight everywhere else in the app. */
   font-weight:400;
+  /* Read-only in the matrix: this is what actually makes a tap fall
+     through to the card underneath instead of focusing the textarea. The
+     `readOnly`/`tabIndex` set on it in renderEisenhower() stop a keyboard
+     user from typing into it, but pointer-events is what stops a tap or a
+     drag from ever treating IT as the target in the first place, so
+     onEisCardClick and Sortable both just see the card. */
+  pointer-events:none;
 }
 /* Native/loose task cards render their title through a different class
    (Personal tasks share .gsi-title above); scoped the same way. */
@@ -540,24 +564,67 @@ body.is-dragging{user-select:none;-webkit-user-select:none}
   .eis-grid{gap:16px;--eis-card-h:72px;--eis-visible:4}
 }
 
-/* ---- Z Fold 8 folded, and ordinary phones ----
-   A 2 x 2 on a 320pt-wide cover screen gives four columns of roughly 140pt,
-   which is narrower than a task card. The matrix stacks instead — the four
-   quadrants stay four quadrants, the drag targets get full width, and the
-   touch handle for a move is the whole panel rather than a sliver of it.
-   The fixed-height "workspace" only makes sense with two rows side by
-   side; stacked, each quadrant goes back to sizing itself so the page
-   scrolls once instead of nesting a scroller inside a scroller. */
-@media (max-width:719px){
-  .eis-grid{
-    grid-template-columns:minmax(0,1fr);grid-template-rows:none;
-    height:auto;gap:10px;
+/* ---- phones, folded or not, portrait or landscape ----
+   A 2 x 2 grid on a phone-width screen gives four columns of roughly
+   140-190pt, which is narrower than a task card either way it's held. The
+   matrix used to solve this by stacking the four quadrants into one tall
+   column and letting the PAGE scroll past all of them — workable, but not
+   what Todoist does and not what was asked for: "the Eisenhour matrixes
+   should appear horizontally and by scrolling horizontally using finger i
+   can see all the 4 matrixes."
+
+   So below, .eis-grid stops being a 2x2 grid and becomes a single row —
+   Do first, Decide, Delegate, Delete, left to right — that .eis-board-
+   scroll lets you swipe through with one finger, in either orientation
+   (this is a width breakpoint, not a portrait/landscape one, so rotating
+   the phone doesn't change which layout applies, only how much of the row
+   is visible at once). Each quadrant keeps its own full height and its own
+   internal vertical scroller — exactly the desktop shape, just one column
+   wide and laid out in a row instead of a 2x2 block.
+
+   980px, not the 899px this started at: an ordinary phone's LANDSCAPE
+   width routinely lands in the 840-930px range (a large iPhone in
+   landscape is ~926px, a large Android phone ~915px), which is past 899 —
+   turning the phone sideways would have silently dropped it back to the
+   2x2 grid the whole point was to get away from on a narrow screen. 980px
+   clears every phone landscape width with room to spare while still
+   handing a genuine tablet or the Fold's unfolded inner screen (both
+   comfortably past 1000px, and both already meant for the true 2x2 grid —
+   see "Z Fold 8 unfolded, and any large tablet" below) the desktop-style
+   layout they actually have room for. */
+@media (max-width:980px){
+  .eis-board-scroll{
+    overflow-x:auto;overflow-y:visible;
+    -webkit-overflow-scrolling:touch;
+    scroll-snap-type:x proximity;
+    overscroll-behavior-x:contain;
+    scrollbar-width:none;
+    margin:0 -2px;padding:0 2px 2px;
   }
-  .eis-q{padding:11px 11px 9px;border-radius:16px}
-  .eis-q-body{
-    flex:0 0 auto;
-    max-height:none;            /* no nested scroller inside a page scroller */
-    min-height:64px;
+  .eis-board-scroll::-webkit-scrollbar{display:none}
+  .eis-grid{
+    display:flex;flex-wrap:nowrap;align-items:stretch;
+    grid-template-columns:none;grid-template-rows:none;
+    gap:10px;
+    /* Same derived-height idea as the desktop grid above, just for a
+       single row of quadrants instead of two stacked rows — drop the "2 *"
+       and the row-gap term and this is the same formula. */
+    --eis-card-h:78px;
+    --eis-visible:4;
+    height:calc(
+        var(--eis-visible) * var(--eis-card-h)
+      + (var(--eis-visible) - 1) * var(--eis-card-gap)
+      + var(--eis-q-chrome)
+    );
+  }
+  .eis-q{
+    /* Wide enough to read comfortably, narrow enough that the next
+       quadrant peeks in at the edge as a hint there's more to swipe to —
+       the same affordance the Todoist videos show. */
+    flex:0 0 clamp(260px,84vw,380px);
+    scroll-snap-align:start;
+    min-width:0;height:100%;
+    padding:11px 11px 9px;border-radius:16px;
   }
   .eis-empty{min-height:32px}
   .eis-q-title{font-size:14.5px}
@@ -565,12 +632,9 @@ body.is-dragging{user-select:none;-webkit-user-select:none}
      you cannot discover is not an accessible alternative. */
   .eis-move-btn{opacity:1;color:var(--ink);padding:5px 12px;font-size:12px}
   /* Same reason, and this one matters more: "+ Add link" and "Add date"
-     are hidden until hover on a desktop, and a touch screen has no hover.
-     Here the quadrants stack and scroll with the page, so there is room
-     to show them — and without this they would be unreachable. */
+     are hidden until hover on a desktop, and a touch screen has no hover. */
   .eis-item-card .gsi-add-link,
   .eis-item-card .gsi-add-date{display:inline-flex}
-  .eis-item-card .gsi-card{min-height:0}
   .eis-tab{padding:8px 15px}
 }
 
