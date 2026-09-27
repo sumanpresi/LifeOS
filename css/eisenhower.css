@@ -27,6 +27,43 @@
 .eis-tab.on{background:var(--accent);border-color:var(--accent);color:#fff}
 .eis-tab-sub{font-size:10.5px;font-weight:700;opacity:.72;letter-spacing:.02em}
 
+/* The reorderable strip inside .eis-tabs — "All projects" and "No
+   project" sit outside it as fixed anchors (see tabsHtml in
+   eisenhower.js), so this only wraps the tabs a drag can actually move.
+   display:flex + the same gap keeps it laying out exactly like a plain
+   run of .eis-tabs children — the wrapper adds a drag boundary, not a
+   visible seam. */
+.eis-tabs-drag{display:flex;gap:8px}
+/* A project tab (data-key present) is the one thing here a press-and-hold
+   picks up; grab/grabbing says so before the drag even starts, the same
+   affordance the task cards give with their handle. "All projects" and
+   "No project" keep the plain pointer cursor from .eis-tab — they were
+   never given data-key, so this selector doesn't reach them. */
+.eis-tab[data-key]{cursor:grab}
+.eis-tab[data-key]:active{cursor:grabbing}
+/* The placeholder left in a tab's old slot while it's being dragged to a
+   new position — an empty tinted outline rather than a faded-but-still-
+   legible copy of the label, same fix and the same reason as .eis-ghost
+   on the task cards above: two short tab labels overlapping during the
+   reorder animation is exactly the kind of thing that reads as a glitch
+   rather than a drag in progress. */
+/* .eis-tab.eis-tab-ghost, not just .eis-tab-ghost: Sortable adds this as
+   an EXTRA class alongside .eis-tab, and dragging whichever tab is
+   currently active carries .on along with it too — .eis-tab.on{color:
+   #fff} is two classes (higher specificity than one), and would otherwise
+   win over a plain .eis-tab-ghost{color:transparent} and leave the
+   active tab's label readable in its own ghost. */
+.eis-tab.eis-tab-ghost[data-key]{
+  opacity:1;background:color-mix(in srgb, var(--accent) 12%, transparent);
+  border:1.5px dashed color-mix(in srgb, var(--accent) 40%, var(--glass-line));
+  color:transparent;
+}
+.eis-tab-ghost > *{visibility:hidden}
+.eis-tab-chosen{
+  background:var(--paper);box-shadow:0 6px 18px -8px rgba(16,18,22,.45);
+  transform:scale(1.03);
+}
+
 /* ---- the horizontal-swipe track ----
    On a narrow screen the four quadrants stop being a 2x2 grid and become a
    single scrollable row instead (see the max-width:980px block below,
