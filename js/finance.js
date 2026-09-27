@@ -1,8 +1,8 @@
 /* Finance page: notes, links, and three simple tracked lists —
    Grocery, Shopping, Wishlist — each with a date and an optional link. */
-import { state, uid, esc, persist, rerender } from './state.js?v=202609271900';
-import { moveToTrash } from './trash.js?v=202609271900';
-import { toast } from './ui.js?v=202609271900';
+import { state, uid, esc, persist, rerender } from './state.js?v=202609271345';
+import { moveToTrash } from './trash.js?v=202609271345';
+import { toast } from './ui.js?v=202609271345';
 
 const LISTS = ["grocery", "shopping", "wishlist"];
 

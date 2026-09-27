@@ -20,10 +20,10 @@
      api/google-calendar-cron.js on a schedule (see vercel.json) —
      without that, sync would only ever happen at the moment you're
      actively using LifeOS. */
-import { GOOGLE_CLIENT_ID } from './config.js?v=202609271900';
-import { state, persist } from './state.js?v=202609271900';
-import { toast } from './ui.js?v=202609271900';
-import { getAccessToken } from './supabase.js?v=202609271900';
+import { GOOGLE_CLIENT_ID } from './config.js?v=202609271345';
+import { state, persist } from './state.js?v=202609271345';
+import { toast } from './ui.js?v=202609271345';
+import { getAccessToken } from './supabase.js?v=202609271345';
 
 let warnedThisSession = false; // see syncTaskToGoogle — one toast per session for Google-side rejections
 const REDIRECT_URI = () => location.origin + location.pathname;

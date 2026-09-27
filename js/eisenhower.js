@@ -21,11 +21,11 @@
    — gsiCardHtml for Work·GSI, pwCardHtml for Personal Workspace,
    boardCardHtml for loose tasks — so every control, date picker, flag,
    status select and link on a card keeps working inside the matrix. */
-import { state, esc, persist, rerender, uid, touch } from './state.js?v=202609271900';
-import { gsiCardHtml, addProjectTaskRaw } from './gsi.js?v=202609271900';
-import { pwCardHtml, addPwProjectTaskRaw } from './personal.js?v=202609271900';
-import { boardCardHtml, findAnyTask, createNativeTask, openTaskCardDetail, markDragJustEnded } from './tasks.js?v=202609271900';
-import { toast, autoGrow } from './ui.js?v=202609271900';
+import { state, esc, persist, rerender, uid, touch } from './state.js?v=202609271345';
+import { gsiCardHtml, addProjectTaskRaw } from './gsi.js?v=202609271345';
+import { pwCardHtml, addPwProjectTaskRaw } from './personal.js?v=202609271345';
+import { boardCardHtml, findAnyTask, createNativeTask, openTaskCardDetail, markDragJustEnded } from './tasks.js?v=202609271345';
+import { toast, autoGrow } from './ui.js?v=202609271345';
 
 /* Display labels only — the stored value on each task (t.eis) keeps its
    original key ("do" / "schedule" / "delegate" / "eliminate") so nothing
@@ -40,9 +40,25 @@ const QUADRANTS = [
 ];
 const QUAD_KEYS = QUADRANTS.map(q => q.key);
 
-let activeProject = "all";      // "all" | "none" | "gsi:<id>" | "pw:<id>"
+/* Seeded from the last tab this device had open, so closing and reopening
+   the app (or just reloading the page) comes back to the same project —
+   state.eisActiveProject is read from localStorage before this module
+   body runs (state.js's own top-level `state = load()` resolves first,
+   since this module imports it). A malformed or now-nonexistent value is
+   harmless: the "project deleted" guard in renderEisenhower() already
+   falls back to "all" the first time it renders.
+
+   Deliberately NOT kept in sync with a later cloud pull (no
+   onStateReplaced hook, unlike navOrder below) — which tab is open right
+   now is this device's own business while the matrix is actually on
+   screen, same rule googleLinks.activeGroup and the notebook's active
+   section already follow in this app; only the tab order is the kind of
+   change that should visibly jump to match another device. */
+let activeProject = (state && typeof state.eisActiveProject === "string")
+  ? state.eisActiveProject : "all";      // "all" | "none" | "gsi:<id>" | "pw:<id>"
 let dupWarningSignature = "";   // last duplicate-name set the notice was shown for
 let sortables = [];
+let tabSortable = null;         // Sortable instance on the draggable project-tab strip
 let lastRenderedProject = null; // which tab the current DOM was painted for (scroll restore)
 
 /* ---- inline "add task" composer ----
@@ -488,6 +504,15 @@ export function onEisCardClick(evt, id) {
 
 export function setEisProject(key) {
   activeProject = key;
+  /* persist(false): a tab click is UI state, not an edit — see the
+     eisActiveProject comment in state.js. persist(true)'s default would
+     bump state.updatedAt, and the very next sync tie-break anywhere in
+     the app could then let this device's copy win purely because someone
+     switched tabs a moment ago, at the cost of a genuine edit made
+     meanwhile on another device. setTaskView() follows the identical
+     pattern for the board/list toggle. */
+  state.eisActiveProject = key;
+  persist(false);
   renderEisenhower();
 }
 
@@ -506,17 +531,50 @@ function cardFor(entry) {
   return boardCardHtml(Object.assign({}, entry.t, { isGsi: false }));
 }
 
+/* User-chosen order of the reorderable project tabs — "All projects" and
+   "No project" are fixed anchors (same idea as Overview/Today/Trash
+   staying put in the sidebar; see nav-order.js) and never move, so they
+   are not part of this list. Unknown keys — a project the saved order
+   predates — keep their natural projectList() order, appended after the
+   known ones, same rule applyNavOrder() uses: a new project appears at
+   the end instead of jumping to some random position. */
+function applyEisTabOrder(list) {
+  const saved = Array.isArray(state.eisTabOrder) ? state.eisTabOrder : null;
+  if (!saved || !saved.length) return list;
+  const byKey = new Map(list.map(p => [p.key, p]));
+  const seen = new Set();
+  const out = [];
+  saved.forEach(key => {
+    const p = byKey.get(key);
+    if (p && !seen.has(key)) { out.push(p); seen.add(key); }
+  });
+  list.forEach(p => { if (!seen.has(p.key)) out.push(p); });
+  return out;
+}
+
 function tabsHtml(list, dup) {
   const tab = (key, label, sub) => `
     <button class="eis-tab ${activeProject === key ? "on" : ""}" role="tab"
             aria-selected="${activeProject === key}"
             onclick="setEisProject('${key}')">${esc(label)}${sub ? `<span class="eis-tab-sub">${esc(sub)}</span>` : ""}</button>`;
+  /* Same as `tab` above plus data-key, which is what readTabOrder() below
+     reads back off the DOM after a drag — and what marks a button as one
+     Sortable is allowed to pick up (see wireTabDragAndDrop's `draggable`
+     selector), so "All projects" and "No project" — built with the plain
+     `tab` helper, no data-key — are structurally excluded rather than
+     merely styled to look fixed. */
+  const projectTab = p => `
+    <button class="eis-tab ${activeProject === p.key ? "on" : ""}" role="tab"
+            aria-selected="${activeProject === p.key}" data-key="${esc(p.key)}"
+            onclick="setEisProject('${p.key}')">${esc(p.name)}${
+      dup.has((p.name || "").trim().toLowerCase()) ? `<span class="eis-tab-sub">${esc(p.section)}</span>` : ""
+    }</button>`;
   const looseCount = (state.tasks || []).length;
+  const ordered = applyEisTabOrder(list);
   return `
     <div class="eis-tabs" role="tablist" aria-label="Filter the matrix by project">
       ${tab("all", "All projects")}
-      ${list.map(p => tab(p.key, p.name,
-          dup.has((p.name || "").trim().toLowerCase()) ? p.section : "")).join("")}
+      <div class="eis-tabs-drag" id="eisTabsDrag" role="presentation">${ordered.map(projectTab).join("")}</div>
       ${looseCount ? tab("none", "No project") : ""}
     </div>`;
 }
@@ -751,6 +809,53 @@ export function renderEisenhower() {
   closeEisMove();
 
   wireDragAndDrop();
+  wireTabDragAndDrop();
+}
+
+/* ---------- reordering the project tabs ----------
+   Same Sortable + forceFallback recipe as the sidebar's Spaces group
+   (nav-order.js) and the quadrant cards below — one drag mechanism,
+   reused a third time rather than reinvented. Unlike the sidebar, the
+   whole tab strip is thrown away and rebuilt by tabsHtml() on every
+   render (it's part of host.innerHTML above), so — exactly like
+   wireDragAndDrop() for the quadrants — the old instance is destroyed
+   and a fresh one made every time, rather than trying to keep one alive
+   across a repaint that has already replaced its DOM out from under it. */
+function readTabOrder(group) {
+  return [...group.querySelectorAll(":scope > .eis-tab[data-key]")].map(el => el.dataset.key);
+}
+
+function wireTabDragAndDrop() {
+  if (tabSortable) { try { tabSortable.destroy(); } catch (_) {} tabSortable = null; }
+  if (typeof Sortable === "undefined") return;   // lazy-loaded; tabs still work, just not reorderable yet
+  const group = document.getElementById("eisTabsDrag");
+  if (!group) return;
+  tabSortable = Sortable.create(group, {
+    animation: 150,
+    draggable: ".eis-tab[data-key]",   // "All projects" / "No project" live outside this group entirely — see tabsHtml
+    delay: 250,
+    delayOnTouchOnly: true,   // a plain tap still switches tabs instantly; only a held touch starts a drag
+    touchStartThreshold: 6,
+    forceFallback: true,      // same reason as nav-order.js: native DnD is unreliable on Samsung Internet
+    fallbackTolerance: 6,     // clears ordinary click jitter on mouse/trackpad — see nav-order.js for why
+    ghostClass: "eis-tab-ghost",
+    chosenClass: "eis-tab-chosen",
+    onStart: () => document.body.classList.add("is-dragging"),
+    onEnd: () => {
+      document.body.classList.remove("is-dragging");
+      state.eisTabOrder = readTabOrder(group);
+      /* eisTabOrder is a plain field on the document (like navOrder), so
+         the document's own stamp is what has to move for this to reach
+         another device — see mergeIncomingTasks() in supabase.js for the
+         merge that then keeps an empty order on some other device from
+         wiping this one. */
+      state.updatedAt = Date.now();
+      persist();
+      /* No re-render: Sortable already dropped the tab where it belongs,
+         and tabsHtml() would only reproduce what's already on screen —
+         same reasoning nav-order.js's onEnd gives for the sidebar. */
+    }
+  });
 }
 
 /* ---------- drag, and the touch equivalent ----------

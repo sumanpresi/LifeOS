@@ -17,10 +17,10 @@
    "what should I read next", not "what is science fiction". Status also
    changes over time, which keeps the page current rather than archival. */
 
-import { state, uid, esc, persist, rerender } from './state.js?v=202609271900';
-import { toast } from './ui.js?v=202609271900';
-import { moveToTrash } from './trash.js?v=202609271900';
-import { getLinkPreview } from './link-preview.js?v=202609271900';
+import { state, uid, esc, persist, rerender } from './state.js?v=202609271345';
+import { toast } from './ui.js?v=202609271345';
+import { moveToTrash } from './trash.js?v=202609271345';
+import { getLinkPreview } from './link-preview.js?v=202609271345';
 
 const TYPES = [
   ["book", "Books", "\u{1F4D6}"],

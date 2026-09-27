@@ -56,6 +56,22 @@ export const DEFAULT_STATE = {
   calendarScalePref: "month", // "week" | "month" | "year" | "years" — which range the Calendar view opens on, chosen from the dropdown beside Today
   gsiTaskViewPref: "board", // "board" | "list" — same idea, for GSI Workspace's own task list
   pwTaskViewPref: "board", // "board" | "list" — same idea again, for Personal Workspace
+  /* Which Eisenhower Matrix project tab was last open — "all" | "none" |
+     "gsi:<id>" | "pw:<id>". Restores the tab on reload the same way
+     taskViewPref restores board-vs-list, and eisenhower.js persists it
+     with persist(false) for the same reason: switching tabs isn't an
+     edit, so it must not be able to win a sync conflict over data someone
+     actually typed on another device (see persist() in this file). */
+  eisActiveProject: "all",
+  /* User-chosen order of the Eisenhower Matrix's project tabs, as the
+     same "gsi:<id>" / "pw:<id>" keys projectList() in eisenhower.js
+     builds — "All projects" and "No project" are fixed and never appear
+     here. Must exist in DEFAULT_STATE for the same reason navOrder does
+     (below): merge() builds every document from these defaults, so an
+     absent key is a key the cloud copy would never carry. Given the same
+     empty-never-beats-nonempty merge treatment as navOrder, in
+     supabase.js, for the same reason. */
+  eisTabOrder: [],
   /* Order of the Spaces in the sidebar, as data-page keys. Has to exist in
      DEFAULT_STATE rather than only being written when someone drags
      something: merge() builds every document from these defaults, so a key
