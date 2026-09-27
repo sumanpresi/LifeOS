@@ -21,11 +21,11 @@
    — gsiCardHtml for Work·GSI, pwCardHtml for Personal Workspace,
    boardCardHtml for loose tasks — so every control, date picker, flag,
    status select and link on a card keeps working inside the matrix. */
-import { state, esc, persist, rerender, uid, touch } from './state.js?v=202609271705';
-import { gsiCardHtml, addProjectTaskRaw } from './gsi.js?v=202609271705';
-import { pwCardHtml, addPwProjectTaskRaw } from './personal.js?v=202609271705';
-import { boardCardHtml, findAnyTask, createNativeTask, openTaskCardDetail, markDragJustEnded } from './tasks.js?v=202609271705';
-import { toast, autoGrow } from './ui.js?v=202609271705';
+import { state, esc, persist, rerender, uid, touch } from './state.js?v=202609271830';
+import { gsiCardHtml, addProjectTaskRaw } from './gsi.js?v=202609271830';
+import { pwCardHtml, addPwProjectTaskRaw } from './personal.js?v=202609271830';
+import { boardCardHtml, findAnyTask, createNativeTask, openTaskCardDetail, markDragJustEnded } from './tasks.js?v=202609271830';
+import { toast, autoGrow } from './ui.js?v=202609271830';
 
 /* Display labels only — the stored value on each task (t.eis) keeps its
    original key ("do" / "schedule" / "delegate" / "eliminate") so nothing
@@ -574,6 +574,7 @@ function quadrantHtml(q, entries) {
               ${cardFor(e)}
               ${menu(e.t.id)}
             </div>
+            <span class="eis-drag-handle" aria-hidden="true">⠿⠿</span>
           </div>`).join("")}
         <p class="eis-empty">Drop tasks here</p>
       </div>
@@ -725,33 +726,55 @@ function wireDragAndDrop() {
   sortables = [];
   if (typeof Sortable === "undefined") return;   // lazy-loaded; the Move menu still works
 
+  /* Touch gets a dedicated handle; mouse still doesn't. Whole-card dragging
+     (the comment below explains why it works for mouse) turned out to
+     genuinely conflict with scrolling on an actual touchscreen: dragging
+     needs the browser to hand a touch's moves entirely to Sortable's own
+     tracking, but scrolling — the quadrant list vertically, the board
+     horizontally — needs the OPPOSITE, the browser handling those same
+     moves itself. touch-action is how a browser is told which one to do,
+     and it's decided ONCE, at the moment a finger first touches down, for
+     that finger's whole gesture — not re-decided as the finger moves over
+     different elements. So the two behaviours can't coexist on one shared
+     touch surface no matter how the delay or the CSS override is tuned;
+     they only stop fighting once each has its OWN surface to start from.
+     Hence .eis-drag-handle (eisenhower.css): a small grip, touch-action:
+     none, that exists ONLY on a touchscreen (hidden entirely under
+     hover:hover, i.e. a real pointer) — a finger that lands there commits
+     that touch to Sortable from the first instant, with nothing else on
+     the card affected; a finger anywhere else still just taps or scrolls,
+     exactly as before. Mouse keeps the whole card as the drag surface,
+     unchanged — a mouse click doesn't have this conflict to begin with,
+     since preventDefault on a mouse event isn't racing the browser's own
+     touch-scroll decision the way it is on a touchscreen. */
+  const isTouch = !!(window.matchMedia && window.matchMedia("(hover: none)").matches);
+
   document.querySelectorAll("#eisenhower .eis-q-body").forEach(body => {
     sortables.push(Sortable.create(body, {
       group: "eisenhower",
       draggable: ".eis-item",
-      /* NO handle — the whole card is the drag surface, exactly as on the
-         Work·GSI and Personal boards. `filter` is what keeps every other
-         interactive part of the card behaving normally (tapping the
-         checkbox toggles it, opening the status/project select opens it,
-         a link opens) rather than getting swallowed as a drag attempt;
-         preventOnFilter:false is what makes the filtered elements still
-         work at all — without it Sortable eats the click/change event it
-         just vetoed, and the checkbox, the status select etc. go dead.
+      handle: isTouch ? ".eis-drag-handle" : undefined,
+      /* `filter` still matters on both inputs: on mouse it's the only
+         thing keeping every other interactive part of the card behaving
+         normally (tapping the checkbox toggles it, opening the status/
+         project select opens it, a link opens) rather than getting
+         swallowed as a drag attempt; preventOnFilter:false is what makes
+         the filtered elements still work at all — without it Sortable
+         eats the click/change event it just vetoed, and the checkbox, the
+         status select etc. go dead. On touch it's a defensive second
+         layer behind `handle` above, not the thing actually doing the
+         work — a real drag there can only ever start from the handle.
 
          .gsi-title is deliberately NOT in this list, even though it is a
-         <textarea>. It used to be, on the theory that a press on it
-         should always place a caret — but on a touch screen the title is
-         most of the visible card, so almost every real drag attempt
-         started there, and being filtered meant Sortable ignored it
-         completely: the browser's own press-and-hold-to-select gesture
-         ran instead, which is the "text gets selected when I try to drag"
-         bug this is fixing. Leaving it draggable lets `delay` (below) do
-         its job — a quick tap still reaches the textarea to focus and
-         type into it, since nothing here calls preventDefault before the
-         delay elapses; only a press held past it becomes a drag, exactly
-         the long-press-to-reorder feel Todoist's own cards use. Text
-         selection itself is turned off on the title in eisenhower.css so
-         that held press reads as "picking the card up", not "selecting".
+         <textarea>. On mouse a press on it should always place a caret,
+         and `delay` (below) is what makes that safe: nothing here calls
+         preventDefault before the delay elapses, so a quick click still
+         reaches the textarea to focus and type into it, and only a press
+         held past 200ms turns into a drag. On touch the handle already
+         means a press on the title can never start a drag in the first
+         place, so this is belt-and-braces there, not load-bearing — but
+         text selection is still turned off on the title in eisenhower.css
+         so a long press on it reads as inert rather than selecting text.
 
          Otherwise identical to gsi.js and personal.js apart from
          .composer, which the matrix has no equivalent of. .t-chk is kept
