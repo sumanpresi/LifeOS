@@ -21,11 +21,11 @@
    — gsiCardHtml for Work·GSI, pwCardHtml for Personal Workspace,
    boardCardHtml for loose tasks — so every control, date picker, flag,
    status select and link on a card keeps working inside the matrix. */
-import { state, esc, persist, rerender, uid, touch } from './state.js?v=202609271830';
-import { gsiCardHtml, addProjectTaskRaw } from './gsi.js?v=202609271830';
-import { pwCardHtml, addPwProjectTaskRaw } from './personal.js?v=202609271830';
-import { boardCardHtml, findAnyTask, createNativeTask, openTaskCardDetail, markDragJustEnded } from './tasks.js?v=202609271830';
-import { toast, autoGrow } from './ui.js?v=202609271830';
+import { state, esc, persist, rerender, uid, touch } from './state.js?v=202609271900';
+import { gsiCardHtml, addProjectTaskRaw } from './gsi.js?v=202609271900';
+import { pwCardHtml, addPwProjectTaskRaw } from './personal.js?v=202609271900';
+import { boardCardHtml, findAnyTask, createNativeTask, openTaskCardDetail, markDragJustEnded } from './tasks.js?v=202609271900';
+import { toast, autoGrow } from './ui.js?v=202609271900';
 
 /* Display labels only — the stored value on each task (t.eis) keeps its
    original key ("do" / "schedule" / "delegate" / "eliminate") so nothing
@@ -43,6 +43,7 @@ const QUAD_KEYS = QUADRANTS.map(q => q.key);
 let activeProject = "all";      // "all" | "none" | "gsi:<id>" | "pw:<id>"
 let dupWarningSignature = "";   // last duplicate-name set the notice was shown for
 let sortables = [];
+let lastRenderedProject = null; // which tab the current DOM was painted for (scroll restore)
 
 /* ---- inline "add task" composer ----
 
@@ -337,7 +338,7 @@ export function setTaskQuadrant(id, quadrant) {
 function commitEisDrop(id, toBody) {
   const quadrant = toBody && toBody.dataset.quadrant;
   const found = findAnyTask(id);
-  if (!id || !quadrant || !found || !found.task) return renderEisenhower();
+  if (!id || !quadrant || !found || !found.task) { setTimeout(renderEisenhower, 0); return; }
   const crossQuadrant = found.task.eis !== quadrant;
   if (crossQuadrant) { found.task.eis = quadrant; touch(found.task); }
   /* Only pass the dragged task's id as "incoming" when it genuinely just
@@ -352,8 +353,17 @@ function commitEisDrop(id, toBody) {
   /* Full repaint, not a single card: a cross-quadrant move can renumber
      several siblings in the destination (everything after the drop point),
      and a same-quadrant reorder renumbers the whole list — all of which
-     need their new order reflected, not just the dragged card. */
-  renderEisenhower();
+     need their new order reflected, not just the dragged card.
+
+     But NOT synchronously. This runs inside Sortable's own onEnd, and
+     renderEisenhower() → wireDragAndDrop() destroys every Sortable
+     instance — including the one whose _onDrop is still on the stack and
+     has yet to run its save() and _nulling(). Destroying an instance from
+     inside its own drop handler is the re-entrancy js/drag-cleanup.js
+     documents. The data is already written above and the DOM already
+     shows the drop (Sortable put the card there), so nothing is lost by
+     painting one tick later, after Sortable has fully let go. */
+  setTimeout(renderEisenhower, 0);
 }
 
 /* ---- the composer ----
@@ -607,7 +617,26 @@ export function renderEisenhower() {
      field existed. */
   byQuad.forEach(list => list.sort((a, b) => compareEisOrder(a.t, b.t)));
 
-  /* .eis-board-scroll is the horizontal-swipe track on narrower screens
+  /* Scroll survives the repaint. innerHTML below throws away the swipe
+     track and all four quadrant scrollers, and new ones start at 0 — so
+     every drop snapped the phone board back to "Do first" (drop a card in
+     Delete, and you're suddenly looking at Q1/Q2) and every quadrant list
+     jumped back to its top card. Captured by quadrant key, not by index,
+     and the per-quadrant offsets are only restored when the project tab
+     is the same one that was showing — a different project is a
+     different list, and landing halfway down it would be the stranger
+     outcome. The track's sideways position is kept either way. */
+  const prevTrack = host.querySelector(".eis-board-scroll");
+  const prevLeft = prevTrack ? prevTrack.scrollLeft : 0;
+  const prevTops = {};
+  if (lastRenderedProject === activeProject) {
+    host.querySelectorAll(".eis-q-body[data-quadrant]").forEach(b => {
+      prevTops[b.dataset.quadrant] = b.scrollTop;
+    });
+  }
+  lastRenderedProject = activeProject;
+
+  /* .eis-board-scroll is the horizontal-swipe track on PHONES only
      (eisenhower.css turns .eis-grid itself into a single flex row there,
      Do first → Decide → Delegate → Delete, left to right); on desktop the
      wrapper is a plain, non-scrolling box and .eis-grid keeps today's
@@ -639,6 +668,16 @@ export function renderEisenhower() {
      so a two-line task title was silently clipped to its first line. Must
      run after innerHTML, since scrollHeight is meaningless before layout. */
   document.querySelectorAll("#eisenhower textarea").forEach(autoGrow);
+
+  /* Put the scroll positions captured above back — after autoGrow, since
+     growing the titles is what gives each list its real height to scroll
+     within. The browser clamps anything past the new end on its own. */
+  const track = host.querySelector(".eis-board-scroll");
+  if (track && prevLeft) track.scrollLeft = prevLeft;
+  host.querySelectorAll(".eis-q-body[data-quadrant]").forEach(b => {
+    const top = prevTops[b.dataset.quadrant];
+    if (top) b.scrollTop = top;
+  });
 
   /* Titles are read-only here, in the matrix specifically. gsiCardHtml and
      pwCardHtml render the title as an editable <textarea> because that's
@@ -822,7 +861,14 @@ function wireDragAndDrop() {
          dragover by default, so without this flag it would silently never
          scroll anything once fallback mode was already forced on. */
       scroll: true, bubbleScroll: true, forceAutoScrollFallback: true,
-      scrollSensitivity: 90, scrollSpeed: 14,
+      /* Touch gets a 40px edge zone, mouse keeps 90. On touch the grip is
+         the card's RIGHT edge, which sat inside a 90px zone from the very
+         first instant of a lift: the swipe-track started sliding the next
+         quadrant under a finger that hadn't moved, and the card dropped
+         there (Q1 9 -> 8 in the recording). 90px was also ~60% of a
+         short quadrant list's height, so lists scrolled under a card being
+         reordered. Desktop is unchanged. */
+      scrollSensitivity: isTouch ? 40 : 90, scrollSpeed: isTouch ? 10 : 14,
       /* Explicit highlight rather than relying only on :has() support —
          fires continuously while a card is dragged over any quadrant, so
          the destination panel visibly reacts (border glow, brighter
@@ -834,24 +880,20 @@ function wireDragAndDrop() {
         return true;
       },
       ghostClass: "eis-ghost", dragClass: "eis-dragging", chosenClass: "eis-chosen",
-      /* onChoose fires the moment a finger presses a draggable card — before
-         the 200ms delay confirms it's actually a drag, but that's exactly
-         when the touch's own identifier is available. That identifier is
-         what wireSecondFingerBoardScroll below needs to tell "the finger
-         that's dragging" apart from "a second finger that just landed to
-         scroll" — recorded here rather than in onStart because a second
-         finger could plausibly land during the delay too, holding steady
-         while the first one is still only "chosen". */
-      onChoose: evt => {
+      /* The drag finger's pointerId is recorded by the multi-touch layer
+         below (on the grip's own pointerdown); these callbacks only open
+         and close the window during which that layer is allowed to act.
+         onStart, not onChoose: a second finger landing during the 200ms
+         lift delay should still cancel the lift, exactly as before. */
+      onChoose: () => document.body.classList.add("is-dragging"),
+      onStart: () => {
         document.body.classList.add("is-dragging");
-        const oe = evt.originalEvent;
-        dragTouchId = (oe && oe.touches && oe.touches.length) ? oe.touches[0].identifier : null;
+        eisDragLive = true;
       },
-      onStart: () => document.body.classList.add("is-dragging"),
       onEnd: evt => {
         document.body.classList.remove("is-dragging");
-        dragTouchId = null;
-        scrollTouchId = null;
+        eisDragLive = false;
+        endScrollFinger();
         /* Tell the shared guard a drag just finished. A drop lands a
            pointerup on the card, and now that the card opens the task,
            every move would otherwise end with the modal in your face.
@@ -864,80 +906,151 @@ function wireDragAndDrop() {
     }));
   });
 
-  wireSecondFingerBoardScroll();
+  wireMultiTouch();
 }
 
-/* ---------- a second finger, scrolling the board while the first drags ----
+/* ---------- two fingers: one holds the card, the other scrolls ----------
 
-   SortableJS tracks exactly one touch — whichever one is doing the drag —
-   and has no notion of a second, independent one; there is no config
-   option that adds this. This layer sits ALONGSIDE Sortable rather than
-   inside it: bound once, directly on document, it watches for a second
-   finger landing on the board while a drag is already in progress
-   (body.is-dragging, set by onChoose/onStart above) and scrolls
-   .eis-board-scroll by that finger's own movement using plain
-   `scrollLeft` arithmetic — not native touch-panning, which has no way to
-   single out "the OTHER finger" from the one Sortable is already tracking.
+   THE BUG IN THE OLD VERSION, from SortableJS 1.15's own source.
+   On Chrome/Android (and iOS) Sortable runs on POINTER events —
+   supportPointer is on wherever PointerEvent exists — and it binds them on
+   the whole document:
 
-   Deliberately narrow, for the same reason the earlier analysis of the
-   reference videos recommended against a bespoke dual-pointer controller:
-   this layer only ever reads touch coordinates and writes scrollLeft. It
-   never calls preventDefault or stopPropagation, so it cannot swallow or
-   redirect the event Sortable is separately reading off the very same
-   TouchEvent for the drag finger's identifier — the two are independent
-   consumers of the same browser event, not a chain where one can block
-   the other. What it can't do anything about is Sortable's own hit-testing
-   only running when the DRAG finger moves; if the drag finger holds still
-   while the second finger scrolls the board underneath it, the highlighted
-   drop quadrant will catch up on the drag finger's next movement rather
-   than updating instantly — a real limitation of bolting this onto a
-   single-pointer library rather than a gap in this code.
+       on(document, 'pointermove', this._onTouchMove);
+       on(ownerDocument, 'pointerup',     _this._onDrop);
+       on(ownerDocument, 'pointercancel', _this._onDrop);
 
-   This has been checked for logic and syntax only. It has NOT been
-   confirmed on an actual touchscreen — this environment has none — so
-   treat it as a first cut to test on a real phone, not a finished
-   guarantee. */
-let dragTouchId = null;
-let scrollTouchId = null;
-let scrollTouchStartX = 0;
-let scrollTouchStartLeft = 0;
-let secondFingerWired = false;
+   None of those check pointerId. Every finger on the glass is "the drag"
+   as far as Sortable is concerned, so with a second finger down, moving
+   it moved the CARD to that finger and hit-tested under it (reproduced in
+   Chromium with real two-finger input). Its pointerup/pointercancel also
+   reach _onDrop, which is a premature drop waiting to happen. The previous
+   second-finger code listened to TOUCH events, a separate stream, so it
+   could scroll the board but could never stop Sortable seeing the finger —
+   and it could only scroll sideways, never a quadrant list or the page.
 
-function wireSecondFingerBoardScroll() {
-  if (secondFingerWired) return;   // bind once, ever — not once per render
-  secondFingerWired = true;
+   THE FIX. One small filter in front of Sortable, on window in the
+   CAPTURE phase — the first listener any pointer event reaches, before it
+   gets down to Sortable's document-level handlers:
+     • the drag finger's events pass through untouched, so Sortable
+       behaves exactly as it does for a one-finger drag;
+     • any OTHER touch pointer's down/move/up/cancel is stopped right
+       there, so Sortable never learns a second finger exists;
+     • and that second finger's movement is turned into scrolling:
+         sideways → the phone swipe-track (which quadrant is showing),
+         up/down  → the quadrant list it started on, and once that list
+                    hits its end, the page (on the Fold 2x2, that's how
+                    the bottom row comes into reach).
+   Native scrolling can't do this job: while a card is lifted Sortable
+   calls preventDefault on every touchmove (to stop the page panning under
+   the drag), which blocks the browser from panning for ANY finger.
 
-  document.addEventListener("touchstart", evt => {
-    if (!document.body.classList.contains("is-dragging")) return;
-    if (scrollTouchId !== null) return;   // already tracking a second finger
-    for (const t of evt.changedTouches) {
-      if (t.identifier === dragTouchId) continue;   // that's the drag finger, not a new one
-      const board = t.target.closest && t.target.closest("#eisenhower .eis-board-scroll");
-      if (!board) continue;
-      scrollTouchId = t.identifier;
-      scrollTouchStartX = t.clientX;
-      scrollTouchStartLeft = board.scrollLeft;
-      break;
+   PRECISE DROP. Sortable re-runs its hit test every 50ms during a
+   fallback drag (_loopId → _emulateDragOver), using the drag finger's
+   last position, whether or not that finger moved. So when the second
+   finger scrolls content under a stationary first finger, the gap
+   (placeholder) re-positions to the exact slot now under the card within
+   one tick — you can scroll, stop, and drop precisely between two cards.
+
+   The mouse is untouched: nothing here acts on a non-touch pointer. */
+let eisDragLive = false;       // a lift has actually started (Sortable onStart → onEnd)
+let dragPointerId = null;      // the finger holding the card
+let scrollPointerId = null;    // the finger doing the scrolling, while one is down
+let scrollLastX = 0, scrollLastY = 0;
+let scrollListEl = null;       // the quadrant list the scroll finger started on, if any
+let multiTouchWired = false;
+
+function endScrollFinger() {
+  scrollPointerId = null;
+  scrollListEl = null;
+}
+
+/* Scroll the list the finger started on first; whatever it can't absorb
+   (it's at its top or bottom, or the finger started outside every list)
+   goes to the page. Same hand-off a native nested scroll does. */
+function scrollVertically(dy) {
+  if (!dy) return;
+  let rest = dy;
+  if (scrollListEl && scrollListEl.isConnected) {
+    const before = scrollListEl.scrollTop;
+    scrollListEl.scrollTop = before + rest;
+    rest -= scrollListEl.scrollTop - before;
+  }
+  if (Math.abs(rest) >= 1) window.scrollBy(0, rest);
+}
+
+function scrollHorizontally(dx) {
+  if (!dx) return;
+  const track = document.querySelector("#eisenhower .eis-board-scroll");
+  /* Only the phone swipe-row actually scrolls sideways; on the 2x2 the
+     track has no overflow and this is a no-op. */
+  if (track && track.scrollWidth > track.clientWidth) track.scrollLeft += dx;
+}
+
+function isOtherTouch(e) {
+  return e.pointerType === "touch" && e.pointerId !== dragPointerId;
+}
+
+function wireMultiTouch() {
+  if (multiTouchWired) return;   // bind once, ever — not once per render
+  multiTouchWired = true;
+  const cap = { capture: true };
+
+  window.addEventListener("pointerdown", e => {
+    if (e.pointerType !== "touch") return;
+    if (!eisDragLive) {
+      /* Not dragging yet: note which finger pressed a grip. If this press
+         becomes a lift, it is the drag finger. A press anywhere else is
+         ignored, so an ordinary tap can never be mistaken for it. */
+      if (e.target.closest && e.target.closest("#eisenhower .eis-drag-handle")) dragPointerId = e.pointerId;
+      return;
     }
-  }, { passive: true });
+    if (e.pointerId === dragPointerId) return;
+    e.stopImmediatePropagation();          // Sortable must never see it
+    if (scrollPointerId !== null) return;  // a third finger: ignored entirely
+    scrollPointerId = e.pointerId;
+    scrollLastX = e.clientX;
+    scrollLastY = e.clientY;
+    scrollListEl = e.target.closest ? e.target.closest("#eisenhower .eis-q-body") : null;
+  }, cap);
 
-  document.addEventListener("touchmove", evt => {
-    if (scrollTouchId === null) return;
-    let moved = null;
-    for (const t of evt.touches) { if (t.identifier === scrollTouchId) { moved = t; break; } }
-    if (!moved) return;
-    const board = document.querySelector("#eisenhower .eis-board-scroll");
-    if (!board) return;
-    board.scrollLeft = scrollTouchStartLeft - (moved.clientX - scrollTouchStartX);
-  }, { passive: true });
+  window.addEventListener("pointermove", e => {
+    if (!eisDragLive || !isOtherTouch(e)) return;
+    e.stopImmediatePropagation();
+    if (e.pointerId !== scrollPointerId) return;
+    /* Finger moves up → content moves up → scroll position increases,
+       the same direction a normal one-finger scroll goes. 1:1 with the
+       finger, no acceleration, so a small nudge means a small nudge. */
+    const dx = scrollLastX - e.clientX;
+    const dy = scrollLastY - e.clientY;
+    scrollLastX = e.clientX;
+    scrollLastY = e.clientY;
+    scrollHorizontally(dx);
+    scrollVertically(dy);
+  }, cap);
 
-  const releaseScrollTouch = evt => {
-    for (const t of evt.changedTouches) {
-      if (t.identifier === scrollTouchId) { scrollTouchId = null; break; }
-    }
+  const release = e => {
+    if (!eisDragLive || !isOtherTouch(e)) return;
+    /* Stopped here, the second finger lifting no longer reaches Sortable's
+       pointerup → _onDrop — the card stays in hand — nor app.js's release
+       safety net, which would clear body.is-dragging and let a background
+       repaint through under the held card. */
+    e.stopImmediatePropagation();
+    if (e.pointerId === scrollPointerId) endScrollFinger();
   };
-  document.addEventListener("touchend", releaseScrollTouch, { passive: true });
-  document.addEventListener("touchcancel", releaseScrollTouch, { passive: true });
+  window.addEventListener("pointerup", release, cap);
+  window.addEventListener("pointercancel", release, cap);
+
+  /* The same finger also produces a touchend, which app.js's safety net
+     listens for as well. While the card is still held, any touch that
+     ends with at least one finger left on the glass is the second finger
+     (the drag finger's pointerup has already ended the drag, and turned
+     eisDragLive off, before its touchend is dispatched). */
+  const touchRelease = e => {
+    if (eisDragLive && e.touches && e.touches.length > 0) e.stopImmediatePropagation();
+  };
+  window.addEventListener("touchend", touchRelease, cap);
+  window.addEventListener("touchcancel", touchRelease, cap);
 }
 
 /* ---------- the Move menu ----------
