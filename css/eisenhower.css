@@ -73,20 +73,27 @@
    gives mouse no delay, by design). So with more projects than fit in one
    line, the rest were simply unreachable on desktop.
 
-   Here every tab stays visible on as many lines as it needs. "All
-   projects" stays pinned at the start (and "No project", when shown, at
-   the end), and the reorderable group fills the space between them and
-   wraps within it. The group needs flex:1 1 0 + min-width:0 to sit
-   BESIDE "All projects" rather than dropping to a line of its own — with
-   the default basis it would ask for its full one-line width and wrap as
-   a whole. align-items:flex-start stops the fixed tabs stretching to the
-   height of a multi-line group. Sortable reorders across wrapped lines
-   natively (it hit-tests each tab's own rect), so drag-to-reorder is
-   unchanged. Touch screens (Fold, phones, tablets) are not matched here
-   and keep the swipe strip. */
+   The tabs now wrap as ONE continuous run: "All projects", every project,
+   then "No project" straight after the last one, with each new line
+   starting at the left edge — like words in a paragraph.
+
+   That needs the reorderable group (#eisTabsDrag) to stop being a box of
+   its own. The first version made it a flex item that wrapped internally,
+   which put it between the two fixed tabs as a block: "No project" was
+   pushed to the far right past a big empty gap, and every wrapped line
+   was indented under the first project tab instead of starting at the
+   edge. display:contents removes the group's box from layout, so its tabs
+   are laid out as direct siblings of "All projects" and "No project" in
+   .eis-tabs' own flex-wrap — while the DOM, and therefore Sortable's drag
+   boundary (only data-key tabs inside the group move), is unchanged.
+   Sortable reorders across wrapped lines by hit-testing each tab's own
+   box, and is told the axis explicitly in wireTabDragAndDrop rather than
+   measuring the group, so the group having no box of its own doesn't
+   matter to it. Touch screens (Fold, phones, tablets) are not matched
+   here and keep the swipe strip. */
 @media (hover:hover) and (pointer:fine){
-  .eis-tabs{flex-wrap:wrap;overflow-x:visible;align-items:flex-start;row-gap:8px}
-  .eis-tabs-drag{flex:1 1 0;min-width:0;flex-wrap:wrap;row-gap:8px}
+  .eis-tabs{flex-wrap:wrap;overflow-x:visible;row-gap:8px}
+  .eis-tabs-drag{display:contents}
 }
 
 /* ---- the horizontal-swipe track ----
