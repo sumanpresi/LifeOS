@@ -833,6 +833,12 @@ function wireTabDragAndDrop() {
   tabSortable = Sortable.create(group, {
     animation: 150,
     draggable: ".eis-tab[data-key]",   // "All projects" / "No project" live outside this group entirely — see tabsHtml
+    /* Stated, not detected. Sortable normally works out the axis by
+       reading the group's own CSS (display:flex → horizontal). On mouse
+       screens eisenhower.css gives the group display:contents so its tabs
+       wrap in one run with the fixed tabs — and a box-less element has no
+       flex display to read. Tabs always run left-to-right, so say so. */
+    direction: "horizontal",
     delay: 250,
     delayOnTouchOnly: true,   // a plain tap still switches tabs instantly; only a held touch starts a drag
     touchStartThreshold: 6,
