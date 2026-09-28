@@ -64,6 +64,31 @@
   transform:scale(1.03);
 }
 
+/* Mouse / trackpad screens: WRAP the tabs instead of scrolling them.
+   The strip above is a sideways-scrolling row with its scrollbar hidden,
+   which is right for touch — a finger swipes it — but left a mouse with
+   no way to reach the tabs past the right edge: the wheel scrolls
+   vertically, there's no scrollbar to grab, and click-dragging a tab
+   doesn't pan the strip, it starts REORDERING that tab (wireTabDragAndDrop
+   gives mouse no delay, by design). So with more projects than fit in one
+   line, the rest were simply unreachable on desktop.
+
+   Here every tab stays visible on as many lines as it needs. "All
+   projects" stays pinned at the start (and "No project", when shown, at
+   the end), and the reorderable group fills the space between them and
+   wraps within it. The group needs flex:1 1 0 + min-width:0 to sit
+   BESIDE "All projects" rather than dropping to a line of its own — with
+   the default basis it would ask for its full one-line width and wrap as
+   a whole. align-items:flex-start stops the fixed tabs stretching to the
+   height of a multi-line group. Sortable reorders across wrapped lines
+   natively (it hit-tests each tab's own rect), so drag-to-reorder is
+   unchanged. Touch screens (Fold, phones, tablets) are not matched here
+   and keep the swipe strip. */
+@media (hover:hover) and (pointer:fine){
+  .eis-tabs{flex-wrap:wrap;overflow-x:visible;align-items:flex-start;row-gap:8px}
+  .eis-tabs-drag{flex:1 1 0;min-width:0;flex-wrap:wrap;row-gap:8px}
+}
+
 /* ---- the horizontal-swipe track ----
    On a narrow screen the four quadrants stop being a 2x2 grid and become a
    single scrollable row instead (see the max-width:980px block below,
