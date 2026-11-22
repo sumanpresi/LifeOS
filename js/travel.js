@@ -3,18 +3,18 @@
    (OpenStreetMap tiles, no API key or billing needed) with drawing tools —
    markers, lines, shapes — that save as GeoJSON and reload fully editable.
    The Route Map tab still uses Google's no-key directions embed. */
-import { state, uid, esc, persist, rerender } from './state.js?v=202609271345';
-import { loadMapLibs } from './lazy-libs.js?v=202609271345';
-import { toast } from './ui.js?v=202609271345';
-import { attachFreehandTool } from './leaflet-freehand.js?v=202609271345';
-import { geocodeOne } from './geocode.js?v=202609271345';
-import { addBaseLayer, enableClickToScrollZoom, WHEEL_ZOOM_OPTS } from './map-basemap.js?v=202609271345';
-import { addFullscreenControl } from './map-fullscreen.js?v=202609271345';
-import { moveToTrash } from './trash.js?v=202609271345';
-import { getCurrentLocation } from './geolocation.js?v=202609271345';
-import { attachClickCoordinates } from './map-click-coords.js?v=202609271345';
-import { mountRichEditor, unmountRichEditor, getRichEditor } from './rich-text.js?v=202609271345';
-import { sanitizeHtml } from './sanitize.js?v=202609271345';
+import { state, uid, esc, persist, rerender } from './state.js?v=d2f65e39d3';
+import { loadMapLibs } from './lazy-libs.js?v=d2f65e39d3';
+import { toast } from './ui.js?v=d2f65e39d3';
+import { attachFreehandTool } from './leaflet-freehand.js?v=d2f65e39d3';
+import { geocodeOne } from './geocode.js?v=d2f65e39d3';
+import { addBaseLayer, enableClickToScrollZoom, WHEEL_ZOOM_OPTS } from './map-basemap.js?v=d2f65e39d3';
+import { addFullscreenControl } from './map-fullscreen.js?v=d2f65e39d3';
+import { moveToTrash } from './trash.js?v=d2f65e39d3';
+import { getCurrentLocation } from './geolocation.js?v=d2f65e39d3';
+import { attachClickCoordinates } from './map-click-coords.js?v=d2f65e39d3';
+import { mountRichEditor, unmountRichEditor, getRichEditor } from './rich-text.js?v=d2f65e39d3';
+import { sanitizeHtml } from './sanitize.js?v=d2f65e39d3';
 
 let travelView = "itinerary"; // "itinerary" | "route"
 

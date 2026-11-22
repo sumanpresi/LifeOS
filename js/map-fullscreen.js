@@ -12,7 +12,7 @@
    works everywhere unconditionally — if the native API isn't there or
    the browser refuses the request for any reason. Fullscreen is a bonus
    when available, never a requirement. */
-import { expandView } from './expand-view.js?v=202609271345';
+import { expandView } from './expand-view.js?v=d2f65e39d3';
 
 function getRequestFullscreen(el) {
   return el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen || null;

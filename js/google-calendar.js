@@ -16,14 +16,14 @@
      substantially bigger follow-up, not included here.
    - Only tasks with a due date sync — tasks without one have nothing
      to put on a calendar.
-   - "Ongoing" beyond the app being open is handled by
-     api/google-calendar-cron.js on a schedule (see vercel.json) —
-     without that, sync would only ever happen at the moment you're
-     actively using LifeOS. */
-import { GOOGLE_CLIENT_ID } from './config.js?v=202609271345';
-import { state, persist } from './state.js?v=202609271345';
-import { toast } from './ui.js?v=202609271345';
-import { getAccessToken } from './supabase.js?v=202609271345';
+   - Anything missed while the app was closed is caught up by
+     catchUpPendingQuietly() below, once a day per device after the first
+     sync. (This used to be a scheduled server function,
+     api/google-calendar-cron.js — removed; see the note there.) */
+import { GOOGLE_CLIENT_ID } from './config.js?v=d2f65e39d3';
+import { state, persist } from './state.js?v=d2f65e39d3';
+import { toast } from './ui.js?v=d2f65e39d3';
+import { getAccessToken } from './supabase.js?v=d2f65e39d3';
 
 let warnedThisSession = false; // see syncTaskToGoogle — one toast per session for Google-side rejections
 const REDIRECT_URI = () => location.origin + location.pathname;
@@ -177,14 +177,11 @@ export async function syncTaskToGoogle(task, action) {
    long wait when you've just connected, or just fixed something, and want
    to see whether it works. This walks the same candidates the cron does:
    anything with a date, not done, never given a googleEventId. */
-export async function syncAllPendingToGoogle() {
-  if (!googleCalendarConfigured()) { toast("Google Calendar isn't configured yet — see js/config.js"); return; }
-  if (!isGoogleCalendarConnected()) { toast("Connect Google Calendar first"); return; }
-
-  // GSI project tasks use date/status where native tasks use dueDate/done.
-  // Shimmed to one shape so syncTaskToGoogle sees what it expects, with
-  // the real object kept alongside so googleEventId lands on it.
-  const pending = [
+// GSI project tasks use date/status where native tasks use dueDate/done.
+// Shimmed to one shape so syncTaskToGoogle sees what it expects, with
+// the real object kept alongside so googleEventId lands on it.
+function pendingCalendarTasks() {
+  return [
     ...(state.tasks || [])
       .filter(t => t.dueDate && !t.done && !t.googleEventId)
       .map(t => ({ ref: t, shim: t })),
@@ -192,6 +189,40 @@ export async function syncAllPendingToGoogle() {
       .filter(t => t.date && t.status !== "done" && !t.googleEventId)
       .map(t => ({ ref: t, shim: { text: t.text, dueDate: t.date, googleEventId: null } })))),
   ];
+}
+
+/* The daily catch-up, done in the app instead of on a server.
+
+   This used to be api/google-calendar-cron.js: a scheduled Vercel
+   function that downloaded the entire LifeOS document with the
+   service-role key once a day. Once the cloud row became compressed it
+   could no longer read it, so for weeks it found "no tasks" and did
+   nothing. Rather than teach a server to read the document, the device
+   that already holds it does the job: once per day per device, after the
+   first successful sync (so it works from the merged, current list), it
+   creates events for any dated task still without one. No server read,
+   no extra Supabase egress, and usually no request at all because there
+   is nothing pending. Quiet: no toasts unless Google rejects something. */
+const CATCHUP_KEY = "lifeos-gcal-catchup-day";
+export async function catchUpPendingQuietly() {
+  if (!googleCalendarConfigured() || !isGoogleCalendarConnected()) return;
+  const today = new Date().toISOString().slice(0, 10);
+  try { if (localStorage.getItem(CATCHUP_KEY) === today) return; localStorage.setItem(CATCHUP_KEY, today); }
+  catch (_) { /* storage unavailable — still fine to run once this session */ }
+  const pending = pendingCalendarTasks();
+  for (const { ref, shim } of pending) {
+    await syncTaskToGoogle(shim, "create");
+    if (shim.googleEventId && ref !== shim) ref.googleEventId = shim.googleEventId;
+    if (!isGoogleCalendarConnected()) break;
+  }
+  if (pending.length) persist();
+}
+
+export async function syncAllPendingToGoogle() {
+  if (!googleCalendarConfigured()) { toast("Google Calendar isn't configured yet — see js/config.js"); return; }
+  if (!isGoogleCalendarConnected()) { toast("Connect Google Calendar first"); return; }
+
+  const pending = pendingCalendarTasks();
   if (!pending.length) { toast("Nothing left to sync — every dated task already has an event"); return; }
 
   toast(`Syncing ${pending.length} task${pending.length > 1 ? "s" : ""} to Google Calendar…`);

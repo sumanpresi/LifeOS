@@ -14,7 +14,13 @@
    sidebar sortable — the boundary is enforced by the DOM, so it cannot
    drift later.
    ============================================================ */
-import { state, persist, onStateReplaced } from './state.js';
+/* Versioned like every other import. The bare './state.js' this used to
+   be is a DIFFERENT module URL than the versioned one, so the browser
+   loaded state.js a second time: a second `state` frozen at page load, a
+   second persist() with no cloud saver. Reordering the sidebar wrote that
+   stale page-load copy over the whole local document, and the new order
+   never reached the real state, so it never synced. */
+import { state, persist, onStateReplaced } from './state.js?v=d2f65e39d3';
 
 const GROUP_ID = "navSpaces";
 
