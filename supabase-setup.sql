@@ -43,3 +43,7 @@ create table if not exists public.google_calendar_tokens (
 alter table public.google_calendar_tokens enable row level security;
 -- Deliberately no policies here — service-role access bypasses RLS
 -- entirely, and that's the only access path this table should ever have.
+
+-- ============================================================
+-- Per-section sync: after this file, also run supabase-sections.sql.
+-- ============================================================

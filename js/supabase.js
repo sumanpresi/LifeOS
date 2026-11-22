@@ -1,16 +1,17 @@
 /* GitHub sign-in (via Supabase Auth), cloud storage, live sync. */
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=202609271345';
-import { state, replaceState, resetLocalStateForNewAccount, persist, setRemoteSaver, uid, esc, rerender, flushPendingSave } from './state.js?v=202609271345';
-import { setSyncPill, nowTime, toast, isUserTyping } from './ui.js?v=202609271345';
-import { pushCommunicationUpdate, mergeCommunication } from './communication-bridge.js?v=202609271345';
-import { pushNgdrTrackerUpdate } from './ngdr-tracker-bridge.js?v=202609271345';
-import { mergeBoardData } from './whiteboard.js?v=202609271345';
-import { takeSnapshot } from './backup.js?v=202609271345';
-import { moveToTrash } from './trash.js?v=202609271345';
-import { mergeNoteInk, redrawAllInk } from './note-ink.js?v=202609271345';
-import { hasUnsavedComposerDraft } from './composer.js?v=202609271345';
-import { flushJournalEditor } from './widgets.js?v=202609271345';
-import { flushNotebookEditor } from './notebook.js?v=202609271345';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './config.js?v=d2f65e39d3';
+import { state, replaceState, resetLocalStateForNewAccount, persist, setRemoteSaver, uid, esc, rerender, flushPendingSave } from './state.js?v=d2f65e39d3';
+import { setSyncPill, nowTime, toast, isUserTyping } from './ui.js?v=d2f65e39d3';
+import { pushCommunicationUpdate, mergeCommunication } from './communication-bridge.js?v=d2f65e39d3';
+import { pushNgdrTrackerUpdate } from './ngdr-tracker-bridge.js?v=d2f65e39d3';
+import { mergeBoardData } from './whiteboard.js?v=d2f65e39d3';
+import { takeSnapshot } from './backup.js?v=d2f65e39d3';
+import { moveToTrash } from './trash.js?v=d2f65e39d3';
+import { mergeNoteInk, redrawAllInk } from './note-ink.js?v=d2f65e39d3';
+import { hasUnsavedComposerDraft } from './composer.js?v=d2f65e39d3';
+import { flushJournalEditor } from './widgets.js?v=d2f65e39d3';
+import { flushNotebookEditor } from './notebook.js?v=d2f65e39d3';
+import { isSectionHead, sectionsSupported, fingerprintDoc, assembleDoc, planPush, normStamp, stampToIso } from './cloud-sections.js?v=d2f65e39d3';
 
 const CLIENT_ID = uid() + uid();
 const GH_SVG = '<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 .5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.56v-2c-3.2.7-3.87-1.54-3.87-1.54-.53-1.33-1.28-1.69-1.28-1.69-1.05-.71.08-.7.08-.7 1.16.08 1.77 1.19 1.77 1.19 1.03 1.76 2.7 1.25 3.36.96.1-.75.4-1.26.72-1.55-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.19-3.09-.12-.29-.52-1.46.11-3.05 0 0 .97-.31 3.18 1.18a11 11 0 0 1 5.8 0c2.2-1.49 3.17-1.18 3.17-1.18.63 1.59.23 2.76.11 3.05.74.81 1.19 1.83 1.19 3.09 0 4.41-2.69 5.38-5.25 5.67.41.35.77 1.05.77 2.12v3.14c0 .31.21.68.8.56A11.5 11.5 0 0 0 23.5 12 11.5 11.5 0 0 0 12 .5z"/></svg>';
@@ -453,21 +454,109 @@ let lastSelfStamp = null;     // the updated_at this tab itself last wrote
 let remoteStale = false;      // another tab says the cloud moved — probe before trusting the stamp
 
 function stampKey() { return STAMP_PREFIX + (user ? user.id : "anon"); }
+/* STAMPS ARE COMPARED AS EPOCH MILLISECONDS, NEVER AS RAW STRINGS.
+   This tab writes "…06.123Z"; Supabase reads it back as "…06.123+00:00"
+   (REST) or "… 06.123+00" (realtime). As strings those never matched, so
+   the probe after EVERY save reported "cloud moved" and the saving device
+   downloaded its own document straight back — and the realtime echo of
+   its own write was treated as another device. normStamp() reduces every
+   spelling to one form. Values already in localStorage in ISO form are
+   normalised on read, so no stored state needs migrating. */
 function loadStamp() {
   const uid = user ? user.id : "anon";
   if (lastRemoteStamp !== null && lastStampUser === uid) return lastRemoteStamp;
   lastStampUser = uid;
-  try { lastRemoteStamp = localStorage.getItem(stampKey()) || ""; }
+  try { lastRemoteStamp = normStamp(localStorage.getItem(stampKey()) || ""); }
   catch (_) { lastRemoteStamp = ""; }   // private browsing: in-session only, a reload re-reads once
   return lastRemoteStamp;
 }
-function commitStamp(stamp) {
+/* `manifest` is the section fingerprint list of the version being
+   committed — an object for a sectioned cloud row, null for a legacy
+   whole-document row (or when unknown). Recorded together with the stamp,
+   because it is only meaningful for exactly that version: a manifest
+   trusted against a different version would let a save skip a section the
+   cloud doesn't actually hold. */
+function commitStamp(stamp, manifest = null) {
+  stamp = normStamp(stamp);
   if (!stamp) return;
   lastStampUser = user ? user.id : "anon";
   lastRemoteStamp = stamp;
   remoteStale = false;
   try { localStorage.setItem(stampKey(), stamp); } catch (_) { /* private browsing */ }
+  writeManifest(stamp, manifest);
   announceRemoteChanged();
+}
+
+/* ---- the section manifest this tab agreed with ---- */
+const MANIFEST_PREFIX = "lifeos-sections-manifest:";
+let memManifest = null;   // fallback when localStorage is unavailable
+function manifestKey() { return MANIFEST_PREFIX + (user ? user.id : "anon"); }
+function writeManifest(stamp, m) {
+  memManifest = { s: stamp, m: m && typeof m === "object" ? m : null };
+  try { localStorage.setItem(manifestKey(), JSON.stringify(memManifest)); } catch (_) {}
+}
+function readManifest() {
+  try { const r = JSON.parse(localStorage.getItem(manifestKey())); if (r) return r; } catch (_) {}
+  return memManifest;
+}
+/* The manifest of the cloud version this tab last merged or wrote — or
+   null if this tab cannot vouch for one, in which case a save sends every
+   section. Always safe: lifeos_push() refuses a head naming a section the
+   cloud doesn't hold with that fingerprint. */
+function trustedManifest() {
+  const r = readManifest();
+  return r && r.m && r.s && r.s === loadStamp() ? r.m : null;
+}
+/* ---- "my copy of this section came from cloud version X" ----
+   A device that adopts a section runs it through merge() (state.js),
+   which fills in fields the sender's build never wrote — workDocGroups,
+   archivedTasks and so on. Same content, different bytes, so its own
+   fingerprint never matches the cloud's again, and every later pull
+   re-downloaded those sections in full although nothing had changed.
+
+   So each section remembers [localHash, cloudHash] whenever this device
+   has just merged that cloud version. On the next pull, a section whose
+   local fingerprint still equals localHash is reported to the server as
+   cloudHash — "I already hold that version" — and is not sent again. Any
+   local edit changes localHash, and the section is then compared
+   honestly. Content-keyed, not version-keyed, so it can't go stale: if
+   the cloud's section changes, its hash no longer matches cloudHash and
+   the server sends it. */
+const EQUIV_PREFIX = "lifeos-sections-equiv:";
+let memEquiv = {};
+function equivKey() { return EQUIV_PREFIX + (user ? user.id : "anon"); }
+function readEquiv() {
+  try { const r = JSON.parse(localStorage.getItem(equivKey())); if (r && typeof r === "object") return r; } catch (_) {}
+  return memEquiv;
+}
+function writeEquiv(map) {
+  memEquiv = map || {};
+  try { localStorage.setItem(equivKey(), JSON.stringify(memEquiv)); } catch (_) {}
+}
+/* What to tell the server this device holds, section by section. */
+function haveHashes(localHashes) {
+  const eq = readEquiv();
+  const have = {};
+  for (const [k, h] of Object.entries(localHashes)) have[k] = eq[k] && eq[k][0] === h ? eq[k][1] : h;
+  return have;
+}
+/* Called right after this device has merged sectioned cloud version
+   `manifest`: record, for every section whose local bytes differ from
+   the cloud's, that they are this device's copy of that version. */
+async function recordEquivalence(manifest) {
+  if (!manifest) return;
+  const { hashes } = await fingerprintDoc(state);
+  const eq = {};
+  for (const [k, cloudHash] of Object.entries(manifest)) {
+    if (hashes[k] && hashes[k] !== cloudHash) eq[k] = [hashes[k], cloudHash];
+  }
+  writeEquiv(eq);
+}
+
+/* Did this tab's last agreed version live in the sectioned layout? */
+function lastAgreedWasSectioned() {
+  const r = readManifest();
+  return !!(r && r.m && Object.keys(r.m).length);
 }
 export function forgetStamp() {   // called on sign-out; the next session re-checks from scratch
   lastRemoteStamp = null; lastStampUser = null; lastSelfStamp = null; remoteStale = false;
@@ -528,7 +617,7 @@ async function probeRemoteStamp() {
   const { data, error } = await sb.from("lifeos_data")
     .select("updated_at").eq("user_id", user.id).maybeSingle();
   if (error) throw error;
-  return data ? data.updated_at : null;
+  return data ? normStamp(data.updated_at) : null;
 }
 
 /* ---- probe failure backoff ----
@@ -580,6 +669,13 @@ let currentSyncPromise = null; // the in-flight runSync() call, so a coalesced c
    this one was left describing the old arrangement.) */
 let reconcileInFlight = false;
 
+/* Fired once per page load, after the first sync that actually confirmed
+   or merged the cloud version — the earliest moment work that must see
+   the merged document (the calendar catch-up) can safely run. */
+let cloudReadyFired = false;
+const cloudReadySubs = [];
+export function onCloudReady(fn) { if (typeof fn === "function") cloudReadySubs.push(fn); }
+
 async function syncCheck(reason, skipBackoff = false) {
   if (!sb || !user) return "skipped";
   if (loadInFlight) {
@@ -621,6 +717,10 @@ async function runSyncChain(reason, skipBackoff) {
          get its own immediate probe, not sit out a backoff window a
          background trigger would have accepted. */
       result = await runSync(reason + " (queued)", queuedSkipBackoff);
+    }
+    if (!cloudReadyFired && (result === "unchanged" || result === "ok" || result === "updated")) {
+      cloudReadyFired = true;
+      cloudReadySubs.forEach(fn => { try { fn(); } catch (e) { console.warn("[sync] cloud-ready subscriber failed", e); } });
     }
     return result;
   } finally {
@@ -744,7 +844,12 @@ function cloudChangedSinceLastSync(remote) {
   if (meta.token === undefined) return true;
   return (remote.syncToken || "") !== meta.token;
 }
-function markAgreed(token) { writeSyncMeta({ rev: state.rev || 0, token: token || "" }); }
+/* `rev` is the revision that was actually UPLOADED (or adopted), captured
+   before any network await. Reading state.rev after the upload returned
+   recorded edits made DURING the upload as already agreed — the follow-up
+   save then saw "nothing to send" and those edits never left the device
+   until some later, unrelated edit happened to carry them. */
+function markAgreed(token, rev = state.rev) { writeSyncMeta({ rev: rev || 0, token: token || "" }); }
 
 /* A wrong device clock no longer breaks syncing, but it still misdates
    entries, so it's worth saying out loud once rather than leaving it to
@@ -1715,6 +1820,79 @@ function mergeIncomingGoogleLinks(remote) {
   remote.googleLinks = out;
 }
 
+/* ================================================================
+   SECTIONED TRANSPORT — see js/cloud-sections.js and supabase-sections.sql
+   ================================================================
+   "unknown" until the first lifeos_pull/lifeos_push call answers; "off"
+   when the project hasn't had supabase-sections.sql run (the functions
+   don't exist), in which case everything below falls back to the original
+   whole-document read and write for the rest of the session. */
+let sectionsMode = sectionsSupported() ? "unknown" : "off";
+function sectionsUsable() { return sectionsMode !== "off"; }
+function isMissingRpc(error) {
+  if (!error) return false;
+  const code = String(error.code || "");
+  const msg = String(error.message || "");
+  return code === "PGRST202" || code === "42883" || code === "42P01" ||
+         /could not find the function|function .* does not exist|relation .*lifeos_sections.* does not exist/i.test(msg);
+}
+function sectionsOff(error) {
+  sectionsMode = "off";
+  authDiag("per-section sync unavailable (" + (error && (error.code || error.message) || "unsupported") +
+           ") — run supabase-sections.sql once in the Supabase SQL Editor; using whole-document sync meanwhile");
+}
+/* Bytes actually downloaded by the last cloud read — what the diagnostic
+   reports, rather than the size of the reassembled document. */
+let lastReadWireBytes = 0;
+
+/* Reads the cloud document and hands back the same shape the old
+   `select data, updated_at` produced — { data: { data, updated_at }, error }
+   — with `data.data` already a plain document whenever the row is
+   sectioned, so decodeCloudRow() and every merge after it see exactly
+   what they always saw. `manifest` is the sectioned row's fingerprint
+   list (null for a legacy row), for commitStamp(). */
+async function fetchCloudDocument() {
+  if (sectionsUsable()) {
+    const local = await fingerprintDoc(state);
+    const have = haveHashes(local.hashes);
+    const { data, error } = await sb.rpc("lifeos_pull", { p_have: have });
+    if (!error) {
+      sectionsMode = "on";
+      if (!data) return { data: null, error: null, manifest: null };
+      lastReadWireBytes = JSON.stringify(data).length;
+      if (isSectionHead(data.data)) {
+        /* A section the server didn't send is one whose fingerprint matched
+           what this device reported holding — so this device's own bytes for
+           it are that cloud version (or this device's copy of it). */
+        const doc = await assembleDoc(data.data, data.sections, local.parts, have);
+        return { data: { data: doc, updated_at: data.updated_at }, error: null, manifest: data.data.m,
+                 sent: (data.sections || []).map(s => s.key) };
+      }
+      return { data: { data: data.data, updated_at: data.updated_at }, error: null, manifest: null };
+    }
+    if (!isMissingRpc(error)) return { data: null, error, manifest: null };
+    sectionsOff(error);
+  }
+  const { data, error } = await sb.from("lifeos_data")
+    .select("data, updated_at").eq("user_id", user.id).maybeSingle();
+  if (!error && data) lastReadWireBytes = JSON.stringify(data).length;
+  if (!error && data && isSectionHead(data.data)) {
+    /* A sectioned head, read by a session that had concluded the
+       functions don't exist — they evidently do now (the SQL was run
+       mid-session, or another device wrote this). Never hand a head to
+       the merges as if it were a document: re-enable and read properly. */
+    sectionsMode = sectionsSupported() ? "unknown" : "off";
+    if (sectionsUsable()) return fetchCloudDocument();
+    return { data: null, error: new Error("cloud data is in the per-section format, which this browser cannot read"), manifest: null };
+  }
+  return { data, error, manifest: null };
+}
+
+/* After a sectioned build first reconciles against a legacy whole-document
+   row, it converts the account once — a forced save that uploads every
+   section. From then on every device moves only what changed. */
+let migrateAfterReconcile = false;
+
 function applyRemote(remote) {
   const token = remote.syncToken || "";
   /* If this device is holding edits the cloud hasn't seen, replacing state
@@ -1748,8 +1926,8 @@ export async function loadRemote(preferRemote = false) {
      await two lines down, before a single field has been touched. */
   reconcileInFlight = true;
   try {
-    const { data, error } = await sb.from("lifeos_data")
-      .select("data, updated_at").eq("user_id", user.id).maybeSingle();
+    const read = await fetchCloudDocument();
+    const { data, error } = read;
     if (error) throw error;
     /* The version this read observed. Deliberately NOT committed yet: see
        commitStamp() below. Everything from here to the end of the reconcile
@@ -1757,7 +1935,19 @@ export async function loadRemote(preferRemote = false) {
        skips the commit rather than recording a version this device never
        actually applied. The early `return`s in the branches return from
        THIS function, so the commit still happens on every successful path. */
-    const observedStamp = data ? data.updated_at : null;
+    const observedStamp = data ? normStamp(data.updated_at) : null;
+    const observedManifest = read.manifest || null;
+    /* The cloud is back in the whole-document format although this device
+       last agreed with a sectioned version: an older build, open in some
+       tab since before the switch, has saved its full copy over the head.
+       Its copy may predate changes made here since. Keep this device's
+       version restorable before merging anything in. */
+    if (data && data.data && !observedManifest && lastAgreedWasSectioned()) {
+      authDiag("cloud row was rewritten in the old whole-document format (an older LifeOS tab saved) — snapshot kept");
+      try { takeSnapshot("before-older-build-overwrite"); } catch (e) { console.warn("[sync] snapshot failed", e); }
+    }
+    if (data && data.data && !observedManifest && sectionsMode === "on") migrateAfterReconcile = true;
+    reconcileBase = { stamp: observedStamp || "", manifest: observedManifest };
     const selfBefore = lastSelfStamp;
     let appliedRemote = false;
     /* A function, not an extra statement after each call: one of the call
@@ -1775,7 +1965,9 @@ export async function loadRemote(preferRemote = false) {
           throw new Error("cloud data could not be read");
         }
         checkClockSkew(data.updated_at);
-        authDiag("full read: " + Math.round(JSON.stringify(data.data).length / 1024) + " KB downloaded");
+        authDiag((observedManifest
+          ? "section read: " + (read.sent && read.sent.length ? read.sent.join(", ") : "nothing new") + " — "
+          : "full read: ") + Math.round(lastReadWireBytes / 1024) + " KB downloaded");
         mergeIncomingWhiteboards(remote);
         mergeIncomingBrainstormBoards(remote);
         mergeIncomingSectionNotes(remote);
@@ -1843,6 +2035,18 @@ export async function loadRemote(preferRemote = false) {
           const localIsClearlyNewer = (state.updatedAt || 0) - (remote.updatedAt || 0) > skewTolerance;
           if (!localIsClearlyNewer) {
             adoptRemote(remote);
+            /* The per-item merges above already folded this device's own
+               unsent items (a task added here, a journal day written here)
+               into `remote` before it was adopted — so what is now shown is
+               the UNION, and the cloud still holds only the other device's
+               half. Nothing used to send the union back: this device had
+               just "agreed" with the cloud, so it saw nothing to upload, and
+               the other device never received this device's work. Send it
+               once, now. Only on this branch — the one where this device
+               genuinely had unsent edits — so a plain catch-up pull can
+               never start a save. */
+            forceNextSave = true;
+            pendingSaveAfterReconcile = true;
             toast("Another device had newer changes — its version is now shown. Yours is in Restore.");
           } else {
             /* This device is about to overwrite a cloud version it never
@@ -1871,7 +2075,17 @@ export async function loadRemote(preferRemote = false) {
        make the next probe see a phantom change. Comparing lastSelfStamp
        rather than the timestamps themselves keeps this correct on a device
        whose clock is wrong. */
-    if (observedStamp && lastSelfStamp === selfBefore) commitStamp(observedStamp);
+    if (observedStamp && lastSelfStamp === selfBefore) {
+      commitStamp(observedStamp, observedManifest);
+      try { await recordEquivalence(observedManifest); } catch (e) { writeEquiv({}); }
+    }
+    if (migrateAfterReconcile && lastSelfStamp === selfBefore) {
+      /* Not yet converted (the reconcile didn't save on its own). Queue the
+         one-time conversion behind this reconciliation — never inside it. */
+      forceNextSave = true;
+      pendingSaveAfterReconcile = true;
+    }
+    if (lastSelfStamp !== selfBefore) migrateAfterReconcile = false;
     return appliedRemote ? "updated" : "ok";
   } catch (e) {
     /* hasReconciled is NOT set here. It used to be, with the comment
@@ -1905,6 +2119,7 @@ export async function loadRemote(preferRemote = false) {
        after its drain loop confirms no further reconciliation is queued.
        See the comment there for the scenario this replaces. */
     reconcileInFlight = false;
+    reconcileBase = null;
   }
 }
 /* Turns a Supabase/PostgREST failure into something actionable.
@@ -2116,6 +2331,92 @@ async function decodeCloudRow(data) {
   return decoded;
 }
 
+/* ---------- the sectioned save ----------
+   Returns "ok", "conflict" (nothing written: another device saved first)
+   or "fallback" (the project has no lifeos_push — use the legacy save).
+   Throws on any other failure, so saveRemote()'s own error reporting
+   handles it exactly as it handles a failed whole-document save. */
+let forceNextSave = false;
+/* While loadRemote() is reconciling, its own saves must be measured
+   against the version that reconcile just READ — not the older one this
+   tab had committed before it. Set for the duration of the reconcile. */
+let reconcileBase = null;      // { stamp, manifest } or null
+async function saveSectioned(payload, token, revAtSend, fromReconcile) {
+  payload.compressionReady = true;
+  const viaReconcile = fromReconcile && reconcileBase;
+  let known = viaReconcile ? reconcileBase.manifest : trustedManifest();
+  const baseStamp = viaReconcile ? reconcileBase.stamp : loadStamp();
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const plan = await planPush(payload, known);
+    const stamp = new Date().toISOString();
+    /* Registered BEFORE the request, for the same reason as the legacy
+       save: the realtime echo of this write can arrive before the RPC
+       promise resolves. */
+    const previousSelfStamp = lastSelfStamp;
+    lastSelfStamp = normStamp(stamp);
+    const { data, error } = await sb.rpc("lifeos_push", {
+      p_base: stampToIso(baseStamp), p_stamp: stamp, p_head: plan.head, p_sections: plan.sections
+    });
+    if (error) {
+      lastSelfStamp = previousSelfStamp;
+      if (isMissingRpc(error)) { sectionsOff(error); return "fallback"; }
+      if (attempt === 0 && known && /section\(s\) missing/i.test(String(error.message || ""))) {
+        authDiag("cloud lacked a section this device assumed it had — resending every section");
+        known = null;
+        continue;
+      }
+      throw error;
+    }
+    if (!data || data.ok !== true) {
+      lastSelfStamp = previousSelfStamp;
+      if (data && data.conflict) { onSaveConflict(); return "conflict"; }
+      throw new Error("lifeos_push gave an unexpected answer");
+    }
+    sectionsMode = "on";
+    state.compressionReady = true;
+    rememberCompressionAgreed();
+    lastPayloadBytes = plan.wire;
+    lastSizeCheck = Date.now();
+    commitStamp(stamp, plan.hashes);
+    writeEquiv({});   // every section now matches the cloud byte for byte
+    if (viaReconcile) reconcileBase = { stamp: normStamp(stamp), manifest: plan.hashes };
+    saveErrorShown = false;
+    markAgreed(token, revAtSend);
+    migrateAfterReconcile = false;
+    authDiag("saved " + (plan.changed.length ? plan.changed.join(", ") : "head only") +
+             " — " + Math.max(1, Math.round(plan.wire / 1024)) + " KB sent");
+    const pill = document.getElementById("syncPill");
+    if (pill) pill.title = "Last upload " + Math.max(1, Math.round(plan.wire / 1024)) + " KB — only the changed sections are sent";
+    setSyncPill("ok", "Synced · " + nowTime());
+    return "ok";
+  }
+  throw new Error("lifeos_push kept refusing the save");
+}
+
+/* Another device (or another tab) saved after this tab last merged. The
+   old whole-row upsert would have written over that save without ever
+   seeing it. Now nothing is written; this tab pulls, the usual merge and
+   conflict rules decide, and whatever this device still holds is sent
+   from there. Waits for typing to stop so the merge can't repaint under a
+   caret — but does NOT wait for "no local edits", which is never true
+   here: the unsent edit is the whole reason for the pull. */
+let conflictTimer = null;
+function conflictPullSafe() { return !isUserTyping() && !hasUnsavedComposerDraft(); }
+function onSaveConflict() {
+  remoteStale = true;
+  pendingSaveAfterReconcile = true;
+  authDiag("save held back: the cloud moved since this tab last merged — merging first");
+  setSyncPill("busy", "Merging changes from another device…");
+  if (!document.hidden && conflictPullSafe()) { setTimeout(() => syncCheck("save conflict"), 0); return; }
+  if (conflictTimer) return;
+  conflictTimer = setInterval(() => {
+    if (!user || !sb) { clearInterval(conflictTimer); conflictTimer = null; return; }
+    if (document.hidden || !conflictPullSafe()) return;
+    clearInterval(conflictTimer); conflictTimer = null;
+    syncCheck("save conflict");
+  }, 2000);
+}
+
 export async function saveRemote(fromReconcile = false) {
   /* Nothing to send if this device holds exactly what the cloud already
      has. rev is the same counter the reconcile uses, so this is the same
@@ -2123,7 +2424,12 @@ export async function saveRemote(fromReconcile = false) {
      upload of the entire document. Without it, a manual Sync press or the
      one-minute poll re-uploads the whole state — whiteboard drawings and
      all — to change nothing. */
-  if (agreedWithCloud() && !hasLocalEdits()) {
+  /* forceNextSave (a merged union to send back, or the one-time conversion
+     to sections) has no local edits to show for itself, so it has to get
+     past this check explicitly — from the reconcile's own push, or from
+     the queued flush once no reconcile is running. */
+  if (agreedWithCloud() && !hasLocalEdits() &&
+      !(forceNextSave && hasReconciled && (fromReconcile || !reconcileInFlight))) {
     setSyncPill("ok", "Synced · " + nowTime());
     return;
   }
@@ -2150,6 +2456,19 @@ export async function saveRemote(fromReconcile = false) {
     const token = newSyncToken();
     state.syncToken = token; // stored in state so every device sees the same value
     const payload = Object.assign({}, state, { _client: CLIENT_ID });
+    const revAtSend = state.rev || 0;   // see markAgreed()
+
+    /* Per-section save when the project supports it: only the sections
+       whose fingerprint differs from the cloud version this tab agreed
+       with are sent, plus a small head. Falls through to the original
+       whole-document save below only when the functions don't exist. */
+    if (sectionsUsable()) {
+      forceNextSave = false;
+      sentCompressed = true;   // a refused sectioned save must not trigger the plain→compressed retry below
+      const outcome = await saveSectioned(payload, token, revAtSend, fromReconcile);
+      if (outcome !== "fallback") return;
+      sentCompressed = false;
+    }
 
     /* Every save uploads the ENTIRE document, so its size is most of what
        "Saving…" is waiting for — worth reporting, but NOT worth measuring
@@ -2227,7 +2546,7 @@ export async function saveRemote(fromReconcile = false) {
        device and pulls the whole document straight back. Registering the
        identity first closes that window entirely. */
     const previousSelfStamp = lastSelfStamp;
-    lastSelfStamp = stamp;
+    lastSelfStamp = normStamp(stamp);
     const { error } = await sb.from("lifeos_data").upsert({
       user_id: user.id, data: body, updated_at: stamp
     });
@@ -2248,9 +2567,9 @@ export async function saveRemote(fromReconcile = false) {
        commit it as the merged version. This also stops the next probe
        reading our own save as somebody else's change and pulling back the
        document we just sent. */
-    commitStamp(stamp);
+    commitStamp(stamp, null);   // a whole-document row has no section manifest
     saveErrorShown = false; // a success re-arms the explanation for any future failure
-    markAgreed(token); // this device and the cloud now hold the same thing
+    markAgreed(token, revAtSend); // this device and the cloud now hold the same thing
     const pill = document.getElementById("syncPill");
     if (pill) pill.title = "Last upload " + Math.round(payloadBytes / 1024) + " KB — every save sends the whole document";
     setSyncPill("ok", "Synced · " + nowTime());
@@ -2415,7 +2734,7 @@ function startRealtime() {
     }, payload => {
       const row = payload.new;
       if (!row) return;
-      const stamp = row.updated_at;
+      const stamp = normStamp(row.updated_at);
       /* This tab's own write, echoed back. Registered before the upsert
          was sent (see saveRemote), so it is always set by the time the
          echo can arrive. */
